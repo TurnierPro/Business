@@ -87,6 +87,9 @@ export async function freigeben(id: number, wer: string): Promise<"freigegeben" 
   if (e.status !== "zur_freigabe") throw new Error("Dieser Eintrag wartet nicht auf Freigabe.");
   if (e.freigaben.some((f) => f.name === wer)) throw new Error("Du hast diesen Eintrag schon freigegeben. Die zweite Freigabe muss von der anderen Person kommen.");
   if (await istGesperrt(e.betriebId)) throw new Error("Betrieb steht auf der Sperrliste.");
+  if (e.kanal === "mail" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e.empfaenger.trim())) {
+    throw new Error("Keine gültige E-Mail-Adresse beim Empfänger. Bitte unter „Text ändern“ eintragen.");
+  }
   const freigaben = [...e.freigaben, { name: wer, am: new Date().toISOString() }];
   const fertig = freigaben.length >= e.noetigeFreigaben;
   const db = await getDb();

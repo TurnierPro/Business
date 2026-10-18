@@ -44,7 +44,7 @@ export async function backup(): Promise<string> {
     extern = "auf Storage Box kopiert";
   }
   const kb = Math.round(fs.statSync(datei).size / 1024);
-  await melde("backup", !!process.env.BACKUP_ZIEL || process.env.NODE_ENV !== "production", "Backup erstellt", `${path.basename(datei)}, ${kb} KB, ${extern}`);
+  await melde("backup", !!process.env.BACKUP_ZIEL || process.env.NODE_ENV !== "production", process.env.BACKUP_ZIEL ? "Backup erstellt" : "Backup erstellt, nur lokal", `${path.basename(datei)}, ${kb} KB, ${extern}`);
   return `${path.basename(datei)} (${kb} KB, ${extern})`;
 }
 

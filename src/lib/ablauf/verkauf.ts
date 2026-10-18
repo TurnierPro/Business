@@ -8,6 +8,7 @@ import { protokolliere } from "../protokoll";
 import { transkribiere } from "../adapters/transkription";
 import { schreibe, jsonAus } from "../adapters/ki";
 import { datenOrdner } from "../pfade";
+import { linkSchluessel } from "../geheim";
 import { datumDe } from "../docs/basis";
 import { PAKETE, PaketKey, euro, UST } from "../pakete";
 import type { ProtokollDaten } from "../docs/vorlagen";
@@ -100,7 +101,7 @@ export async function auswertung(terminId: number): Promise<string> {
     zweck: "angebot",
     empfaenger: b.email ?? "(E-Mail-Adresse fehlt)",
     betreff: `Ihr Angebot von Stelax: ${p.name}`,
-    text: `${anrede}\n\n${a.einleitung}\n\nIm Anhang finden Sie das Protokoll mit Maßnahmenplan und das Angebot. Unterschreiben können Sie online über diesen Link:\n${basisUrl()}/portal/angebot/${angebot.id}\n\nBei Fragen rufen Sie mich gern an.\n\nMit freundlichen Grüßen\nDaniel Lück\nStelax Consulting`,
+    text: `${anrede}\n\n${a.einleitung}\n\nIm Anhang finden Sie das Protokoll mit Maßnahmenplan und das Angebot. Unterschreiben können Sie online über diesen Link:\n${basisUrl()}/portal/angebot/${linkSchluessel("angebot", angebot.id)}\n\nBei Fragen rufen Sie mich gern an.\n\nMit freundlichen Grüßen\nDaniel Lück\nStelax Consulting`,
     anhaenge: [protokollId, angebotDokId],
     erlaubteZahlen: [euro(p.einmalig), euro(p.monatlich)],
     hinweise: b.email ? [] : ["E-Mail-Adresse fehlt. Beim Betrieb ergänzen und Empfänger anpassen."],

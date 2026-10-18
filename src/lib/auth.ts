@@ -1,22 +1,13 @@
 import crypto from "node:crypto";
-import fs from "node:fs";
-import path from "node:path";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
 import { getDb, schema } from "./db";
-import { datenOrdner } from "./pfade";
+import { signiere } from "./geheim";
 
 export const COOKIE = "stelax_sitzung";
 const LAUFZEIT_TAGE = 14;
 export const START_PASSWORT = process.env.STELAX_START_PASSWORT ?? "stelax-start-2026";
-
-function geheimnis(): string {
-  if (process.env.SESSION_SECRET) return process.env.SESSION_SECRET;
-  const datei = path.join(datenOrdner(), "sitzungs-geheimnis.txt");
-  if (!fs.existsSync(datei)) fs.writeFileSync(datei, crypto.randomBytes(32).toString("hex"), { mode: 0o600 });
-  return fs.readFileSync(datei, "utf8").trim();
-}
 
 export function hashPasswort(passwort: string): string {
   const salz = crypto.randomBytes(16).toString("hex");
@@ -28,10 +19,6 @@ export function pruefePasswort(passwort: string, gespeichert: string): boolean {
   const [salz, hash] = gespeichert.split(":");
   const neu = crypto.scryptSync(passwort, salz, 64);
   return crypto.timingSafeEqual(neu, Buffer.from(hash, "hex"));
-}
-
-function signiere(wert: string): string {
-  return crypto.createHmac("sha256", geheimnis()).update(wert).digest("hex");
 }
 
 export function sitzungsWert(benutzerId: number): string {

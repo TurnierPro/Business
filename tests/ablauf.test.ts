@@ -78,6 +78,7 @@ test("Kompletter Ablauf von Lead bis Livegang", async () => {
 
   // Angebot freigeben → Aufnahme gelöscht
   const angebotMail = await offeneFreigabe("angebot");
+  assert.equal(angebotMail.empfaenger, "thomas@sanitaer-muster.example");
   await post.freigeben(angebotMail.id, "Daniel Lück");
   await abarbeiten();
   const [t] = await db.select().from(schema.termine).where(eq(schema.termine.id, terminId));
@@ -119,8 +120,14 @@ test("Kompletter Ablauf von Lead bis Livegang", async () => {
   assert.deepEqual(rechnungen.map((r) => r.lfdNr), [1, 2]);
 });
 
+test("Mail ohne gültige Adresse lässt sich nicht freigeben", async () => {
+  const { id } = await akquise.legeBetriebAn({ name: "Ohne Mail GmbH", gewerk: "SHK", score: 50, scoreGrund: "Test", website: "ohne-mail.example" }, "Test", "Test");
+  const e = await post.inPostausgang({ betriebId: id, kanal: "mail", zweck: "test", empfaenger: "(E-Mail-Adresse fehlt)", betreff: "x", text: "x" });
+  await assert.rejects(() => post.freigeben(e, "Max Steiner"), /E-Mail-Adresse/);
+});
+
 test("Rechnung über 10.000 € braucht zwei verschiedene Personen", async () => {
-  const { id } = await akquise.legeBetriebAn({ name: "Groß GmbH", gewerk: "Elektro", score: 80, scoreGrund: "Test", website: "gross.example" }, "Test", "Test");
+  const { id } = await akquise.legeBetriebAn({ name: "Groß GmbH", gewerk: "Elektro", score: 80, scoreGrund: "Test", website: "gross.example", email: "chef@gross.example" }, "Test", "Test");
   const [a] = await db.insert(schema.angebote).values({ betriebId: id!, paket: "L", einmalig: 2_000_000, monatlich: 59000, status: "versendet" }).returning();
   await verkauf.unterschriftEingegangen(a.id, "Test");
   const alle = await db.select().from(schema.postausgang).where(eq(schema.postausgang.betriebId, id!));
