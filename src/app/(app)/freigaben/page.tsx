@@ -35,7 +35,7 @@ export default async function Freigaben() {
                     {e.hinweise.length ? <> · <span style={{ color: "var(--akzent)" }}>{e.hinweise.length} Hinweis{e.hinweise.length > 1 ? "e" : ""}</span></> : null}
                   </div>
                 </div>
-                <Link className="knopf klein" href={`/freigaben/${e.id}`}>Prüfen</Link>
+                <div className="knopfreihe"><Status wert={e.qkStatus} /><Link className="knopf klein" href={`/freigaben/${e.id}`}>Prüfen</Link></div>
               </li>
             ))}
           </ul>

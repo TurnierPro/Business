@@ -7,6 +7,7 @@ import { Status } from "@/components/Status";
 import { datumZeit } from "@/lib/format";
 import { beispieleEntfernen, beispieleLaden, jobStarten, jobWiederholen, passwortAendern } from "../aktionen";
 import { beispieleErlaubt } from "@/lib/beispiele";
+import { AGENTEN } from "@/lib/agenten";
 
 export const metadata = { title: "System" };
 
@@ -24,6 +25,19 @@ export default async function System() {
   return (
     <>
       <div className="kopfzeile"><div><h1>System</h1><p>Dienste, Hintergrund-Jobs, Backups und alles, was protokolliert wird.</p></div></div>
+
+      <section className="karte">
+        <h2>Agenten</h2>
+        <p className="leise">Jeder Agent bereitet vor. Alles, was nach draußen geht, läuft durch die Qualitätskontrolle und wartet dann auf euch.</p>
+        <table className="tabelle">
+          <thead><tr><th>Agent</th><th className="weg-mobil">Auslöser</th><th>Was er tut</th><th>Mensch entscheidet</th></tr></thead>
+          <tbody>
+            {AGENTEN.map((g) => (
+              <tr key={g.name}><td><b>{g.name}</b></td><td className="weg-mobil leise klein">{g.ausloeser}</td><td className="klein">{g.macht}<div className="leise">→ {g.ergebnis}</div></td><td className="klein">{g.freigabe}</td></tr>
+            ))}
+          </tbody>
+        </table>
+      </section>
 
       <section className="karte">
         <h2>Dienste</h2>

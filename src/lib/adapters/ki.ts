@@ -99,3 +99,33 @@ export function pruefeText(text: string, erlaubt: string[] = []): string[] {
   }
   return hinweise;
 }
+
+/** Liest einen Beleg (Foto oder PDF) mit Claude. Ohne ANTHROPIC_API_KEY: null (Simulator). */
+export async function liesBeleg(pfad: string, aufgabe: string): Promise<string | null> {
+  if (!process.env.ANTHROPIC_API_KEY) return null;
+  client ??= new Anthropic();
+  const daten = fs.readFileSync(pfad).toString("base64");
+  const endung = path.extname(pfad).toLowerCase();
+  const bildTyp = ({ ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png", ".webp": "image/webp", ".gif": "image/gif" } as const)[endung as ".jpg"];
+  const datei: Anthropic.ContentBlockParam =
+    endung === ".pdf"
+      ? { type: "document", source: { type: "base64", media_type: "application/pdf", data: daten } }
+      : { type: "image", source: { type: "base64", media_type: bildTyp ?? "image/jpeg", data: daten } };
+  const model = MODELLE.text;
+  const antwort = await client.messages.create({
+    model,
+    max_tokens: 4000,
+    messages: [{ role: "user", content: [datei, { type: "text", text: aufgabe }] }],
+  });
+  if (antwort.stop_reason === "refusal") return null;
+  const preis = PREISE[model];
+  const db = await getDb();
+  await db.insert(schema.kiNutzung).values({
+    modell: model,
+    zweck: "beleg_lesen",
+    eingabeTokens: antwort.usage.input_tokens,
+    ausgabeTokens: antwort.usage.output_tokens,
+    kostenMikroUsd: Math.round(antwort.usage.input_tokens * preis.ein + antwort.usage.output_tokens * preis.aus),
+  });
+  return antwort.content.filter((b): b is Anthropic.TextBlock => b.type === "text").map((b) => b.text).join("");
+}

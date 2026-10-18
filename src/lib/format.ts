@@ -11,6 +11,9 @@ export const ZWECK: Record<string, string> = {
   schlussrechnung: "Schlussrechnung",
   kickoff: "Start-Mail mit Portal-Link",
   livegang: "Livegang",
+  betreuungsrechnung: "Rechnung Betreuung",
+  zahlungserinnerung: "Zahlungserinnerung",
+  finanzbericht: "Bericht an Steuerberater",
   test: "Test",
 };
 
@@ -23,4 +26,5 @@ export const DOKART: Record<string, string> = {
   leitfaden: "Gesprächsleitfaden",
   protokoll: "Protokoll",
   rechnung: "Rechnung",
+  finanzbericht: "Finanzbericht",
 };

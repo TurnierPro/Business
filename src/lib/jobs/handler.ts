@@ -2,7 +2,7 @@ import type { Handler } from "./warteschlange";
 import { vorbereitung, wochenlauf } from "../ablauf/akquise";
 import { auswertung, transkription } from "../ablauf/verkauf";
 import { bau } from "../ablauf/lieferung";
-import { versende } from "../ablauf/postausgang";
+import { versende, qualitaetskontrolle } from "../ablauf/postausgang";
 import { aufraeumen, backup, erreichbarkeit, ruecksicherung, tagesbericht } from "../ablauf/betrieb";
 
 export const HANDLER: Record<string, Handler> = {
@@ -12,11 +12,16 @@ export const HANDLER: Record<string, Handler> = {
   auswertung: (d) => auswertung(Number(d.terminId)),
   bau: (d) => bau(Number(d.projektId)),
   versand: (d) => versende(Number(d.eintragId)),
+  qualitaetskontrolle: (d) => qualitaetskontrolle(Number(d.eintragId)),
   backup: () => backup(),
   ruecksicherung: () => ruecksicherung(),
   erreichbarkeit: () => erreichbarkeit(),
   aufraeumen: () => aufraeumen(),
   tagesbericht: () => tagesbericht(),
+  betreuungsrechnungen: async () => (await import("../ablauf/finanzagenten")).betreuungsrechnungen(),
+  zahlungserinnerungen: async () => (await import("../ablauf/finanzagenten")).zahlungserinnerungen(),
+  steuerberater: async () => (await import("../ablauf/finanzagenten")).steuerberaterBericht(),
+  beleg: async (d) => (await import("../finanzen")).belegLesen(Number(d.ausgabeId)),
   beispieldaten: async () => (await import("../beispiele")).beispieleLaden(),
 };
 
@@ -27,10 +32,15 @@ export const JOB_NAMEN: Record<string, string> = {
   auswertung: "Protokoll und Angebot",
   bau: "Seite bauen und prüfen",
   versand: "Versand",
+  qualitaetskontrolle: "Qualitätskontrolle",
   backup: "Backup",
   ruecksicherung: "Probe-Rücksicherung",
   erreichbarkeit: "Erreichbarkeit",
   aufraeumen: "Aufräumen",
   tagesbericht: "Tagesbericht",
+  betreuungsrechnungen: "Betreuungsrechnungen",
+  zahlungserinnerungen: "Zahlungserinnerungen",
+  steuerberater: "Bericht an Steuerberater",
+  beleg: "Beleg auslesen",
   beispieldaten: "Beispieldaten laden",
 };

@@ -35,6 +35,11 @@ const TEXTE: Record<string, [string, "" | "ok" | "warten" | "fehler"]> = {
   simulator: ["Simulator", "warten"],
   keine: ["keine", "ok"],
   bestanden: ["OK", "ok"],
+  ausstehend: ["wird geprüft", "warten"],
+  hinweise: ["Hinweise", "warten"],
+  blockiert: ["blockiert", "fehler"],
+  pruefen: ["bitte prüfen", "warten"],
+  erfasst: ["erfasst", "ok"],
   nur_lokal: ["nur lokal", "warten"],
 };
 

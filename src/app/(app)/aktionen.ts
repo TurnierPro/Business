@@ -189,3 +189,29 @@ export async function beispieleEntfernen() {
     return { ok: ergebnis };
   });
 }
+
+export async function ausgabeSpeichern(f: FormData) {
+  const id = f.get("id") ? Number(f.get("id")) : undefined;
+  const { ausgabeSpeichern: speichern } = await import("@/lib/finanzen");
+  await ausfuehren("/finanzen", f.get("nurBeleg") === "ja" ? "Beleg hochgeladen. Der Beleg-Agent liest ihn aus, bitte danach prüfen." : "Ausgabe gespeichert", async (wer) => {
+    const neu = await speichern(f, wer, id);
+    if (f.get("nurBeleg") === "ja") return { ziel: `/finanzen/ausgabe/${neu}` };
+  });
+}
+
+export async function ausgabeLoeschen(f: FormData) {
+  await ausfuehren("/finanzen", "Ausgabe gelöscht", async (wer) => {
+    const db = await getDb();
+    const [a] = await db.delete(schema.ausgaben).where(eq(schema.ausgaben.id, zahl(f, "id"))).returning();
+    await protokolliere(wer, `Ausgabe gelöscht: ${a?.lieferant}`);
+  });
+}
+
+export async function rechnungBezahlt(f: FormData) {
+  const { rechnungBezahlt: bezahlt } = await import("@/lib/finanzen");
+  await ausfuehren(`/finanzen?z=${text(f, "z")}`, "Als bezahlt markiert", (wer) => bezahlt(zahl(f, "id"), wer));
+}
+
+export async function berichtVorbereiten() {
+  await ausfuehren("/freigaben", "Bericht an den Steuerberater wird vorbereitet und kommt gleich in die Freigabe.", () => einreihen("steuerberater"));
+}

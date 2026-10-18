@@ -13,6 +13,9 @@ import { datenOrdner } from "./pfade";
 import { pruefeSeite } from "./sites/qualitaet";
 import { loescheSeite } from "./sites/generator";
 import { GefundenerBetrieb } from "./adapters/research";
+import { htmlZuPdf } from "./docs/render";
+import { druckSeite, esc } from "./docs/basis";
+import * as finanzagenten from "./ablauf/finanzagenten";
 
 // Beispieldaten: erfundene Betriebe in allen Phasen des Ablaufs, damit man sieht, wie alles zusammenhängt.
 // Alles läuft durch die echten Abläufe (mit Simulatoren). Nur lokal erlaubt, nie auf der echten Datenbank.
@@ -92,6 +95,7 @@ async function offen(betriebId: number, zweck: string) {
 }
 
 async function freigeben(betriebId: number, zweck: string, wer = DANIEL) {
+  await warte();
   const e = await offen(betriebId, zweck);
   await post.freigeben(e.id, wer);
   await warte();
@@ -180,6 +184,7 @@ export async function beispieleLaden(): Promise<string> {
     const id = await bisBesuch(BETRIEBE.gross);
     const [a] = await db.insert(schema.angebote).values({ betriebId: id, paket: "L", einmalig: 890000 * 2, monatlich: 59000 * 2, status: "versendet" }).returning();
     await verkauf.unterschriftEingegangen(a.id, `Kunde: ${BETRIEBE.gross.inhaber} (Beispiel)`);
+    await warte();
     await post.freigeben((await offen(id, "rechnung")).id, MAX);
   }
   // Projekt wartet auf Inhalte vom Kunden
@@ -207,11 +212,75 @@ export async function beispieleLaden(): Promise<string> {
     await freigeben(id, "livegang", MAX);
     await freigeben(id, "schlussrechnung", MAX);
   }
+  await finanzBeispiele();
   // Systemmeldungen
   await betrieb.backup();
   await betrieb.ruecksicherung();
   await betrieb.tagesbericht();
   return "Beispieldaten geladen: 16 Betriebe in allen Phasen.";
+}
+
+// Ausgaben der letzten Monate (Planwerte aus dem Business Case, leicht schwankend), einige mit Beleg.
+const AUSGABEN: [number, string, string, string, number, number, boolean][] = [
+  // [Monate zurück, Lieferant, Beschreibung, Kategorie, Brutto in Cent, USt-Satz, mit Beleg]
+  [3, "Notariat Karlsruhe (Beispiel)", "Gründung GmbH, Entwurf Satzung", "gruendung", 89250, 19, true],
+  [3, "Kanzlei Arbeitsrecht (Beispiel)", "Freistellungsvereinbarung", "gruendung", 142800, 19, true],
+  [3, "Hetzner Online (Beispiel)", "Cloud-Server und Storage Box", "software", 3570, 19, true],
+  [2, "Hetzner Online (Beispiel)", "Cloud-Server und Storage Box", "software", 3570, 19, true],
+  [1, "Hetzner Online (Beispiel)", "Cloud-Server und Storage Box", "software", 4760, 19, true],
+  [0, "Hetzner Online (Beispiel)", "Cloud-Server und Storage Box", "software", 4760, 19, false],
+  [2, "Anthropic (Beispiel)", "Claude Max und API", "software", 23800, 19, false],
+  [1, "Anthropic (Beispiel)", "Claude Max und API", "software", 26180, 19, false],
+  [0, "Anthropic (Beispiel)", "Claude Max und API", "software", 25000, 19, false],
+  [2, "Apple (Beispiel)", "MacBook Pro und Monitor", "hardware", 416500, 19, true],
+  [1, "Steuerkanzlei (Beispiel)", "Beratung Gründung, Ist-Versteuerung", "steuerberater", 59500, 19, true],
+  [0, "Steuerkanzlei (Beispiel)", "Laufende Beratung", "steuerberater", 59500, 19, false],
+  [2, "eRecht24 (Beispiel)", "Rechtstexte-Lizenz", "rechtstexte", 5950, 19, false],
+  [1, "eRecht24 (Beispiel)", "Rechtstexte-Lizenz", "rechtstexte", 5950, 19, false],
+  [1, "Versicherung (Beispiel)", "IT-Haftpflicht und Cyber, Quartal", "versicherungen", 75000, 0, true],
+  [1, "Druckerei (Beispiel)", "Briefpapier und Visitenkarten", "marketing", 35700, 19, false],
+  [0, "Briefdienst (Beispiel)", "Akquise-Briefe Testlauf", "marketing", 11900, 19, false],
+  [0, "Telekom (Beispiel)", "Mobilfunk Max und Daniel", "mobilfunk", 9520, 19, false],
+  [0, "Coworking Karlsruhe (Beispiel)", "Arbeitsplätze Oktober", "buero", 26180, 19, false],
+  [0, "Tankstelle (Beispiel)", "Fahrten zu Leads", "fahrten", 8340, 19, false],
+];
+
+async function belegPdf(lieferant: string, beschreibung: string, brutto: number, datum: Date): Promise<string> {
+  const html = druckSeite({ titel: "Beleg", inhalt: `<div class="seite"><h1>${esc(lieferant)}</h1><p class="mono">Rechnung vom ${datum.toLocaleDateString("de-DE")}</p><p>An: Stelax Consulting GmbH i. G.</p><table><tr><td>${esc(beschreibung)}</td><td class="zahl">${(brutto / 100).toFixed(2).replace(".", ",")} €</td></tr></table><p class="leise">Beispielbeleg, erfunden.</p></div>` });
+  const pfad = path.join(datenOrdner("belege", "beispiel"), `${Date.now()}-${Math.round(Math.random() * 1e6)}.pdf`);
+  fs.writeFileSync(pfad, await htmlZuPdf(html));
+  return pfad;
+}
+
+async function finanzBeispiele(): Promise<void> {
+  const db = await getDb();
+  const heute = new Date();
+  for (const [zurueck, lieferant, beschreibung, kategorie, brutto, satz, mitBeleg] of AUSGABEN) {
+    const tag = 3 + ((lieferant.length * 7) % 24);
+    const datum = new Date(heute.getFullYear(), heute.getMonth() - zurueck, zurueck === 0 ? Math.min(tag, heute.getDate()) : tag);
+    const netto = Math.round(brutto / (1 + satz / 100));
+    const pfad = mitBeleg ? await belegPdf(lieferant, beschreibung, brutto, datum) : null;
+    await db.insert(schema.ausgaben).values({ datum, lieferant, beschreibung, kategorie, netto, ust: brutto - netto, ustSatz: satz, bezahlt: true, belegPfad: pfad, belegName: pfad ? "beleg.pdf" : null, erfasstVon: MAX });
+  }
+  // Ein frisch hochgeladener Beleg, den der Beleg-Agent ausgelesen hat und der geprüft werden muss
+  const pfad = await belegPdf("Bürobedarf (Beispiel)", "Druckerpapier und Ordner", 4590, heute);
+  await db.insert(schema.ausgaben).values({ datum: heute, lieferant: "Bürobedarf (Beispiel)", beschreibung: "vom Beleg-Agenten gelesen", kategorie: "buero", netto: 3857, ust: 733, ustSatz: 19, belegPfad: pfad, belegName: "beleg.pdf", status: "pruefen", erfasstVon: DANIEL });
+
+  // Rechnungen über die Monate verteilen, damit der Verlauf sichtbar wird
+  const rechnungen = await db.select().from(schema.rechnungen).innerJoin(schema.betriebe, eq(schema.rechnungen.betriebId, schema.betriebe.id)).where(eq(schema.betriebe.quelle, QUELLE));
+  for (const [i, { rechnungen: r }] of rechnungen.entries()) {
+    const zurueck = i % 3;
+    const am = new Date(heute.getFullYear(), heute.getMonth() - zurueck, 5 + i);
+    if (am > heute) continue;
+    await db.update(schema.rechnungen).set({ erstelltAm: am, bezahltAm: r.status === "bezahlt" ? new Date(am.getTime() + 6 * 864e5) : null }).where(eq(schema.rechnungen.id, r.id));
+  }
+  // Eine Anzahlung, die seit über 14 Tagen offen ist: der Mahn-Agent bereitet eine Erinnerung vor
+  const [offen] = rechnungen.filter(({ rechnungen: r }) => r.status === "offen" && r.art === "anzahlung");
+  if (offen) await db.update(schema.rechnungen).set({ erstelltAm: new Date(Date.now() - 20 * 864e5) }).where(eq(schema.rechnungen.id, offen.rechnungen.id));
+  await finanzagenten.zahlungserinnerungen();
+  await finanzagenten.betreuungsrechnungen(new Date(heute.getFullYear(), heute.getMonth() + 1, 2));
+  await finanzagenten.steuerberaterBericht();
+  await warte();
 }
 
 export async function beispieleEntfernen(): Promise<string> {
@@ -229,5 +298,8 @@ export async function beispieleEntfernen(): Promise<string> {
   await db.delete(schema.protokoll).where(inArray(schema.protokoll.betriebId, ids));
   await db.delete(schema.sperrliste).where(sql`${schema.sperrliste.grund} like '%(Beispiel)%'`);
   await db.delete(schema.simulatorPost);
+  await db.delete(schema.ausgaben).where(sql`${schema.ausgaben.lieferant} like '%(Beispiel)%'`);
+  await db.delete(schema.postausgang).where(eq(schema.postausgang.zweck, "finanzbericht"));
+  fs.rmSync(path.join(datenOrdner("belege"), "beispiel"), { recursive: true, force: true });
   return `${ids.length} Beispiel-Betriebe entfernt.`;
 }

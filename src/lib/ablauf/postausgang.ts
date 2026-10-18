@@ -5,7 +5,8 @@ import { protokolliere } from "../protokoll";
 import { sendeMail } from "../adapters/mail";
 import { sendeBrief } from "../adapters/post";
 import { dokumentPdf } from "../docs/render";
-import { pruefeText } from "../adapters/ki";
+import { pruefeText, schreibe, jsonAus } from "../adapters/ki";
+import { pruefeSeite } from "../sites/qualitaet";
 import { sperrSchluessel } from "./gemeinsam";
 import { nachVersand } from "./folgen";
 
@@ -41,7 +42,6 @@ export async function istGesperrt(betriebId: number | null | undefined): Promise
 export async function inPostausgang(e: NeuerEintrag): Promise<number> {
   if (await istGesperrt(e.betriebId)) throw new Error("Betrieb steht auf der Sperrliste. Es wird nichts erstellt.");
   const db = await getDb();
-  const hinweise = [...(e.hinweise ?? []), ...(e.kanal !== "livegang" ? pruefeText(e.text, e.erlaubteZahlen) : [])];
   const [neu] = await db
     .insert(schema.postausgang)
     .values({
@@ -54,11 +54,12 @@ export async function inPostausgang(e: NeuerEintrag): Promise<number> {
       text: e.text,
       anhaenge: e.anhaenge ?? [],
       noetigeFreigaben: e.noetigeFreigaben ?? 1,
-      hinweise,
-      meta: e.meta ?? {},
+      hinweise: e.hinweise ?? [],
+      meta: { ...(e.meta ?? {}), vorab: e.hinweise ?? [], erlaubteZahlen: e.erlaubteZahlen ?? [] },
     })
     .returning({ id: schema.postausgang.id });
-  await protokolliere("Stelax OS", `Zur Freigabe: ${e.betreff}`, e.betriebId);
+  await protokolliere("Stelax OS", `Erstellt, Qualitätskontrolle läuft: ${e.betreff}`, e.betriebId);
+  await einreihen("qualitaetskontrolle", { eintragId: neu.id });
   return neu.id;
 }
 
@@ -74,12 +75,70 @@ export async function bearbeiten(id: number, betreff: string, text: string, wer:
   if (e.status !== "zur_freigabe") throw new Error("Nur Einträge, die auf Freigabe warten, können bearbeitet werden.");
   const db = await getDb();
   // Wer bearbeitet, setzt bisherige Freigaben zurück: Freigegeben wird immer der aktuelle Text.
-  await db.update(schema.postausgang).set({ betreff, text, freigaben: [], hinweise: pruefeText(text, (e.meta.erlaubteZahlen as string[]) ?? []) }).where(eq(schema.postausgang.id, id));
+  await db.update(schema.postausgang).set({ betreff, text, freigaben: [], qkStatus: "ausstehend", qkAm: null }).where(eq(schema.postausgang.id, id));
   if (e.kanal === "brief" && e.anhaenge[0]) {
     const [d] = await db.select().from(schema.dokumente).where(eq(schema.dokumente.id, e.anhaenge[0]));
     if (d) await db.update(schema.dokumente).set({ daten: { ...(d.daten as object), betreff, text } }).where(eq(schema.dokumente.id, d.id));
   }
   await protokolliere(wer, `Bearbeitet: ${betreff}`, e.betriebId);
+  await einreihen("qualitaetskontrolle", { eintragId: id });
+}
+
+const MAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/**
+ * Qualitätskontrolle: läuft nach jedem Erstellen und jeder Änderung, bevor ihr freigeben könnt.
+ * Regeln (Adresse, Anhänge, Zahlen, Stimme, Website-Prüfung) und, wenn eingerichtet, ein KI-Prüfer.
+ * Ergebnis: bestanden, hinweise (freigeben möglich, bitte lesen) oder blockiert (erst beheben).
+ */
+export async function qualitaetskontrolle(id: number): Promise<string> {
+  const e = await eintrag(id);
+  if (e.status !== "zur_freigabe") return "Nicht mehr offen";
+  const db = await getDb();
+  const hinweise: string[] = [...((e.meta.vorab as string[]) ?? [])];
+  const blocker: string[] = [];
+
+  if (await istGesperrt(e.betriebId)) blocker.push("Betrieb steht auf der Sperrliste.");
+  if (e.kanal === "mail" && !MAIL.test(e.empfaenger.trim())) blocker.push("Keine gültige E-Mail-Adresse beim Empfänger.");
+  if (e.kanal !== "livegang") hinweise.push(...pruefeText(e.text, (e.meta.erlaubteZahlen as string[]) ?? []));
+  if (e.text.trim().length < 20 && e.kanal !== "livegang") blocker.push("Der Text ist leer oder zu kurz.");
+
+  const doks = e.anhaenge.length ? await db.select().from(schema.dokumente).where(inArray(schema.dokumente.id, e.anhaenge)) : [];
+  if (doks.length !== e.anhaenge.length) blocker.push("Ein Anhang fehlt.");
+  for (const d of doks) {
+    try {
+      const pdf = await dokumentPdf(d);
+      if (pdf.length < 1000) blocker.push(`${d.titel}: PDF ist leer.`);
+    } catch (err) {
+      blocker.push(`${d.titel}: PDF lässt sich nicht erzeugen (${err instanceof Error ? err.message : err}).`);
+    }
+    const an = (d.daten as { an?: { strasse?: string | null; plz?: string | null } }).an;
+    if (e.kanal === "brief" && (!an?.strasse || !an?.plz)) blocker.push("Anschrift im Brief unvollständig.");
+  }
+  if (e.kanal === "livegang" && typeof e.meta.slug === "string") {
+    const fehler = pruefeSeite(e.meta.slug).filter((x) => !x.ok);
+    for (const f of fehler) blocker.push(`Website-Prüfung „${f.name}“: ${f.detail}`);
+  }
+
+  // KI-Prüfer (zweites Paar Augen), nur wenn Claude eingerichtet ist
+  if (e.kanal !== "livegang") {
+    const ki = await schreibe({
+      zweck: "qualitaetskontrolle",
+      modell: "schnell",
+      betriebId: e.betriebId,
+      aufgabe:
+        "Du bist die Qualitätskontrolle von Stelax. Prüfe den Text auf: Verstöße gegen die Stelax-Stimme, erfundene Fakten oder Zahlen, falsche Anrede, Tippfehler, unklare nächste Schritte, rechtlich heikle Aussagen (Garantien, Druck). Antworte nur mit einem JSON-Array von höchstens 5 kurzen deutschen Sätzen. Leeres Array, wenn alles in Ordnung ist.",
+      daten: { kanal: e.kanal, zweck: e.zweck, empfaenger: e.empfaenger, betreff: e.betreff, text: e.text, erlaubteZahlen: e.meta.erlaubteZahlen ?? [] },
+      ersatz: "[]",
+    });
+    hinweise.push(...jsonAus<string[]>(ki.text, []).filter((x) => typeof x === "string").map((x) => `KI-Prüfer: ${x}`));
+  }
+
+  const alle = [...blocker.map((b) => `Blockiert: ${b}`), ...hinweise];
+  const qkStatus = blocker.length ? "blockiert" : hinweise.length ? "hinweise" : "bestanden";
+  await db.update(schema.postausgang).set({ hinweise: [...new Set(alle)], qkStatus, qkAm: new Date() }).where(eq(schema.postausgang.id, id));
+  await protokolliere("Qualitätskontrolle", `${qkStatus === "bestanden" ? "Bestanden" : qkStatus === "hinweise" ? `${hinweise.length} Hinweise` : "Blockiert"}: ${e.betreff}`, e.betriebId);
+  return qkStatus;
 }
 
 export async function freigeben(id: number, wer: string): Promise<"freigegeben" | "weitere_freigabe_noetig"> {
@@ -87,9 +146,11 @@ export async function freigeben(id: number, wer: string): Promise<"freigegeben" 
   if (e.status !== "zur_freigabe") throw new Error("Dieser Eintrag wartet nicht auf Freigabe.");
   if (e.freigaben.some((f) => f.name === wer)) throw new Error("Du hast diesen Eintrag schon freigegeben. Die zweite Freigabe muss von der anderen Person kommen.");
   if (await istGesperrt(e.betriebId)) throw new Error("Betrieb steht auf der Sperrliste.");
-  if (e.kanal === "mail" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e.empfaenger.trim())) {
+  if (e.kanal === "mail" && !MAIL.test(e.empfaenger.trim())) {
     throw new Error("Keine gültige E-Mail-Adresse beim Empfänger. Bitte unter „Text ändern“ eintragen.");
   }
+  if (e.qkStatus === "ausstehend") throw new Error("Die Qualitätskontrolle läuft noch. In ein paar Sekunden neu laden.");
+  if (e.qkStatus === "blockiert") throw new Error("Die Qualitätskontrolle hat Fehler gefunden. Erst beheben, dann freigeben.");
   const freigaben = [...e.freigaben, { name: wer, am: new Date().toISOString() }];
   const fertig = freigaben.length >= e.noetigeFreigaben;
   const db = await getDb();

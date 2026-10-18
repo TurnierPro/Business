@@ -74,6 +74,9 @@ export const postausgang = pgTable("postausgang", {
   text: text("text").notNull(),
   anhaenge: jsonb("anhaenge").$type<number[]>().notNull().default([]),
   status: text("status").notNull().default("zur_freigabe"),
+  // Qualitätskontrolle vor jeder Freigabe: ausstehend | bestanden | hinweise
+  qkStatus: text("qk_status").notNull().default("ausstehend"),
+  qkAm: timestamp("qk_am", { withTimezone: true }),
   hinweise: jsonb("hinweise").$type<string[]>().notNull().default([]),
   noetigeFreigaben: integer("noetige_freigaben").notNull().default(1),
   freigaben: jsonb("freigaben").$type<{ name: string; am: string }[]>().notNull().default([]),
@@ -123,6 +126,7 @@ export const rechnungen = pgTable(
     art: text("art").notNull(), // anzahlung | schluss
     netto: integer("netto").notNull(),
     status: text("status").notNull().default("offen"),
+    bezahltAm: timestamp("bezahlt_am", { withTimezone: true }),
     erstelltAm: timestamp("erstellt_am", { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => [uniqueIndex("rechnung_nummer_idx").on(t.nummer)],
@@ -213,4 +217,22 @@ export const simulatorPost = pgTable("simulator_post", {
   betreff: text("betreff").notNull(),
   text: text("text").notNull(),
   anhaenge: jsonb("anhaenge").$type<string[]>().notNull().default([]),
+});
+
+// Ausgaben mit Beleg. Grundlage für Übersicht und Quartalsbericht; die Buchhaltung selbst macht der Steuerberater.
+export const ausgaben = pgTable("ausgaben", {
+  id: serial("id").primaryKey(),
+  datum: timestamp("datum", { withTimezone: true }).notNull(),
+  lieferant: text("lieferant").notNull(),
+  beschreibung: text("beschreibung"),
+  kategorie: text("kategorie").notNull(),
+  netto: integer("netto").notNull(),
+  ustSatz: integer("ust_satz").notNull().default(19),
+  ust: integer("ust").notNull(),
+  bezahlt: boolean("bezahlt").notNull().default(true),
+  belegPfad: text("beleg_pfad"),
+  belegName: text("beleg_name"),
+  status: text("status").notNull().default("erfasst"), // erfasst | pruefen
+  erfasstVon: text("erfasst_von").notNull(),
+  erstelltAm: timestamp("erstellt_am", { withTimezone: true }).defaultNow().notNull(),
 });

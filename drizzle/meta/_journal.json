@@ -8,6 +8,13 @@
       "when": 1792349730827,
       "tag": "0000_start",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1792354169602,
+      "tag": "0001_finanzen_qualitaet",
+      "breakpoints": true
     }
   ]
 }

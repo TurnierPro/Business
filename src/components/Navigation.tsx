@@ -9,6 +9,7 @@ export function Navigation({ freigaben }: { freigaben: number }) {
     { href: "/leads", text: "Leads" },
     { href: "/freigaben", text: "Freigaben", zahl: freigaben },
     { href: "/projekte", text: "Projekte" },
+    { href: "/finanzen", text: "Finanzen" },
     { href: "/simulator", text: "Simulator" },
     { href: "/system", text: "System" },
   ];

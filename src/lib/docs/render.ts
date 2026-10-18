@@ -1,5 +1,7 @@
 import { chromium, Browser } from "playwright-core";
 import * as v from "./vorlagen";
+import { finanzbericht } from "./finanzbericht";
+import { zeitraum, type Auswertung } from "../finanzen";
 
 // Macht aus einem Dokument (Art + Daten) HTML und daraus ein PDF.
 
@@ -19,6 +21,10 @@ export function dokumentHtml(d: Dok): string {
       return v.protokoll(d.daten as v.ProtokollDaten);
     case "rechnung":
       return v.rechnung(d.daten as v.RechnungDaten);
+    case "finanzbericht": {
+      const x = d.daten as { zeitraum: string; auswertung: Auswertung };
+      return finanzbericht(zeitraum(x.zeitraum), x.auswertung);
+    }
     default:
       throw new Error(`Unbekannte Dokumentart: ${d.art}`);
   }

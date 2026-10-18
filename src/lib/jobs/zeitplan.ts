@@ -20,6 +20,12 @@ const woechentlichAb = (wochentag: string, stunde: number) => (jetzt: Date, zule
   const j = berlin(jetzt);
   return j.wochentag.startsWith(wochentag) && j.stunde >= stunde && (!zuletzt || jetzt.getTime() - zuletzt.getTime() > 2 * 864e5);
 };
+const monatsanfangAb = (stunde: number, nurQuartal = false) => (jetzt: Date, zuletzt: Date | null) => {
+  const j = berlin(jetzt);
+  const [, monat, tag] = j.tag.split("-").map(Number);
+  if (nurQuartal && ![1, 4, 7, 10].includes(monat)) return false;
+  return tag <= 7 && j.stunde >= stunde && (!zuletzt || jetzt.getTime() - zuletzt.getTime() > 20 * 864e5);
+};
 const alleMinuten = (min: number) => (jetzt: Date, zuletzt: Date | null) => !zuletzt || jetzt.getTime() - zuletzt.getTime() >= min * 60_000;
 
 export const REGELN: Regel[] = [
@@ -28,6 +34,9 @@ export const REGELN: Regel[] = [
   { name: "Aufräumen (täglich 3 Uhr)", art: "aufraeumen", faellig: taeglichAb(3) },
   { name: "Probe-Rücksicherung (So 4 Uhr)", art: "ruecksicherung", faellig: woechentlichAb("So", 4) },
   { name: "Tagesbericht (täglich 7 Uhr)", art: "tagesbericht", faellig: taeglichAb(7) },
+  { name: "Betreuungsrechnungen (Monatsanfang)", art: "betreuungsrechnungen", faellig: monatsanfangAb(6) },
+  { name: "Zahlungserinnerungen (täglich 8 Uhr)", art: "zahlungserinnerungen", faellig: taeglichAb(8) },
+  { name: "Bericht an Steuerberater (Quartalsanfang)", art: "steuerberater", faellig: monatsanfangAb(8, true) },
   { name: "Erreichbarkeit (alle 10 Minuten)", art: "erreichbarkeit", faellig: alleMinuten(10) },
 ];
 

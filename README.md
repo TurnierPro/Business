@@ -17,6 +17,18 @@ Das Betriebssystem von Stelax Consulting: Leads finden, Briefe, Online-Check und
 | 9 | Livegang | Schlussrechnung, Betreuung startet | **Livegang freigeben** |
 | 10 | Überwachung | Erreichbarkeit, Backups, Probe-Rücksicherung, Tagesbericht | – |
 
+## Finanzen
+
+Unter **Finanzen**: Umsatz, Ausgaben, Ergebnis, offene Forderungen, Umsatzsteuer-Zahllast (Ist-Versteuerung) und Steuerrücklage je Monat, Quartal oder Jahr, mit Plan-Ist-Vergleich gegen die Fixkosten aus dem Business Case. Belege mit dem Handy fotografieren, der Beleg-Agent liest sie aus, ihr prüft. Bericht als PDF und CSV für den Steuerberater; zu jedem Quartalsanfang bereitet der Steuerberater-Agent die Mail vor. Das ist eine Steuerungsübersicht, keine Bilanz: Jahresabschluss und Buchhaltung bleiben beim Steuerberater.
+
+## Agenten
+
+Jeder Bereich hat einen Agenten, der die Arbeit vorbereitet (Übersicht unter **System → Agenten**). Alles, was nach draußen geht, läuft danach durch die **Qualitätskontrolle** (Regeln plus KI-Prüfer) und wartet dann auf eure Freigabe. Ohne bestandene oder gelesene Prüfung lässt sich nichts freigeben; bei „blockiert“ erst beheben.
+
+## Beispieldaten
+
+Auf der leeren Startseite (oder unter System) „Beispieldaten laden“: 16 erfundene Betriebe in allen Phasen, Ausgaben mit Belegen, Rechnungen, Erinnerungen und ein Bericht an den Steuerberater. Unter System wieder entfernen.
+
 ## Lokal starten (zum Lernen und Testen)
 
 **Am Mac am einfachsten:** Node.js (LTS) von nodejs.org installieren, dann `Stelax OS starten.command` doppelklicken. Beim ersten Mal fragt macOS nach: Rechtsklick auf die Datei → „Öffnen“ → „Öffnen“.

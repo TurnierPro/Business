@@ -118,7 +118,7 @@ export async function naechsteRechnungsnummer(jahr = new Date().getFullYear()): 
   return { nummer: `${jahr}-${String(lfdNr).padStart(4, "0")}`, lfdNr, jahr };
 }
 
-export async function erstelleRechnung(o: { betriebId: number; angebotId: number; art: "anzahlung" | "schluss"; netto: number; positionstext: string; projektId?: number }): Promise<number> {
+export async function erstelleRechnung(o: { betriebId: number; angebotId: number; art: "anzahlung" | "schluss" | "betreuung"; netto: number; positionstext: string; projektId?: number }): Promise<number> {
   const db = await getDb();
   const b = await betrieb(o.betriebId);
   // Die eindeutige Rechnungsnummer verhindert Doppelte; bei Kollision nochmal versuchen.
@@ -145,10 +145,10 @@ export async function erstelleRechnung(o: { betriebId: number; angebotId: number
     betriebId: o.betriebId,
     projektId: o.projektId,
     kanal: "mail",
-    zweck: o.art === "anzahlung" ? "rechnung" : "schlussrechnung",
+    zweck: o.art === "anzahlung" ? "rechnung" : o.art === "schluss" ? "schlussrechnung" : "betreuungsrechnung",
     empfaenger: b.email ?? "(E-Mail-Adresse fehlt)",
     betreff: `Rechnung ${n.nummer} von Stelax`,
-    text: `Guten Tag,\n\nim Anhang finden Sie die Rechnung ${n.nummer} über ${euro(brutto)} (brutto). Bitte überweisen Sie den Betrag innerhalb von 14 Tagen.\n\n${o.art === "anzahlung" ? "Nach Zahlungseingang schicken wir Ihnen den Zugang zum Kundenportal für Texte und Fotos." : "Vielen Dank für die Zusammenarbeit. Ab jetzt läuft die Betreuung."}\n\nMit freundlichen Grüßen\nMax Steiner\nStelax Consulting`,
+    text: `Guten Tag,\n\nim Anhang finden Sie die Rechnung ${n.nummer} über ${euro(brutto)} (brutto). Bitte überweisen Sie den Betrag innerhalb von 14 Tagen.\n\n${o.art === "anzahlung" ? "Nach Zahlungseingang schicken wir Ihnen den Zugang zum Kundenportal für Texte und Fotos." : o.art === "schluss" ? "Vielen Dank für die Zusammenarbeit. Ab jetzt läuft die Betreuung." : "Der Betrag wird wie vereinbart per SEPA-Lastschrift eingezogen."}\n\nMit freundlichen Grüßen\nMax Steiner\nStelax Consulting`,
     anhaenge: [dokId],
     // Regel aus dem Business Case: Rechnungen über 10.000 € brauchen zwei Freigaben.
     noetigeFreigaben: brutto > 1_000_000 ? 2 : 1,
@@ -174,7 +174,7 @@ export async function zahlungEingegangen(angebotId: number, wer: string): Promis
   const [a] = await db.select().from(schema.angebote).where(eq(schema.angebote.id, angebotId));
   if (!a || a.status !== "unterschrieben") throw new Error("Zahlung passt zu keinem unterschriebenen Angebot.");
   await db.update(schema.angebote).set({ status: "angezahlt", angezahltAm: new Date() }).where(eq(schema.angebote.id, angebotId));
-  await db.update(schema.rechnungen).set({ status: "bezahlt" }).where(and(eq(schema.rechnungen.angebotId, angebotId), eq(schema.rechnungen.art, "anzahlung")));
+  await db.update(schema.rechnungen).set({ status: "bezahlt", bezahltAm: new Date() }).where(and(eq(schema.rechnungen.angebotId, angebotId), eq(schema.rechnungen.art, "anzahlung")));
   const token = crypto.randomBytes(18).toString("base64url");
   const [p] = await db.insert(schema.projekte).values({ betriebId: a.betriebId, angebotId, paket: a.paket, portalToken: token }).returning();
   const b = await betrieb(a.betriebId);

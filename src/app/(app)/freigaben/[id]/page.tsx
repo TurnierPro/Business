@@ -34,9 +34,12 @@ export default async function Eintrag({ params }: { params: Promise<{ id: string
         <Status wert={e.status} />
       </div>
 
-      {e.hinweise.length ? (
-        <div className="hinweis" role="note"><b>Bitte prüfen</b><ul>{e.hinweise.map((h) => <li key={h}>{h}</li>)}</ul></div>
-      ) : null}
+      <div className={`hinweis ${e.qkStatus === "bestanden" ? "ok" : e.qkStatus === "blockiert" ? "fehler" : ""}`} role="note">
+        <b>Qualitätskontrolle: </b><Status wert={e.qkStatus} />
+        {e.qkStatus === "ausstehend" ? <span className="leise"> Läuft gerade. Seite in ein paar Sekunden neu laden.</span> : null}
+        {e.qkStatus === "bestanden" ? <span className="leise"> Keine Auffälligkeiten.</span> : null}
+        {e.hinweise.length ? <ul>{e.hinweise.map((h) => <li key={h}>{h}</li>)}</ul> : null}
+      </div>
       {e.status === "abgelehnt" ? <div className="hinweis fehler">Abgelehnt: {e.ablehnGrund}</div> : null}
       {e.fehler ? <div className="hinweis fehler">Fehler beim Versand: {e.fehler}</div> : null}
 
@@ -65,6 +68,10 @@ export default async function Eintrag({ params }: { params: Promise<{ id: string
               {e.noetigeFreigaben > 1 ? <p className="leise">Braucht {e.noetigeFreigaben} Freigaben von verschiedenen Personen. Bisher: {e.freigaben.map((f) => f.name).join(", ") || "keine"}.</p> : null}
               {schonFreigegeben ? (
                 <p>Du hast schon freigegeben. Jetzt fehlt die andere Person.</p>
+              ) : e.qkStatus === "ausstehend" ? (
+                <p className="leise">Freigeben geht, sobald die Qualitätskontrolle fertig ist.</p>
+              ) : e.qkStatus === "blockiert" ? (
+                <p>Die Qualitätskontrolle hat Fehler gefunden. Bitte zuerst beheben (Text ändern oder Unterlagen beim Betrieb ergänzen).</p>
               ) : (
                 <form action={freigeben}>
                   <input type="hidden" name="id" value={e.id} />
