@@ -5,7 +5,8 @@ import { REGELN } from "@/lib/jobs/zeitplan";
 import { JOB_NAMEN } from "@/lib/jobs/handler";
 import { Status } from "@/components/Status";
 import { datumZeit } from "@/lib/format";
-import { jobStarten, jobWiederholen, passwortAendern } from "../aktionen";
+import { beispieleEntfernen, beispieleLaden, jobStarten, jobWiederholen, passwortAendern } from "../aktionen";
+import { beispieleErlaubt } from "@/lib/beispiele";
 
 export const metadata = { title: "System" };
 
@@ -100,6 +101,17 @@ export default async function System() {
           </form>
         </section>
       </div>
+
+      {beispieleErlaubt() ? (
+        <section className="karte abstand">
+          <h2>Beispieldaten</h2>
+          <p className="leise">16 erfundene Betriebe in allen Phasen: neue Leads, Briefe, Termine, Angebote, Rechnungen, Projekte bis zum Livegang. Nur auf der lokalen Datenbank möglich.</p>
+          <div className="knopfreihe">
+            <form action={beispieleLaden}><button className="knopf">Beispieldaten laden</button></form>
+            <form action={beispieleEntfernen}><button className="knopf gefahr">Beispieldaten entfernen</button></form>
+          </div>
+        </section>
+      ) : null}
 
       <section className="karte abstand">
         <h2>Protokoll</h2>

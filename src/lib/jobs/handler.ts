@@ -17,6 +17,7 @@ export const HANDLER: Record<string, Handler> = {
   erreichbarkeit: () => erreichbarkeit(),
   aufraeumen: () => aufraeumen(),
   tagesbericht: () => tagesbericht(),
+  beispieldaten: async () => (await import("../beispiele")).beispieleLaden(),
 };
 
 export const JOB_NAMEN: Record<string, string> = {
@@ -31,4 +32,5 @@ export const JOB_NAMEN: Record<string, string> = {
   erreichbarkeit: "Erreichbarkeit",
   aufraeumen: "Aufräumen",
   tagesbericht: "Tagesbericht",
+  beispieldaten: "Beispieldaten laden",
 };

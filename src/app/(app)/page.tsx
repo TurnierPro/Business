@@ -4,6 +4,8 @@ import { getDb, schema } from "@/lib/db";
 import { brauchtBenutzer } from "@/lib/auth";
 import { Status } from "@/components/Status";
 import { datumZeit, ZWECK } from "@/lib/format";
+import { beispieleErlaubt } from "@/lib/beispiele";
+import { beispieleLaden } from "./aktionen";
 
 export const metadata = { title: "Heute" };
 
@@ -25,6 +27,8 @@ export default async function Heute() {
   const gruss = stunde < 11 ? "Guten Morgen" : stunde < 18 ? "Hallo" : "Guten Abend";
   const vorname = b.name.split(" ")[0];
   const nichtsZuTun = !freigaben.length && !neueLeads.length && !besuche.length;
+  const [{ n: anzahlBetriebe }] = await db.select({ n: sql<number>`count(*)::int` }).from(schema.betriebe);
+  const [{ n: laedt }] = await db.select({ n: sql<number>`count(*)::int` }).from(schema.jobs).where(and(eq(schema.jobs.art, "beispieldaten"), inArray(schema.jobs.status, ["wartet", "laeuft"])));
 
   return (
     <>
@@ -34,6 +38,16 @@ export default async function Heute() {
           <p>{nichtsZuTun ? "Gerade wartet nichts auf dich." : "Das wartet heute auf dich."}</p>
         </div>
       </div>
+
+      {laedt ? (
+        <div className="hinweis">Beispieldaten werden geladen. In etwa einer Minute die Seite neu laden.</div>
+      ) : !anzahlBetriebe && beispieleErlaubt() ? (
+        <section className="karte" style={{ marginBottom: 24 }}>
+          <h2>Noch leer. Willst du sehen, wie alles zusammenläuft?</h2>
+          <p className="leise">Lade 16 erfundene Betriebe in allen Phasen: vom neuen Lead über Brief, Termin und Angebot bis zur Website, die live ist. Unter System kannst du sie jederzeit wieder entfernen.</p>
+          <form action={beispieleLaden}><button className="knopf haupt">Beispieldaten laden</button></form>
+        </section>
+      ) : null}
 
       <div className="raster vier">
         <Link className="kennzahl" href="/freigaben"><div className="wert" style={freigaben.length ? { color: "var(--akzent)" } : undefined}>{freigaben.length}</div><div className="name">Freigaben offen</div></Link>

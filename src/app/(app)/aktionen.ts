@@ -176,3 +176,16 @@ export async function passwortAendern(f: FormData) {
     await protokolliere(wer, "Passwort geändert");
   });
 }
+
+export async function beispieleLaden() {
+  await ausfuehren("/", "Beispieldaten werden geladen. Das dauert etwa eine Minute, dann die Seite neu laden.", () => einreihen("beispieldaten"));
+}
+
+export async function beispieleEntfernen() {
+  const { beispieleEntfernen: entfernen } = await import("@/lib/beispiele");
+  let ergebnis = "";
+  await ausfuehren("/system", "Beispieldaten entfernt", async () => {
+    ergebnis = await entfernen();
+    return { ok: ergebnis };
+  });
+}

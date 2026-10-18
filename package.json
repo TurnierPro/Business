@@ -9,6 +9,7 @@
     "start": "next start -p 3000",
     "typecheck": "tsc --noEmit",
     "db:generate": "drizzle-kit generate",
+    "beispiele": "tsx scripts/beispiele.ts",
     "test": "tsx --test --test-force-exit tests/*.test.ts"
   },
   "dependencies": {
