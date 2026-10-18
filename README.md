@@ -19,7 +19,9 @@ Das Betriebssystem von Stelax Consulting: Leads finden, Briefe, Online-Check und
 
 ## Lokal starten (zum Lernen und Testen)
 
-Voraussetzung: Node.js 22.
+**Am Mac am einfachsten:** Node.js (LTS) von nodejs.org installieren, dann `Stelax OS starten.command` doppelklicken. Beim ersten Mal fragt macOS nach: Rechtsklick auf die Datei → „Öffnen“ → „Öffnen“.
+
+Oder von Hand, Voraussetzung Node.js 22:
 
 ```bash
 npm install
