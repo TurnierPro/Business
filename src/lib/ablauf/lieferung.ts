@@ -46,7 +46,21 @@ export async function inhalteEinreichen(token: string, form: FormData): Promise<
     prioritaeten: String(form.get("prioritaeten") ?? ""),
     bilder,
   };
-  const onboarding = { mitarbeiter: String(form.get("mitarbeiter") ?? ""), umsatz: String(form.get("umsatz") ?? ""), verbraucher: String(form.get("verbraucher") ?? "") };
+  // Bestehende Domain: Umzug anlegen (prüft den Auftrag des Kunden, bevor irgendetwas gespeichert wird)
+  if (inhalte.domain) {
+    const { umzugAnlegen } = await import("./umzug");
+    await umzugAnlegen(p.id, {
+      domain: inhalte.domain,
+      weg: String(form.get("umzugWeg") ?? "selbst") as "selbst",
+      anbieter: String(form.get("domainAnbieter") ?? "").trim(),
+      mail: String(form.get("mailUeberDomain") ?? ""),
+      vollmacht: form.get("umzugVollmacht") === "ja",
+      rechte: form.get("rechteInhalte") === "ja",
+      authInfo: String(form.get("authInfo") ?? ""),
+      name: String(form.get("ansprechpartner") ?? ""),
+    });
+  }
+  const onboarding = { mitarbeiter: String(form.get("mitarbeiter") ?? ""), umsatz: String(form.get("umsatz") ?? ""), verbraucher: String(form.get("verbraucher") ?? ""), rechteInhalte: form.get("rechteInhalte") === "ja" ? "bestaetigt" : "" };
   const db = await getDb();
   await db.update(schema.projekte).set({ inhalte, onboarding, status: "bau", domain: inhalte.domain || null, inhalteAm: new Date() }).where(eq(schema.projekte.id, p.id));
   await protokolliere("Kunde (Portal)", "Inhalte eingereicht", p.betriebId, `${bilder.length} Fotos`);
@@ -141,9 +155,15 @@ export async function livegangDurchfuehren(projektId: number): Promise<void> {
   await db.update(schema.seiten).set({ zugangscode: null }).where(eq(schema.seiten.slug, p.seitenSlug));
   await db.update(schema.projekte).set({ status: "live", liveAm: new Date(), aboAb: new Date() }).where(eq(schema.projekte.id, projektId));
   await protokolliere(SYSTEM, "Livegang durchgeführt, Betreuung läuft", p.betriebId, p.domain ?? p.seitenSlug);
-  // Schlusszahlung erst nach Abnahme (§ 641 BGB): Kunde wird im Portal um Abnahme gebeten.
-  const { abnahmeAnfordern } = await import("./vertrag");
-  await abnahmeAnfordern(projektId, SYSTEM);
+  // Bestehende Domain: erst umstellen, dann Abnahme. Sonst Abnahme sofort.
+  // Schlusszahlung erst nach Abnahme (§ 641 BGB).
+  const { umzugVon, umstellungStarten } = await import("./umzug");
+  const u = umzugVon(p);
+  if (u && u.status !== "umgestellt") await umstellungStarten(projektId);
+  else {
+    const { abnahmeAnfordern } = await import("./vertrag");
+    await abnahmeAnfordern(projektId, SYSTEM);
+  }
   if (!p.angebotId || !zahlungUeberStripe()) return;
   const [a] = await db.select().from(schema.angebote).where(eq(schema.angebote.id, p.angebotId));
   if (!a) return;

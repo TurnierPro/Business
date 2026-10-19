@@ -23,6 +23,8 @@ export const ZWECK: Record<string, string> = {
   mahnung2: "Letzte Mahnung",
   monatsreport: "Monatsreport",
   kuendigung: "Kündigungsbestätigung",
+  umzug_anleitung: "Domain umstellen: Anleitung",
+  umzug_fertig: "Domain umgestellt, Kündigungshinweis",
   betreuung_ende: "Betreuung beenden (Stripe)",
   test: "Test",
 };
@@ -40,4 +42,5 @@ export const DOKART: Record<string, string> = {
   auftragsbestaetigung: "Auftragsbestätigung",
   abnahmeprotokoll: "Abnahmeprotokoll",
   monatsreport: "Monatsreport",
+  umzugsanleitung: "Anleitung Domain-Umstellung",
 };

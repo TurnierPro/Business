@@ -26,6 +26,8 @@ export const HANDLER: Record<string, Handler> = {
   abnahmefiktion: async () => (await import("../ablauf/vertrag")).abnahmefiktion(),
   vertragsende: async () => (await import("../ablauf/vertrag")).vertragsende(),
   monatsreports: async () => (await import("../ablauf/berichte")).monatsreports(),
+  umzug_bestand: async (d) => (await import("../ablauf/umzug")).bestandsaufnahme(Number(d.projektId)),
+  umzug_pruefen: async () => (await import("../ablauf/umzug")).umstellungPruefen(),
 };
 
 export const JOB_NAMEN: Record<string, string> = {
@@ -49,4 +51,6 @@ export const JOB_NAMEN: Record<string, string> = {
   abnahmefiktion: "Abnahme nach Fristablauf",
   vertragsende: "Vertragsende",
   monatsreports: "Monatsreports",
+  umzug_bestand: "Domain prüfen und alte Seite sichern",
+  umzug_pruefen: "Domain-Umstellung prüfen",
 };

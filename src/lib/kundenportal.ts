@@ -25,7 +25,7 @@ export async function betriebPerPortal(token: string) {
   return b && b.status !== "gesperrt" ? b : null;
 }
 
-const FUER_KUNDEN = ["angebot", "protokoll", "rechnung", "auftragsbestaetigung", "abnahmeprotokoll", "monatsreport"];
+const FUER_KUNDEN = ["angebot", "protokoll", "rechnung", "auftragsbestaetigung", "abnahmeprotokoll", "monatsreport", "umzugsanleitung"];
 
 /** Alle Einträge, die an diesen Kunden wirklich verschickt wurden (nach Qualitätskontrolle und Freigabe). */
 async function versendet(betriebId: number) {

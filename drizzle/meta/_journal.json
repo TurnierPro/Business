@@ -50,6 +50,13 @@
       "when": 1792384716897,
       "tag": "0006_pflichten",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1792386053787,
+      "tag": "0007_domainumzug",
+      "breakpoints": true
     }
   ]
 }

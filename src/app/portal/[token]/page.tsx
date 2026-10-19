@@ -50,7 +50,25 @@ export default async function Portal({ params, searchParams }: { params: Promise
           <label className="feld"><span>Telefon für Kunden</span><input name="telefon" type="tel" defaultValue={b?.telefon ?? ""} /></label>
           <label className="feld"><span>E-Mail für Anfragen</span><input name="email" type="email" defaultValue={b?.email ?? ""} /></label>
         </div>
-        <label className="feld"><span>Ihre Domain</span><input name="domain" defaultValue={b?.website ?? ""} placeholder="ihr-betrieb.de" /><small>Die Domain läuft auf Ihren Namen. Haben Sie noch keine, kümmern wir uns.</small></label>
+        <fieldset className="feld" style={{ border: "1px solid var(--rahmen)", borderRadius: 6, padding: 16 }}>
+          <legend style={{ fontWeight: 600, padding: "0 6px" }}>Ihre Domain</legend>
+          <label className="feld"><span>Domain (falls vorhanden)</span><input name="domain" defaultValue={b?.website ?? ""} placeholder="ihr-betrieb.de" /><small>Sie bleiben Inhaber Ihrer Domain. Haben Sie noch keine, lassen Sie das Feld leer, wir kümmern uns.</small></label>
+          <div className="raster zwei">
+            <label className="feld"><span>Wo liegt die Domain heute?</span><input name="domainAnbieter" placeholder="z. B. IONOS, STRATO, weiß nicht" /></label>
+            <label className="feld"><span>Laufen Ihre E-Mails über diese Domain?</span>
+              <select name="mailUeberDomain" defaultValue="unklar"><option value="ja">Ja, z. B. info@ihr-betrieb.de</option><option value="nein">Nein</option><option value="unklar">Weiß nicht</option></select>
+            </label>
+          </div>
+          <fieldset className="feld" style={{ border: 0, padding: 0 }}>
+            <legend style={{ fontWeight: 600, marginBottom: 8 }}>Wie ziehen wir um?</legend>
+            <label className="haken"><input type="radio" name="umzugWeg" value="selbst" defaultChecked /><span><b>Empfohlen:</b> Die Domain bleibt, wo sie ist. Sie oder Ihre IT ändern zwei Einträge, wir schicken eine Anleitung oder machen es gemeinsam am Telefon. Ihre E-Mail bleibt unberührt.</span></label>
+            <label className="haken"><input type="radio" name="umzugWeg" value="uebernehmen" /><span>Stelax übernimmt die Verwaltung der Domain (Umzug mit Auth-Code). Sie bleiben Inhaber.</span></label>
+          </fieldset>
+          <label className="feld"><span>Auth-Code (nur beim zweiten Weg, gern auch später)</span><input name="authInfo" autoComplete="off" placeholder="bekommen Sie bei Ihrem Anbieter unter Domain → Umzug" /></label>
+          <label className="haken"><input type="checkbox" name="umzugVollmacht" value="ja" /><span>Ich beauftrage Stelax, meine Website unter dieser Domain umzuziehen und dafür die nötigen Einstellungen vorzunehmen bzw. vorzubereiten. Inhaber der Domain bleibt mein Betrieb.</span></label>
+        </fieldset>
+        <label className="haken" style={{ marginBottom: 16 }}><input type="checkbox" name="rechteInhalte" value="ja" required /><span>Ich darf die Texte, Fotos und das Logo, die ich hochlade oder die von meiner bisherigen Website übernommen werden sollen, verwenden. Bei Fotos von einer früheren Agentur oder aus Bilddatenbanken kläre ich die Rechte.</span></label>
+        <input type="hidden" name="ansprechpartner" value={b?.inhaber ?? b?.name ?? ""} />
         {mitKarriere ? <label className="feld"><span>Offene Stellen</span><textarea name="stellen" placeholder={"Eine Stelle pro Zeile, z. B.\nAnlagenmechaniker SHK (m/w/d)\nAusbildung 2027"} /></label> : null}
         <label className="feld"><span>Fotos</span><input name="fotos" type="file" accept="image/*" multiple /><small>Echte Bilder aus Ihrem Betrieb: Team, Werkstatt, Baustellen. Keine Fotos von Kunden ohne deren Einverständnis.</small></label>
         <fieldset className="feld" style={{ border: "1px solid var(--rahmen)", borderRadius: 6, padding: 16 }}>

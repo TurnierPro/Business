@@ -13,11 +13,16 @@ Das Betriebssystem von Stelax Consulting: Leads finden, Briefe, Online-Check und
 | 5 | Besuch vor Ort, Aufnahme am Handy (nur mit Einwilligung) | Abschrift, Protokoll, Maßnahmenplan, Angebot, Mail | **Angebot freigeben** |
 | 6 | Kunde nimmt online an (Name, Unternehmer-Bestätigung, AGB-Version) | Auftragsbestätigung, Anzahlung (Stripe oder Rechnung über 50 %) | **Auftragsbestätigung und Rechnung freigeben** (über 10.000 €: beide) |
 | 7 | Zahlung kommt | Projekt, Start-Mail mit Portal-Link | **Start-Mail freigeben** |
-| 8 | Kunde lädt Texte, Fotos und BFSG-Angaben hoch | Seite bauen, 10 Qualitätsprüfungen, BFSG-Hinweis | – |
-| 9 | Livegang | Betreuung startet, Bitte um Abnahme (14 Tage Frist) | **Livegang und Bitte um Abnahme freigeben** |
+| 8 | Kunde lädt Texte, Fotos, BFSG-Angaben hoch, bei bestehender Domain mit Auftrag zum Umzug | Seite bauen, 10 Qualitätsprüfungen, BFSG-Hinweis; DNS-Bestandsaufnahme, alte Seite sichern, Weiterleitungen | – |
+| 9 | Livegang | Betreuung startet; bei bestehender Domain Anleitung zur Umstellung, sonst Bitte um Abnahme (14 Tage Frist) | **Livegang und Mail freigeben** |
+| 9a | Domain zeigt auf uns (Prüfung alle 15 Minuten) | Hinweis zur Kündigung des alten Webhostings, Bitte um Abnahme | **beide Mails freigeben** |
 | 10 | Abnahme im Portal (oder Frist abgelaufen) | Abnahmeprotokoll, Schlusszahlung bzw. Schlussrechnung minus Anzahlung | **Protokoll und Schlusszahlung freigeben** |
 | 11 | Laufende Betreuung | Monatsreport, Mahnstufen, Kündigung und Vertragsende | **jede Mail freigeben** |
 | 12 | Überwachung | Erreichbarkeit, Backups, Probe-Rücksicherung, Löschfristen, Tagesbericht | – |
+
+## Bestehende Websites umziehen
+
+Hat ein Betrieb schon eine Domain, bleibt er Inhaber, und seine E-Mail läuft unverändert weiter. Standard: Er ändert nach unserer Anleitung zwei A-Einträge (oder wir machen es am Telefon gemeinsam). Alternativ holen wir die Domain mit seinem Auth-Code zu uns. Stelax OS prüft vorher alle DNS-Einträge (E-Mail, Nachweise, Risiken), sichert die alte Seite, leitet alte Adressen weiter, merkt die Umstellung selbst und sagt dem Kunden erst dann, dass er das alte Webhosting kündigen kann. Einrichtung auf dem Server: [`docs/betrieb.md`](docs/betrieb.md#kunden-domains-umzug-bestehender-websites).
 
 ## Unterlagen und Pflichten
 

@@ -1248,5 +1248,45 @@
     "wer": "Selbst",
     "prioritaet": "Später",
     "etappe": 5
+  },
+  {
+    "key": "u-1",
+    "kategorie": "Kundenverträge und Abrechnung",
+    "titel": "Auftrag zum Domain-Umzug (Kunde bleibt Inhaber; Weg A: Kunde ändert A-Einträge, Weg B: Providerwechsel mit AuthInfo; E-Mail bleibt unberührt)",
+    "status": "Empfohlen",
+    "grundlage": "§ 662 ff. BGB (Auftrag), DENIC-Domainrichtlinien",
+    "wer": "Selbst, Wortlaut vom Anwalt",
+    "prioritaet": "Vor erstem Kunden",
+    "etappe": 3
+  },
+  {
+    "key": "u-2",
+    "kategorie": "Kundenverträge und Abrechnung",
+    "titel": "Zusicherung des Kunden zu Rechten an Inhalten (Texte, Fotos, Logo, auch von der bisherigen Website und früheren Agenturen)",
+    "status": "Empfohlen",
+    "grundlage": "§§ 31, 97 UrhG",
+    "wer": "Selbst, Klausel in AGB",
+    "prioritaet": "Vor erstem Kunden",
+    "etappe": 3
+  },
+  {
+    "key": "u-3",
+    "kategorie": "Kundenverträge und Abrechnung",
+    "titel": "Mustertext Kündigung Alt-Hosting (nur Webhosting, nicht Domain und E-Mail) und Checkliste Umstellung",
+    "status": "Empfohlen",
+    "grundlage": "–",
+    "wer": "Selbst",
+    "prioritaet": "Vor erstem Kunden",
+    "etappe": 3
+  },
+  {
+    "key": "u-4",
+    "kategorie": "IT, Hosting und Betrieb",
+    "titel": "Registrar-Konto für .de-Domains (z. B. Hetzner) und DNS-Zone für Kunden, Abläufe für Providerwechsel (AuthInfo, 30 Tage gültig)",
+    "status": "Empfohlen",
+    "grundlage": "DENIC AuthInfo-Verfahren",
+    "wer": "Selbst",
+    "prioritaet": "Vor erstem Kunden",
+    "etappe": 3
   }
 ]

@@ -40,6 +40,7 @@ export const REGELN: Regel[] = [
   { name: "Vertragsende (täglich 5 Uhr)", art: "vertragsende", faellig: taeglichAb(5) },
   { name: "Monatsreports für Kunden (Monatsanfang)", art: "monatsreports", faellig: monatsanfangAb(7) },
   { name: "Bericht an Steuerberater (Quartalsanfang)", art: "steuerberater", faellig: monatsanfangAb(8, true) },
+  { name: "Domain-Umstellung prüfen (alle 15 Minuten)", art: "umzug_pruefen", faellig: alleMinuten(15) },
   { name: "Erreichbarkeit (alle 10 Minuten)", art: "erreichbarkeit", faellig: alleMinuten(10) },
 ];
 

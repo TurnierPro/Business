@@ -37,6 +37,9 @@ export const IN_STELAX_OS: Record<string, string> = {
   "Backup-Konzept": "Tägliches Backup, sonntägliche Probe-Rücksicherung",
   "Prozess für Betroffenenanfragen": "Beim Betrieb: Datenauskunft exportieren, alle Daten löschen",
   "Rechnungsvorlagen": "Anzahlung, Schlussrechnung mit Abzug, Betreuung; zahlbar bis Datum",
+  "Auftrag zum Domain-Umzug": "Kundenportal: Auftrag per Häkchen mit Zeitpunkt; Umzugs-Agent mit Bestandsaufnahme und Anleitung",
+  "Zusicherung des Kunden zu Rechten": "Pflichthäkchen im Kundenportal beim Hochladen der Inhalte",
+  "Mustertext Kündigung Alt-Hosting": "Kommt automatisch mit der Nachricht, dass die Umstellung geklappt hat",
   "Briefbogen, E-Mail-Signatur": "Pflichtangaben nach § 35a GmbHG in Fußzeile und Mail-Signatur (brand/tokens.json)",
 };
 

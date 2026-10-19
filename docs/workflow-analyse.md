@@ -19,6 +19,7 @@ Ich habe jeden Ablauf in Stelax OS gegen den Business Case und den Bericht „Do
 | Akquise-Brief ohne ausdrücklichen Art.-21-Hinweis und ohne konkrete Quelle | Ausdrücklicher Widerspruchshinweis. Die Quelle je Lead wird gespeichert und steht im Brief. |
 | Betroffenenrechte nur als Widerspruch | Datenauskunft als Datei. Löschung mit Aufbewahrungsregel. Verzeichnis der Verarbeitungen je Kunde. |
 | BFSG-Abfrage fehlte | Im Portal werden Mitarbeiterzahl, Umsatz und Verbraucherfunktion abgefragt. Der Hinweis erscheint beim Livegang. |
+| Kunden-Websites konnten nicht unter der eigenen Domain laufen, Umzug bestehender Domains fehlte ganz | Auslieferung je Domain (www → ohne www, alte Adressen per 301), Zertifikatsfreigabe für Caddy, Umzugs-Agent mit DNS-Bestandsaufnahme, Anleitung, Prüfung der Umstellung und Kündigungshinweis. Auftrag und Rechte an Inhalten werden im Portal bestätigt. |
 | Löschfristen nur für Demos und Leads | Auch Angebote ohne Auftrag (1 Jahr) und Website-Anfragen (12 Monate, Annahme) werden gelöscht. |
 
 ## Braucht eure Entscheidung (steht auch unter Unterlagen → Zu entscheiden)
@@ -30,6 +31,10 @@ Ich habe jeden Ablauf in Stelax OS gegen den Business Case und den Bericht „Do
 5. **AGB-Text:** Version „Entwurf 10/2026“. Nach der Prüfung durch den Anwalt `AGB_VERSION` setzen und die AGB unter stelax.de/agb veröffentlichen.
 
 ## Noch offen (technisch)
+
+- Zertifikate für Kunden-Domains: Caddy mit on-demand TLS vor die App setzen (Anleitung in `docs/betrieb.md`), einmal mit einer Test-Domain üben
+- Weg B (Domain zu uns holen): Registrar-Konto anlegen; Zone und Providerwechsel sind bisher Handarbeit mit Anleitung, ein Adapter für Hetzner folgt nach dem ersten Fall
+- Neue Domain für Kunden ohne Domain registrieren (heute: Meldung, Handarbeit)
 
 - Zwei-Faktor-Anmeldung vor dem ersten echten Kunden
 - Anruf-Messung („Klick zum Anruf“) für den Monatsreport

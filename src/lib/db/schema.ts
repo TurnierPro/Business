@@ -175,6 +175,8 @@ export const projekte = pgTable("projekte", {
   abnahmeMaengel: text("abnahme_maengel"),
   // Angaben aus dem Onboarding (u. a. für die Frage, ob das BFSG greift)
   onboarding: jsonb("onboarding").$type<Record<string, string>>().notNull().default({}),
+  // Umzug einer bestehenden Domain: Bestandsaufnahme, Weg, Stand der Umstellung (siehe ablauf/umzug.ts)
+  umzug: jsonb("umzug").$type<Record<string, unknown>>().notNull().default({}),
   gekuendigtAm: timestamp("gekuendigt_am", { withTimezone: true }),
   endeAm: timestamp("ende_am", { withTimezone: true }),
   stripeAboId: text("stripe_abo_id"),

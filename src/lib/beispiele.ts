@@ -18,6 +18,7 @@ import { druckSeite, esc } from "./docs/basis";
 import * as finanzagenten from "./ablauf/finanzagenten";
 import * as vertrag from "./ablauf/vertrag";
 import * as berichte from "./ablauf/berichte";
+import * as umzug from "./ablauf/umzug";
 import { AGB_VERSION } from "./recht";
 
 // Beispieldaten: erfundene Betriebe in allen Phasen des Ablaufs, damit man sieht, wie alles zusammenhängt.
@@ -153,6 +154,11 @@ async function inhalteSenden(projektId: number, b: Beispiel) {
   f.set("email", b.email);
   f.set("domain", b.email.split("@")[1]);
   f.set("stellen", "Geselle (m/w/d)\nAusbildung 2027 (m/w/d)");
+  f.set("domainAnbieter", "IONOS");
+  f.set("mailUeberDomain", "ja");
+  f.set("umzugWeg", "selbst");
+  f.set("umzugVollmacht", "ja");
+  f.set("rechteInhalte", "ja");
   f.set("mitarbeiter", "14");
   f.set("umsatz", "bis2");
   f.set("verbraucher", "nein");
@@ -220,6 +226,15 @@ export async function beispieleLaden(): Promise<string> {
     const { id, projektId } = await bisProjekt(BETRIEBE.live);
     await inhalteSenden(projektId, BETRIEBE.live);
     await freigeben(id, "livegang", MAX);
+    // Bestehende Domain: Anleitung raus, Kunde stellt um, der Umzugs-Agent merkt es (Simulator)
+    await freigeben(id, "umzug_anleitung", MAX);
+    process.env.DNS_SIMULATOR_UMGESTELLT = "ja";
+    try {
+      await umzug.umstellungPruefen();
+    } finally {
+      delete process.env.DNS_SIMULATOR_UMGESTELLT;
+    }
+    await freigeben(id, "umzug_fertig", MAX);
     await freigeben(id, "abnahme_aufforderung", MAX);
     await vertrag.abnahmeErklaeren(projektId, { ergebnis: "abgenommen", name: BETRIEBE.live.inhaber ?? BETRIEBE.live.name, maengel: "" });
     await warte();

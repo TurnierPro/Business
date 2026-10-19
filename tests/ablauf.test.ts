@@ -104,7 +104,6 @@ test("Kompletter Ablauf von Lead bis Livegang", async () => {
   form.set("claim", "Bad und Heizung aus Karlsruhe.");
   form.set("leistungen", "Heizung: Neue Heizung und Wartung\nBad: Komplettbäder");
   form.set("telefon", "0721 1111111");
-  form.set("domain", "sanitaer-muster.example");
   form.set("stellen", "Anlagenmechaniker SHK (m/w/d)\nAzubi SHK (m/w/d)");
   await lieferung.inhalteEinreichen(p.portalToken, form);
   await abarbeiten();
@@ -283,6 +282,71 @@ test("Anfragen über die Kunden-Website landen im Portal, Demos speichern nichts
   assert.deepEqual(anfragen.map((a) => a.name), ["Erika Beispiel"]);
   const portal = await import("../src/lib/kundenportal");
   assert.equal((await portal.portalDaten(id!)).anfragen.length, 1);
+});
+
+test("Domain-Umzug: Auftrag, Bestandsaufnahme, Anleitung, Umstellung, Auslieferung unter der Domain", async () => {
+  const { id } = await akquise.legeBetriebAn({ name: "Müller Haustechnik", gewerk: "SHK", score: 70, scoreGrund: "Test", website: "mueller-haustechnik.example", email: "info@mueller-haustechnik.example" }, "Test", "Test");
+  const [p] = await db.insert(schema.projekte).values({ betriebId: id!, paket: "S", portalToken: "umzug-token-1234567890" }).returning();
+  const form = (vollmacht: boolean) => {
+    const f = new FormData();
+    f.set("claim", "Heizung und Bad aus Karlsruhe.");
+    f.set("telefon", "0721 222333");
+    f.set("domain", "https://www.Mueller-Haustechnik.example/");
+    f.set("mailUeberDomain", "ja");
+    f.set("umzugWeg", "selbst");
+    f.set("rechteInhalte", "ja");
+    if (vollmacht) f.set("umzugVollmacht", "ja");
+    return f;
+  };
+  await assert.rejects(() => lieferung.inhalteEinreichen(p.portalToken, form(false)), /Auftrag/);
+  await lieferung.inhalteEinreichen(p.portalToken, form(true));
+  await abarbeiten();
+  const umzug = await import("../src/lib/ablauf/umzug");
+  let [stand] = await db.select().from(schema.projekte).where(eq(schema.projekte.id, p.id));
+  const u = umzug.umzugVon(stand)!;
+  assert.equal(u.domain, "mueller-haustechnik.example");
+  assert.equal(u.status, "geprueft");
+  assert.equal(u.stand?.mailAnbieter, "Microsoft 365");
+  assert.ok(u.warnungen?.some((w) => w.includes("E-Mail läuft")), "warnt vor E-Mail");
+  assert.deepEqual(u.alteSeiten?.find((x) => x.pfad === "/kontakt.html")?.ziel, "kontakt");
+  assert.equal(stand.status, "bereit", JSON.stringify(stand.pruefung));
+
+  // Livegang: statt Abnahme kommt zuerst die Anleitung
+  const live = (await db.select().from(schema.postausgang).where(eq(schema.postausgang.projektId, p.id))).find((e) => e.zweck === "livegang")!;
+  await post.freigeben(live.id, "Max Steiner");
+  await abarbeiten();
+  const zwecke = async () => (await db.select().from(schema.postausgang).where(eq(schema.postausgang.projektId, p.id))).map((e) => e.zweck);
+  assert.ok((await zwecke()).includes("umzug_anleitung"));
+  assert.ok(!(await zwecke()).includes("abnahme_aufforderung"), "Abnahme erst nach der Umstellung");
+  [stand] = await db.select().from(schema.projekte).where(eq(schema.projekte.id, p.id));
+  assert.equal(umzug.umzugVon(stand)?.status, "wartet_dns");
+
+  // Unter der Domain wird die Seite ausgeliefert, auch bevor der Kunde umstellt (für den Test direkt aufgerufen)
+  const seite = await import("../src/app/kunde-seite/[host]/[[...pfad]]/route");
+  const aufruf = (host: string, pfad: string[] = []) => seite.GET(new Request(`https://${host}/${pfad.join("/")}`), { params: Promise.resolve({ host, pfad }) });
+  const start = await aufruf("mueller-haustechnik.example");
+  assert.equal(start.status, 200);
+  const html = await start.text();
+  assert.ok(html.includes("Müller Haustechnik") && !html.includes("{{BASIS}}"));
+  assert.equal((await aufruf("www.mueller-haustechnik.example", ["kontakt"])).headers.get("location"), "https://mueller-haustechnik.example/kontakt");
+  assert.equal((await aufruf("mueller-haustechnik.example", ["kontakt.html"])).headers.get("location"), "https://mueller-haustechnik.example/kontakt");
+  assert.equal((await aufruf("fremd.example")).status, 404);
+  const tls = await import("../src/app/api/tls-erlaubt/route");
+  assert.equal((await tls.GET(new Request("http://x/api/tls-erlaubt?domain=www.mueller-haustechnik.example"))).status, 200);
+  assert.equal((await tls.GET(new Request("http://x/api/tls-erlaubt?domain=boese.example"))).status, 404);
+
+  // Kunde stellt um → Agent merkt es, Kündigungshinweis und Abnahme
+  assert.match(await umzug.umstellungPruefen(), /^0 /);
+  process.env.DNS_SIMULATOR_UMGESTELLT = "ja";
+  try {
+    assert.match(await umzug.umstellungPruefen(), /^1 /);
+  } finally {
+    delete process.env.DNS_SIMULATOR_UMGESTELLT;
+  }
+  assert.ok((await zwecke()).includes("umzug_fertig"));
+  assert.ok((await zwecke()).includes("abnahme_aufforderung"));
+  const fertig = (await db.select().from(schema.postausgang).where(eq(schema.postausgang.projektId, p.id))).find((e) => e.zweck === "umzug_fertig")!;
+  assert.match(fertig.text, /nur das Webhosting, nicht die Domain/);
 });
 
 test("Datenschutz: Auskunft, Löschung mit und ohne Rechnungen", async () => {

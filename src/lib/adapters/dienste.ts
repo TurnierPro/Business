@@ -13,6 +13,7 @@ export function dienste(): Dienst[] {
     { key: "zahlung", name: "Stripe", zweck: "Anzahlung im Portal, Rechnungen, Schlusszahlung, Betreuungs-Abo", echt: !!e.STRIPE_SECRET_KEY, hinweis: "STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, STRIPE_STEUERSATZ_ID setzen. Zum Üben Testmodus-Schlüssel (sk_test_…)." },
     { key: "buchhaltung", name: "lexoffice", zweck: "Rechnungen, E-Rechnung", echt: !!e.LEXOFFICE_API_KEY, hinweis: "Mit Steuerberater abstimmen, dann LEXOFFICE_API_KEY setzen." },
     { key: "transkription", name: "Whisper (eigener Server)", zweck: "Vor-Ort-Termine in Text", echt: !!e.WHISPER_URL, hinweis: "faster-whisper-server auf Hetzner starten, WHISPER_URL setzen." },
+    { key: "dns", name: "DNS-Abfrage und Domain-Umzug", zweck: "Bestandsaufnahme alter Domains, Umstellung prüfen, Zertifikate", echt: !!e.SERVER_IP, hinweis: "SERVER_IP (öffentliche IPv4 des Hetzner-Servers) setzen. Test-Domains (.example) laufen immer im Simulator." },
     { key: "push", name: "ntfy (Push aufs Handy)", zweck: "Warnungen und Tagesbericht", echt: !!e.NTFY_URL, hinweis: "ntfy auf Hetzner oder ntfy.sh, NTFY_URL mit Thema setzen." },
   ];
 }

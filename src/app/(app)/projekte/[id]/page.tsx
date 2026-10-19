@@ -6,7 +6,8 @@ import { Status } from "@/components/Status";
 import { datum } from "@/lib/format";
 import { basisUrl } from "@/lib/ablauf/gemeinsam";
 import { PAKETE, PaketKey } from "@/lib/pakete";
-import { abnahmeErneut, kuendigungErfassen, neuBauen } from "../../aktionen";
+import { abnahmeErneut, kuendigungErfassen, neuBauen, providerwechselErledigt, umzugPruefen } from "../../aktionen";
+import { umzugVon } from "@/lib/ablauf/umzug";
 import { bfsgHinweis } from "@/lib/ablauf/lieferung";
 
 const SCHRITTE = [
@@ -31,6 +32,8 @@ export default async function Projekt({ params }: { params: Promise<{ id: string
   const abgenommen = ["abgenommen", "vorbehalt", "fiktion"].includes(p.abnahmeStatus ?? "");
   const index = abgenommen ? SCHRITTE.length : p.status === "live" ? 5 : SCHRITTE.findIndex((s) => s.key === p.status);
   const bfsg = bfsgHinweis(p.onboarding);
+  const umzug = umzugVon(p);
+  const UMZUG: Record<string, string> = { geprueft: "geprüft, Umstellung beim Livegang", providerwechsel: "Providerwechsel durch Stelax offen", wartet_dns: "wartet auf Umstellung beim Kunden", umgestellt: "umgestellt" };
   const portal = `${basisUrl()}/portal/${p.portalToken}`;
 
   return (
@@ -77,6 +80,36 @@ export default async function Projekt({ params }: { params: Promise<{ id: string
           ) : <p className="leise">Läuft nach dem ersten Bau.</p>}
         </section>
       </div>
+
+      {umzug ? (
+        <section className="karte abstand">
+          <div className="kopfzeile" style={{ marginBottom: 8 }}>
+            <div><h2 style={{ margin: 0 }}>Domain-Umzug: <span className="mono">{umzug.domain}</span></h2>
+              <p className="leise klein">{umzug.weg === "uebernehmen" ? "Weg B: Stelax übernimmt die Domain-Verwaltung (AuthInfo)" : "Weg A: Kunde ändert A-Einträge, Domain und E-Mail bleiben beim Anbieter"} · Auftrag vom {datum(umzug.vollmachtAm ? new Date(umzug.vollmachtAm) : null)}{umzug.rechteBestaetigt ? " · Rechte an Inhalten bestätigt" : ""}</p></div>
+            <Status wert={umzug.status === "umgestellt" ? "fertig" : umzug.status ? "wartet" : "laeuft"} />
+          </div>
+          <p><b>Stand:</b> {umzug.status ? UMZUG[umzug.status] : "Bestandsaufnahme läuft"}{umzug.stand ? ` · Domain bei ${umzug.stand.dnsAnbieter ?? umzug.anbieterAngabe ?? "unbekannt"} · E-Mail bei ${umzug.stand.mailAnbieter ?? "keinem erkannten Dienst"}` : ""}{umzug.stand?.simuliert ? " · Simulator" : ""}</p>
+          {umzug.letztePruefung ? <p className="leise klein">Letzte Prüfung {datum(new Date(umzug.letztePruefung.am))}: {umzug.letztePruefung.detail}</p> : null}
+          {umzug.warnungen?.length ? <ul>{umzug.warnungen.map((w) => <li key={w}>{w}</li>)}</ul> : null}
+          {umzug.stand ? (
+            <details style={{ marginTop: 8 }}>
+              <summary style={{ cursor: "pointer" }}>{umzug.stand.eintraege.length} DNS-Einträge (Bestandsaufnahme) · Nameserver {umzug.stand.nameserver.join(", ") || "–"}</summary>
+              <table className="tabelle klein"><thead><tr><th>Typ</th><th>Name</th><th>Wert</th></tr></thead>
+                <tbody>{umzug.stand.eintraege.map((e, i) => <tr key={i}><td className="mono">{e.typ}</td><td className="mono">{e.name}</td><td className="mono" style={{ wordBreak: "break-all" }}>{e.wert}</td></tr>)}</tbody></table>
+            </details>
+          ) : null}
+          {umzug.alteSeiten?.length ? (
+            <details style={{ marginTop: 8 }}>
+              <summary style={{ cursor: "pointer" }}>{umzug.alteSeiten.length} alte Adressen mit Weiterleitung · {umzug.gesichert === 1 ? "1 Seite" : `${umzug.gesichert ?? 0} Seiten`} der alten Website gesichert</summary>
+              <ul className="klein mono">{umzug.alteSeiten.map((a) => <li key={a.pfad}>{a.pfad} → /{a.ziel}</li>)}</ul>
+            </details>
+          ) : null}
+          <div className="knopfreihe" style={{ marginTop: 12 }}>
+            <form action={umzugPruefen}><input type="hidden" name="id" value={id} /><button className="knopf klein">Jetzt neu prüfen</button></form>
+            {umzug.status === "providerwechsel" ? <form action={providerwechselErledigt}><input type="hidden" name="id" value={id} /><button className="knopf klein">Providerwechsel erledigt</button></form> : null}
+          </div>
+        </section>
+      ) : null}
 
       {p.status === "live" && !p.gekuendigtAm ? (
         <details className="karte abstand">

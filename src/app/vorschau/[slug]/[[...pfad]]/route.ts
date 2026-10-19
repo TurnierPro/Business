@@ -3,6 +3,7 @@ import path from "node:path";
 import { eq } from "drizzle-orm";
 import { getDb, schema } from "@/lib/db";
 import { datenOrdner } from "@/lib/pfade";
+import { anfrageAnnehmen } from "@/lib/anfragen";
 
 // Liefert Demo- und Kundenseiten aus. Demos nur mit Zugangscode, ohne Cookies, nicht für Suchmaschinen.
 
@@ -46,24 +47,5 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
   const [seite] = await db.select().from(schema.seiten).where(eq(schema.seiten.slug, slug));
   if (!seite) return new Response("Nicht gefunden", { status: 404 });
   const q = seite.zugangscode ? `?code=${seite.zugangscode}` : "";
-  const weiter = new Response(null, { status: 303, headers: { Location: `/vorschau/${slug}/danke${q}` } });
-  if (seite.art !== "kunde" || !seite.betriebId) return weiter;
-  const f = await req.formData().catch(() => null);
-  if (!f) return new Response("Ungültige Anfrage", { status: 400 });
-  if (String(f.get("webseite") ?? "")) return weiter; // Spam-Falle
-  const feld = (k: string, max: number) => String(f.get(k) ?? "").trim().slice(0, max);
-  const name = feld("name", 120);
-  const kontakt = [feld("telefon", 40), feld("email", 160)].filter(Boolean).join(" · ");
-  const nachricht = feld("nachricht", 5000);
-  if (!name || !kontakt || !nachricht) return new Response("Bitte Name, Telefon und Nachricht angeben.", { status: 400, headers: { "Content-Type": "text/plain; charset=utf-8" } });
-  const dateien: string[] = [];
-  const ordner = datenOrdner("anfragen", slug);
-  for (const d of f.getAll("fotos").filter((x): x is File => x instanceof File && x.size > 0).slice(0, 5)) {
-    if (!d.type.startsWith("image/") || d.size > 10 * 1024 * 1024) continue;
-    const ziel = `${Date.now()}-${dateien.length + 1}${path.extname(d.name).toLowerCase().replace(/[^a-z.]/g, "").slice(0, 6)}`;
-    fs.writeFileSync(path.join(ordner, ziel), Buffer.from(await d.arrayBuffer()));
-    dateien.push(ziel);
-  }
-  await db.insert(schema.anfragen).values({ betriebId: seite.betriebId, seitenSlug: slug, name, kontakt, nachricht, dateien });
-  return weiter;
+  return anfrageAnnehmen(req, seite, `/vorschau/${slug}/danke${q}`);
 }

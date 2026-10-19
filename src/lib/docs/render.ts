@@ -25,6 +25,8 @@ export function dokumentHtml(d: Dok): string {
       return v.auftragsbestaetigung(d.daten as v.AuftragDaten);
     case "abnahmeprotokoll":
       return v.abnahmeprotokoll(d.daten as v.AbnahmeDaten);
+    case "umzugsanleitung":
+      return v.umzugsanleitung(d.daten as v.UmzugsanleitungDaten);
     case "monatsreport":
       return v.monatsreport(d.daten as v.MonatsreportDaten);
     case "finanzbericht": {

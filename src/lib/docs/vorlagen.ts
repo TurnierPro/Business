@@ -163,7 +163,8 @@ function leistungsbeschreibung(d: AngebotDaten): string {
 <p>Abnahmekriterien: Seiten und Funktionen wie oben, Formulare kommen an, Darstellung auf Handy und Computer, Lighthouse ≥ 95, technische Barrierefreiheit nach WCAG 2.2 AA, Rechtstexte eingebunden.</p>
 <h2>Ihre Mitwirkung</h2>
 <ul><li>Texte, Fotos und Logo laden Sie im Kundenportal hoch. Die 30-Tage-Zusage zum Livegang beginnt mit Erhalt der Inhalte.</li>
-<li>Zugang zur Domain bzw. Freigabe für den Umzug.</li>
+<li>Bestehende Domain: Sie bleiben Inhaber. Sie ändern nach unserer Anleitung zwei Einträge (oder geben uns den Auth-Code); E-Mail und andere Dienste bleiben unberührt. Das alte Webhosting kündigen Sie erst nach unserer Nachricht.</li>
+<li>Rechte an Texten, Fotos und Logo, auch an Inhalten der bisherigen Website.</li>
 <li>Barrierefreiheit: Wir schulden die technische Umsetzung. Für Inhalte, die Sie später selbst einstellen (z. B. Bildbeschreibungen), sind Sie verantwortlich.</li></ul>
 ${mitKi ? "<h2>Bausteine mit KI</h2><p>Geschuldet ist die vereinbarte Funktion des Ablaufs, nicht die inhaltliche Richtigkeit jeder einzelnen KI-Ausgabe. Was nach außen geht, prüft und gibt ein Mensch in Ihrem Betrieb frei.</p>" : ""}
 <h2>Datenschutz</h2><p>Für Hosting und Formulare verarbeiten wir personenbezogene Daten in Ihrem Auftrag. Dazu schließen wir vor dem Livegang einen Vertrag zur Auftragsverarbeitung (Art. 28 DSGVO). Server in Deutschland.</p>
@@ -302,6 +303,32 @@ export function monatsreport(d: MonatsreportDaten): string {
 </tbody></table>
 ${d.hinweise.length ? `<h2>Gut zu wissen</h2><ul>${d.hinweise.map((h) => `<li>${esc(h)}</li>`).join("")}</ul>` : ""}
 <p class="leise">Anrufe über „Klick zum Anruf“ zählen wir, sobald die Messung eingerichtet ist. Alle Anfragen sehen Sie jederzeit in Ihrem Kundenportal.</p>
+${fuss()}</div>`,
+  });
+}
+
+export type UmzugsanleitungDaten = { an: Anschrift; datum: string; domain: string; ip: string; anbieter: string | null; mailAnbieter: string | null; mitMail: boolean; cloudflare: boolean };
+
+export function umzugsanleitung(d: UmzugsanleitungDaten): string {
+  const wo = d.anbieter ?? "Ihrem Domain-Anbieter";
+  return druckSeite({
+    titel: `Anleitung Domain-Umstellung ${d.domain}`,
+    inhalt: `<div class="seite">${kopf()}<p class="leise mono">ANLEITUNG · ${esc(d.datum)}</p>
+<h1>So erscheint Ihre neue Website unter ${esc(d.domain)}</h1>
+<p>Sie bleiben Inhaber Ihrer Domain. Es ändern sich nur zwei Einträge, die festlegen, wo die Website liegt.${d.mitMail ? ` Ihre E-Mail${d.mailAnbieter ? ` (${esc(d.mailAnbieter)})` : ""} bleibt davon unberührt.` : ""}</p>
+<h2>1. Bei ${esc(wo)} anmelden</h2>
+<p>Dort zu „Domains“, dann bei <b class="mono">${esc(d.domain)}</b> zu „DNS“ oder „DNS-Einstellungen“.</p>
+<h2>2. Diese zwei Einträge ändern</h2>
+<table><thead><tr><th>Typ</th><th>Name / Host</th><th>Wert / Ziel</th></tr></thead><tbody>
+<tr><td class="mono">A</td><td class="mono">@ (leer bzw. ${esc(d.domain)})</td><td class="mono">${esc(d.ip)}</td></tr>
+<tr><td class="mono">A</td><td class="mono">www</td><td class="mono">${esc(d.ip)}</td></tr>
+</tbody></table>
+<p class="leise">Gibt es für „www“ einen CNAME-Eintrag, diesen löschen und den A-Eintrag oben anlegen. Gibt es AAAA-Einträge für @ oder www, diese löschen.${d.cloudflare ? " Bei Cloudflare: Proxy-Status auf „Nur DNS“ (graue Wolke) stellen." : ""}</p>
+<div class="box"><b>Bitte nicht ändern</b><br>MX-, TXT-, SRV- und alle anderen Einträge bleiben, wie sie sind. Sie sorgen für Ihre E-Mail und für Bestätigungen bei Google oder Microsoft.</div>
+<h2>3. Fertig</h2>
+<p>Die Umstellung greift meist innerhalb einer Stunde, spätestens nach 24 Stunden. Wir prüfen das automatisch und melden uns, sobald Ihre neue Seite erscheint. Das Zertifikat für die sichere Verbindung (https) richten wir ein.</p>
+<div class="box"><b>Altes Paket erst später kündigen</b><br>Bitte kündigen Sie Ihr bisheriges Webhosting erst nach unserer Nachricht und dann nur das Webhosting, nicht die Domain und nicht Ihre E-Mail-Postfächer.</div>
+<p>Lieber gemeinsam? Rufen Sie uns an: ${esc(marke.absender.telefon)}. Wir machen das in 10 Minuten am Telefon mit Ihnen.</p>
 ${fuss()}</div>`,
   });
 }

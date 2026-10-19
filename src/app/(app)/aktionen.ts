@@ -290,3 +290,16 @@ export async function datenLoeschen(f: FormData) {
     return { ziel: "/leads", ok: ergebnis };
   });
 }
+
+export async function umzugPruefen(f: FormData) {
+  const id = zahl(f, "id");
+  await ausfuehren(`/projekte/${id}`, "Prüfung läuft. In ein paar Sekunden neu laden.", async () => {
+    await einreihen("umzug_bestand", { projektId: id });
+    await einreihen("umzug_pruefen", {});
+  });
+}
+
+export async function providerwechselErledigt(f: FormData) {
+  const id = zahl(f, "id");
+  await ausfuehren(`/projekte/${id}`, "Vermerkt. Stelax OS prüft jetzt, ob die Domain auf uns zeigt.", async (wer) => (await import("@/lib/ablauf/umzug")).providerwechselErledigt(id, wer));
+}

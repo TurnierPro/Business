@@ -82,6 +82,8 @@ export async function erreichbarkeit(): Promise<string> {
   const live = await db.select().from(schema.projekte).where(eq(schema.projekte.status, "live"));
   const fehler: string[] = [];
   for (const p of live) {
+    const umzug = p.umzug as { domain?: string; status?: string };
+    if (umzug.domain && umzug.status !== "umgestellt") continue; // Domain zeigt noch auf den alten Anbieter
     if (p.domain && process.env.NODE_ENV === "production") {
       try {
         const res = await fetch(`https://${p.domain}`, { signal: AbortSignal.timeout(10000) });
