@@ -3,7 +3,7 @@ import type Stripe from "stripe";
 import { getDb, schema } from "../db";
 import { protokolliere } from "../protokoll";
 import { melde } from "../adapters/push";
-import { checkoutAnzahlung, ereignisPruefen, rechnungLesen, sitzungAuswerten, starteAbo, zieheEin } from "../adapters/stripe";
+import { beendeAbo, checkoutAnzahlung, ereignisPruefen, rechnungLesen, sitzungAuswerten, starteAbo, zieheEin } from "../adapters/stripe";
 import { portalLink } from "../kundenportal";
 import { PAKETE, PaketKey } from "../pakete";
 import { zahlungEingegangen } from "./verkauf";
@@ -47,6 +47,10 @@ export async function fuehreZahlungAus(e: Eintrag): Promise<string> {
     const aboId = await starteAbo({ kundeId: b.stripeKundeId, zahlart: b.stripeZahlart, monatlich: Number(e.meta.monatlich), name: b.name, startAb: e.meta.startAb ? new Date(String(e.meta.startAb)) : undefined, metadata: { projektId: String(projektId), betriebId: String(b.id) } });
     await db.update(schema.projekte).set({ stripeAboId: aboId }).where(eq(schema.projekte.id, projektId));
     return `Betreuung gestartet (${aboId})`;
+  }
+  if (e.zweck === "betreuung_ende") {
+    await beendeAbo(String(e.meta.aboId), new Date(String(e.meta.endeAm)));
+    return `Abo endet am ${new Date(String(e.meta.endeAm)).toLocaleDateString("de-DE")}`;
   }
   throw new Error(`Unbekannte Zahlung: ${e.zweck}`);
 }

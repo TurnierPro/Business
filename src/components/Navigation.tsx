@@ -10,6 +10,7 @@ export function Navigation({ freigaben }: { freigaben: number }) {
     { href: "/freigaben", text: "Freigaben", zahl: freigaben },
     { href: "/projekte", text: "Projekte" },
     { href: "/finanzen", text: "Finanzen" },
+    { href: "/unterlagen", text: "Unterlagen" },
     { href: "/simulator", text: "Simulator" },
     { href: "/system", text: "System" },
   ];

@@ -27,6 +27,15 @@ export async function nachVersand(e: Eintrag): Promise<void> {
       }
     }
   }
+  if (e.zweck === "abnahme_aufforderung" && e.projektId) {
+    const { abnahmeFristStarten } = await import("./vertrag");
+    await abnahmeFristStarten(e.projektId);
+  }
+  // Mahnstufe erst hochzählen, wenn die Mahnung wirklich raus ist
+  if (["zahlungserinnerung", "mahnung1", "mahnung2"].includes(e.zweck) && e.meta.rechnungId) {
+    const stufe = { zahlungserinnerung: 1, mahnung1: 2, mahnung2: 3 }[e.zweck as "zahlungserinnerung"];
+    await db.update(schema.rechnungen).set({ mahnstufe: stufe, gemahntAm: new Date() }).where(eq(schema.rechnungen.id, Number(e.meta.rechnungId)));
+  }
   if (e.zweck === "livegang") {
     const { livegangDurchfuehren } = await import("./lieferung");
     await livegangDurchfuehren(Number(e.meta.projektId));

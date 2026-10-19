@@ -37,3 +37,33 @@ export async function GET(req: Request, { params }: { params: Promise<{ slug: st
   const html = fs.readFileSync(datei, "utf8").replaceAll("{{BASIS}}", `/vorschau/${slug}`).replaceAll("{{Q}}", q);
   return new Response(html, { headers: { ...kopf, "Content-Type": "text/html; charset=utf-8" } });
 }
+
+/** Anfrageformular der Kunden-Website: speichern, im Kundenportal zeigen. Demos speichern nichts. */
+export async function POST(req: Request, { params }: { params: Promise<{ slug: string; pfad?: string[] }> }) {
+  const { slug, pfad = [] } = await params;
+  if (pfad[0] !== "kontakt") return new Response("Nicht erlaubt", { status: 405 });
+  const db = await getDb();
+  const [seite] = await db.select().from(schema.seiten).where(eq(schema.seiten.slug, slug));
+  if (!seite) return new Response("Nicht gefunden", { status: 404 });
+  const q = seite.zugangscode ? `?code=${seite.zugangscode}` : "";
+  const weiter = new Response(null, { status: 303, headers: { Location: `/vorschau/${slug}/danke${q}` } });
+  if (seite.art !== "kunde" || !seite.betriebId) return weiter;
+  const f = await req.formData().catch(() => null);
+  if (!f) return new Response("Ungültige Anfrage", { status: 400 });
+  if (String(f.get("webseite") ?? "")) return weiter; // Spam-Falle
+  const feld = (k: string, max: number) => String(f.get(k) ?? "").trim().slice(0, max);
+  const name = feld("name", 120);
+  const kontakt = [feld("telefon", 40), feld("email", 160)].filter(Boolean).join(" · ");
+  const nachricht = feld("nachricht", 5000);
+  if (!name || !kontakt || !nachricht) return new Response("Bitte Name, Telefon und Nachricht angeben.", { status: 400, headers: { "Content-Type": "text/plain; charset=utf-8" } });
+  const dateien: string[] = [];
+  const ordner = datenOrdner("anfragen", slug);
+  for (const d of f.getAll("fotos").filter((x): x is File => x instanceof File && x.size > 0).slice(0, 5)) {
+    if (!d.type.startsWith("image/") || d.size > 10 * 1024 * 1024) continue;
+    const ziel = `${Date.now()}-${dateien.length + 1}${path.extname(d.name).toLowerCase().replace(/[^a-z.]/g, "").slice(0, 6)}`;
+    fs.writeFileSync(path.join(ordner, ziel), Buffer.from(await d.arrayBuffer()));
+    dateien.push(ziel);
+  }
+  await db.insert(schema.anfragen).values({ betriebId: seite.betriebId, seitenSlug: slug, name, kontakt, nachricht, dateien });
+  return weiter;
+}

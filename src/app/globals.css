@@ -200,3 +200,13 @@ dl.daten dd { margin: 0; }
 
 .balken { height: 8px; background: var(--linie); border-radius: 2px; overflow: hidden; }
 .balken span { display: block; height: 100%; background: var(--akzent); }
+
+/* Unterlagen-Register: aufklappbare Zeilen */
+.register { border-top: 1px solid var(--rahmen); }
+.register details { border-bottom: 1px solid var(--rahmen); }
+.register summary { list-style: none; cursor: pointer; display: grid; grid-template-columns: 1fr auto; gap: 12px; padding: 12px 16px; align-items: start; }
+.register summary::-webkit-details-marker { display: none; }
+.register summary:hover { background: var(--flaeche-2, rgba(255,255,255,0.03)); }
+.register summary .titel { font-weight: 500; }
+.register .inhalt { padding: 4px 16px 16px; display: grid; gap: 12px; }
+.register .marke { display: inline-block; font-size: 12px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--akzent); color: var(--akzent); margin-top: 6px; }

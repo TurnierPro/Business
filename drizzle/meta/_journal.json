@@ -36,6 +36,20 @@
       "when": 1792384046440,
       "tag": "0004_archiv_plan",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1792384440055,
+      "tag": "0005_unterlagen",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1792384716897,
+      "tag": "0006_pflichten",
+      "breakpoints": true
     }
   ]
 }

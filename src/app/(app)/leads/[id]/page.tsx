@@ -9,7 +9,7 @@ import { datum, datumZeit, DOKART, ZWECK } from "@/lib/format";
 import { PAKETE, PaketKey, euro } from "@/lib/pakete";
 import { istEcht } from "@/lib/adapters/dienste";
 import { basisUrl } from "@/lib/ablauf/gemeinsam";
-import { betriebSpeichern, einstufen, terminHochladen, unterschriftSimulieren, widerspruch, zahlungSimulieren } from "../../aktionen";
+import { betriebSpeichern, datenLoeschen, einstufen, terminHochladen, unterschriftSimulieren, widerspruch, zahlungSimulieren } from "../../aktionen";
 
 const SCHRITTE = [
   { key: "neu", text: "Gefunden" },
@@ -213,6 +213,18 @@ export default async function Lead({ params }: { params: Promise<{ id: string }>
           </form>
         </details>
       ) : null}
+
+      <details className="karte abstand">
+        <summary style={{ cursor: "pointer", fontWeight: 600 }}>Datenschutz: Auskunft und Löschung</summary>
+        <p className="leise" style={{ marginTop: 12 }}>Fragt der Betrieb, was wir über ihn gespeichert haben (Art. 15 DSGVO), lade die Auskunft herunter und schicke sie ihm. Antwort spätestens nach einem Monat.</p>
+        <a className="knopf klein" href={`/betrieb-daten/${id}`}>Datenauskunft herunterladen (JSON)</a>
+        <form action={datenLoeschen} style={{ marginTop: 20 }}>
+          <input type="hidden" name="id" value={id} />
+          <p className="leise">Löschung auf Wunsch (Art. 17 DSGVO): Löscht Aufnahmen, Dokumente, Demo, Website, Anfragen und Kontaktdaten. Rechnungen und Vertragsunterlagen bleiben wegen der Aufbewahrungspflicht (§ 147 AO, § 257 HGB). Der Betrieb kommt auf die Sperrliste. Das lässt sich nicht rückgängig machen.</p>
+          <label className="feld"><span>Zur Bestätigung den Namen eintragen: {b.name}</span><input name="bestaetigung" autoComplete="off" required style={{ maxWidth: 360 }} /></label>
+          <button className="knopf gefahr">Endgültig löschen</button>
+        </form>
+      </details>
     </>
   );
 }

@@ -6,7 +6,8 @@ import { Status } from "@/components/Status";
 import { datum } from "@/lib/format";
 import { basisUrl } from "@/lib/ablauf/gemeinsam";
 import { PAKETE, PaketKey } from "@/lib/pakete";
-import { neuBauen } from "../../aktionen";
+import { abnahmeErneut, kuendigungErfassen, neuBauen } from "../../aktionen";
+import { bfsgHinweis } from "@/lib/ablauf/lieferung";
 
 const SCHRITTE = [
   { key: "inhalte", text: "Inhalte vom Kunden" },
@@ -14,7 +15,10 @@ const SCHRITTE = [
   { key: "pruefung", text: "Prüfung" },
   { key: "bereit", text: "Freigabe Livegang" },
   { key: "live", text: "Live" },
+  { key: "abnahme", text: "Abnahme" },
 ];
+
+const ABNAHME: Record<string, string> = { offen: "wartet auf Abnahme", abgenommen: "abgenommen", vorbehalt: "abgenommen mit Mängeln", verweigert: "Abnahme verweigert", fiktion: "abgenommen (Frist abgelaufen)" };
 
 export default async function Projekt({ params }: { params: Promise<{ id: string }> }) {
   const id = Number((await params).id);
@@ -24,7 +28,9 @@ export default async function Projekt({ params }: { params: Promise<{ id: string
   const [b] = await db.select().from(schema.betriebe).where(eq(schema.betriebe.id, p.betriebId));
   const [seite] = p.seitenSlug ? await db.select().from(schema.seiten).where(eq(schema.seiten.slug, p.seitenSlug)) : [];
   const livegang = (await db.select().from(schema.postausgang).where(eq(schema.postausgang.projektId, id))).find((e) => e.zweck === "livegang" && e.status === "zur_freigabe");
-  const index = SCHRITTE.findIndex((s) => s.key === (p.status === "pruefung" ? "pruefung" : p.status));
+  const abgenommen = ["abgenommen", "vorbehalt", "fiktion"].includes(p.abnahmeStatus ?? "");
+  const index = abgenommen ? SCHRITTE.length : p.status === "live" ? 5 : SCHRITTE.findIndex((s) => s.key === p.status);
+  const bfsg = bfsgHinweis(p.onboarding);
   const portal = `${basisUrl()}/portal/${p.portalToken}`;
 
   return (
@@ -46,10 +52,21 @@ export default async function Projekt({ params }: { params: Promise<{ id: string
           {p.status === "pruefung" ? <><div className="hinweis fehler">Die Prüfung ist nicht bestanden. Der Livegang ist gesperrt, bis alles grün ist.</div><form action={neuBauen}><input type="hidden" name="id" value={id} /><button className="knopf">Neu bauen und prüfen</button></form></> : null}
           {p.status === "bereit" && livegang ? <><p>Alle Prüfungen bestanden. Bitte die Vorschau ansehen und den Livegang freigeben.</p><Link className="knopf haupt" href={`/freigaben/${livegang.id}`}>Zur Freigabe</Link></> : null}
           {p.status === "live" ? <p>Live seit {datum(p.liveAm)}. Betreuung läuft seit {datum(p.aboAb)}. Die Seite wird alle 10 Minuten geprüft.</p> : null}
+          {p.abnahmeStatus ? (
+            <div style={{ marginTop: 12 }}>
+              <p><b>Abnahme:</b> <Status wert={p.abnahmeStatus === "offen" ? "wartet" : p.abnahmeStatus} /> {ABNAHME[p.abnahmeStatus]}{p.abnahmeFrist && p.abnahmeStatus === "offen" ? `, Frist bis ${datum(p.abnahmeFrist)}` : p.abnahmeStatus === "offen" ? ", Aufforderung wartet auf Freigabe" : ""}{p.abnahmeAm ? ` am ${datum(p.abnahmeAm)}` : ""}{p.abnahmeName ? ` von ${p.abnahmeName}` : ""}</p>
+              {p.abnahmeMaengel ? <div className="hinweis">Mängel: {p.abnahmeMaengel}</div> : null}
+              {p.abnahmeStatus === "verweigert" ? <form action={abnahmeErneut}><input type="hidden" name="id" value={id} /><button className="knopf">Mängel behoben: erneut zur Abnahme vorlegen</button></form> : null}
+            </div>
+          ) : null}
+          {p.gekuendigtAm ? <p className="hinweis" style={{ marginTop: 12 }}>Gekündigt am {datum(p.gekuendigtAm)}, Ende {datum(p.endeAm)}.</p> : null}
+          {p.status === "beendet" ? <p>Vertrag beendet am {datum(p.endeAm)}.</p> : null}
           {seite ? <p style={{ marginTop: 16 }}><a className="knopf klein" target="_blank" href={`/vorschau/${seite.slug}${seite.zugangscode ? `?code=${seite.zugangscode}` : ""}`}>Seite ansehen</a></p> : null}
         </section>
 
         <section className="karte">
+          {bfsg ? <div className="hinweis" style={{ marginBottom: 16 }}>{bfsg}</div> : null}
+          {Object.keys(p.onboarding).length ? <p className="leise klein">Onboarding: {p.onboarding.mitarbeiter} Mitarbeitende · Umsatz {p.onboarding.umsatz === "ueber2" ? "über" : "bis"} 2 Mio. € · Verbraucherfunktion: {p.onboarding.verbraucher === "nein" ? "keine" : p.onboarding.verbraucher === "termin" ? "Terminbuchung" : "Bestellung/Vertrag"}</p> : null}
           <h2>Qualitätsprüfung</h2>
           {p.pruefung?.length ? (
             <ul className="liste">
@@ -60,6 +77,18 @@ export default async function Projekt({ params }: { params: Promise<{ id: string
           ) : <p className="leise">Läuft nach dem ersten Bau.</p>}
         </section>
       </div>
+
+      {p.status === "live" && !p.gekuendigtAm ? (
+        <details className="karte abstand">
+          <summary style={{ cursor: "pointer", fontWeight: 600 }}>Kündigung der Betreuung erfassen</summary>
+          <form action={kuendigungErfassen} style={{ marginTop: 12 }}>
+            <input type="hidden" name="id" value={id} />
+            <p className="leise">Stelax OS berechnet das Ende (12 Monate Mindestlaufzeit, danach zum Ende des Folgemonats; in den AGB prüfen), legt die Bestätigung in den Postausgang und beendet ein Stripe-Abo nach Freigabe.</p>
+            <label className="feld"><span>Kündigung eingegangen am</span><input type="date" name="eingang" required defaultValue={new Date().toISOString().slice(0, 10)} style={{ maxWidth: 220 }} /></label>
+            <button className="knopf">Kündigung erfassen</button>
+          </form>
+        </details>
+      ) : null}
     </>
   );
 }

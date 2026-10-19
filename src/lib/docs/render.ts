@@ -21,6 +21,12 @@ export function dokumentHtml(d: Dok): string {
       return v.protokoll(d.daten as v.ProtokollDaten);
     case "rechnung":
       return v.rechnung(d.daten as v.RechnungDaten);
+    case "auftragsbestaetigung":
+      return v.auftragsbestaetigung(d.daten as v.AuftragDaten);
+    case "abnahmeprotokoll":
+      return v.abnahmeprotokoll(d.daten as v.AbnahmeDaten);
+    case "monatsreport":
+      return v.monatsreport(d.daten as v.MonatsreportDaten);
     case "finanzbericht": {
       const x = d.daten as { zeitraum: string; auswertung: Auswertung };
       return finanzbericht(zeitraum(x.zeitraum), x.auswertung);

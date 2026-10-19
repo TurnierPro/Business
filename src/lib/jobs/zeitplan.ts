@@ -35,7 +35,10 @@ export const REGELN: Regel[] = [
   { name: "Probe-Rücksicherung (So 4 Uhr)", art: "ruecksicherung", faellig: woechentlichAb("So", 4) },
   { name: "Tagesbericht (täglich 7 Uhr)", art: "tagesbericht", faellig: taeglichAb(7) },
   { name: "Betreuungsrechnungen (Monatsanfang)", art: "betreuungsrechnungen", faellig: monatsanfangAb(6) },
-  { name: "Zahlungserinnerungen (täglich 8 Uhr)", art: "zahlungserinnerungen", faellig: taeglichAb(8) },
+  { name: "Erinnerungen und Mahnungen (täglich 8 Uhr)", art: "zahlungserinnerungen", faellig: taeglichAb(8) },
+  { name: "Abnahme nach Fristablauf (täglich 5 Uhr)", art: "abnahmefiktion", faellig: taeglichAb(5) },
+  { name: "Vertragsende (täglich 5 Uhr)", art: "vertragsende", faellig: taeglichAb(5) },
+  { name: "Monatsreports für Kunden (Monatsanfang)", art: "monatsreports", faellig: monatsanfangAb(7) },
   { name: "Bericht an Steuerberater (Quartalsanfang)", art: "steuerberater", faellig: monatsanfangAb(8, true) },
   { name: "Erreichbarkeit (alle 10 Minuten)", art: "erreichbarkeit", faellig: alleMinuten(10) },
 ];

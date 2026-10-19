@@ -8,11 +8,10 @@ import { datenOrdner } from "../pfade";
 import { schreibeSeite, standardInhalt, SeitenInhalt } from "../sites/generator";
 import { pruefeSeite } from "../sites/qualitaet";
 import { schreibe, jsonAus } from "../adapters/ki";
-import { PAKETE, PaketKey, euro, UST } from "../pakete";
+import { PAKETE, PaketKey, euro } from "../pakete";
 import { zahlungUeberStripe } from "../adapters/stripe";
 import { inPostausgang } from "./postausgang";
 import { betrieb, slugAus, zufallsCode, SYSTEM } from "./gemeinsam";
-import { erstelleRechnung } from "./verkauf";
 
 // Lieferung: Inhalte vom Kunden, Seite bauen, prüfen, Livegang nach Freigabe.
 
@@ -47,8 +46,9 @@ export async function inhalteEinreichen(token: string, form: FormData): Promise<
     prioritaeten: String(form.get("prioritaeten") ?? ""),
     bilder,
   };
+  const onboarding = { mitarbeiter: String(form.get("mitarbeiter") ?? ""), umsatz: String(form.get("umsatz") ?? ""), verbraucher: String(form.get("verbraucher") ?? "") };
   const db = await getDb();
-  await db.update(schema.projekte).set({ inhalte, status: "bau", domain: inhalte.domain || null, inhalteAm: new Date() }).where(eq(schema.projekte.id, p.id));
+  await db.update(schema.projekte).set({ inhalte, onboarding, status: "bau", domain: inhalte.domain || null, inhalteAm: new Date() }).where(eq(schema.projekte.id, p.id));
   await protokolliere("Kunde (Portal)", "Inhalte eingereicht", p.betriebId, `${bilder.length} Fotos`);
   await einreihen("bau", { projektId: p.id });
 }
@@ -106,6 +106,7 @@ export async function bau(projektId: number): Promise<string> {
   await protokolliere(SYSTEM, allesOk ? "Seite gebaut, Prüfung bestanden" : "Seite gebaut, Prüfung NICHT bestanden", b.id, pruefung.filter((x) => !x.ok).map((x) => x.detail).join(" · "));
 
   if (allesOk) {
+    const bfsg = bfsgHinweis(p.onboarding);
     await inPostausgang({
       betriebId: b.id,
       projektId,
@@ -113,11 +114,24 @@ export async function bau(projektId: number): Promise<string> {
       zweck: "livegang",
       empfaenger: p.domain || roh.domain || "(Domain fehlt)",
       betreff: `Livegang ${b.name} (${PAKETE[p.paket as PaketKey].name})`,
-      text: `Die Seite ist gebaut und hat alle ${pruefung.length} Prüfungen bestanden. Vorschau ansehen, dann freigeben.\n\nNach der Freigabe: Seite geht live, Schlussrechnung und Betreuung starten.`,
+      hinweise: bfsg ? [bfsg] : [],
+      text: `Die Seite ist gebaut und hat alle ${pruefung.length} Prüfungen bestanden. Vorschau ansehen, dann freigeben.\n\nNach der Freigabe: Seite geht live, Betreuung startet, der Kunde wird um Abnahme gebeten. Die Schlusszahlung kommt nach der Abnahme.`,
       meta: { projektId, slug },
     });
   }
   return allesOk ? "Bereit zum Livegang" : "Prüfung nicht bestanden";
+}
+
+/**
+ * BFSG: gilt, wenn Verbraucher auf der Seite einen Vertrag anbahnen können (z. B. Terminbuchung)
+ * und der Betrieb kein Kleinstunternehmen ist (unter 10 Beschäftigte und höchstens 2 Mio. € Umsatz).
+ */
+export function bfsgHinweis(o: Record<string, string>): string | null {
+  if (!o.verbraucher) return null;
+  const klein = Number(o.mitarbeiter) < 10 && o.umsatz === "bis2";
+  if (o.verbraucher === "nein") return null;
+  if (klein) return "BFSG: Kleinstunternehmen, Ausnahme greift voraussichtlich. Trotzdem WCAG 2.2 AA wie zugesagt.";
+  return "BFSG greift voraussichtlich (Verbraucherfunktion, kein Kleinstunternehmen): Erklärung zur Barrierefreiheit (Anlage 3) einbinden und Fremdtools wie die Terminbuchung prüfen.";
 }
 
 export async function livegangDurchfuehren(projektId: number): Promise<void> {
@@ -127,41 +141,23 @@ export async function livegangDurchfuehren(projektId: number): Promise<void> {
   await db.update(schema.seiten).set({ zugangscode: null }).where(eq(schema.seiten.slug, p.seitenSlug));
   await db.update(schema.projekte).set({ status: "live", liveAm: new Date(), aboAb: new Date() }).where(eq(schema.projekte.id, projektId));
   await protokolliere(SYSTEM, "Livegang durchgeführt, Betreuung läuft", p.betriebId, p.domain ?? p.seitenSlug);
-  if (p.angebotId) {
-    const [a] = await db.select().from(schema.angebote).where(eq(schema.angebote.id, p.angebotId));
-    if (a) {
-      await db.update(schema.angebote).set({ status: "abgeschlossen" }).where(eq(schema.angebote.id, a.id));
-      const name = PAKETE[a.paket as PaketKey].name;
-      const rest = a.einmalig - Math.round(a.einmalig / 2);
-      if (zahlungUeberStripe()) {
-        // Geld bewegt sich nur nach Freigabe: Schlusszahlung und Abo-Start kommen in den Postausgang.
-        const b = await betrieb(p.betriebId);
-        const brutto = Math.round(rest * (1 + UST));
-        await inPostausgang({
-          betriebId: p.betriebId,
-          projektId,
-          kanal: "zahlung",
-          zweck: "schlusszahlung",
-          empfaenger: `Stripe: ${b.name}`,
-          betreff: `Schlusszahlung einziehen: ${b.name}`,
-          text: `Schlusszahlung 50 % ${name}: ${euro(rest)} netto (${euro(brutto)} brutto). Wird mit der gespeicherten Zahlungsart eingezogen, Stripe schickt die Rechnung an den Kunden.`,
-          noetigeFreigaben: brutto > 1_000_000 ? 2 : 1,
-          meta: { angebotId: a.id, netto: rest, beschreibung: `Schlusszahlung 50 % ${name}` },
-        });
-        const startAb = p.paket === "S" ? new Date(Date.now() + 91 * 864e5) : new Date();
-        await inPostausgang({
-          betriebId: p.betriebId,
-          projektId,
-          kanal: "zahlung",
-          zweck: "betreuung_start",
-          empfaenger: `Stripe: ${b.name}`,
-          betreff: `Betreuung starten: ${b.name}`,
-          text: `Monatliche Betreuung ${euro(a.monatlich)} netto per Stripe, erste Abbuchung ${startAb.toLocaleDateString("de-DE")}${p.paket === "S" ? " (erste 3 Monate inklusive)" : ""}.`,
-          meta: { projektId, monatlich: a.monatlich, startAb: startAb.toISOString() },
-        });
-      } else {
-        await erstelleRechnung({ betriebId: p.betriebId, angebotId: a.id, projektId, art: "schluss", netto: rest, positionstext: `Schlusszahlung 50 % ${name}` });
-      }
-    }
-  }
+  // Schlusszahlung erst nach Abnahme (§ 641 BGB): Kunde wird im Portal um Abnahme gebeten.
+  const { abnahmeAnfordern } = await import("./vertrag");
+  await abnahmeAnfordern(projektId, SYSTEM);
+  if (!p.angebotId || !zahlungUeberStripe()) return;
+  const [a] = await db.select().from(schema.angebote).where(eq(schema.angebote.id, p.angebotId));
+  if (!a) return;
+  // Mit Stripe: Abo-Start nach Freigabe (Betreuung beginnt mit dem Livegang)
+  const b = await betrieb(p.betriebId);
+  const startAb = p.paket === "S" ? new Date(Date.now() + 91 * 864e5) : new Date();
+  await inPostausgang({
+    betriebId: p.betriebId,
+    projektId,
+    kanal: "zahlung",
+    zweck: "betreuung_start",
+    empfaenger: `Stripe: ${b.name}`,
+    betreff: `Betreuung starten: ${b.name}`,
+    text: `Monatliche Betreuung ${euro(a.monatlich)} netto per Stripe, erste Abbuchung ${startAb.toLocaleDateString("de-DE")}${p.paket === "S" ? " (erste 3 Monate inklusive)" : ""}.`,
+    meta: { projektId, monatlich: a.monatlich, startAb: startAb.toISOString() },
+  });
 }

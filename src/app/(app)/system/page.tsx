@@ -8,12 +8,14 @@ import { datumZeit } from "@/lib/format";
 import { beispieleEntfernen, beispieleLaden, jobStarten, jobWiederholen, passwortAendern } from "../aktionen";
 import { beispieleErlaubt } from "@/lib/beispiele";
 import { AGENTEN } from "@/lib/agenten";
+import { verarbeitungen } from "@/lib/ablauf/datenschutz";
 
 export const metadata = { title: "System" };
 
 export default async function System() {
   const db = await getDb();
   const monat = new Date(Date.now() - 30 * 864e5);
+  const verzeichnis = await verarbeitungen();
   const [jobs, meldungen, zeitplan, kosten, verlauf] = await Promise.all([
     db.select().from(schema.jobs).orderBy(desc(schema.jobs.erstelltAm)).limit(25),
     db.select().from(schema.meldungen).orderBy(desc(schema.meldungen.am)).limit(20),
@@ -81,6 +83,27 @@ export default async function System() {
           ) : <p className="leise">Noch keine Meldungen.</p>}
         </section>
       </div>
+
+      <section className="karte abstand" style={{ padding: 0 }}>
+        <div style={{ padding: "16px 16px 0" }}>
+          <h2>Verarbeitungen für Kunden</h2>
+          <p className="leise klein">Entwurf des Verzeichnisses als Auftragsverarbeiter (Art. 30 Abs. 2 DSGVO), automatisch aus den laufenden Projekten. Löschfristen im AVV festlegen.</p>
+        </div>
+        {verzeichnis.length ? (
+          <table className="tabelle">
+            <thead><tr><th>Kunde</th><th>Was wir verarbeiten</th><th className="weg-mobil">Unterauftragnehmer</th></tr></thead>
+            <tbody>
+              {verzeichnis.map((v) => (
+                <tr key={v.kunde}>
+                  <td>{v.kunde}<div className="leise klein">{v.paket}</div></td>
+                  <td className="klein">{v.taetigkeiten.join(" · ")}<div className="leise">Betroffene: {v.betroffene}</div></td>
+                  <td className="weg-mobil klein">{v.unterauftragnehmer.join(", ")}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : <div className="leer"><strong>Noch keine Kundenprojekte.</strong>Einträge entstehen mit der Anzahlung.</div>}
+      </section>
 
       <section className="karte abstand">
         <h2>Hintergrund-Jobs</h2>

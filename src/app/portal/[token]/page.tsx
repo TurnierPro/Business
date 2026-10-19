@@ -53,6 +53,19 @@ export default async function Portal({ params, searchParams }: { params: Promise
         <label className="feld"><span>Ihre Domain</span><input name="domain" defaultValue={b?.website ?? ""} placeholder="ihr-betrieb.de" /><small>Die Domain läuft auf Ihren Namen. Haben Sie noch keine, kümmern wir uns.</small></label>
         {mitKarriere ? <label className="feld"><span>Offene Stellen</span><textarea name="stellen" placeholder={"Eine Stelle pro Zeile, z. B.\nAnlagenmechaniker SHK (m/w/d)\nAusbildung 2027"} /></label> : null}
         <label className="feld"><span>Fotos</span><input name="fotos" type="file" accept="image/*" multiple /><small>Echte Bilder aus Ihrem Betrieb: Team, Werkstatt, Baustellen. Keine Fotos von Kunden ohne deren Einverständnis.</small></label>
+        <fieldset className="feld" style={{ border: "1px solid var(--rahmen)", borderRadius: 6, padding: 16 }}>
+          <legend style={{ fontWeight: 600, padding: "0 6px" }}>Kurz zu Ihrem Betrieb</legend>
+          <small style={{ display: "block", marginBottom: 12 }}>Damit prüfen wir, ob für Ihre Seite das Barrierefreiheitsstärkungsgesetz gilt.</small>
+          <div className="raster zwei">
+            <label className="feld"><span>Mitarbeitende (mit Ihnen)</span><input name="mitarbeiter" type="number" min={1} inputMode="numeric" required /></label>
+            <label className="feld"><span>Jahresumsatz</span>
+              <select name="umsatz" required defaultValue=""><option value="" disabled>Bitte wählen</option><option value="bis2">bis 2 Mio. €</option><option value="ueber2">über 2 Mio. €</option></select>
+            </label>
+          </div>
+          <label className="feld"><span>Sollen Privatkunden online Termine buchen oder etwas bestellen können?</span>
+            <select name="verbraucher" required defaultValue=""><option value="" disabled>Bitte wählen</option><option value="nein">Nein, nur Anfragen und Anrufe</option><option value="termin">Ja, Online-Terminbuchung</option><option value="bestellung">Ja, Bestellen oder Vertrag online</option></select>
+          </label>
+        </fieldset>
         <label className="feld"><span>Was ist Ihnen am wichtigsten?</span><textarea name="prioritaeten" placeholder="z. B. Mehr Anfragen mit Fotos, Azubis finden" style={{ minHeight: 80 }} /></label>
         <button className="knopf haupt">Inhalte absenden</button>
       </form>

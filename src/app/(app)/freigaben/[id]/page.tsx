@@ -9,6 +9,7 @@ import { datumZeit, DOKART, KANAL, ZWECK } from "@/lib/format";
 import { ablehnen, angebotAendern, eintragSpeichern, freigeben } from "../../aktionen";
 import { AngebotEditor } from "@/components/AngebotEditor";
 import type { AngebotDaten } from "@/lib/docs/vorlagen";
+import { mailSignatur } from "@/lib/recht";
 
 export const metadata = { title: "Freigabe prüfen" };
 
@@ -65,7 +66,8 @@ export default async function Eintrag({ params }: { params: Promise<{ id: string
             <div className="karte" style={{ marginTop: vorschauUrl ? 16 : 0 }}>
               <h2>E-Mail</h2>
               <p><b>Betreff:</b> {e.betreff}</p>
-              <div className="textblock">{e.text}</div>
+              <div className="textblock">{e.text}<span className="leise">{mailSignatur()}</span></div>
+              <p className="leise klein" style={{ marginTop: 8 }}>Die Signatur mit den Pflichtangaben (§ 35a GmbHG) hängt Stelax OS automatisch an.</p>
             </div>
           ) : null}
           {doks.length ? (

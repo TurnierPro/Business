@@ -110,7 +110,7 @@ textarea{min-height:140px}footer{border-top:1px solid #e3e0d8;margin-top:56px;pa
 img{max-width:100%;height:auto;border-radius:6px}
 :focus-visible{outline:3px solid ${farbe};outline-offset:2px}
 </style></head><body>
-${i.demo ? '<div class="demo" role="note">Vorschau von Stelax Consulting. Texte mit Unterstützung von KI erstellt. Nicht öffentlich, wird nach 60 Tagen gelöscht.</div>' : ""}
+${i.demo ? '<div class="demo" role="note">Unverbindlicher Entwurf von Stelax Consulting. Texte mit Unterstützung von KI erstellt. Nicht öffentlich, wird nach 60 Tagen gelöscht.</div>' : ""}
 <header><a class="marke" href="${link("index")}">${esc(i.firma)}</a>
 <nav aria-label="Hauptmenü"><a href="${link("index")}">Start</a><a href="${link("leistungen")}">Leistungen</a>${i.karriere?.length ? `<a href="${link("karriere")}">Karriere</a>` : ""}<a href="${link("kontakt")}">Kontakt</a></nav></header>
 <main>${inhalt}</main>
@@ -149,7 +149,8 @@ ${i.leistungen.map((l) => `<h2>${esc(l.titel)}</h2><p>${esc(l.text)}</p>`).join(
       `Kontakt – ${i.firma}`,
       `So erreichen Sie ${i.firma}`,
       `<section class="held"><h1>Anfrage senden</h1><p>Beschreiben Sie kurz, worum es geht, und hängen Sie Fotos an. Wir melden uns am nächsten Werktag.</p></section>
-<form method="post" action="#" enctype="multipart/form-data">
+<form method="post" action="${link("kontakt")}" enctype="multipart/form-data">
+<div style="position:absolute;left:-9999px" aria-hidden="true"><label>Bitte leer lassen<input name="webseite" tabindex="-1" autocomplete="off"></label></div>
 <label>Name<input name="name" autocomplete="name" required></label>
 <label>Telefon<input name="telefon" type="tel" autocomplete="tel" required></label>
 <label>E-Mail<input name="email" type="email" autocomplete="email"></label>
@@ -159,6 +160,7 @@ ${i.leistungen.map((l) => `<h2>${esc(l.titel)}</h2><p>${esc(l.text)}</p>`).join(
 <button class="knopf" type="submit" style="border:0;cursor:pointer;font:inherit">Anfrage senden</button></form>`,
       link,
     ),
+    danke: rahmen(i, `Danke – ${i.firma}`, `Ihre Anfrage an ${i.firma} ist angekommen`, `<section class="held"><h1>Danke für Ihre Anfrage</h1><p>${i.demo ? "Das ist eine Vorschau. Hier wurde nichts verschickt." : "Wir melden uns am nächsten Werktag."}</p></section><p><a class="knopf" href="${link("index")}">Zur Startseite</a></p>`, link),
     impressum: rahmen(i, `Impressum – ${i.firma}`, `Impressum ${i.firma}`, `<h1>Impressum</h1><p>Wird über den lizenzierten Rechtstexte-Anbieter eingebunden.</p>`, link),
     datenschutz: rahmen(i, `Datenschutz – ${i.firma}`, `Datenschutz ${i.firma}`, `<h1>Datenschutzerklärung</h1><p>Wird über den lizenzierten Rechtstexte-Anbieter eingebunden.</p>`, link),
   };

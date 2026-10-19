@@ -39,6 +39,8 @@ export async function legeBetriebAn(b: GefundenerBetrieb & { email?: string; not
       scoreGrund: b.scoreGrund ?? null,
       notizen: b.notizen ?? null,
       quelle,
+      // Art. 14 DSGVO: Quelle festhalten, sie steht später im Brief
+      datenquelle: b.datenquelle || (b.website ? `Impressum ${b.website}, abgerufen am ${datumDe()}` : `${quelle}, erfasst am ${datumDe()}`),
     })
     .returning({ id: schema.betriebe.id });
   await protokolliere(wer, `Lead angelegt: ${b.name}`, neu.id, quelle);
@@ -166,7 +168,7 @@ Stelax Consulting`;
     betriebId,
     art: "brief",
     titel: `Akquise-Brief ${b.name}`,
-    daten: { an, betreff, text: briefText.text, datum: heute, demoUrl, qr: await QRCode.toDataURL(demoUrl, { margin: 0, width: 240 }) },
+    daten: { an, betreff, text: briefText.text, datum: heute, demoUrl, quelle: b.datenquelle ?? undefined, qr: await QRCode.toDataURL(demoUrl, { margin: 0, width: 240 }) },
   });
   await inPostausgang({
     betriebId,

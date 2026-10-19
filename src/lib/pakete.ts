@@ -61,6 +61,16 @@ export const PAKETE: Record<PaketKey, { name: string; einmalig: number; monatlic
   },
 };
 
+// Ausdrücklich nicht enthalten (Business Case). Steht in der Leistungsbeschreibung jedes Angebots.
+const NICHT_S = ["Bewertungsmanagement", "Werbeanzeigen", "Social Media", "Blog", "Logo", "Shop", "Mehrsprachigkeit", "Karriereseite", "Terminbuchung", "Chatbot"];
+export const NICHT_ENTHALTEN: Record<PaketKey, string[]> = {
+  START: NICHT_S,
+  S: NICHT_S,
+  S_WERKSTATT: NICHT_S.filter((x) => x !== "Terminbuchung"),
+  M: ["Recruiting-Kampagnen", "Mediabudget und bezahlte Anzeigen", "Vorauswahl von Bewerbern", "Personalvermittlung", "Bewertungsmanagement", "Social Media", "Shop", "Chatbot"],
+  L: ["KI-Telefonassistent", "Buchhaltung und Steuerberatung", "Individualsoftware", "mehr als 3 Entlastungs-Bausteine", "Schulung über 2 Stunden"],
+};
+
 export const UST = 0.19;
 
 export function euro(cent: number): string {

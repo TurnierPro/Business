@@ -16,6 +16,14 @@ export const ZWECK: Record<string, string> = {
   finanzbericht: "Bericht an Steuerberater",
   schlusszahlung: "Schlusszahlung einziehen (Stripe)",
   betreuung_start: "Betreuung starten (Stripe)",
+  auftragsbestaetigung: "Auftragsbestätigung",
+  abnahme_aufforderung: "Bitte um Abnahme",
+  abnahme_bestaetigung: "Abnahmeprotokoll",
+  mahnung1: "1. Mahnung",
+  mahnung2: "Letzte Mahnung",
+  monatsreport: "Monatsreport",
+  kuendigung: "Kündigungsbestätigung",
+  betreuung_ende: "Betreuung beenden (Stripe)",
   test: "Test",
 };
 
@@ -29,4 +37,7 @@ export const DOKART: Record<string, string> = {
   protokoll: "Protokoll",
   rechnung: "Rechnung",
   finanzbericht: "Finanzbericht",
+  auftragsbestaetigung: "Auftragsbestätigung",
+  abnahmeprotokoll: "Abnahmeprotokoll",
+  monatsreport: "Monatsreport",
 };

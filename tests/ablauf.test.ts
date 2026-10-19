@@ -111,30 +111,56 @@ test("Kompletter Ablauf von Lead bis Livegang", async () => {
   const [gebaut] = await db.select().from(schema.projekte).where(eq(schema.projekte.id, projektId));
   assert.equal(gebaut.status, "bereit", JSON.stringify(gebaut.pruefung));
 
-  // Livegang freigeben → live; Schlusszahlung und Betreuung warten als Zahlung auf Freigabe
+  // Livegang freigeben → live; Betreuung wartet als Zahlung auf Freigabe, Kunde wird um Abnahme gebeten
   const live = await offeneFreigabe("livegang");
   await post.freigeben(live.id, "Max Steiner");
   await abarbeiten();
   const [fertig] = await db.select().from(schema.projekte).where(eq(schema.projekte.id, projektId));
   assert.equal(fertig.status, "live");
-  const schlusszahlung = await offeneFreigabe("schlusszahlung");
+  assert.equal(fertig.abnahmeStatus, "offen");
+  assert.equal(fertig.abnahmeFrist, null, "Frist läuft erst nach Versand der Aufforderung");
+  assert.equal((await db.select().from(schema.postausgang).where(eq(schema.postausgang.zweck, "schlusszahlung"))).length, 0, "keine Schlusszahlung vor der Abnahme");
   const betreuung = await offeneFreigabe("betreuung_start");
+  const aufforderung = await offeneFreigabe("abnahme_aufforderung");
+  await post.freigeben(aufforderung.id, "Max Steiner");
+  await abarbeiten();
+  const [mitFrist] = await db.select().from(schema.projekte).where(eq(schema.projekte.id, projektId));
+  assert.ok(mitFrist.abnahmeFrist && mitFrist.abnahmeFrist > new Date(Date.now() + 13 * 864e5));
+
+  // Abnahme im Portal mit Mängeln → Abnahmeprotokoll und Schlusszahlung zur Freigabe
+  const vertrag = await import("../src/lib/ablauf/vertrag");
+  await assert.rejects(() => vertrag.abnahmeErklaeren(projektId, { ergebnis: "vorbehalt", name: "Thomas Muster", maengel: "" }), /Mängel/);
+  await vertrag.abnahmeErklaeren(projektId, { ergebnis: "vorbehalt", name: "Thomas Muster", maengel: "Telefonnummer im Kopf fehlt" });
+  await abarbeiten();
+  const protokollMail = await offeneFreigabe("abnahme_bestaetigung");
+  await post.freigeben(protokollMail.id, "Max Steiner");
+  const schlusszahlung = await offeneFreigabe("schlusszahlung");
   const vorFreigabe = await db.select().from(schema.rechnungen);
   assert.deepEqual(vorFreigabe.map((r) => r.art), ["anzahlung"], "ohne Freigabe wird nichts eingezogen");
   await post.freigeben(schlusszahlung.id, "Max Steiner");
   await post.freigeben(betreuung.id, "Max Steiner");
+  const bestaetigung = await offeneFreigabe("auftragsbestaetigung");
+  await post.freigeben(bestaetigung.id, "Daniel Lück");
   await abarbeiten();
   const rechnungen = await db.select().from(schema.rechnungen);
   assert.deepEqual(rechnungen.map((r) => [r.art, r.quelle, r.status]), [["anzahlung", "stripe", "bezahlt"], ["schluss", "stripe", "bezahlt"]]);
   const [mitAbo] = await db.select().from(schema.projekte).where(eq(schema.projekte.id, projektId));
   assert.ok(mitAbo.stripeAboId);
+  const [angenommen] = await db.select().from(schema.angebote).where(eq(schema.angebote.id, angebotId));
+  assert.equal(angenommen.status, "abgeschlossen");
+  assert.ok(angenommen.annahme?.agbVersion, "Annahme-Nachweis gespeichert");
+
+  // Nachtrag für Bestandskunden: Status bleibt „Kunde“
+  await verkauf.erstelleAngebot({ betriebId: lead.id, auswahl: { paket: "S", module: ["m1"], zusaetze: [] }, wer: "Daniel Lück" });
+  const [nachNachtrag] = await db.select().from(schema.betriebe).where(eq(schema.betriebe.id, lead.id));
+  assert.equal(nachNachtrag.status, "kunde");
 
   // Kundenportal: alles abgehakt, beide Stripe-Rechnungen sichtbar, interne Dokumente nie
   const portal = await import("../src/lib/kundenportal");
   const sicht = await portal.portalDaten(lead.id);
   assert.ok(sicht.schritte.every((x) => x.erledigt), JSON.stringify(sicht.schritte.map((x) => [x.titel, x.erledigt])));
   assert.equal(sicht.rechnungen.length, 2);
-  assert.deepEqual(sicht.dokumente.map((d) => d.art).sort(), ["angebot", "protokoll"]);
+  assert.deepEqual(sicht.dokumente.map((d) => d.art).sort(), ["abnahmeprotokoll", "angebot", "auftragsbestaetigung", "protokoll"]);
   const leitfaden = doks.find((d) => d.art === "leitfaden")!;
   assert.equal(await portal.darfDokumentSehen(lead.id, leitfaden.id), false, "interne Dokumente nie sichtbar");
   assert.ok(sicht.website);
@@ -174,7 +200,7 @@ test("Qualitätskontrolle muss vor der Freigabe gelaufen sein", async () => {
   assert.ok(x.hinweise.some((h) => h.includes("garantiert")));
 });
 
-test("Finanz-Agenten: Zahlungserinnerung und Betreuungsrechnung", async () => {
+test("Finanz-Agenten: Mahnstufen und Betreuungsrechnung", async () => {
   const agenten = await import("../src/lib/ablauf/finanzagenten");
   // Weg ohne Stripe: eigene Rechnung, die offen bleibt
   process.env.ZAHLUNGSWEG = "ueberweisung";
@@ -182,12 +208,111 @@ test("Finanz-Agenten: Zahlungserinnerung und Betreuungsrechnung", async () => {
   const [a] = await db.insert(schema.angebote).values({ betriebId: id!, paket: "S", einmalig: 349000, monatlich: 14900, status: "versendet" }).returning();
   await verkauf.unterschriftEingegangen(a.id, "Test");
   delete process.env.ZAHLUNGSWEG;
-  const spaeter = new Date(Date.now() + 20 * 864e5);
-  const r1 = await agenten.zahlungserinnerungen(spaeter);
-  assert.match(r1, /[1-9]\d* Zahlungserinnerungen/);
-  assert.match(await agenten.zahlungserinnerungen(spaeter), /^0 /, "keine doppelte Erinnerung");
+  const [r] = await db.select().from(schema.rechnungen).where(eq(schema.rechnungen.betriebId, id!));
+  assert.ok(r.faelligAm, "Rechnung hat ein Fälligkeitsdatum");
+  const tag = (n: number) => new Date(r.faelligAm!.getTime() + n * 864e5);
+  assert.match(await agenten.zahlungserinnerungen(tag(1)), /^0 /, "vor Ablauf von 3 Tagen nichts");
+  assert.match(await agenten.zahlungserinnerungen(tag(4)), /^1 /);
+  assert.match(await agenten.zahlungserinnerungen(tag(4)), /^0 /, "keine doppelte Erinnerung");
+  const erinnerung = await offeneFreigabe("zahlungserinnerung");
+  await post.qualitaetskontrolle(erinnerung.id);
+  await post.freigeben(erinnerung.id, "Max Steiner");
+  await post.versende(erinnerung.id);
+  const [nach1] = await db.select().from(schema.rechnungen).where(eq(schema.rechnungen.id, r.id));
+  assert.equal(nach1.mahnstufe, 1, "Stufe erst nach Versand hochgezählt");
+  // 1. Mahnung 10 Tage nach der Erinnerung, mit Zinsen und Pauschale
+  const spaeter = new Date(Date.now() + 11 * 864e5);
+  assert.match(await agenten.zahlungserinnerungen(spaeter), /^1 /);
+  const m1 = await offeneFreigabe("mahnung1");
+  assert.match(m1.text, /40,00\s€/);
+  assert.match(m1.text, /10,52 %/);
+  await post.qualitaetskontrolle(m1.id);
+  const [m1qk] = await db.select().from(schema.postausgang).where(eq(schema.postausgang.id, m1.id));
+  assert.ok(!m1qk.hinweise.some((h) => h.includes("steht nicht in den Daten")), m1qk.hinweise.join(" | "));
   const r2 = await agenten.betreuungsrechnungen(new Date(Date.now() + 40 * 864e5));
-  assert.match(r2, /^0 Betreuungsrechnungen/, "Stripe-Abo rechnet selbst ab");
+  assert.match(r2, /^0 Betreuungsrechnungen/, "ohne Livegang keine Betreuungsrechnung");
+});
+
+test("Ohne Stripe: Abnahme durch Fristablauf, Schlussrechnung zieht Anzahlung ab", async () => {
+  process.env.ZAHLUNGSWEG = "ueberweisung";
+  try {
+    const vertrag = await import("../src/lib/ablauf/vertrag");
+    const { id } = await akquise.legeBetriebAn({ name: "Frist GmbH", gewerk: "SHK", score: 60, scoreGrund: "Test", website: "frist.example", email: "chef@frist.example" }, "Test", "Test");
+    const [a] = await db.insert(schema.angebote).values({ betriebId: id!, paket: "S", einmalig: 349000, monatlich: 14900, status: "angezahlt" }).returning();
+    await db.insert(schema.rechnungen).values({ nummer: "2026-9001", lfdNr: 9001, jahr: 2026, betriebId: id!, angebotId: a.id, art: "anzahlung", netto: 174500, status: "bezahlt" });
+    const [p] = await db.insert(schema.projekte).values({ betriebId: id!, angebotId: a.id, paket: "S", portalToken: "frist-token-1234567890", status: "live", liveAm: new Date(), abnahmeStatus: "offen", abnahmeFrist: new Date(Date.now() - 864e5) }).returning();
+    assert.match(await vertrag.abnahmefiktion(), /^1 /);
+    const [nach] = await db.select().from(schema.projekte).where(eq(schema.projekte.id, p.id));
+    assert.equal(nach.abnahmeStatus, "fiktion");
+    const [schluss] = (await db.select().from(schema.rechnungen).where(eq(schema.rechnungen.betriebId, id!))).filter((x) => x.art === "schluss");
+    assert.equal(schluss.netto, 349000 - 174500);
+    const [dok] = (await db.select().from(schema.dokumente).where(eq(schema.dokumente.betriebId, id!))).filter((d) => d.art === "rechnung");
+    const daten = dok.daten as { positionen: { netto: number; text: string }[]; zahlbarBis: string; leistung: string };
+    assert.deepEqual(daten.positionen.map((x) => x.netto), [349000, -174500]);
+    assert.match(daten.positionen[1].text, /2026-9001/);
+    assert.match(daten.zahlbarBis, /^\d\d\.\d\d\.\d{4}$/);
+    assert.match(daten.leistung, /Abnahme/);
+    const { dokumentHtml } = await import("../src/lib/docs/render");
+    assert.match(dokumentHtml(dok), /zahlbar|bis zum/);
+    assert.match(await vertrag.abnahmefiktion(), /^0 /, "nicht doppelt");
+
+    // Kündigung: 12 Monate Mindestlaufzeit ab Betreuungsstart
+    await db.update(schema.projekte).set({ aboAb: new Date("2027-02-10T10:00:00Z") }).where(eq(schema.projekte.id, p.id));
+    const ende = await vertrag.kuendigungErfassen(p.id, "Test", new Date("2027-05-03T10:00:00Z"));
+    assert.equal(ende.toISOString().slice(0, 7), "2028-02");
+    assert.match(await vertrag.vertragsende(new Date("2028-03-01T10:00:00Z")), /^1 /);
+  } finally {
+    delete process.env.ZAHLUNGSWEG;
+  }
+});
+
+test("Anfragen über die Kunden-Website landen im Portal, Demos speichern nichts", async () => {
+  const { id } = await akquise.legeBetriebAn({ name: "Anfrage GmbH", gewerk: "SHK", score: 60, scoreGrund: "Test", website: "anfrage.example" }, "Test", "Test");
+  await db.insert(schema.seiten).values([{ slug: "anfrage-kunde", betriebId: id!, art: "kunde" }, { slug: "anfrage-demo", betriebId: id!, art: "demo", zugangscode: "ABC123" }]);
+  const route = await import("../src/app/vorschau/[slug]/[[...pfad]]/route");
+  const senden = (slug: string, felder: Record<string, string>) => {
+    const f = new FormData();
+    for (const [k, v] of Object.entries(felder)) f.set(k, v);
+    return route.POST(new Request("http://x/vorschau", { method: "POST", body: f }), { params: Promise.resolve({ slug, pfad: ["kontakt"] }) });
+  };
+  const ok = await senden("anfrage-kunde", { name: "Erika Beispiel", telefon: "0721 999", nachricht: "Heizung tropft" });
+  assert.equal(ok.status, 303);
+  await senden("anfrage-kunde", { name: "Bot", telefon: "1", nachricht: "Spam", webseite: "http://spam" });
+  await senden("anfrage-demo", { name: "Demo", telefon: "1", nachricht: "Test in der Demo" });
+  const anfragen = await db.select().from(schema.anfragen).where(eq(schema.anfragen.betriebId, id!));
+  assert.deepEqual(anfragen.map((a) => a.name), ["Erika Beispiel"]);
+  const portal = await import("../src/lib/kundenportal");
+  assert.equal((await portal.portalDaten(id!)).anfragen.length, 1);
+});
+
+test("Datenschutz: Auskunft, Löschung mit und ohne Rechnungen", async () => {
+  const ds = await import("../src/lib/ablauf/datenschutz");
+  const { id } = await akquise.legeBetriebAn({ name: "Lösch GmbH", gewerk: "Maler", score: 60, scoreGrund: "Test", website: "loesch.example", email: "a@loesch.example" }, "Test", "Test");
+  const auskunft = await ds.datenauskunft(id!, "Test");
+  assert.equal(auskunft.stammdaten.name, "Lösch GmbH");
+  assert.ok(auskunft.stammdaten.datenquelle?.includes("loesch.example"), "Datenquelle nach Art. 14 gespeichert");
+  await assert.rejects(() => ds.allesLoeschen(id!, "falsch", "Test"), /Bestätigung/);
+  assert.match(await ds.allesLoeschen(id!, "Lösch GmbH", "Test"), /Alle Daten/);
+  assert.equal((await db.select().from(schema.betriebe).where(eq(schema.betriebe.id, id!))).length, 0);
+  assert.equal((await akquise.legeBetriebAn({ name: "Lösch GmbH", gewerk: "Maler", score: 60, scoreGrund: "Test", website: "loesch.example" }, "Test", "Test")).id, null, "danach auf der Sperrliste");
+
+  const { id: kunde } = await akquise.legeBetriebAn({ name: "Rechnung GmbH", gewerk: "Maler", score: 60, scoreGrund: "Test", website: "rechnung.example", email: "a@rechnung.example" }, "Test", "Test");
+  await db.insert(schema.rechnungen).values({ nummer: "2026-9100", lfdNr: 9100, jahr: 2026, betriebId: kunde!, art: "anzahlung", netto: 1000, status: "bezahlt" });
+  assert.match(await ds.allesLoeschen(kunde!, "Rechnung GmbH", "Test"), /bis auf 1 Rechnungen/);
+  const [rest] = await db.select().from(schema.betriebe).where(eq(schema.betriebe.id, kunde!));
+  assert.equal(rest.status, "gesperrt");
+  assert.equal(rest.email, null);
+});
+
+test("Unterlagen-Register: Status speichern, nur bekannte Werte", async () => {
+  const u = await import("../src/lib/unterlagen");
+  assert.ok(u.UNTERLAGEN.length > 100);
+  const key = u.UNTERLAGEN[0].key;
+  await u.speichern(key, { status: "erledigt", notiz: "vom Anwalt", datei: new File([Buffer.from("pdf")], "agb.pdf") }, "Max Steiner");
+  assert.equal((await u.stand()).get(key)?.status, "erledigt");
+  assert.equal((await u.datei(key))?.name, "agb.pdf");
+  await assert.rejects(() => u.speichern(key, { status: "kaputt", notiz: "", datei: null }, "Max Steiner"), /Status/);
+  await assert.rejects(() => u.speichern("gibt-es-nicht", { status: "offen", notiz: "", datei: null }, "Max Steiner"), /Unbekannte/);
 });
 
 test("Angebot vor Ort: Paket L mit Modulen und Zusatzleistung", async () => {

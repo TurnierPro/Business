@@ -41,6 +41,17 @@ const TEXTE: Record<string, [string, "" | "ok" | "warten" | "fehler"]> = {
   pruefen: ["bitte prüfen", "warten"],
   erfasst: ["erfasst", "ok"],
   nur_lokal: ["nur lokal", "warten"],
+  in_arbeit: ["in Arbeit", "warten"],
+  erledigt: ["erledigt", "ok"],
+  entfaellt: ["entfällt", ""],
+  beendet: ["beendet", ""],
+  abgenommen: ["abgenommen", "ok"],
+  vorbehalt: ["abgenommen mit Mängeln", "warten"],
+  verweigert: ["Abnahme verweigert", "fehler"],
+  fiktion: ["abgenommen (Frist)", "ok"],
+  erinnerung: ["Erinnerung", "warten"],
+  mahnung1: ["1. Mahnung", "warten"],
+  mahnung2: ["letzte Mahnung", "fehler"],
 };
 
 export function Status({ wert }: { wert: string }) {

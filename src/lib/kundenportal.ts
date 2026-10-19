@@ -25,7 +25,7 @@ export async function betriebPerPortal(token: string) {
   return b && b.status !== "gesperrt" ? b : null;
 }
 
-const FUER_KUNDEN = ["angebot", "protokoll", "rechnung"];
+const FUER_KUNDEN = ["angebot", "protokoll", "rechnung", "auftragsbestaetigung", "abnahmeprotokoll", "monatsreport"];
 
 /** Alle Einträge, die an diesen Kunden wirklich verschickt wurden (nach Qualitätskontrolle und Freigabe). */
 async function versendet(betriebId: number) {
@@ -65,8 +65,9 @@ export async function schritte(betriebId: number): Promise<Schritt[]> {
     db.select().from(schema.projekte).where(eq(schema.projekte.betriebId, betriebId)).orderBy(desc(schema.projekte.erstelltAm)),
     versendet(betriebId),
   ]);
-  const a = angebote[0];
   const p = projekte[0];
+  // Fortschritt hängt am Angebot des laufenden Projekts; ein späterer Nachtrag setzt nichts zurück
+  const a = (p && angebote.find((x) => x.id === p.angebotId)) || angebote[0];
   const angebotVersendet = post.find((e) => e.zweck === "angebot");
   const nachBau = p && ["pruefung", "bereit", "live"].includes(p.status);
   return [
@@ -77,19 +78,21 @@ export async function schritte(betriebId: number): Promise<Schritt[]> {
     { titel: "Inhalte geliefert", text: "Texte und Fotos von Ihnen sind da.", erledigt: !!p?.inhalteAm, datum: p?.inhalteAm ?? null },
     { titel: "Website gebaut und geprüft", text: "Ladezeit, Barrierefreiheit, Formulare und Rechtstexte geprüft.", erledigt: !!nachBau, datum: null },
     { titel: "Website live", text: "Ihre Seite ist unter Ihrer Domain erreichbar.", erledigt: !!p?.liveAm, datum: p?.liveAm ?? null },
+    { titel: "Website abgenommen", text: "Sie haben die fertige Seite geprüft und abgenommen.", erledigt: ["abgenommen", "vorbehalt", "fiktion"].includes(p?.abnahmeStatus ?? ""), datum: p?.abnahmeAm ?? null },
     { titel: "Betreuung läuft", text: "Wir kümmern uns um Technik, Sicherheit und Änderungen.", erledigt: !!p?.aboAb, datum: p?.aboAb ?? null },
   ];
 }
 
 export async function portalDaten(betriebId: number) {
   const db = await getDb();
-  const [doks, schr, angebote, projekte, rechnungen, post] = await Promise.all([
+  const [doks, schr, angebote, projekte, rechnungen, post, anfragen] = await Promise.all([
     sichtbareDokumente(betriebId),
     schritte(betriebId),
     db.select().from(schema.angebote).where(eq(schema.angebote.betriebId, betriebId)).orderBy(desc(schema.angebote.erstelltAm)),
     db.select().from(schema.projekte).where(eq(schema.projekte.betriebId, betriebId)).orderBy(desc(schema.projekte.erstelltAm)),
     db.select().from(schema.rechnungen).where(eq(schema.rechnungen.betriebId, betriebId)).orderBy(desc(schema.rechnungen.erstelltAm)),
     versendet(betriebId),
+    db.select().from(schema.anfragen).where(eq(schema.anfragen.betriebId, betriebId)).orderBy(desc(schema.anfragen.am)).limit(50),
   ]);
   const verschickteNummern = new Set(post.map((p) => p.meta.rechnungsnummer).filter(Boolean));
   const angebot = angebote[0];
@@ -105,6 +108,9 @@ export async function portalDaten(betriebId: number) {
     angebotOffen: angebot?.status === "versendet" ? angebot : null,
     anzahlungOffen: angebot?.status === "unterschrieben" && zahlungUeberStripe() ? angebot : null,
     inhalteOffen: projekt?.status === "inhalte" ? projekt : null,
+    // Abnahme erst, wenn die Aufforderung verschickt ist (dann läuft die Frist)
+    abnahmeOffen: projekt?.abnahmeStatus === "offen" && projekt.abnahmeFrist ? projekt : null,
+    anfragen,
     projekt,
     website: seite ? { url: projekt!.domain ? `https://${projekt!.domain}` : `/vorschau/${seite.slug}`, domain: projekt!.domain } : null,
   };

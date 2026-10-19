@@ -59,6 +59,7 @@ export async function leadAnlegen(f: FormData) {
         telefon: text(f, "telefon"),
         email: text(f, "email"),
         website: text(f, "website"),
+        datenquelle: text(f, "datenquelle") || undefined,
         mitarbeiter: f.get("mitarbeiter") ? zahl(f, "mitarbeiter") : undefined,
         score: f.get("score") ? zahl(f, "score") : 50,
         scoreGrund: text(f, "notizen") || "manuell angelegt",
@@ -89,6 +90,7 @@ export async function betriebSpeichern(f: FormData) {
         telefon: text(f, "telefon") || null,
         email: text(f, "email") || null,
         website: text(f, "website") || null,
+        datenquelle: text(f, "datenquelle") || null,
         notizen: text(f, "notizen") || null,
         letzteAktivitaet: new Date(),
       })
@@ -255,5 +257,36 @@ export async function kontostandSpeichern(f: FormData) {
     const db = await getDb();
     await db.insert(schema.kontostaende).values({ monat, betrag, erfasstVon: wer }).onConflictDoUpdate({ target: schema.kontostaende.monat, set: { betrag, erfasstVon: wer, am: new Date() } });
     await protokolliere(wer, `Kontostand ${monat} erfasst`);
+  });
+}
+
+export async function unterlageSpeichern(f: FormData) {
+  const key = text(f, "key");
+  await ausfuehren("/unterlagen", "Unterlage gespeichert", async (wer) => {
+    const { speichern } = await import("@/lib/unterlagen");
+    const d = f.get("datei");
+    await speichern(key, { status: text(f, "status"), notiz: text(f, "notiz"), datei: d instanceof File ? d : null }, wer);
+  });
+}
+
+export async function abnahmeErneut(f: FormData) {
+  const id = zahl(f, "id");
+  await ausfuehren(`/projekte/${id}`, "Bitte um Abnahme liegt im Postausgang", async (wer) => (await import("@/lib/ablauf/vertrag")).abnahmeAnfordern(id, wer));
+}
+
+export async function kuendigungErfassen(f: FormData) {
+  const id = zahl(f, "id");
+  await ausfuehren(`/projekte/${id}`, "Kündigung erfasst, Bestätigung liegt im Postausgang", async (wer) => {
+    const eingang = new Date(`${text(f, "eingang")}T12:00:00`);
+    if (Number.isNaN(eingang.getTime())) throw new Error("Datum fehlt");
+    await (await import("@/lib/ablauf/vertrag")).kuendigungErfassen(id, wer, eingang);
+  });
+}
+
+export async function datenLoeschen(f: FormData) {
+  const id = zahl(f, "id");
+  await ausfuehren(`/leads/${id}`, "Gelöscht", async (wer) => {
+    const ergebnis = await (await import("@/lib/ablauf/datenschutz")).allesLoeschen(id, text(f, "bestaetigung"), wer);
+    return { ziel: "/leads", ok: ergebnis };
   });
 }

@@ -87,3 +87,9 @@ export async function starteAbo(o: { kundeId: string; zahlart: string; monatlich
   });
   return abo.id;
 }
+
+/** Abo zum Vertragsende beenden (nach Kündigung). */
+export async function beendeAbo(aboId: string, endeAm: Date): Promise<void> {
+  if (!stripeEcht() || aboId.startsWith("sim_")) return;
+  await stripe().subscriptions.update(aboId, { cancel_at: Math.floor(endeAm.getTime() / 1000) });
+}

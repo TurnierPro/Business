@@ -15,6 +15,8 @@ export type GefundenerBetrieb = {
   mitarbeiter?: number;
   score: number;
   scoreGrund: string;
+  /** Woher die Daten stammen (Art. 14 DSGVO) */
+  datenquelle?: string;
 };
 
 // Erfundene Testbetriebe für den Simulator. Keine echten Firmen, keine echten Personen.

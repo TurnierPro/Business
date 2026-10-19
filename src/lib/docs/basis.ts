@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { marke } from "../marke";
 import { logoSvg } from "./logo";
+import { pflichtangaben } from "../recht";
 
 // Gemeinsamer Rahmen für alle gedruckten Dokumente: helles Thema, A4, Marken-Schriften eingebettet.
 
@@ -72,7 +73,9 @@ export function kopf(): string {
 
 export function fuss(): string {
   const a = marke.absender;
-  return `<div class="fuss"><div>${esc(a.firma)}<br>${esc(a.strasse)}, ${esc(a.ort)}</div><div>Tel. ${esc(a.telefon)}<br>${esc(a.email)} · ${esc(a.web)}</div><div>Geschäftsführer: ${esc(a.geschaeftsfuehrer)}<br>IBAN ${esc(a.iban)}</div></div>`;
+  const p = pflichtangaben();
+  // Pflichtangaben nach § 35a GmbHG: Rechtsform, Sitz, Registergericht, Nummer, alle Geschäftsführer
+  return `<div class="fuss"><div>${esc(p.firma)}<br>${esc(a.strasse)}, ${esc(a.ort)}<br>${esc(p.register)}</div><div>Tel. ${esc(a.telefon)}<br>${esc(a.email)} · ${esc(a.web)}<br>USt-IdNr. ${esc(a.ustId)}</div><div>${esc(p.gf)}<br>IBAN ${esc(a.iban)}</div></div>`;
 }
 
 export type Anschrift = { name: string; anrede?: string | null; inhaber?: string | null; strasse?: string | null; plz?: string | null; ort?: string | null };

@@ -6,6 +6,7 @@ import { Status } from "@/components/Status";
 import { datumZeit, ZWECK } from "@/lib/format";
 import { beispieleErlaubt } from "@/lib/beispiele";
 import { beispieleLaden } from "./aktionen";
+import { ETAPPEN, FRISTEN, stand, UNTERLAGEN } from "@/lib/unterlagen";
 
 export const metadata = { title: "Heute" };
 
@@ -30,6 +31,13 @@ export default async function Heute() {
   const [{ n: anzahlBetriebe }] = await db.select({ n: sql<number>`count(*)::int` }).from(schema.betriebe);
   const [{ n: laedt }] = await db.select({ n: sql<number>`count(*)::int` }).from(schema.jobs).where(and(eq(schema.jobs.art, "beispieldaten"), inArray(schema.jobs.status, ["wartet", "laeuft"])));
 
+  // Unterlagen: nächste Etappe mit offenen Punkten und nächste Frist
+  const unterlagenStand = await stand();
+  const heute = jetzt.toISOString().slice(0, 10);
+  const etappe = ETAPPEN.filter((e) => e.nr > 0).find((e) => UNTERLAGEN.some((u) => u.etappe === e.nr && !["erledigt", "entfaellt"].includes(unterlagenStand.get(u.key)?.status ?? "offen")));
+  const offenInEtappe = etappe ? UNTERLAGEN.filter((u) => u.etappe === etappe.nr && !["erledigt", "entfaellt"].includes(unterlagenStand.get(u.key)?.status ?? "offen")).length : 0;
+  const frist = FRISTEN.find((f) => f.datum >= heute);
+
   return (
     <>
       <div className="kopfzeile">
@@ -47,6 +55,12 @@ export default async function Heute() {
           <p className="leise">Lade 16 erfundene Betriebe in allen Phasen: vom neuen Lead über Brief, Termin und Angebot bis zur Website, die live ist. Unter System kannst du sie jederzeit wieder entfernen.</p>
           <form action={beispieleLaden}><button className="knopf haupt">Beispieldaten laden</button></form>
         </section>
+      ) : null}
+
+      {etappe ? (
+        <Link href={`/unterlagen?etappe=${etappe.nr}`} className="hinweis" style={{ display: "block", marginBottom: 16 }}>
+          Unterlagen: <strong>{offenInEtappe} offen</strong> in „{etappe.name}“ (bis {new Date(etappe.bis).toLocaleDateString("de-DE")}){frist ? <> · nächste Frist {new Date(frist.datum).toLocaleDateString("de-DE")}: {frist.was}</> : null}
+        </Link>
       ) : null}
 
       <div className="raster vier">

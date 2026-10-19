@@ -23,6 +23,9 @@ export const HANDLER: Record<string, Handler> = {
   steuerberater: async () => (await import("../ablauf/finanzagenten")).steuerberaterBericht(),
   beleg: async (d) => (await import("../finanzen")).belegLesen(Number(d.ausgabeId)),
   beispieldaten: async () => (await import("../beispiele")).beispieleLaden(),
+  abnahmefiktion: async () => (await import("../ablauf/vertrag")).abnahmefiktion(),
+  vertragsende: async () => (await import("../ablauf/vertrag")).vertragsende(),
+  monatsreports: async () => (await import("../ablauf/berichte")).monatsreports(),
 };
 
 export const JOB_NAMEN: Record<string, string> = {
@@ -43,4 +46,7 @@ export const JOB_NAMEN: Record<string, string> = {
   steuerberater: "Bericht an Steuerberater",
   beleg: "Beleg auslesen",
   beispieldaten: "Beispieldaten laden",
+  abnahmefiktion: "Abnahme nach Fristablauf",
+  vertragsende: "Vertragsende",
+  monatsreports: "Monatsreports",
 };

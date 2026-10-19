@@ -10,6 +10,7 @@ import { pruefeText, schreibe, jsonAus } from "../adapters/ki";
 import { pruefeSeite } from "../sites/qualitaet";
 import { sperrSchluessel } from "./gemeinsam";
 import { nachVersand } from "./folgen";
+import { mailSignatur } from "../recht";
 
 // Der Postausgang ist die einzige Tür nach draußen.
 // Regel 1: Versendet wird nur, was den Status „freigegeben“ hat und genug Freigaben trägt.
@@ -199,7 +200,8 @@ export async function versende(id: number): Promise<string> {
   } else if (e.kanal === "mail") {
     // Genau die versendeten PDFs werden eingefroren und liegen danach unverändert im Kundenportal
     const anhaenge = await Promise.all(doks.map(async (d) => ({ name: `${d.titel}.pdf`, inhalt: await archivieren(d) })));
-    ergebnis = await sendeMail({ an: e.empfaenger, betreff: e.betreff, text: e.text, anhaenge });
+    // Pflichtangaben nach § 35a GmbHG hängen an jeder Mail
+    ergebnis = await sendeMail({ an: e.empfaenger, betreff: e.betreff, text: e.text + mailSignatur(), anhaenge });
   } else if (e.kanal === "zahlung") {
     const { fuehreZahlungAus } = await import("./zahlung");
     ergebnis = await fuehreZahlungAus(e);

@@ -11,11 +11,17 @@ Das Betriebssystem von Stelax Consulting: Leads finden, Briefe, Online-Check und
 | 3 | Online-Check, Demo-Website, Gesprächsleitfaden, Akquise-Brief | alles | – |
 | 4 | Brief an den Betrieb | Druck und Versand | **Brief freigeben** |
 | 5 | Besuch vor Ort, Aufnahme am Handy (nur mit Einwilligung) | Abschrift, Protokoll, Maßnahmenplan, Angebot, Mail | **Angebot freigeben** |
-| 6 | Kunde nimmt online an | Rechnung über 50 % | **Rechnung freigeben** (über 10.000 €: beide) |
+| 6 | Kunde nimmt online an (Name, Unternehmer-Bestätigung, AGB-Version) | Auftragsbestätigung, Anzahlung (Stripe oder Rechnung über 50 %) | **Auftragsbestätigung und Rechnung freigeben** (über 10.000 €: beide) |
 | 7 | Zahlung kommt | Projekt, Start-Mail mit Portal-Link | **Start-Mail freigeben** |
-| 8 | Kunde lädt Texte und Fotos hoch | Seite bauen, 10 Qualitätsprüfungen | – |
-| 9 | Livegang | Schlussrechnung, Betreuung startet | **Livegang freigeben** |
-| 10 | Überwachung | Erreichbarkeit, Backups, Probe-Rücksicherung, Tagesbericht | – |
+| 8 | Kunde lädt Texte, Fotos und BFSG-Angaben hoch | Seite bauen, 10 Qualitätsprüfungen, BFSG-Hinweis | – |
+| 9 | Livegang | Betreuung startet, Bitte um Abnahme (14 Tage Frist) | **Livegang und Bitte um Abnahme freigeben** |
+| 10 | Abnahme im Portal (oder Frist abgelaufen) | Abnahmeprotokoll, Schlusszahlung bzw. Schlussrechnung minus Anzahlung | **Protokoll und Schlusszahlung freigeben** |
+| 11 | Laufende Betreuung | Monatsreport, Mahnstufen, Kündigung und Vertragsende | **jede Mail freigeben** |
+| 12 | Überwachung | Erreichbarkeit, Backups, Probe-Rücksicherung, Löschfristen, Tagesbericht | – |
+
+## Unterlagen und Pflichten
+
+Unter **Unterlagen** stehen alle 125 Punkte aus dem Bericht „Dokumente für die Stelax GmbH“ (`docs/unterlagen-bericht.md`), nach Etappen bis zum 30.11.2028, mit Status, Notiz und abgelegter Datei, dazu Fristen und offene Entscheidungen. Rechtliche Festwerte (AGB-Version, Basiszins, Abnahmefrist, Zahlungsziel) stehen an einer Stelle: `src/lib/recht.ts`. Pflichtangaben nach § 35a GmbHG kommen aus `brand/tokens.json` und stehen in jeder Fußzeile und jeder Mail-Signatur. Beim Betrieb: Datenauskunft (Art. 15) und Löschung (Art. 17; Rechnungen und Vertragsunterlagen bleiben). Unter System: Entwurf des Verzeichnisses als Auftragsverarbeiter. Keine Rechtsberatung: Texte und Werte prüfen Anwalt und Steuerberater.
 
 ## Finanzen
 
@@ -25,7 +31,7 @@ Unter **Finanzen**: Umsatz, Ausgaben, Ergebnis, offene Forderungen, Umsatzsteuer
 
 Beim Betrieb **„Angebot erstellen“**: Paket, Entlastungs-Module und Zusatzleistungen gemeinsam mit dem Kunden auswählen, der Preis rechnet live mit (Paket L: 3 Module inklusive; Modul 2 günstiger mit Modul 1; Hinweis, wenn ein Modul einen Prozess-Check braucht). Danach Qualitätskontrolle und eure Freigabe, dann geht das Angebot an den Kunden.
 
-Der Kunde nimmt im Portal an und landet direkt bei **Stripe** für die Anzahlung (Karte oder SEPA). Stripe schickt die Rechnung und speichert die Zahlungsart. Beim Livegang kommen **Schlusszahlung** und **Start der Betreuung** als eigene Einträge in die Freigabe; erst nach eurem Klick zieht Stripe ein. Es gibt keine doppelten Rechnungen: Mit Stripe erstellt Stelax OS keine eigenen Rechnungen (umschaltbar mit `ZAHLUNGSWEG=ueberweisung`).
+Der Kunde nimmt im Portal an und landet direkt bei **Stripe** für die Anzahlung (Karte oder SEPA). Stripe schickt die Rechnung und speichert die Zahlungsart. Beim Livegang kommt der **Start der Betreuung**, nach der Abnahme die **Schlusszahlung** als eigener Eintrag in die Freigabe; erst nach eurem Klick zieht Stripe ein. Es gibt keine doppelten Rechnungen: Mit Stripe erstellt Stelax OS keine eigenen Rechnungen (umschaltbar mit `ZAHLUNGSWEG=ueberweisung`).
 
 Vor dem Echtbetrieb mit dem Steuerberater klären: Rechnungsangaben in Stripe (Steuernummer, Anschrift, Leistungsdatum) und E-Rechnungspflicht ab 2027/2028.
 
@@ -102,6 +108,8 @@ tests/            Ablauf-Test
 ## Offene Punkte
 
 - Zwei-Faktor-Anmeldung vor dem ersten echten Kunden
+- Workflow-Analyse mit offenen Entscheidungen: [`docs/workflow-analyse.md`](docs/workflow-analyse.md)
+- HRB-Nummer nach Eintragung in `brand/tokens.json` (`hrb`), Vornamen der Geschäftsführer prüfen
 - Lighthouse und axe-core in die Qualitätsprüfung (Modul 8/11)
 - Echte Adapter für Briefdienst, Docuseal, Stripe, lexoffice (Simulatoren laufen)
 - Masterprompt aus `04_Lead-Flow_Masterprompt.md` in `brand/research-prompt.md` übernehmen

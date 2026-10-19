@@ -36,6 +36,8 @@ export const betriebe = pgTable("betriebe", {
   score: integer("score"),
   scoreGrund: text("score_grund"),
   quelle: text("quelle").notNull().default("manuell"),
+  // Woher genau die Daten stammen (Art. 14 DSGVO), z. B. „Impressum https://…, abgerufen 19.10.2026“
+  datenquelle: text("datenquelle"),
   status: text("status").notNull().default("neu"),
   notizen: text("notizen"),
   besuchAb: timestamp("besuch_ab", { withTimezone: true }),
@@ -119,6 +121,8 @@ export const angebote = pgTable("angebote", {
   positionen: jsonb("positionen").$type<{ text: string; einmalig: number; monatlich: number; hinweis?: string }[]>().notNull().default([]),
   status: text("status").notNull().default("entwurf"), // entwurf | versendet | unterschrieben | angezahlt | abgeschlossen
   unterschriebenAm: timestamp("unterschrieben_am", { withTimezone: true }),
+  // Nachweis der Annahme im Kundenportal: wer, wann, welche AGB, Unternehmer bestätigt
+  annahme: jsonb("annahme").$type<{ name: string; am: string; agbVersion: string; unternehmer: boolean }>(),
   angezahltAm: timestamp("angezahlt_am", { withTimezone: true }),
   erstelltAm: timestamp("erstellt_am", { withTimezone: true }).defaultNow().notNull(),
 });
@@ -135,6 +139,10 @@ export const rechnungen = pgTable(
     art: text("art").notNull(), // anzahlung | schluss
     netto: integer("netto").notNull(),
     status: text("status").notNull().default("offen"),
+    faelligAm: timestamp("faellig_am", { withTimezone: true }),
+    // Mahnwesen: 0 = keine, 1 = Erinnerung, 2 = 1. Mahnung, 3 = letzte Mahnung
+    mahnstufe: integer("mahnstufe").notNull().default(0),
+    gemahntAm: timestamp("gemahnt_am", { withTimezone: true }),
     bezahltAm: timestamp("bezahlt_am", { withTimezone: true }),
     // eigen = von Stelax OS erstellt, stripe = von Stripe erstellt und verschickt
     quelle: text("quelle").notNull().default("eigen"),
@@ -150,7 +158,7 @@ export const projekte = pgTable("projekte", {
   betriebId: integer("betrieb_id").notNull().references(() => betriebe.id, { onDelete: "cascade" }),
   angebotId: integer("angebot_id").references(() => angebote.id),
   paket: text("paket").notNull(),
-  status: text("status").notNull().default("inhalte"), // inhalte | bau | pruefung | bereit | live
+  status: text("status").notNull().default("inhalte"), // inhalte | bau | pruefung | bereit | live | gekuendigt
   portalToken: text("portal_token").notNull(),
   inhalte: jsonb("inhalte").$type<Record<string, unknown>>().notNull().default({}),
   seitenSlug: text("seiten_slug"),
@@ -159,6 +167,16 @@ export const projekte = pgTable("projekte", {
   inhalteAm: timestamp("inhalte_am", { withTimezone: true }),
   liveAm: timestamp("live_am", { withTimezone: true }),
   aboAb: timestamp("abo_ab", { withTimezone: true }),
+  // Abnahme nach dem Livegang (§ 640 BGB): offen | abgenommen | vorbehalt | verweigert | fiktion
+  abnahmeStatus: text("abnahme_status"),
+  abnahmeFrist: timestamp("abnahme_frist", { withTimezone: true }),
+  abnahmeAm: timestamp("abnahme_am", { withTimezone: true }),
+  abnahmeName: text("abnahme_name"),
+  abnahmeMaengel: text("abnahme_maengel"),
+  // Angaben aus dem Onboarding (u. a. für die Frage, ob das BFSG greift)
+  onboarding: jsonb("onboarding").$type<Record<string, string>>().notNull().default({}),
+  gekuendigtAm: timestamp("gekuendigt_am", { withTimezone: true }),
+  endeAm: timestamp("ende_am", { withTimezone: true }),
   stripeAboId: text("stripe_abo_id"),
   erstelltAm: timestamp("erstellt_am", { withTimezone: true }).defaultNow().notNull(),
 });
@@ -257,5 +275,28 @@ export const kontostaende = pgTable("kontostaende", {
   monat: text("monat").primaryKey(), // JJJJ-MM
   betrag: integer("betrag").notNull(),
   erfasstVon: text("erfasst_von").notNull(),
+  am: timestamp("am", { withTimezone: true }).defaultNow().notNull(),
+});
+
+// Unterlagen-Register: Stand je Unterlage aus dem Bericht „Dokumente für die Stelax GmbH“
+export const unterlagen = pgTable("unterlagen", {
+  key: text("key").primaryKey(),
+  status: text("status").notNull().default("offen"), // offen | in_arbeit | erledigt | entfaellt
+  notiz: text("notiz"),
+  dateiPfad: text("datei_pfad"),
+  dateiName: text("datei_name"),
+  geaendertVon: text("geaendert_von"),
+  geaendertAm: timestamp("geaendert_am", { withTimezone: true }),
+});
+
+// Anfragen über das Formular auf Kunden-Websites. Sichtbar im Kundenportal, Grundlage für den Monatsreport.
+export const anfragen = pgTable("anfragen", {
+  id: serial("id").primaryKey(),
+  betriebId: integer("betrieb_id").notNull().references(() => betriebe.id, { onDelete: "cascade" }),
+  seitenSlug: text("seiten_slug").notNull(),
+  name: text("name").notNull(),
+  kontakt: text("kontakt").notNull(),
+  nachricht: text("nachricht").notNull(),
+  dateien: jsonb("dateien").$type<string[]>().notNull().default([]),
   am: timestamp("am", { withTimezone: true }).defaultNow().notNull(),
 });

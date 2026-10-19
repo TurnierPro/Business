@@ -13,6 +13,7 @@ import { berechne, type Auswahl } from "../katalog";
 import { zahlungUeberStripe, type StripeRechnung } from "../adapters/stripe";
 import { datumDe } from "../docs/basis";
 import { PAKETE, PaketKey, euro, UST } from "../pakete";
+import { AGB_VERSION, ZAHLUNGSZIEL_TAGE } from "../recht";
 import type { ProtokollDaten } from "../docs/vorlagen";
 import { inPostausgang } from "./postausgang";
 import { anschrift, basisUrl, betrieb, neuesDokument, setzeStatus, SYSTEM } from "./gemeinsam";
@@ -115,7 +116,7 @@ export async function erstelleAngebot(o: { betriebId: number; auswahl: Auswahl; 
     betriebId: b.id,
     art: "angebot",
     titel: `Angebot ${nummer}`,
-    daten: { an, nummer, datum: datumDe(), paket: o.auswahl.paket, einleitung, einmalig: r.einmalig, monatlich: r.monatlich, positionen: r.positionen, zahlweg: zahlungUeberStripe() ? "stripe" : "ueberweisung" },
+    daten: { an, nummer, datum: datumDe(), paket: o.auswahl.paket, einleitung, einmalig: r.einmalig, monatlich: r.monatlich, positionen: r.positionen, zahlweg: zahlungUeberStripe() ? "stripe" : "ueberweisung", agbVersion: AGB_VERSION },
   });
   const anrede = an.inhaber ? (an.anrede === "Frau" ? `Sehr geehrte Frau ${an.inhaber.split(" ").slice(-1)[0]},` : `Sehr geehrter Herr ${an.inhaber.split(" ").slice(-1)[0]},`) : "Guten Tag,";
   const zahlen = zahlungUeberStripe() ? " Nach der Annahme können Sie die Anzahlung direkt online bezahlen." : "";
@@ -131,7 +132,8 @@ export async function erstelleAngebot(o: { betriebId: number; auswahl: Auswahl; 
     hinweise: [...(b.email ? [] : ["E-Mail-Adresse fehlt. Beim Betrieb ergänzen und Empfänger anpassen."]), ...r.hinweise],
     meta: { ...(o.meta ?? {}), angebotId: angebot.id },
   });
-  await setzeStatus(b.id, "angebot");
+  // Bestandskunden (Nachtrag, weiteres Modul) bleiben Kunden
+  if (b.status !== "kunde") await setzeStatus(b.id, "angebot");
   await protokolliere(o.wer, `Angebot ${nummer} erstellt (${euro(r.einmalig)} + ${euro(r.monatlich)}/Monat)`, b.id);
   return { angebotId: angebot.id, nummer, eintragId };
 }
@@ -143,7 +145,23 @@ export async function naechsteRechnungsnummer(jahr = new Date().getFullYear()): 
   return { nummer: `${jahr}-${String(lfdNr).padStart(4, "0")}`, lfdNr, jahr };
 }
 
-export async function erstelleRechnung(o: { betriebId: number; angebotId: number; art: "anzahlung" | "schluss" | "betreuung"; netto: number; positionstext: string; projektId?: number }): Promise<number> {
+export async function erstelleRechnung(o: {
+  betriebId: number;
+  angebotId: number;
+  art: "anzahlung" | "schluss" | "betreuung";
+  netto: number;
+  positionstext: string;
+  projektId?: number;
+  /** Eigene Positionen, z. B. Gesamtleistung minus Anzahlung. Summe muss netto ergeben. */
+  positionen?: { text: string; netto: number }[];
+  /** Leistungszeitpunkt oder -zeitraum */
+  leistung?: string;
+  anhaenge?: number[];
+}): Promise<number> {
+  const positionen = o.positionen ?? [{ text: o.positionstext, netto: o.netto }];
+  if (positionen.reduce((x, p) => x + p.netto, 0) !== o.netto) throw new Error("Rechnungspositionen ergeben nicht den Rechnungsbetrag.");
+  // Zahlungsziel als Kalenderdatum: dann tritt Verzug ohne Mahnung ein (§ 286 BGB)
+  const faellig = new Date(Date.now() + ZAHLUNGSZIEL_TAGE * 864e5);
   const db = await getDb();
   const b = await betrieb(o.betriebId);
   // Die eindeutige Rechnungsnummer verhindert Doppelte; bei Kollision nochmal versuchen.
@@ -151,7 +169,7 @@ export async function erstelleRechnung(o: { betriebId: number; angebotId: number
   for (let versuch = 0; versuch < 5 && !n; versuch++) {
     const kandidat = await naechsteRechnungsnummer();
     try {
-      await db.insert(schema.rechnungen).values({ nummer: kandidat.nummer, lfdNr: kandidat.lfdNr, jahr: kandidat.jahr, betriebId: o.betriebId, angebotId: o.angebotId, art: o.art, netto: o.netto });
+      await db.insert(schema.rechnungen).values({ nummer: kandidat.nummer, lfdNr: kandidat.lfdNr, jahr: kandidat.jahr, betriebId: o.betriebId, angebotId: o.angebotId, art: o.art, netto: o.netto, faelligAm: faellig });
       n = kandidat;
     } catch (e) {
       if (versuch === 4) throw e;
@@ -163,7 +181,7 @@ export async function erstelleRechnung(o: { betriebId: number; angebotId: number
     projektId: o.projektId,
     art: "rechnung",
     titel: `Rechnung ${n.nummer}`,
-    daten: { an: anschrift(b), nummer: n.nummer, datum: datumDe(), art: o.art, positionen: [{ text: o.positionstext, netto: o.netto }], zahlungszielTage: 14 },
+    daten: { an: anschrift(b), nummer: n.nummer, datum: datumDe(), art: o.art, positionen, zahlungszielTage: ZAHLUNGSZIEL_TAGE, zahlbarBis: datumDe(faellig), leistung: o.leistung },
   });
   const brutto = Math.round(o.netto * (1 + UST));
   await inPostausgang({
@@ -173,27 +191,54 @@ export async function erstelleRechnung(o: { betriebId: number; angebotId: number
     zweck: o.art === "anzahlung" ? "rechnung" : o.art === "schluss" ? "schlussrechnung" : "betreuungsrechnung",
     empfaenger: b.email ?? "(E-Mail-Adresse fehlt)",
     betreff: `Rechnung ${n.nummer} von Stelax`,
-    text: `Guten Tag,\n\nim Anhang finden Sie die Rechnung ${n.nummer} über ${euro(brutto)} (brutto). Bitte überweisen Sie den Betrag innerhalb von 14 Tagen.\n\n${o.art === "anzahlung" ? "Nach Zahlungseingang schicken wir Ihnen den Zugang zum Kundenportal für Texte und Fotos." : o.art === "schluss" ? "Vielen Dank für die Zusammenarbeit. Ab jetzt läuft die Betreuung." : "Der Betrag wird wie vereinbart per SEPA-Lastschrift eingezogen."}\n\nMit freundlichen Grüßen\nMax Steiner\nStelax Consulting`,
-    anhaenge: [dokId],
+    text: `Guten Tag,\n\nim Anhang finden Sie die Rechnung ${n.nummer} über ${euro(brutto)} (brutto). ${o.art === "betreuung" ? "" : `Bitte überweisen Sie den Betrag bis zum ${datumDe(faellig)}.`}\n\n${o.art === "anzahlung" ? "Nach Zahlungseingang schicken wir Ihnen den Zugang zum Kundenportal für Texte und Fotos." : o.art === "schluss" ? "Vielen Dank für die Zusammenarbeit. Ab jetzt läuft die Betreuung." : "Der Betrag wird wie vereinbart per SEPA-Lastschrift eingezogen."}\n\nMit freundlichen Grüßen\nMax Steiner\nStelax Consulting`,
+    anhaenge: [...(o.anhaenge ?? []), dokId],
     // Regel aus dem Business Case: Rechnungen über 10.000 € brauchen zwei Freigaben.
     noetigeFreigaben: brutto > 1_000_000 ? 2 : 1,
-    erlaubteZahlen: [euro(brutto), euro(o.netto)],
+    erlaubteZahlen: [euro(brutto), euro(o.netto), ...positionen.map((p) => euro(Math.abs(p.netto)))],
     meta: { angebotId: o.angebotId, rechnungsnummer: n.nummer },
   });
   return dokId;
 }
 
-export async function unterschriftEingegangen(angebotId: number, wer: string): Promise<void> {
+export type Annahme = { name: string; am: string; agbVersion: string; unternehmer: boolean };
+
+/** Angebot ist angenommen: Nachweis speichern, Auftragsbestätigung vorbereiten, ohne Stripe auch die Anzahlungsrechnung. */
+export async function unterschriftEingegangen(angebotId: number, wer: string, annahme?: Annahme): Promise<void> {
   const db = await getDb();
   const [a] = await db.select().from(schema.angebote).where(eq(schema.angebote.id, angebotId));
   if (!a) throw new Error("Angebot nicht gefunden");
   if (a.status !== "versendet") throw new Error(`Angebot hat Status „${a.status}“. Unterschrift ist erst nach Versand möglich.`);
-  await db.update(schema.angebote).set({ status: "unterschrieben", unterschriebenAm: new Date() }).where(eq(schema.angebote.id, angebotId));
+  const nachweis = annahme ?? { name: wer, am: new Date().toISOString(), agbVersion: AGB_VERSION, unternehmer: false };
+  await db.update(schema.angebote).set({ status: "unterschrieben", unterschriebenAm: new Date(), annahme: nachweis }).where(eq(schema.angebote.id, angebotId));
   await setzeStatus(a.betriebId, "kunde");
-  await protokolliere(wer, `Angebot unterschrieben (${PAKETE[a.paket as PaketKey].name})`, a.betriebId);
+  await protokolliere(wer, `Angebot angenommen (${PAKETE[a.paket as PaketKey].name}, AGB ${nachweis.agbVersion}${nachweis.unternehmer ? ", Unternehmer bestätigt" : ""})`, a.betriebId);
+
+  const b = await betrieb(a.betriebId);
+  const nummer = `AB-${a.erstelltAm.getFullYear()}-${String(a.id).padStart(4, "0")}`;
+  const angebotNummer = `A-${a.erstelltAm.getFullYear()}-${String(a.id).padStart(4, "0")}`;
+  const positionen = a.positionen.length ? a.positionen : [{ text: PAKETE[a.paket as PaketKey].name, einmalig: a.einmalig, monatlich: a.monatlich }];
+  const dokId = await neuesDokument({
+    betriebId: b.id,
+    art: "auftragsbestaetigung",
+    titel: `Auftragsbestätigung ${nummer}`,
+    daten: { an: anschrift(b), nummer, angebotNummer, datum: datumDe(), paket: a.paket, positionen, einmalig: a.einmalig, monatlich: a.monatlich, annahme: nachweis, zahlweg: zahlungUeberStripe() ? "stripe" : "ueberweisung" },
+  });
+  await inPostausgang({
+    betriebId: b.id,
+    kanal: "mail",
+    zweck: "auftragsbestaetigung",
+    empfaenger: b.email ?? "(E-Mail-Adresse fehlt)",
+    betreff: `Auftragsbestätigung ${nummer}`,
+    text: `Guten Tag,\n\nvielen Dank für Ihren Auftrag. Im Anhang finden Sie die Auftragsbestätigung zu unserem Angebot ${angebotNummer}. Sie liegt auch in Ihrem Kundenportal:\n${await portalLink(b.id)}\n\n${zahlungUeberStripe() ? "Die Anzahlung können Sie dort direkt online bezahlen, falls noch nicht geschehen." : "Die Rechnung über die Anzahlung kommt in einer eigenen E-Mail."} Danach geht es los.\n\nMit freundlichen Grüßen\nDaniel Lück\nStelax Consulting`,
+    anhaenge: [dokId],
+    erlaubteZahlen: [euro(a.einmalig), euro(a.monatlich), ...positionen.flatMap((x) => [euro(x.einmalig), euro(x.monatlich)])],
+    hinweise: nachweis.unternehmer ? [] : ["Annahme ohne Unternehmer-Bestätigung (intern erfasst). Bitte mit dem Kunden klären."],
+    meta: { angebotId },
+  });
   // Mit Stripe zahlt der Kunde direkt im Portal, Stripe schickt die Rechnung. Sonst eigene Rechnung.
   if (zahlungUeberStripe()) return;
-  await erstelleRechnung({ betriebId: a.betriebId, angebotId, art: "anzahlung", netto: Math.round(a.einmalig / 2), positionstext: `Anzahlung 50 % ${PAKETE[a.paket as PaketKey].name}` });
+  await erstelleRechnung({ betriebId: a.betriebId, angebotId, art: "anzahlung", netto: Math.round(a.einmalig / 2), positionstext: `Anzahlung 50 % ${PAKETE[a.paket as PaketKey].name} laut Angebot ${angebotNummer}` });
 }
 
 export type StripeZahlung = { kundeId: string | null; zahlart: string | null; rechnung: StripeRechnung | null };

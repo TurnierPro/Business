@@ -8,6 +8,7 @@ import { getDb, eingebauteDb, schema } from "../db";
 import { datenOrdner } from "../pfade";
 import { melde } from "../adapters/push";
 import { protokolliere } from "../protokoll";
+import { ANGEBOT_LOESCHEN_TAGE } from "../recht";
 import { loescheSeite } from "../sites/generator";
 import { SYSTEM } from "./gemeinsam";
 
@@ -111,8 +112,21 @@ export async function aufraeumen(): Promise<string> {
     .delete(schema.betriebe)
     .where(and(inArray(schema.betriebe.status, ["neu", "interessant", "nicht_interessant", "angeschrieben"]), lt(schema.betriebe.letzteAktivitaet, grenze)))
     .returning({ id: schema.betriebe.id });
-  if (alt.length || leads.length) await protokolliere(SYSTEM, "Aufgeräumt", null, `${alt.length} Demos und ${leads.length} Leads gelöscht`);
-  return `${alt.length} Demos, ${leads.length} Leads gelöscht`;
+  // Angebote ohne Auftrag nach einem Jahr löschen (Löschkonzept). Nur ohne Rechnungen.
+  const jahr = new Date(Date.now() - ANGEBOT_LOESCHEN_TAGE * 864e5);
+  const ohneAuftrag = await db.select({ id: schema.betriebe.id }).from(schema.betriebe).where(and(eq(schema.betriebe.status, "angebot"), lt(schema.betriebe.letzteAktivitaet, jahr)));
+  let angebote = 0;
+  for (const { id } of ohneAuftrag) {
+    const [r] = await db.select({ id: schema.rechnungen.id }).from(schema.rechnungen).where(eq(schema.rechnungen.betriebId, id)).limit(1);
+    if (r) continue;
+    for (const s of await db.select().from(schema.seiten).where(eq(schema.seiten.betriebId, id))) loescheSeite(s.slug);
+    await db.delete(schema.betriebe).where(eq(schema.betriebe.id, id));
+    angebote++;
+  }
+  // Anfragen über Kunden-Websites nach 12 Monaten löschen (Annahme, im AVV festlegen)
+  const anfragen = await db.delete(schema.anfragen).where(lt(schema.anfragen.am, jahr)).returning({ id: schema.anfragen.id });
+  if (alt.length || leads.length || angebote || anfragen.length) await protokolliere(SYSTEM, "Aufgeräumt", null, `${alt.length} Demos, ${leads.length} Leads, ${angebote} Angebote ohne Auftrag, ${anfragen.length} alte Anfragen gelöscht`);
+  return `${alt.length} Demos, ${leads.length} Leads, ${angebote} Angebote, ${anfragen.length} Anfragen gelöscht`;
 }
 
 export async function tagesbericht(): Promise<string> {
