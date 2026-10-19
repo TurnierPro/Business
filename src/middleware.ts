@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 
 // Schneller Vorabcheck: ohne Sitzungs-Cookie direkt zur Anmeldung.
 // Die echte Prüfung der Signatur passiert serverseitig in jeder geschützten Seite.
-const OFFEN = ["/login", "/vorschau", "/portal", "/api/gesundheit", "/_next", "/favicon"];
+const OFFEN = ["/login", "/vorschau", "/portal", "/api/gesundheit", "/api/stripe", "/_next", "/favicon"];
 
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;

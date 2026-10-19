@@ -8,7 +8,8 @@ import { datenOrdner } from "../pfade";
 import { schreibeSeite, standardInhalt, SeitenInhalt } from "../sites/generator";
 import { pruefeSeite } from "../sites/qualitaet";
 import { schreibe, jsonAus } from "../adapters/ki";
-import { PAKETE, PaketKey } from "../pakete";
+import { PAKETE, PaketKey, euro, UST } from "../pakete";
+import { zahlungUeberStripe } from "../adapters/stripe";
 import { inPostausgang } from "./postausgang";
 import { betrieb, slugAus, zufallsCode, SYSTEM } from "./gemeinsam";
 import { erstelleRechnung } from "./verkauf";
@@ -130,7 +131,37 @@ export async function livegangDurchfuehren(projektId: number): Promise<void> {
     const [a] = await db.select().from(schema.angebote).where(eq(schema.angebote.id, p.angebotId));
     if (a) {
       await db.update(schema.angebote).set({ status: "abgeschlossen" }).where(eq(schema.angebote.id, a.id));
-      await erstelleRechnung({ betriebId: p.betriebId, angebotId: a.id, projektId, art: "schluss", netto: a.einmalig - Math.round(a.einmalig / 2), positionstext: `Schlusszahlung 50 % ${PAKETE[a.paket as PaketKey].name}` });
+      const name = PAKETE[a.paket as PaketKey].name;
+      const rest = a.einmalig - Math.round(a.einmalig / 2);
+      if (zahlungUeberStripe()) {
+        // Geld bewegt sich nur nach Freigabe: Schlusszahlung und Abo-Start kommen in den Postausgang.
+        const b = await betrieb(p.betriebId);
+        const brutto = Math.round(rest * (1 + UST));
+        await inPostausgang({
+          betriebId: p.betriebId,
+          projektId,
+          kanal: "zahlung",
+          zweck: "schlusszahlung",
+          empfaenger: `Stripe: ${b.name}`,
+          betreff: `Schlusszahlung einziehen: ${b.name}`,
+          text: `Schlusszahlung 50 % ${name}: ${euro(rest)} netto (${euro(brutto)} brutto). Wird mit der gespeicherten Zahlungsart eingezogen, Stripe schickt die Rechnung an den Kunden.`,
+          noetigeFreigaben: brutto > 1_000_000 ? 2 : 1,
+          meta: { angebotId: a.id, netto: rest, beschreibung: `Schlusszahlung 50 % ${name}` },
+        });
+        const startAb = p.paket === "S" ? new Date(Date.now() + 91 * 864e5) : new Date();
+        await inPostausgang({
+          betriebId: p.betriebId,
+          projektId,
+          kanal: "zahlung",
+          zweck: "betreuung_start",
+          empfaenger: `Stripe: ${b.name}`,
+          betreff: `Betreuung starten: ${b.name}`,
+          text: `Monatliche Betreuung ${euro(a.monatlich)} netto per Stripe, erste Abbuchung ${startAb.toLocaleDateString("de-DE")}${p.paket === "S" ? " (erste 3 Monate inklusive)" : ""}.`,
+          meta: { projektId, monatlich: a.monatlich, startAb: startAb.toISOString() },
+        });
+      } else {
+        await erstelleRechnung({ betriebId: p.betriebId, angebotId: a.id, projektId, art: "schluss", netto: rest, positionstext: `Schlusszahlung 50 % ${name}` });
+      }
     }
   }
 }

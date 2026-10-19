@@ -4,6 +4,8 @@ import { unterschriftEingegangen } from "@/lib/ablauf/verkauf";
 import { PAKETE, PaketKey, euro, UST } from "@/lib/pakete";
 import { marke } from "@/lib/marke";
 import { DOKART } from "@/lib/format";
+import { zahlungUeberStripe } from "@/lib/adapters/stripe";
+import { anzahlungsLink } from "@/lib/ablauf/zahlung";
 
 export const metadata = { title: "Ihr Kundenportal", robots: { index: false } };
 
@@ -18,15 +20,16 @@ async function annehmen(f: FormData) {
   const name = String(f.get("name") ?? "").trim();
   if (!daten.angebotOffen || !name || f.get("zustimmung") !== "ja") redirect(`/portal/k/${token}?fehler=1#angebot`);
   await unterschriftEingegangen(daten.angebotOffen.id, `Kunde: ${name} (Annahme im Kundenportal)`);
-  redirect(`/portal/k/${token}?danke=1`);
+  // Mit Stripe geht es direkt weiter zur Zahlseite für die Anzahlung
+  redirect(zahlungUeberStripe() ? await anzahlungsLink(daten.angebotOffen.id) : `/portal/k/${token}?danke=1`);
 }
 
-export default async function Kundenportal({ params, searchParams }: { params: Promise<{ token: string }>; searchParams: Promise<{ fehler?: string; danke?: string }> }) {
+export default async function Kundenportal({ params, searchParams }: { params: Promise<{ token: string }>; searchParams: Promise<{ fehler?: string; danke?: string; bezahlt?: string; abgebrochen?: string }> }) {
   const { token } = await params;
   const b = await betriebPerPortal(token);
   if (!b) notFound();
   const d = await portalDaten(b.id);
-  const { fehler, danke } = await searchParams;
+  const { fehler, danke, bezahlt, abgebrochen } = await searchParams;
   const naechster = d.schritte.findIndex((s) => !s.erledigt);
   const offeneRechnungen = d.rechnungen.filter((r) => r.status === "offen");
 
@@ -35,12 +38,15 @@ export default async function Kundenportal({ params, searchParams }: { params: P
       <h1>{b.name}</h1>
       <p className="leise" style={{ marginTop: 8 }}>Ihr Kundenportal bei Stelax. Hier sehen Sie, wo Ihr Projekt steht, und finden alle Unterlagen.</p>
       {danke ? <div className="hinweis ok abstand" role="status">Vielen Dank. Ihr Angebot ist angenommen. Die Rechnung über die Anzahlung bekommen Sie in Kürze.</div> : null}
+      {bezahlt ? <div className="hinweis ok abstand" role="status">Vielen Dank für Ihre Zahlung. Die Rechnung kommt per E-Mail, und wir melden uns mit den nächsten Schritten.</div> : null}
+      {abgebrochen ? <div className="hinweis abstand" role="status">Die Zahlung wurde abgebrochen. Sie können sie jederzeit hier fortsetzen.</div> : null}
 
-      {d.angebotOffen || d.inhalteOffen || offeneRechnungen.length ? (
+      {d.angebotOffen || d.anzahlungOffen || d.inhalteOffen || offeneRechnungen.length ? (
         <section className="karte abstand">
           <h2>Was wir gerade von Ihnen brauchen</h2>
           <ul className="liste">
             {d.angebotOffen ? <li><div><div className="titel">Angebot ansehen und annehmen</div><div className="unter">{PAKETE[d.angebotOffen.paket as PaketKey].name}</div></div><a className="knopf klein" href="#angebot">Zum Angebot</a></li> : null}
+            {d.anzahlungOffen ? <li><div><div className="titel">Anzahlung bezahlen</div><div className="unter">{euro(Math.round((d.anzahlungOffen.einmalig / 2) * (1 + UST)))} brutto, online per Karte oder SEPA-Lastschrift</div></div><a className="knopf haupt klein" href={`/portal/k/${token}/zahlen`}>Jetzt bezahlen</a></li> : null}
             {d.inhalteOffen ? <li><div><div className="titel">Texte und Fotos hochladen</div><div className="unter">Damit wir Ihre Seite bauen können</div></div><a className="knopf haupt klein" href={`/portal/${d.inhalteOffen.portalToken}`}>Inhalte hochladen</a></li> : null}
             {offeneRechnungen.map((r) => <li key={r.id}><div><div className="titel">Rechnung {r.nummer} begleichen</div><div className="unter">{euro(Math.round(r.netto * (1 + UST)))} brutto, Verwendungszweck {r.nummer}</div></div>{r.dokumentId ? <a className="knopf klein" href={`/portal/k/${token}/dokument/${r.dokumentId}`} target="_blank">Rechnung</a> : null}</li>)}
           </ul>
@@ -106,7 +112,7 @@ export default async function Kundenportal({ params, searchParams }: { params: P
                   <td className="weg-mobil mono klein">{tag(r.erstelltAm)}</td>
                   <td className="zahl">{euro(Math.round(r.netto * (1 + UST)))}</td>
                   <td><span className={`status ${r.status === "bezahlt" ? "ok" : "warten"}`}>{r.status === "bezahlt" ? "bezahlt" : "offen"}</span></td>
-                  <td>{r.dokumentId ? <a className="klein" href={`/portal/k/${token}/dokument/${r.dokumentId}`} target="_blank">PDF</a> : null}</td>
+                  <td>{r.stripeUrl ? <a className="klein" href={r.stripeUrl} target="_blank">Rechnung</a> : r.dokumentId ? <a className="klein" href={`/portal/k/${token}/dokument/${r.dokumentId}`} target="_blank">PDF</a> : r.quelle === "stripe" ? <span className="leise klein">per E-Mail</span> : null}</td>
                 </tr>
               ))}
             </tbody>

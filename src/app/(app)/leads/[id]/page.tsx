@@ -52,6 +52,7 @@ export default async function Lead({ params }: { params: Promise<{ id: string }>
           <p>{[b.gewerk, b.inhaber, b.ort, b.mitarbeiter ? `${b.mitarbeiter} Mitarbeitende` : null].filter(Boolean).join(" · ")}</p>
         </div>
         <div className="knopfreihe">
+          {!gesperrt && b.status !== "neu" && b.status !== "nicht_interessant" ? <Link className="knopf klein" href={`/leads/${id}/angebot`}>Angebot erstellen</Link> : null}
           {b.portalToken ? <a className="knopf klein" href={`${basisUrl()}/portal/k/${b.portalToken}`} target="_blank">Kundenportal ansehen</a> : null}
           <Status wert={b.status} />
         </div>

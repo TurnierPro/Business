@@ -4,6 +4,7 @@ import { eq, inArray } from "drizzle-orm";
 import { getDb, schema } from "@/lib/db";
 import { brauchtBenutzer } from "@/lib/auth";
 import { Status } from "@/components/Status";
+import { NeuLaden } from "@/components/NeuLaden";
 import { datumZeit, DOKART, KANAL, ZWECK } from "@/lib/format";
 import { ablehnen, eintragSpeichern, freigeben } from "../../aktionen";
 
@@ -36,7 +37,7 @@ export default async function Eintrag({ params }: { params: Promise<{ id: string
 
       <div className={`hinweis ${e.qkStatus === "bestanden" ? "ok" : e.qkStatus === "blockiert" ? "fehler" : ""}`} role="note">
         <b>Qualitätskontrolle: </b><Status wert={e.qkStatus} />
-        {e.qkStatus === "ausstehend" ? <span className="leise"> Läuft gerade. Seite in ein paar Sekunden neu laden.</span> : null}
+        {e.qkStatus === "ausstehend" ? <><span className="leise"> Läuft gerade, die Seite aktualisiert sich selbst.</span><NeuLaden /></> : null}
         {e.qkStatus === "bestanden" ? <span className="leise"> Keine Auffälligkeiten.</span> : null}
         {e.hinweise.length ? <ul>{e.hinweise.map((h) => <li key={h}>{h}</li>)}</ul> : null}
       </div>
@@ -58,7 +59,7 @@ export default async function Eintrag({ params }: { params: Promise<{ id: string
               {doks.map((d) => <a key={d.id} className="knopf klein" href={`/dokument/${d.id}`} target="_blank">{DOKART[d.art] ?? d.art} als PDF</a>)}
             </div>
           ) : null}
-          {e.kanal === "livegang" ? <div className="karte" style={{ marginTop: 16 }}><div className="textblock">{e.text}</div></div> : null}
+          {e.kanal === "livegang" || e.kanal === "zahlung" ? <div className="karte" style={{ marginTop: e.kanal === "livegang" ? 16 : 0 }}>{e.kanal === "zahlung" ? <h2>Zahlung über Stripe</h2> : null}<div className="textblock">{e.text}</div></div> : null}
         </section>
 
         <section>
@@ -75,7 +76,7 @@ export default async function Eintrag({ params }: { params: Promise<{ id: string
               ) : (
                 <form action={freigeben}>
                   <input type="hidden" name="id" value={e.id} />
-                  <button className="knopf haupt" style={{ width: "100%" }}>{e.kanal === "livegang" ? "Livegang freigeben" : e.kanal === "brief" ? "Brief freigeben und versenden" : "Freigeben und senden"}</button>
+                  <button className="knopf haupt" style={{ width: "100%" }}>{e.kanal === "livegang" ? "Livegang freigeben" : e.kanal === "zahlung" ? "Zahlung freigeben" : e.kanal === "brief" ? "Brief freigeben und versenden" : "Freigeben und senden"}</button>
                 </form>
               )}
               <form action={ablehnen} style={{ marginTop: 16 }}>
@@ -95,7 +96,7 @@ export default async function Eintrag({ params }: { params: Promise<{ id: string
             </div>
           )}
 
-          {offen && e.kanal !== "livegang" ? (
+          {offen && e.kanal !== "livegang" && e.kanal !== "zahlung" ? (
             <form action={eintragSpeichern} className="karte">
               <h2>Text ändern</h2>
               <input type="hidden" name="id" value={e.id} />

@@ -14,10 +14,12 @@ export const ZWECK: Record<string, string> = {
   betreuungsrechnung: "Rechnung Betreuung",
   zahlungserinnerung: "Zahlungserinnerung",
   finanzbericht: "Bericht an Steuerberater",
+  schlusszahlung: "Schlusszahlung einziehen (Stripe)",
+  betreuung_start: "Betreuung starten (Stripe)",
   test: "Test",
 };
 
-export const KANAL: Record<string, string> = { mail: "E-Mail", brief: "Brief", livegang: "Livegang" };
+export const KANAL: Record<string, string> = { mail: "E-Mail", brief: "Brief", livegang: "Livegang", zahlung: "Zahlung" };
 
 export const DOKART: Record<string, string> = {
   brief: "Brief",

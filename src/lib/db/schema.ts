@@ -41,6 +41,9 @@ export const betriebe = pgTable("betriebe", {
   besuchAb: timestamp("besuch_ab", { withTimezone: true }),
   // Geheimer Link zum Kundenportal (entsteht mit dem ersten Angebot)
   portalToken: text("portal_token").unique(),
+  // Stripe: Kunde und gespeicherte Zahlungsart (nach der Anzahlung)
+  stripeKundeId: text("stripe_kunde_id"),
+  stripeZahlart: text("stripe_zahlart"),
   letzteAktivitaet: timestamp("letzte_aktivitaet", { withTimezone: true }).defaultNow().notNull(),
   erstelltAm: timestamp("erstellt_am", { withTimezone: true }).defaultNow().notNull(),
 });
@@ -110,6 +113,7 @@ export const angebote = pgTable("angebote", {
   paket: text("paket").notNull(),
   einmalig: integer("einmalig").notNull(),
   monatlich: integer("monatlich").notNull(),
+  positionen: jsonb("positionen").$type<{ text: string; einmalig: number; monatlich: number; hinweis?: string }[]>().notNull().default([]),
   status: text("status").notNull().default("entwurf"), // entwurf | versendet | unterschrieben | angezahlt | abgeschlossen
   unterschriebenAm: timestamp("unterschrieben_am", { withTimezone: true }),
   angezahltAm: timestamp("angezahlt_am", { withTimezone: true }),
@@ -129,6 +133,10 @@ export const rechnungen = pgTable(
     netto: integer("netto").notNull(),
     status: text("status").notNull().default("offen"),
     bezahltAm: timestamp("bezahlt_am", { withTimezone: true }),
+    // eigen = von Stelax OS erstellt, stripe = von Stripe erstellt und verschickt
+    quelle: text("quelle").notNull().default("eigen"),
+    stripeId: text("stripe_id"),
+    stripeUrl: text("stripe_url"),
     erstelltAm: timestamp("erstellt_am", { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => [uniqueIndex("rechnung_nummer_idx").on(t.nummer)],
@@ -148,6 +156,7 @@ export const projekte = pgTable("projekte", {
   inhalteAm: timestamp("inhalte_am", { withTimezone: true }),
   liveAm: timestamp("live_am", { withTimezone: true }),
   aboAb: timestamp("abo_ab", { withTimezone: true }),
+  stripeAboId: text("stripe_abo_id"),
   erstelltAm: timestamp("erstellt_am", { withTimezone: true }).defaultNow().notNull(),
 });
 

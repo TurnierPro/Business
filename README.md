@@ -21,6 +21,14 @@ Das Betriebssystem von Stelax Consulting: Leads finden, Briefe, Online-Check und
 
 Unter **Finanzen**: Umsatz, Ausgaben, Ergebnis, offene Forderungen, Umsatzsteuer-Zahllast (Ist-Versteuerung) und Steuerrücklage je Monat, Quartal oder Jahr, mit Plan-Ist-Vergleich gegen die Fixkosten aus dem Business Case. Belege mit dem Handy fotografieren, der Beleg-Agent liest sie aus, ihr prüft. Bericht als PDF und CSV für den Steuerberater; zu jedem Quartalsanfang bereitet der Steuerberater-Agent die Mail vor. Das ist eine Steuerungsübersicht, keine Bilanz: Jahresabschluss und Buchhaltung bleiben beim Steuerberater.
 
+## Angebot vor Ort und Zahlung über Stripe
+
+Beim Betrieb **„Angebot erstellen“**: Paket, Entlastungs-Module und Zusatzleistungen gemeinsam mit dem Kunden auswählen, der Preis rechnet live mit (Paket L: 3 Module inklusive; Modul 2 günstiger mit Modul 1; Hinweis, wenn ein Modul einen Prozess-Check braucht). Danach Qualitätskontrolle und eure Freigabe, dann geht das Angebot an den Kunden.
+
+Der Kunde nimmt im Portal an und landet direkt bei **Stripe** für die Anzahlung (Karte oder SEPA). Stripe schickt die Rechnung und speichert die Zahlungsart. Beim Livegang kommen **Schlusszahlung** und **Start der Betreuung** als eigene Einträge in die Freigabe; erst nach eurem Klick zieht Stripe ein. Es gibt keine doppelten Rechnungen: Mit Stripe erstellt Stelax OS keine eigenen Rechnungen (umschaltbar mit `ZAHLUNGSWEG=ueberweisung`).
+
+Vor dem Echtbetrieb mit dem Steuerberater klären: Rechnungsangaben in Stripe (Steuernummer, Anschrift, Leistungsdatum) und E-Rechnungspflicht ab 2027/2028.
+
 ## Kundenportal
 
 Jeder Kunde bekommt mit dem Angebot einen geheimen Link zu seinem Portal (`/portal/k/…`). Dort sieht er abgehakt, wo sein Projekt steht (Gespräch, Angebot, Annahme, Anzahlung, Inhalte, Bau und Prüfung, Livegang, Betreuung), was gerade von ihm gebraucht wird (Angebot annehmen, Inhalte hochladen, Rechnung bezahlen), seine Unterlagen, Rechnungen und die fertige Website. **Sichtbar ist nur, was durch Qualitätskontrolle und Freigabe gegangen und verschickt ist.** In Stelax OS öffnet „Kundenportal ansehen“ beim Betrieb die Ansicht des Kunden.
@@ -67,7 +75,8 @@ Jeder Dienst hat einen Simulator und wird „echt“, sobald seine Zugangsdaten 
 | E-Mail | `RESEND_API_KEY`, `MAIL_FROM`, `MAIL_ANTWORT_AN` (oder `SMTP_*`) | Modul 2 |
 | Briefdienst | `BRIEFDIENST_API_KEY` + `AKQUISE_FREIGESCHALTET=ja` | nach Notartermin |
 | Whisper | `WHISPER_URL` | Modul 9 |
-| Docuseal, Stripe, lexoffice | `DOCUSEAL_*`, `STRIPE_SECRET_KEY`, `LEXOFFICE_API_KEY` | Modul 10 |
+| Stripe | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_STEUERSATZ_ID` | Modul 10 |
+| Docuseal, lexoffice | `DOCUSEAL_*`, `LEXOFFICE_API_KEY` | Modul 10 |
 | Push aufs Handy | `NTFY_URL` | Modul 12 |
 | Backup extern | `BACKUP_ZIEL` | Modul 3 |
 

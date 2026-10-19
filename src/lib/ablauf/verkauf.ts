@@ -9,6 +9,8 @@ import { transkribiere } from "../adapters/transkription";
 import { schreibe, jsonAus } from "../adapters/ki";
 import { datenOrdner } from "../pfade";
 import { portalLink } from "../kundenportal";
+import { berechne, type Auswahl } from "../katalog";
+import { zahlungUeberStripe, type StripeRechnung } from "../adapters/stripe";
 import { datumDe } from "../docs/basis";
 import { PAKETE, PaketKey, euro, UST } from "../pakete";
 import type { ProtokollDaten } from "../docs/vorlagen";
@@ -85,30 +87,53 @@ export async function auswertung(terminId: number): Promise<string> {
   const an = anschrift(b);
   const heute = datumDe();
   const protokollId = await neuesDokument({ betriebId: b.id, art: "protokoll", titel: `Protokoll ${b.name}`, daten: { an, datum: heute, ...a } });
-  const p = PAKETE[a.empfehlung.paket];
-  const [angebot] = await db.insert(schema.angebote).values({ betriebId: b.id, paket: a.empfehlung.paket, einmalig: p.einmalig, monatlich: p.monatlich }).returning();
+  const { nummer } = await erstelleAngebot({
+    betriebId: b.id,
+    auswahl: { paket: a.empfehlung.paket, module: [], zusaetze: [] },
+    einleitung: a.einleitung,
+    vorAnhaenge: [protokollId],
+    meta: { terminId },
+    wer: SYSTEM,
+  });
+  return `Protokoll und Angebot ${nummer} für ${b.name}`;
+}
+
+/**
+ * Angebot aus Paket, Modulen und Zusatzleistungen. Entsteht automatisch nach dem Termin oder live vor Ort
+ * im Angebots-Konfigurator. Geht wie alles durch Qualitätskontrolle und Freigabe.
+ */
+export async function erstelleAngebot(o: { betriebId: number; auswahl: Auswahl; einleitung?: string; vorAnhaenge?: number[]; meta?: Record<string, unknown>; wer: string }): Promise<{ angebotId: number; nummer: string; eintragId: number }> {
+  const db = await getDb();
+  const b = await betrieb(o.betriebId);
+  const an = anschrift(b);
+  const r = berechne(o.auswahl);
+  const p = PAKETE[o.auswahl.paket];
+  const [angebot] = await db.insert(schema.angebote).values({ betriebId: b.id, paket: o.auswahl.paket, einmalig: r.einmalig, monatlich: r.monatlich, positionen: r.positionen }).returning();
   const nummer = `A-${new Date().getFullYear()}-${String(angebot.id).padStart(4, "0")}`;
+  const einleitung = o.einleitung || `vielen Dank für das Gespräch bei ${b.name}. Wie besprochen erhalten Sie unser Angebot mit den Bausteinen, die wir gemeinsam ausgewählt haben.`;
   const angebotDokId = await neuesDokument({
     betriebId: b.id,
     art: "angebot",
     titel: `Angebot ${nummer}`,
-    daten: { an, nummer, datum: heute, paket: a.empfehlung.paket, einleitung: a.einleitung, einmalig: p.einmalig, monatlich: p.monatlich },
+    daten: { an, nummer, datum: datumDe(), paket: o.auswahl.paket, einleitung, einmalig: r.einmalig, monatlich: r.monatlich, positionen: r.positionen, zahlweg: zahlungUeberStripe() ? "stripe" : "ueberweisung" },
   });
   const anrede = an.inhaber ? (an.anrede === "Frau" ? `Sehr geehrte Frau ${an.inhaber.split(" ").slice(-1)[0]},` : `Sehr geehrter Herr ${an.inhaber.split(" ").slice(-1)[0]},`) : "Guten Tag,";
-  await inPostausgang({
+  const zahlen = zahlungUeberStripe() ? " Nach der Annahme können Sie die Anzahlung direkt online bezahlen." : "";
+  const eintragId = await inPostausgang({
     betriebId: b.id,
     kanal: "mail",
     zweck: "angebot",
     empfaenger: b.email ?? "(E-Mail-Adresse fehlt)",
     betreff: `Ihr Angebot von Stelax: ${p.name}`,
-    text: `${anrede}\n\n${a.einleitung}\n\nIm Anhang finden Sie das Protokoll mit Maßnahmenplan und das Angebot. Alles liegt auch in Ihrem Kundenportal. Dort nehmen Sie das Angebot mit zwei Klicks an und sehen jederzeit, wo Ihr Projekt steht:\n${await portalLink(b.id)}\n\nBei Fragen rufen Sie mich gern an.\n\nMit freundlichen Grüßen\nDaniel Lück\nStelax Consulting`,
-    anhaenge: [protokollId, angebotDokId],
-    erlaubteZahlen: [euro(p.einmalig), euro(p.monatlich)],
-    hinweise: b.email ? [] : ["E-Mail-Adresse fehlt. Beim Betrieb ergänzen und Empfänger anpassen."],
-    meta: { terminId, angebotId: angebot.id },
+    text: `${anrede}\n\n${einleitung}\n\nIm Anhang finden Sie ${o.vorAnhaenge?.length ? "das Protokoll mit Maßnahmenplan und " : ""}das Angebot. Alles liegt auch in Ihrem Kundenportal. Dort nehmen Sie das Angebot mit zwei Klicks an und sehen jederzeit, wo Ihr Projekt steht.${zahlen}\n${await portalLink(b.id)}\n\nBei Fragen rufen Sie mich gern an.\n\nMit freundlichen Grüßen\nDaniel Lück\nStelax Consulting`,
+    anhaenge: [...(o.vorAnhaenge ?? []), angebotDokId],
+    erlaubteZahlen: [euro(r.einmalig), euro(r.monatlich), ...r.positionen.flatMap((x) => [euro(x.einmalig), euro(x.monatlich)])],
+    hinweise: [...(b.email ? [] : ["E-Mail-Adresse fehlt. Beim Betrieb ergänzen und Empfänger anpassen."]), ...r.hinweise],
+    meta: { ...(o.meta ?? {}), angebotId: angebot.id },
   });
   await setzeStatus(b.id, "angebot");
-  return `Protokoll und Angebot ${nummer} für ${b.name}`;
+  await protokolliere(o.wer, `Angebot ${nummer} erstellt (${euro(r.einmalig)} + ${euro(r.monatlich)}/Monat)`, b.id);
+  return { angebotId: angebot.id, nummer, eintragId };
 }
 
 export async function naechsteRechnungsnummer(jahr = new Date().getFullYear()): Promise<{ nummer: string; lfdNr: number; jahr: number }> {
@@ -166,15 +191,34 @@ export async function unterschriftEingegangen(angebotId: number, wer: string): P
   await db.update(schema.angebote).set({ status: "unterschrieben", unterschriebenAm: new Date() }).where(eq(schema.angebote.id, angebotId));
   await setzeStatus(a.betriebId, "kunde");
   await protokolliere(wer, `Angebot unterschrieben (${PAKETE[a.paket as PaketKey].name})`, a.betriebId);
+  // Mit Stripe zahlt der Kunde direkt im Portal, Stripe schickt die Rechnung. Sonst eigene Rechnung.
+  if (zahlungUeberStripe()) return;
   await erstelleRechnung({ betriebId: a.betriebId, angebotId, art: "anzahlung", netto: Math.round(a.einmalig / 2), positionstext: `Anzahlung 50 % ${PAKETE[a.paket as PaketKey].name}` });
 }
 
-export async function zahlungEingegangen(angebotId: number, wer: string): Promise<number> {
+export type StripeZahlung = { kundeId: string | null; zahlart: string | null; rechnung: StripeRechnung | null };
+
+export async function zahlungEingegangen(angebotId: number, wer: string, stripe?: StripeZahlung): Promise<number> {
   const db = await getDb();
   const [a] = await db.select().from(schema.angebote).where(eq(schema.angebote.id, angebotId));
+  if (a?.status === "angezahlt") {
+    // Stripe meldet manche Zahlungen doppelt: dann nichts zweimal anlegen
+    const [vorhanden] = await db.select().from(schema.projekte).where(eq(schema.projekte.angebotId, angebotId));
+    if (vorhanden) return vorhanden.id;
+  }
   if (!a || a.status !== "unterschrieben") throw new Error("Zahlung passt zu keinem unterschriebenen Angebot.");
   await db.update(schema.angebote).set({ status: "angezahlt", angezahltAm: new Date() }).where(eq(schema.angebote.id, angebotId));
-  await db.update(schema.rechnungen).set({ status: "bezahlt", bezahltAm: new Date() }).where(and(eq(schema.rechnungen.angebotId, angebotId), eq(schema.rechnungen.art, "anzahlung")));
+  if (zahlungUeberStripe()) {
+    const netto = Math.round(a.einmalig / 2);
+    const r = stripe?.rechnung ?? { id: `sim_in_${angebotId}`, nummer: `SIM-${new Date().getFullYear()}-${String(angebotId).padStart(4, "0")}`, url: null, netto, bezahlt: true };
+    await db.insert(schema.rechnungen).values({ nummer: r.nummer, lfdNr: 0, jahr: new Date().getFullYear(), betriebId: a.betriebId, angebotId, art: "anzahlung", netto: r.netto || netto, status: "bezahlt", bezahltAm: new Date(), quelle: "stripe", stripeId: r.id, stripeUrl: r.url }).onConflictDoNothing();
+    await db
+      .update(schema.betriebe)
+      .set({ stripeKundeId: stripe?.kundeId ?? `sim_kunde_${a.betriebId}`, stripeZahlart: stripe?.zahlart ?? "sim_zahlart" })
+      .where(eq(schema.betriebe.id, a.betriebId));
+  } else {
+    await db.update(schema.rechnungen).set({ status: "bezahlt", bezahltAm: new Date() }).where(and(eq(schema.rechnungen.angebotId, angebotId), eq(schema.rechnungen.art, "anzahlung")));
+  }
   const token = crypto.randomBytes(18).toString("base64url");
   const [p] = await db.insert(schema.projekte).values({ betriebId: a.betriebId, angebotId, paket: a.paket, portalToken: token }).returning();
   const b = await betrieb(a.betriebId);

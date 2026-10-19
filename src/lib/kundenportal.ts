@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { getDb, schema } from "./db";
 import { basisUrl } from "./ablauf/gemeinsam";
+import { zahlungUeberStripe } from "./adapters/stripe";
 
 // Kundenportal: Jeder Kunde sieht über seinen geheimen Link den Stand seines Projekts,
 // seine Unterlagen und Rechnungen. Grundregel: Sichtbar ist nur, was wir freigegeben und verschickt haben.
@@ -69,7 +70,7 @@ export async function schritte(betriebId: number): Promise<Schritt[]> {
   const angebotVersendet = post.find((e) => e.zweck === "angebot");
   const nachBau = p && ["pruefung", "bereit", "live"].includes(p.status);
   return [
-    { titel: "Gespräch vor Ort", text: "Wir haben Ihren Betrieb kennengelernt und Ziele festgehalten.", erledigt: termine.length > 0, datum: termine[0]?.datum ?? null },
+    { titel: "Gespräch vor Ort", text: "Wir haben Ihren Betrieb kennengelernt und Ziele festgehalten.", erledigt: termine.length > 0 || !!angebotVersendet, datum: termine[0]?.datum ?? a?.erstelltAm ?? null },
     { titel: "Angebot erhalten", text: "Protokoll, Maßnahmenplan und Angebot liegen unten bei Ihren Unterlagen.", erledigt: !!angebotVersendet, datum: angebotVersendet?.versendetAm ?? null },
     { titel: "Angebot angenommen", text: "Danke für Ihr Vertrauen.", erledigt: !!a?.unterschriebenAm, datum: a?.unterschriebenAm ?? null },
     { titel: "Anzahlung eingegangen", text: "Damit starten wir Ihr Projekt.", erledigt: !!a?.angezahltAm, datum: a?.angezahltAm ?? null },
@@ -97,10 +98,12 @@ export async function portalDaten(betriebId: number) {
   return {
     schritte: schr,
     dokumente: doks.filter((d) => d.art !== "rechnung"),
+    // Eigene Rechnungen erst nach Freigabe und Versand, Stripe-Rechnungen verschickt Stripe selbst.
     rechnungen: rechnungen
-      .filter((r) => verschickteNummern.has(r.nummer))
+      .filter((r) => r.quelle === "stripe" || verschickteNummern.has(r.nummer))
       .map((r) => ({ ...r, dokumentId: doks.find((d) => d.art === "rechnung" && (d.daten as { nummer?: string }).nummer === r.nummer)?.id ?? null })),
     angebotOffen: angebot?.status === "versendet" ? angebot : null,
+    anzahlungOffen: angebot?.status === "unterschrieben" && zahlungUeberStripe() ? angebot : null,
     inhalteOffen: projekt?.status === "inhalte" ? projekt : null,
     projekt,
     website: seite ? { url: projekt!.domain ? `https://${projekt!.domain}` : `/vorschau/${seite.slug}`, domain: projekt!.domain } : null,

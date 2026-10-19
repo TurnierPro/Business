@@ -215,3 +215,27 @@ export async function rechnungBezahlt(f: FormData) {
 export async function berichtVorbereiten() {
   await ausfuehren("/freigaben", "Bericht an den Steuerberater wird vorbereitet und kommt gleich in die Freigabe.", () => einreihen("steuerberater"));
 }
+
+export async function angebotErstellen(f: FormData) {
+  const id = zahl(f, "id");
+  const { erstelleAngebot } = await import("@/lib/ablauf/verkauf");
+  await ausfuehren(`/leads/${id}/angebot`, "Angebot erstellt. Qualitätskontrolle läuft, danach freigeben.", async (wer) => {
+    const db = await getDb();
+    const email = text(f, "email");
+    if (email) await db.update(schema.betriebe).set({ email }).where(eq(schema.betriebe.id, id));
+    const preis8 = text(f, "preisModul8");
+    const { eintragId } = await erstelleAngebot({
+      betriebId: id,
+      auswahl: {
+        paket: text(f, "paket") as import("@/lib/pakete").PaketKey,
+        module: f.getAll("module").map(String),
+        zusaetze: f.getAll("zusaetze").map(String),
+        preisModul8: preis8 ? Math.round(Number(preis8.replace(/\./g, "").replace(",", ".")) * 100) : undefined,
+        prozessCheckAnrechnen: f.get("prozessCheckAnrechnen") === "ja",
+      },
+      einleitung: text(f, "einleitung") || undefined,
+      wer,
+    });
+    return { ziel: `/freigaben/${eintragId}` };
+  });
+}

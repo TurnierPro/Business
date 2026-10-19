@@ -133,9 +133,8 @@ async function bisAngebotVersendet(b: Beispiel): Promise<{ id: number; angebotId
 
 async function bisProjekt(b: Beispiel): Promise<{ id: number; projektId: number }> {
   const { id, angebotId } = await bisAngebotVersendet(b);
-  await verkauf.unterschriftEingegangen(angebotId, `Kunde: ${b.inhaber} (Beispiel)`);
-  await freigeben(id, "rechnung", MAX);
-  const projektId = await verkauf.zahlungEingegangen(angebotId, "Zahlungseingang (Beispiel)");
+  await verkauf.unterschriftEingegangen(angebotId, `Kunde: ${b.inhaber} (Kundenportal, Beispiel)`);
+  const projektId = await verkauf.zahlungEingegangen(angebotId, "Stripe (Beispiel)");
   await freigeben(id, "kickoff", MAX);
   return { id, projektId };
 }
@@ -174,18 +173,21 @@ export async function beispieleLaden(): Promise<string> {
   await bisAngebotEntwurf(BETRIEBE.angebot);
   // Angebot versendet, wartet auf Unterschrift
   await bisAngebotVersendet(BETRIEBE.unterschrift);
-  // Unterschrieben, Rechnung über Anzahlung wartet auf Freigabe
+  // Im Portal angenommen, Anzahlung über Stripe noch offen
   {
     const { angebotId } = await bisAngebotVersendet(BETRIEBE.rechnung);
     await verkauf.unterschriftEingegangen(angebotId, `Kunde: ${BETRIEBE.rechnung.inhaber} (Beispiel)`);
   }
-  // Individuelles Angebot (L plus Zusatzmodule): Rechnung über 10.000 €, eine von zwei Freigaben erteilt
+  // Vor Ort im Konfigurator zusammengestellt: Paket L mit 4 Modulen und Fotoshooting, wartet auf Freigabe
   {
     const id = await bisBesuch(BETRIEBE.gross);
-    const [a] = await db.insert(schema.angebote).values({ betriebId: id, paket: "L", einmalig: 890000 * 2, monatlich: 59000 * 2, status: "versendet" }).returning();
-    await verkauf.unterschriftEingegangen(a.id, `Kunde: ${BETRIEBE.gross.inhaber} (Beispiel)`);
+    await verkauf.erstelleAngebot({
+      betriebId: id,
+      auswahl: { paket: "L", module: ["m1", "m2", "m5", "m7"], zusaetze: ["foto"] },
+      einleitung: "vielen Dank für das gute Gespräch heute bei Ihnen in Stuttgart. Wie besprochen erhalten Sie unser Angebot mit den Bausteinen, die wir gemeinsam ausgewählt haben.",
+      wer: DANIEL,
+    });
     await warte();
-    await post.freigeben((await offen(id, "rechnung")).id, MAX);
   }
   // Projekt wartet auf Inhalte vom Kunden
   await bisProjekt(BETRIEBE.inhalte);
@@ -205,12 +207,13 @@ export async function beispieleLaden(): Promise<string> {
     await post.ablehnen(livegang.id, "Prüfung nachträglich nicht bestanden (Beispiel)", MAX);
     await db.update(schema.projekte).set({ status: "pruefung", pruefung: pruefeSeite(p.seitenSlug!) }).where(eq(schema.projekte.id, projektId));
   }
-  // Projekt live, Schlussrechnung versendet
+  // Projekt live: Schlusszahlung über Stripe eingezogen, Betreuung als Abo gestartet (beides nach Freigabe)
   {
     const { id, projektId } = await bisProjekt(BETRIEBE.live);
     await inhalteSenden(projektId, BETRIEBE.live);
     await freigeben(id, "livegang", MAX);
-    await freigeben(id, "schlussrechnung", MAX);
+    await freigeben(id, "schlusszahlung", MAX);
+    await freigeben(id, "betreuung_start", MAX);
   }
   await finanzBeispiele();
   // Systemmeldungen

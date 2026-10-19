@@ -17,7 +17,17 @@ import {
 // Alle Druckvorlagen. Jede Vorlage bekommt nur Daten und liefert fertiges HTML im Stelax-Design.
 
 export type BriefDaten = { an: Anschrift; betreff: string; text: string; datum: string; demoUrl?: string; qr?: string };
-export type AngebotDaten = { an: Anschrift; nummer: string; datum: string; paket: PaketKey; einleitung: string; einmalig: number; monatlich: number };
+export type AngebotDaten = {
+  an: Anschrift;
+  nummer: string;
+  datum: string;
+  paket: PaketKey;
+  einleitung: string;
+  einmalig: number;
+  monatlich: number;
+  positionen?: { text: string; einmalig: number; monatlich: number; hinweis?: string }[];
+  zahlweg?: "stripe" | "ueberweisung";
+};
 export type CheckDaten = { an: Anschrift; website?: string | null; datum: string; punkte: Pruefpunkt[]; prioritaeten: string[]; ladezeitMs?: number };
 export type LeitfadenDaten = { an: Anschrift; datum: string; fragen: string[]; hinweise: string[] };
 export type ProtokollDaten = {
@@ -56,24 +66,30 @@ export function angebot(d: AngebotDaten): string {
     inhalt: `<div class="seite din">${falzmarken}${kopf()}${anschriftfeld(d.an)}
 <div class="infoblock">Angebot<br><b class="mono">${esc(d.nummer)}</b><br><br>Datum<br><b class="mono">${esc(d.datum)}</b><br><br>Gültig bis<br><b class="mono">${esc(datumDe(new Date(Date.now() + 30 * 864e5)))}</b></div>
 <div class="briefkoerper"><h1>Angebot: ${esc(p.name)}</h1>${absaetze(d.einleitung)}
-<h2>Was Sie bekommen</h2><ul>${p.inhalt.map((i) => `<li>${esc(i)}</li>`).join("")}</ul>
+<h2>Was Sie bekommen</h2><ul>${p.inhalt.map((i) => `<li>${esc(i)}</li>`).join("")}${(d.positionen ?? []).slice(1).map((x) => `<li>${esc(x.text)}</li>`).join("")}</ul>
 </div>${fuss()}</div>
 <div class="seite">${kopf()}
 <h2 style="margin-top:0">Preise</h2>
-<table><thead><tr><th>Leistung</th><th class="zahl">Netto</th></tr></thead><tbody>
-<tr><td>${esc(p.name)}, einmalig</td><td class="zahl">${euro(d.einmalig)}</td></tr>
-<tr><td>Umsatzsteuer 19 %</td><td class="zahl">${euro(ust)}</td></tr>
-<tr><td><b>Einmalig brutto</b></td><td class="zahl"><b>${euro(d.einmalig + ust)}</b></td></tr>
-<tr><td>Betreuung monatlich, 12 Monate Mindestlaufzeit</td><td class="zahl">${euro(d.monatlich)} / Monat</td></tr>
+<table><thead><tr><th>Leistung</th><th class="zahl">Einmalig netto</th><th class="zahl">Monatlich netto</th></tr></thead><tbody>
+${(d.positionen?.length ? d.positionen : [{ text: p.name, einmalig: d.einmalig, monatlich: d.monatlich }])
+  .map((x) => `<tr><td>${esc(x.text)}${"hinweis" in x && x.hinweis ? `<br><span class="leise" style="font-size:8.5pt">${esc(x.hinweis)}</span>` : ""}</td><td class="zahl">${x.einmalig ? euro(x.einmalig) : "–"}</td><td class="zahl">${x.monatlich ? euro(x.monatlich) : "–"}</td></tr>`)
+  .join("")}
+<tr><td><b>Summe netto</b></td><td class="zahl"><b>${euro(d.einmalig)}</b></td><td class="zahl"><b>${euro(d.monatlich)}</b></td></tr>
+<tr><td>Umsatzsteuer 19 %</td><td class="zahl">${euro(ust)}</td><td class="zahl">${euro(Math.round(d.monatlich * UST))}</td></tr>
+<tr><td><b>Summe brutto</b></td><td class="zahl"><b>${euro(d.einmalig + ust)}</b></td><td class="zahl"><b>${euro(d.monatlich + Math.round(d.monatlich * UST))}</b></td></tr>
 </tbody></table>
+<p class="leise" style="font-size:8.5pt">Betreuung mit 12 Monaten Mindestlaufzeit.</p>
 <h2>So läuft es ab</h2>
-<ul><li>50 % bei Auftrag, 50 % beim Livegang, per Überweisung. Wir beginnen nach Zahlungseingang.</li>
-<li>Betreuung per SEPA-Lastschrift, monatlich.</li>
+<ul>${
+  d.zahlweg === "stripe"
+    ? "<li>50 % bei Auftrag: Sie zahlen direkt online nach der Annahme (Karte oder SEPA-Lastschrift über Stripe). Wir beginnen nach Zahlungseingang.</li><li>50 % beim Livegang und die monatliche Betreuung ziehen wir mit der hinterlegten Zahlungsart ein. Rechnungen erhalten Sie per E-Mail.</li>"
+    : "<li>50 % bei Auftrag, 50 % beim Livegang, per Überweisung. Wir beginnen nach Zahlungseingang.</li><li>Betreuung per SEPA-Lastschrift, monatlich.</li>"
+}
 <li>Livegang ${p.wochen <= 4 ? "30 Tage" : `${p.wochen} Wochen`} nach Erhalt Ihrer Inhalte. Klappt das nicht, ist ein Monat Betreuung kostenlos.</li>
 <li>Beim Livegang: Lighthouse ≥ 95 und Barrierefreiheit nach WCAG 2.2 AA, sonst bessern wir kostenlos nach.</li>
 <li>Die Domain läuft auf Ihren Namen. Nach 12 Monaten gehören Ihnen Inhalte und Code.</li>
 <li>Website, Formulare und Kundendaten liegen in Deutschland (Hetzner).</li></ul>
-<div class="box"><b>Annehmen</b><br><span class="leise">Sie unterschreiben dieses Angebot online über den Link in unserer E-Mail. Danach bekommen Sie die Rechnung über die Anzahlung.</span></div>
+<div class="box"><b>Annehmen</b><br><span class="leise">Sie nehmen dieses Angebot in Ihrem Kundenportal an (Link in unserer E-Mail). ${d.zahlweg === "stripe" ? "Danach zahlen Sie die Anzahlung direkt online." : "Danach bekommen Sie die Rechnung über die Anzahlung."}</span></div>
 ${fuss()}</div>`,
   });
 }

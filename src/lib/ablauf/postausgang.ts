@@ -17,7 +17,7 @@ import { nachVersand } from "./folgen";
 export type NeuerEintrag = {
   betriebId?: number | null;
   projektId?: number | null;
-  kanal: "mail" | "brief" | "livegang";
+  kanal: "mail" | "brief" | "livegang" | "zahlung";
   zweck: string;
   empfaenger: string;
   betreff: string;
@@ -100,8 +100,15 @@ export async function qualitaetskontrolle(id: number): Promise<string> {
 
   if (await istGesperrt(e.betriebId)) blocker.push("Betrieb steht auf der Sperrliste.");
   if (e.kanal === "mail" && !MAIL.test(e.empfaenger.trim())) blocker.push("Keine gültige E-Mail-Adresse beim Empfänger.");
-  if (e.kanal !== "livegang") hinweise.push(...pruefeText(e.text, (e.meta.erlaubteZahlen as string[]) ?? []));
-  if (e.text.trim().length < 20 && e.kanal !== "livegang") blocker.push("Der Text ist leer oder zu kurz.");
+  const nurIntern = e.kanal === "livegang" || e.kanal === "zahlung";
+  if (!nurIntern) hinweise.push(...pruefeText(e.text, (e.meta.erlaubteZahlen as string[]) ?? []));
+  if (e.text.trim().length < 20 && !nurIntern) blocker.push("Der Text ist leer oder zu kurz.");
+  if (e.kanal === "zahlung") {
+    const [b] = e.betriebId ? await db.select().from(schema.betriebe).where(eq(schema.betriebe.id, e.betriebId)) : [];
+    if (!b?.stripeKundeId || !b?.stripeZahlart) blocker.push("Keine gespeicherte Zahlungsart bei Stripe. Kunde muss zuerst die Anzahlung online bezahlt haben.");
+    if (e.zweck === "schlusszahlung" && !(Number(e.meta.netto) > 0)) blocker.push("Betrag fehlt.");
+    if (!process.env.STRIPE_SECRET_KEY) hinweise.push("Stripe läuft im Simulator: Es wird kein echtes Geld bewegt.");
+  }
 
   const doks = e.anhaenge.length ? await db.select().from(schema.dokumente).where(inArray(schema.dokumente.id, e.anhaenge)) : [];
   if (doks.length !== e.anhaenge.length) blocker.push("Ein Anhang fehlt.");
@@ -121,7 +128,7 @@ export async function qualitaetskontrolle(id: number): Promise<string> {
   }
 
   // KI-Prüfer (zweites Paar Augen), nur wenn Claude eingerichtet ist
-  if (e.kanal !== "livegang") {
+  if (!nurIntern) {
     const ki = await schreibe({
       zweck: "qualitaetskontrolle",
       modell: "schnell",
@@ -191,6 +198,9 @@ export async function versende(id: number): Promise<string> {
   } else if (e.kanal === "mail") {
     const anhaenge = await Promise.all(doks.map(async (d) => ({ name: `${d.titel}.pdf`, inhalt: await dokumentPdf(d) })));
     ergebnis = await sendeMail({ an: e.empfaenger, betreff: e.betreff, text: e.text, anhaenge });
+  } else if (e.kanal === "zahlung") {
+    const { fuehreZahlungAus } = await import("./zahlung");
+    ergebnis = await fuehreZahlungAus(e);
   } else {
     ergebnis = "Livegang freigegeben";
   }
