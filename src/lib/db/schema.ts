@@ -39,6 +39,8 @@ export const betriebe = pgTable("betriebe", {
   status: text("status").notNull().default("neu"),
   notizen: text("notizen"),
   besuchAb: timestamp("besuch_ab", { withTimezone: true }),
+  // Geheimer Link zum Kundenportal (entsteht mit dem ersten Angebot)
+  portalToken: text("portal_token").unique(),
   letzteAktivitaet: timestamp("letzte_aktivitaet", { withTimezone: true }).defaultNow().notNull(),
   erstelltAm: timestamp("erstellt_am", { withTimezone: true }).defaultNow().notNull(),
 });
@@ -143,6 +145,7 @@ export const projekte = pgTable("projekte", {
   seitenSlug: text("seiten_slug"),
   pruefung: jsonb("pruefung").$type<{ name: string; ok: boolean; detail: string }[]>(),
   domain: text("domain"),
+  inhalteAm: timestamp("inhalte_am", { withTimezone: true }),
   liveAm: timestamp("live_am", { withTimezone: true }),
   aboAb: timestamp("abo_ab", { withTimezone: true }),
   erstelltAm: timestamp("erstellt_am", { withTimezone: true }).defaultNow().notNull(),

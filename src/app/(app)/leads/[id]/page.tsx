@@ -8,6 +8,7 @@ import { BetriebFelder } from "@/components/BetriebFelder";
 import { datum, datumZeit, DOKART, ZWECK } from "@/lib/format";
 import { PAKETE, PaketKey, euro } from "@/lib/pakete";
 import { istEcht } from "@/lib/adapters/dienste";
+import { basisUrl } from "@/lib/ablauf/gemeinsam";
 import { betriebSpeichern, einstufen, terminHochladen, unterschriftSimulieren, widerspruch, zahlungSimulieren } from "../../aktionen";
 
 const SCHRITTE = [
@@ -50,7 +51,10 @@ export default async function Lead({ params }: { params: Promise<{ id: string }>
           <h1>{b.name}</h1>
           <p>{[b.gewerk, b.inhaber, b.ort, b.mitarbeiter ? `${b.mitarbeiter} Mitarbeitende` : null].filter(Boolean).join(" · ")}</p>
         </div>
-        <Status wert={b.status} />
+        <div className="knopfreihe">
+          {b.portalToken ? <a className="knopf klein" href={`${basisUrl()}/portal/k/${b.portalToken}`} target="_blank">Kundenportal ansehen</a> : null}
+          <Status wert={b.status} />
+        </div>
       </div>
 
       {schrittIndex >= 0 ? (

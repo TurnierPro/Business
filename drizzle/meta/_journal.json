@@ -15,6 +15,13 @@
       "when": 1792354169602,
       "tag": "0001_finanzen_qualitaet",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792381887415,
+      "tag": "0002_kundenportal",
+      "breakpoints": true
     }
   ]
 }

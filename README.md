@@ -21,6 +21,10 @@ Das Betriebssystem von Stelax Consulting: Leads finden, Briefe, Online-Check und
 
 Unter **Finanzen**: Umsatz, Ausgaben, Ergebnis, offene Forderungen, Umsatzsteuer-Zahllast (Ist-Versteuerung) und Steuerrücklage je Monat, Quartal oder Jahr, mit Plan-Ist-Vergleich gegen die Fixkosten aus dem Business Case. Belege mit dem Handy fotografieren, der Beleg-Agent liest sie aus, ihr prüft. Bericht als PDF und CSV für den Steuerberater; zu jedem Quartalsanfang bereitet der Steuerberater-Agent die Mail vor. Das ist eine Steuerungsübersicht, keine Bilanz: Jahresabschluss und Buchhaltung bleiben beim Steuerberater.
 
+## Kundenportal
+
+Jeder Kunde bekommt mit dem Angebot einen geheimen Link zu seinem Portal (`/portal/k/…`). Dort sieht er abgehakt, wo sein Projekt steht (Gespräch, Angebot, Annahme, Anzahlung, Inhalte, Bau und Prüfung, Livegang, Betreuung), was gerade von ihm gebraucht wird (Angebot annehmen, Inhalte hochladen, Rechnung bezahlen), seine Unterlagen, Rechnungen und die fertige Website. **Sichtbar ist nur, was durch Qualitätskontrolle und Freigabe gegangen und verschickt ist.** In Stelax OS öffnet „Kundenportal ansehen“ beim Betrieb die Ansicht des Kunden.
+
 ## Agenten
 
 Jeder Bereich hat einen Agenten, der die Arbeit vorbereitet (Übersicht unter **System → Agenten**). Alles, was nach draußen geht, läuft danach durch die **Qualitätskontrolle** (Regeln plus KI-Prüfer) und wartet dann auf eure Freigabe. Ohne bestandene oder gelesene Prüfung lässt sich nichts freigeben; bei „blockiert“ erst beheben.
@@ -60,7 +64,7 @@ Jeder Dienst hat einen Simulator und wird „echt“, sobald seine Zugangsdaten 
 | Dienst | Variable | Wann |
 |---|---|---|
 | Claude | `ANTHROPIC_API_KEY` | nach Klärung EU-Verarbeitung + AV-Vertrag |
-| E-Mail | `SMTP_*` | Modul 2 |
+| E-Mail | `RESEND_API_KEY`, `MAIL_FROM`, `MAIL_ANTWORT_AN` (oder `SMTP_*`) | Modul 2 |
 | Briefdienst | `BRIEFDIENST_API_KEY` + `AKQUISE_FREIGESCHALTET=ja` | nach Notartermin |
 | Whisper | `WHISPER_URL` | Modul 9 |
 | Docuseal, Stripe, lexoffice | `DOCUSEAL_*`, `STRIPE_SECRET_KEY`, `LEXOFFICE_API_KEY` | Modul 10 |

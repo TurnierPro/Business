@@ -173,3 +173,16 @@ dl.daten dd { margin: 0; }
   .tabelle .weg-mobil { display: none; }
   h1 { font-size: 24px; }
 }
+
+/* Fortschritt im Kundenportal: abgehakt, was erledigt ist */
+.fortschritt { list-style: none; margin: 0; padding: 0; }
+.fortschritt li { display: flex; gap: 16px; align-items: flex-start; padding: 12px 0; position: relative; }
+.fortschritt li:not(:last-child)::after { content: ""; position: absolute; left: 15px; top: 44px; bottom: -4px; width: 2px; background: var(--linie); }
+.fortschritt li.erledigt:not(:last-child)::after { background: var(--ok); }
+.fortschritt .punkt { flex: none; width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; font-family: var(--mono); font-size: 14px; border: 1px solid var(--rahmen); color: var(--leise); background: var(--grund); }
+.fortschritt li.erledigt .punkt { background: var(--ok); border-color: var(--ok); color: var(--grund); font-weight: 600; }
+.fortschritt li.aktuell .punkt { border: 2px solid var(--akzent); color: var(--text); }
+.fortschritt li:not(.erledigt):not(.aktuell) .titel { color: var(--leise); }
+.fortschritt .titel { font-weight: 600; }
+.fortschritt .unter { font-size: 14px; color: var(--leise); }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }

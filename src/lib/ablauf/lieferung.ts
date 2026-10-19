@@ -47,7 +47,7 @@ export async function inhalteEinreichen(token: string, form: FormData): Promise<
     bilder,
   };
   const db = await getDb();
-  await db.update(schema.projekte).set({ inhalte, status: "bau", domain: inhalte.domain || null }).where(eq(schema.projekte.id, p.id));
+  await db.update(schema.projekte).set({ inhalte, status: "bau", domain: inhalte.domain || null, inhalteAm: new Date() }).where(eq(schema.projekte.id, p.id));
   await protokolliere("Kunde (Portal)", "Inhalte eingereicht", p.betriebId, `${bilder.length} Fotos`);
   await einreihen("bau", { projektId: p.id });
 }

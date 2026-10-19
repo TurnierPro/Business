@@ -7,7 +7,7 @@ export function dienste(): Dienst[] {
   const e = process.env;
   return [
     { key: "ki", name: "Claude (Anthropic)", zweck: "Texte, Research, Protokolle", echt: !!e.ANTHROPIC_API_KEY, hinweis: "ANTHROPIC_API_KEY setzen. Vorher EU-Verarbeitung und AV-Vertrag klären." },
-    { key: "mail", name: "E-Mail (SMTP)", zweck: "Versand aus dem Postausgang", echt: !!e.SMTP_HOST, hinweis: "SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_FROM setzen." },
+    { key: "mail", name: e.RESEND_API_KEY ? "E-Mail (Resend)" : "E-Mail (Resend oder SMTP)", zweck: "Versand aus dem Postausgang", echt: !!(e.RESEND_API_KEY || e.SMTP_HOST), hinweis: "RESEND_API_KEY und MAIL_FROM setzen (Domain bei Resend bestätigen: SPF, DKIM). Alternativ SMTP_*." },
     { key: "post", name: "Briefdienst", zweck: "Akquise-Briefe drucken und versenden", echt: !!e.BRIEFDIENST_API_KEY, hinweis: "Anbieter wählen (Modul 7), dann Adapter in src/lib/adapters/post.ts ergänzen." },
     { key: "signatur", name: "E-Signatur (Docuseal)", zweck: "Angebote unterschreiben", echt: !!e.DOCUSEAL_URL, hinweis: "Docuseal auf Hetzner starten, DOCUSEAL_URL und DOCUSEAL_TOKEN setzen." },
     { key: "zahlung", name: "Stripe", zweck: "SEPA-Mandat, Anzahlung, Abo", echt: !!e.STRIPE_SECRET_KEY, hinweis: "Erst nach Gründung live. Testmodus-Schlüssel reicht zum Üben." },

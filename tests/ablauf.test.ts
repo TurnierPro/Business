@@ -120,6 +120,41 @@ test("Kompletter Ablauf von Lead bis Livegang", async () => {
 
   const rechnungen = await db.select().from(schema.rechnungen);
   assert.deepEqual(rechnungen.map((r) => r.lfdNr), [1, 2]);
+
+  // Kundenportal: abgehakt bis Betreuung, aber die Schlussrechnung ist noch nicht freigegeben und daher unsichtbar
+  const portal = await import("../src/lib/kundenportal");
+  const sicht = await portal.portalDaten(lead.id);
+  assert.ok(sicht.schritte.every((x) => x.erledigt), JSON.stringify(sicht.schritte.map((x) => [x.titel, x.erledigt])));
+  assert.deepEqual(sicht.rechnungen.map((r) => r.nummer), [rechnungen[0].nummer]);
+  assert.deepEqual(sicht.dokumente.map((d) => d.art).sort(), ["angebot", "protokoll"]);
+  const schluss = (await db.select().from(schema.dokumente).where(eq(schema.dokumente.betriebId, lead.id))).find((d) => d.art === "rechnung" && (d.daten as { nummer: string }).nummer === rechnungen[1].nummer)!;
+  assert.equal(await portal.darfDokumentSehen(lead.id, schluss.id), false);
+  const leitfaden = doks.find((d) => d.art === "leitfaden")!;
+  assert.equal(await portal.darfDokumentSehen(lead.id, leitfaden.id), false, "interne Dokumente nie sichtbar");
+  assert.ok(sicht.website);
+});
+
+test("Resend: Mail mit Anhang über die API", async () => {
+  const { sendeMail } = await import("../src/lib/adapters/mail");
+  const vorher = globalThis.fetch;
+  let gesendet: { url: string; body: Record<string, unknown>; auth: string } | undefined;
+  globalThis.fetch = (async (url: string, init: RequestInit) => {
+    gesendet = { url, body: JSON.parse(String(init.body)), auth: String((init.headers as Record<string, string>).Authorization) };
+    return new Response(JSON.stringify({ id: "test-123" }), { status: 200 });
+  }) as typeof fetch;
+  process.env.RESEND_API_KEY = "re_test";
+  process.env.MAIL_FROM = "Stelax Consulting <hallo@stelax.example>";
+  try {
+    const r = await sendeMail({ an: "kunde@example.com", betreff: "Test", text: "Hallo", anhaenge: [{ name: "a.pdf", inhalt: Buffer.from("PDF") }] });
+    assert.match(r, /test-123/);
+    assert.equal(gesendet!.url, "https://api.resend.com/emails");
+    assert.equal(gesendet!.auth, "Bearer re_test");
+    assert.deepEqual(gesendet!.body.to, ["kunde@example.com"]);
+    assert.equal((gesendet!.body.attachments as { content: string }[])[0].content, Buffer.from("PDF").toString("base64"));
+  } finally {
+    globalThis.fetch = vorher;
+    delete process.env.RESEND_API_KEY;
+  }
 });
 
 test("Qualitätskontrolle muss vor der Freigabe gelaufen sein", async () => {

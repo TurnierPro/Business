@@ -8,7 +8,7 @@ import { protokolliere } from "../protokoll";
 import { transkribiere } from "../adapters/transkription";
 import { schreibe, jsonAus } from "../adapters/ki";
 import { datenOrdner } from "../pfade";
-import { linkSchluessel } from "../geheim";
+import { portalLink } from "../kundenportal";
 import { datumDe } from "../docs/basis";
 import { PAKETE, PaketKey, euro, UST } from "../pakete";
 import type { ProtokollDaten } from "../docs/vorlagen";
@@ -101,7 +101,7 @@ export async function auswertung(terminId: number): Promise<string> {
     zweck: "angebot",
     empfaenger: b.email ?? "(E-Mail-Adresse fehlt)",
     betreff: `Ihr Angebot von Stelax: ${p.name}`,
-    text: `${anrede}\n\n${a.einleitung}\n\nIm Anhang finden Sie das Protokoll mit Maßnahmenplan und das Angebot. Unterschreiben können Sie online über diesen Link:\n${basisUrl()}/portal/angebot/${linkSchluessel("angebot", angebot.id)}\n\nBei Fragen rufen Sie mich gern an.\n\nMit freundlichen Grüßen\nDaniel Lück\nStelax Consulting`,
+    text: `${anrede}\n\n${a.einleitung}\n\nIm Anhang finden Sie das Protokoll mit Maßnahmenplan und das Angebot. Alles liegt auch in Ihrem Kundenportal. Dort nehmen Sie das Angebot mit zwei Klicks an und sehen jederzeit, wo Ihr Projekt steht:\n${await portalLink(b.id)}\n\nBei Fragen rufen Sie mich gern an.\n\nMit freundlichen Grüßen\nDaniel Lück\nStelax Consulting`,
     anhaenge: [protokollId, angebotDokId],
     erlaubteZahlen: [euro(p.einmalig), euro(p.monatlich)],
     hinweise: b.email ? [] : ["E-Mail-Adresse fehlt. Beim Betrieb ergänzen und Empfänger anpassen."],
@@ -186,7 +186,7 @@ export async function zahlungEingegangen(angebotId: number, wer: string): Promis
     zweck: "kickoff",
     empfaenger: b.email ?? "(E-Mail-Adresse fehlt)",
     betreff: "Los geht's: Ihr Zugang für Texte und Fotos",
-    text: `Guten Tag,\n\ndie Anzahlung ist da, vielen Dank. Jetzt brauchen wir Ihre Inhalte. Über diesen Link laden Sie Texte, Fotos und Ihr Logo hoch, ganz ohne Anmeldung:\n${basisUrl()}/portal/${token}\n\nSobald alles da ist, bauen wir Ihre Seite. Den Livegang planen wir ${PAKETE[a.paket as PaketKey].wochen <= 4 ? "30 Tage" : `${PAKETE[a.paket as PaketKey].wochen} Wochen`} nach Erhalt der Inhalte.\n\nMit freundlichen Grüßen\nMax Steiner\nStelax Consulting`,
+    text: `Guten Tag,\n\ndie Anzahlung ist da, vielen Dank. Jetzt brauchen wir Ihre Inhalte. Über diesen Link laden Sie Texte, Fotos und Ihr Logo hoch, ganz ohne Anmeldung:\n${basisUrl()}/portal/${token}\n\nDen Stand Ihres Projekts, Ihre Unterlagen und Rechnungen finden Sie wie immer in Ihrem Kundenportal:\n${await portalLink(a.betriebId)}\n\nSobald alles da ist, bauen wir Ihre Seite. Den Livegang planen wir ${PAKETE[a.paket as PaketKey].wochen <= 4 ? "30 Tage" : `${PAKETE[a.paket as PaketKey].wochen} Wochen`} nach Erhalt der Inhalte.\n\nMit freundlichen Grüßen\nMax Steiner\nStelax Consulting`,
     meta: { projektId: p.id },
   });
   return p.id;
