@@ -64,6 +64,9 @@ export const dokumente = pgTable("dokumente", {
   art: text("art").notNull(),
   titel: text("titel").notNull(),
   daten: jsonb("daten").notNull(),
+  // Beim Versand eingefroren: genau dieses PDF hat der Kunde bekommen
+  archivPfad: text("archiv_pfad"),
+  archiviertAm: timestamp("archiviert_am", { withTimezone: true }),
   erstelltAm: timestamp("erstellt_am", { withTimezone: true }).defaultNow().notNull(),
 });
 
@@ -247,4 +250,12 @@ export const ausgaben = pgTable("ausgaben", {
   status: text("status").notNull().default("erfasst"), // erfasst | pruefen
   erfasstVon: text("erfasst_von").notNull(),
   erstelltAm: timestamp("erstellt_am", { withTimezone: true }).defaultNow().notNull(),
+});
+
+// Kontostand am Monatsende (von Hand), Grundlage für die Gehaltsregel „eigenes Geld“
+export const kontostaende = pgTable("kontostaende", {
+  monat: text("monat").primaryKey(), // JJJJ-MM
+  betrag: integer("betrag").notNull(),
+  erfasstVon: text("erfasst_von").notNull(),
+  am: timestamp("am", { withTimezone: true }).defaultNow().notNull(),
 });

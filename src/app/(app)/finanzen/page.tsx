@@ -5,6 +5,8 @@ import { euro, UST } from "@/lib/pakete";
 import { datum } from "@/lib/format";
 import { Status } from "@/components/Status";
 import { berichtVorbereiten, rechnungBezahlt } from "../aktionen";
+import { FinanzReiter, Fortschritt } from "@/components/FinanzReiter";
+import { monatsplan } from "@/lib/plan";
 
 export const metadata = { title: "Finanzen" };
 
@@ -19,6 +21,9 @@ export default async function Finanzen({ searchParams }: { searchParams: Promise
     { key: `${jahr}-Q${quartal}`, text: "Quartal", aktiv: z.art === "quartal" },
     { key: String(jahr), text: "Jahr", aktiv: z.art === "jahr" },
   ];
+  const planMonate = monatsplan("basis").filter((m) => z.monate.includes(m.monat));
+  const planUmsatz = planMonate.reduce((x, m) => x + m.umsatz, 0);
+  const planKosten = planMonate.reduce((x, m) => x + m.kosten, 0);
   const kacheln = [
     { name: "Umsatz netto", wert: a.umsatz },
     { name: "Ausgaben netto", wert: a.kosten },
@@ -41,6 +46,7 @@ export default async function Finanzen({ searchParams }: { searchParams: Promise
         </div>
       </div>
 
+      <FinanzReiter aktiv="uebersicht" />
       <div className="knopfreihe" style={{ marginBottom: 16, justifyContent: "space-between" }}>
         <div className="knopfreihe">
           <Link className="knopf klein" href={`/finanzen?z=${nachbar(z, -1)}`} aria-label="Zeitraum davor">←</Link>
@@ -64,6 +70,16 @@ export default async function Finanzen({ searchParams }: { searchParams: Promise
           </div>
         ))}
       </div>
+
+      {planUmsatz || planKosten ? (
+        <section className="karte abstand">
+          <div className="kopfzeile" style={{ marginBottom: 8 }}><h2>Plan (Basis-Szenario) in diesem Zeitraum</h2><Link className="klein" href="/finanzen/plan">Plan und Ziele</Link></div>
+          <div className="raster zwei">
+            <div><p className="klein">Umsatz</p><Fortschritt ist={a.umsatz} ziel={planUmsatz} format={euro} /></div>
+            <div><p className="klein">Ausgaben (Budget)</p><Fortschritt ist={a.kosten} ziel={planKosten} format={euro} /></div>
+          </div>
+        </section>
+      ) : null}
 
       <section className="karte abstand">
         <h2>Umsatz und Ausgaben je Monat</h2>

@@ -6,7 +6,9 @@ import { brauchtBenutzer } from "@/lib/auth";
 import { Status } from "@/components/Status";
 import { NeuLaden } from "@/components/NeuLaden";
 import { datumZeit, DOKART, KANAL, ZWECK } from "@/lib/format";
-import { ablehnen, eintragSpeichern, freigeben } from "../../aktionen";
+import { ablehnen, angebotAendern, eintragSpeichern, freigeben } from "../../aktionen";
+import { AngebotEditor } from "@/components/AngebotEditor";
+import type { AngebotDaten } from "@/lib/docs/vorlagen";
 
 export const metadata = { title: "Freigabe prüfen" };
 
@@ -19,6 +21,7 @@ export default async function Eintrag({ params }: { params: Promise<{ id: string
   const [betrieb] = e.betriebId ? await db.select().from(schema.betriebe).where(eq(schema.betriebe.id, e.betriebId)) : [];
   const doks = e.anhaenge.length ? await db.select().from(schema.dokumente).where(inArray(schema.dokumente.id, e.anhaenge)) : [];
   const offen = e.status === "zur_freigabe";
+  const angebotDok = e.zweck === "angebot" ? doks.find((d) => d.art === "angebot" && !d.archivPfad) : undefined;
   const schonFreigegeben = e.freigaben.some((f) => f.name === ich.name);
   const slug = typeof e.meta.slug === "string" ? e.meta.slug : null;
   const [seite] = slug ? await db.select().from(schema.seiten).where(eq(schema.seiten.slug, slug)) : [];
@@ -43,6 +46,17 @@ export default async function Eintrag({ params }: { params: Promise<{ id: string
       </div>
       {e.status === "abgelehnt" ? <div className="hinweis fehler">Abgelehnt: {e.ablehnGrund}</div> : null}
       {e.fehler ? <div className="hinweis fehler">Fehler beim Versand: {e.fehler}</div> : null}
+
+      {offen && angebotDok ? (
+        <div style={{ marginBottom: 24 }}>
+          <AngebotEditor
+            dokumentId={angebotDok.id}
+            eintragId={e.id}
+            start={{ positionen: (angebotDok.daten as AngebotDaten).positionen?.length ? (angebotDok.daten as AngebotDaten).positionen! : [{ text: "Paket", einmalig: (angebotDok.daten as AngebotDaten).einmalig, monatlich: (angebotDok.daten as AngebotDaten).monatlich }], einleitung: (angebotDok.daten as AngebotDaten).einleitung, anmerkungen: (angebotDok.daten as AngebotDaten).anmerkungen ?? "" }}
+            speichern={angebotAendern}
+          />
+        </div>
+      ) : null}
 
       <div className="raster zwei" style={{ alignItems: "start" }}>
         <section>

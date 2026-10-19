@@ -46,3 +46,32 @@ ${daten
 <line x1="${links}" x2="${breite - rechts}" y1="${oben + innenH}" y2="${oben + innenH}" stroke="${f.leise}" stroke-width="1"/>
 </svg>`;
 }
+
+/** Kumulierter Umsatz: Plan (gestrichelt) gegen Ist (durchgezogen) über den Planzeitraum, Markierung „heute“. */
+export function planIstDiagramm(punkte: { name: string; plan: number; ist: number | null }[], f: DiagrammFarben, breite = 720): string {
+  const hoehe = 280, links = 70, rechts = 20, oben = 40, unten = 32;
+  let p = 0, i = 0;
+  const kum = punkte.map((x) => ({ name: x.name, plan: (p += x.plan), ist: x.ist === null ? null : (i += x.ist) }));
+  const max = Math.max(1, ...kum.map((k) => Math.max(k.plan, k.ist ?? 0))) / 100;
+  const s = schritt(max);
+  const top = Math.ceil(max / s) * s;
+  const innenB = breite - links - rechts, innenH = hoehe - oben - unten;
+  const x = (j: number) => links + (innenB * j) / Math.max(1, kum.length - 1);
+  const y = (cent: number) => oben + innenH - (cent / 100 / top) * innenH;
+  const fmt = (v: number) => (v >= 1000 ? `${(v / 1000).toLocaleString("de-DE")} T€` : `${v} €`);
+  const planPfad = kum.map((k, j) => `${j ? "L" : "M"}${x(j)} ${y(k.plan)}`).join("");
+  const istPunkte = kum.filter((k) => k.ist !== null);
+  const istPfad = istPunkte.map((k, j) => `${j ? "L" : "M"}${x(j)} ${y(k.ist!)}`).join("");
+  const heute = istPunkte.length - 1;
+  const ticks = Array.from({ length: Math.round(top / s) + 1 }, (_, t) => t * s);
+  return `<svg viewBox="0 0 ${breite} ${hoehe}" width="100%" role="img" aria-label="Kumulierter Umsatz, Plan gegen Ist" style="font-family:'IBM Plex Mono',monospace;font-size:11px">
+${ticks.map((t) => `<line x1="${links}" x2="${breite - rechts}" y1="${y(t * 100)}" y2="${y(t * 100)}" stroke="${f.linie}"/><text x="${links - 8}" y="${y(t * 100) + 4}" text-anchor="end" fill="${f.leise}">${fmt(t)}</text>`).join("")}
+<g font-family="Archivo, sans-serif" font-size="12"><line x1="${links}" x2="${links + 18}" y1="13" y2="13" stroke="${f.ausgaben}" stroke-width="2" stroke-dasharray="5 4"/><text x="${links + 24}" y="17" fill="${f.text}">Plan (Business Case)</text><line x1="${links + 170}" x2="${links + 188}" y1="13" y2="13" stroke="${f.umsatz}" stroke-width="2"/><text x="${links + 194}" y="17" fill="${f.text}">Ist</text></g>
+<path d="${planPfad}" fill="none" stroke="${f.ausgaben}" stroke-width="2" stroke-dasharray="5 4"/>
+${istPfad ? `<path d="${istPfad}" fill="none" stroke="${f.umsatz}" stroke-width="2"/>` : ""}
+${kum.map((k, j) => `<circle cx="${x(j)}" cy="${y(k.plan)}" r="6" fill="transparent"><title>${esc(k.name)}: Plan ${euro(k.plan)}${k.ist !== null ? `, Ist ${euro(k.ist)}` : ""}</title></circle>`).join("")}
+${heute >= 0 ? `<line x1="${x(heute)}" x2="${x(heute)}" y1="${oben}" y2="${oben + innenH}" stroke="${f.leise}" stroke-dasharray="2 3"/><circle cx="${x(heute)}" cy="${y(kum[heute].ist!)}" r="4" fill="${f.umsatz}" stroke="${f.grund}" stroke-width="2"/><text x="${x(heute) + 6}" y="${oben + 12}" fill="${f.leise}">heute</text>` : ""}
+${kum.map((k, j) => (j % 3 === 0 ? `<text x="${x(j)}" y="${hoehe - 10}" text-anchor="middle" fill="${f.leise}">${esc(k.name)}</text>` : "")).join("")}
+<line x1="${links}" x2="${breite - rechts}" y1="${oben + innenH}" y2="${oben + innenH}" stroke="${f.leise}"/>
+</svg>`;
+}

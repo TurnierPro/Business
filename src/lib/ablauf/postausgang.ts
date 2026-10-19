@@ -5,6 +5,7 @@ import { protokolliere } from "../protokoll";
 import { sendeMail } from "../adapters/mail";
 import { sendeBrief } from "../adapters/post";
 import { dokumentPdf } from "../docs/render";
+import { archivieren } from "../docs/archiv";
 import { pruefeText, schreibe, jsonAus } from "../adapters/ki";
 import { pruefeSeite } from "../sites/qualitaet";
 import { sperrSchluessel } from "./gemeinsam";
@@ -194,9 +195,10 @@ export async function versende(id: number): Promise<string> {
   if (e.kanal === "brief") {
     const d = doks[0];
     if (!d) throw new Error("Brief ohne Dokument");
-    ergebnis = await sendeBrief({ an: e.empfaenger, betreff: e.betreff, pdf: await dokumentPdf(d), dateiname: `brief-${e.id}.pdf` });
+    ergebnis = await sendeBrief({ an: e.empfaenger, betreff: e.betreff, pdf: await archivieren(d), dateiname: `brief-${e.id}.pdf` });
   } else if (e.kanal === "mail") {
-    const anhaenge = await Promise.all(doks.map(async (d) => ({ name: `${d.titel}.pdf`, inhalt: await dokumentPdf(d) })));
+    // Genau die versendeten PDFs werden eingefroren und liegen danach unverändert im Kundenportal
+    const anhaenge = await Promise.all(doks.map(async (d) => ({ name: `${d.titel}.pdf`, inhalt: await archivieren(d) })));
     ergebnis = await sendeMail({ an: e.empfaenger, betreff: e.betreff, text: e.text, anhaenge });
   } else if (e.kanal === "zahlung") {
     const { fuehreZahlungAus } = await import("./zahlung");

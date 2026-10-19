@@ -29,6 +29,13 @@
       "when": 1792382475596,
       "tag": "0003_stripe",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1792384046440,
+      "tag": "0004_archiv_plan",
+      "breakpoints": true
     }
   ]
 }

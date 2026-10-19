@@ -239,3 +239,21 @@ export async function angebotErstellen(f: FormData) {
     return { ziel: `/freigaben/${eintragId}` };
   });
 }
+
+export async function angebotAendern(f: FormData) {
+  const id = zahl(f, "id");
+  const { angebotAendern: aendern } = await import("@/lib/ablauf/angebot-bearbeiten");
+  await ausfuehren(`/freigaben/${id}`, "Angebot angepasst. Qualitätskontrolle läuft neu.", (wer) => aendern(id, JSON.parse(String(f.get("daten"))), wer));
+}
+
+export async function kontostandSpeichern(f: FormData) {
+  const { inCent } = await import("@/lib/finanzen");
+  await ausfuehren("/finanzen/plan", "Kontostand gespeichert", async (wer) => {
+    const monat = text(f, "monat");
+    if (!/^\d{4}-\d{2}$/.test(monat)) throw new Error("Bitte einen Monat wählen.");
+    const betrag = inCent(text(f, "betrag"));
+    const db = await getDb();
+    await db.insert(schema.kontostaende).values({ monat, betrag, erfasstVon: wer }).onConflictDoUpdate({ target: schema.kontostaende.monat, set: { betrag, erfasstVon: wer, am: new Date() } });
+    await protokolliere(wer, `Kontostand ${monat} erfasst`);
+  });
+}

@@ -27,6 +27,7 @@ export type AngebotDaten = {
   monatlich: number;
   positionen?: { text: string; einmalig: number; monatlich: number; hinweis?: string }[];
   zahlweg?: "stripe" | "ueberweisung";
+  anmerkungen?: string;
 };
 export type CheckDaten = { an: Anschrift; website?: string | null; datum: string; punkte: Pruefpunkt[]; prioritaeten: string[]; ladezeitMs?: number };
 export type LeitfadenDaten = { an: Anschrift; datum: string; fragen: string[]; hinweise: string[] };
@@ -79,6 +80,7 @@ ${(d.positionen?.length ? d.positionen : [{ text: p.name, einmalig: d.einmalig, 
 <tr><td><b>Summe brutto</b></td><td class="zahl"><b>${euro(d.einmalig + ust)}</b></td><td class="zahl"><b>${euro(d.monatlich + Math.round(d.monatlich * UST))}</b></td></tr>
 </tbody></table>
 <p class="leise" style="font-size:8.5pt">Betreuung mit 12 Monaten Mindestlaufzeit.</p>
+${d.anmerkungen?.trim() ? `<h2>Anmerkungen</h2>${absaetze(d.anmerkungen)}` : ""}
 <h2>So läuft es ab</h2>
 <ul>${
   d.zahlweg === "stripe"
