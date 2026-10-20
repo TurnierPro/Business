@@ -15,6 +15,6 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const daten = geprueft.success ? mitSummen(d.daten as AngebotDaten, geprueft.data) : d.daten;
   const html = dokumentHtml({ art: d.art, daten })
     .replace("</style>", "body{background:#d6d2c8}.seite{margin:16px auto;box-shadow:0 0 0 1px #c9c4b8}</style>")
-    .replace("</body>", "<script src=\"/vorschau-zoom.js\"></script></body>");
+    .replace("</body>", "<script src=\"/dokument-umbruch.js\"></script><script src=\"/vorschau-zoom.js\"></script></body>");
   return new Response(html, { headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" } });
 }

@@ -1,10 +1,15 @@
 "use client";
 import { useMemo, useState } from "react";
-import { MODULE, ZUSAETZE, berechne, type Auswahl } from "@/lib/katalog";
-import { PAKETE, PaketKey, euro, UST } from "@/lib/pakete";
+import { berechne, type Auswahl, type Katalog } from "@/lib/katalog";
+import { PaketKey, euro, UST } from "@/lib/pakete";
 
 // Angebot live beim Kunden zusammenstellen: Preis rechnet sofort mit.
-export function AngebotKonfigurator({ gewerk, startPaket }: { gewerk: string; startPaket: PaketKey }) {
+// Der Katalog kommt vom Server (Stammdaten), damit Browser und Server mit denselben Preisen rechnen.
+export function AngebotKonfigurator({ gewerk, startPaket, katalog }: { gewerk: string; startPaket: PaketKey; katalog: Katalog }) {
+  const pakete = (Object.keys(katalog.pakete) as PaketKey[]).filter((k) => katalog.pakete[k].aktiv !== false);
+  const MODULE = katalog.module.filter((m) => m.aktiv !== false);
+  const ZUSAETZE = katalog.zusaetze.filter((z) => z.aktiv !== false);
+  const PAKETE = katalog.pakete;
   const [paket, setPaket] = useState<PaketKey>(startPaket);
   const [module, setModule] = useState<string[]>([]);
   const [zusaetze, setZusaetze] = useState<string[]>([]);
@@ -12,7 +17,8 @@ export function AngebotKonfigurator({ gewerk, startPaket }: { gewerk: string; st
   const [anrechnen, setAnrechnen] = useState(false);
   const umschalten = (liste: string[], setze: (l: string[]) => void, key: string) => setze(liste.includes(key) ? liste.filter((k) => k !== key) : [...liste, key]);
   const auswahl: Auswahl = { paket, module, zusaetze, preisModul8: preis8 ? Math.round(Number(preis8.replace(/\./g, "").replace(",", ".")) * 100) : undefined, prozessCheckAnrechnen: anrechnen };
-  const r = useMemo(() => berechne(auswahl), [paket, module, zusaetze, preis8, anrechnen]); // eslint-disable-line react-hooks/exhaustive-deps
+  const r = useMemo(() => berechne(auswahl, katalog), [paket, module, zusaetze, preis8, anrechnen]); // eslint-disable-line react-hooks/exhaustive-deps
+  const individuell = MODULE.find((m) => m.einmalig === null && module.includes(m.key));
 
   return (
     <div className="raster zwei" style={{ alignItems: "start" }}>
@@ -20,7 +26,7 @@ export function AngebotKonfigurator({ gewerk, startPaket }: { gewerk: string; st
         <section className="karte">
           <h2>1. Paket</h2>
           <div className="raster" style={{ gap: 8 }}>
-            {(Object.keys(PAKETE) as PaketKey[]).map((k) => (
+            {pakete.map((k) => (
               <label key={k} className="haken" style={paket === k ? { borderColor: "var(--akzent)" } : undefined}>
                 <input type="radio" name="paket" value={k} checked={paket === k} onChange={() => setPaket(k)} />
                 <span><b>{PAKETE[k].name}</b><br /><span className="leise klein mono">{euro(PAKETE[k].einmalig)} + {euro(PAKETE[k].monatlich)}/Monat</span></span>
@@ -30,7 +36,7 @@ export function AngebotKonfigurator({ gewerk, startPaket }: { gewerk: string; st
         </section>
 
         <section className="karte">
-          <h2>2. Entlastungs-Module {paket === "L" ? <span className="leise klein">(3 im Paket L enthalten)</span> : null}</h2>
+          <h2>2. Entlastungs-Module {PAKETE[paket]?.inklusiveModule ? <span className="leise klein">({PAKETE[paket].inklusiveModule} im Paket enthalten)</span> : null}</h2>
           <div className="raster" style={{ gap: 8 }}>
             {MODULE.map((m) => (
               <label key={m.key} className="haken" style={module.includes(m.key) ? { borderColor: "var(--akzent)" } : undefined}>
@@ -43,11 +49,11 @@ export function AngebotKonfigurator({ gewerk, startPaket }: { gewerk: string; st
               </label>
             ))}
           </div>
-          {module.includes("m8") ? (
-            <label className="feld abstand"><span>Preis Modul 8 (einmalig, netto, €)</span><input name="preisModul8" inputMode="decimal" value={preis8} onChange={(e) => setPreis8(e.target.value)} placeholder="z. B. 1.500" /></label>
+          {individuell ? (
+            <label className="feld abstand"><span>Preis Modul {individuell.nr} (einmalig, netto, €)</span><input name="preisModul8" inputMode="decimal" value={preis8} onChange={(e) => setPreis8(e.target.value)} placeholder="z. B. 1.500" /></label>
           ) : null}
           {gewerk !== "Kfz" && module.includes("m6") ? <div className="hinweis">Modul 6 ist für Kfz-Werkstätten gedacht.</div> : null}
-          <p className="leise klein" style={{ marginTop: 12 }}>Modulpreise sind laut Business Case vorläufig.</p>
+          <p className="leise klein" style={{ marginTop: 12 }}>Preise pflegst du unter Stammdaten.</p>
         </section>
 
         <section className="karte">

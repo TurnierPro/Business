@@ -85,7 +85,7 @@ export async function leadAnlegen(f: FormData) {
 
 export async function betriebSpeichern(f: FormData) {
   const id = zahl(f, "id");
-  await ausfuehren(`/leads/${id}`, "Gespeichert", async (wer) => {
+  await ausfuehren(`/leads/${id}?tab=daten`, "Gespeichert", async (wer) => {
     const db = await getDb();
     await db
       .update(schema.betriebe)
@@ -357,7 +357,7 @@ export async function aufgabeVerschieben(f: FormData) {
 
 export async function betriebZuweisen(f: FormData) {
   const id = zahl(f, "id");
-  await ausfuehren(`/leads/${id}`, "Gespeichert", async () => (await import("@/lib/pipeline")).betriebZuweisen(id, text(f, "zustaendig") || null, text(f, "tags").split(",")));
+  await ausfuehren(`/leads/${id}?tab=daten`, "Gespeichert", async () => (await import("@/lib/pipeline")).betriebZuweisen(id, text(f, "zustaendig") || null, text(f, "tags").split(",")));
 }
 
 // ---------- Lieferung: Checkliste und Zeiten ----------
@@ -506,4 +506,49 @@ export async function betroffenenanfrageErfassen(f: FormData) {
 
 export async function betroffenenanfrageErledigt(f: FormData) {
   await ausfuehren("/datenschutz", "Erledigt", async (wer) => (await import("@/lib/ablauf/datenschutz")).betroffenenanfrageErledigt(zahl(f, "id"), wer));
+}
+
+// ---------- Stammdaten: Katalog und Soll-Umsätze (nur Admin) ----------
+
+const formularDaten = (f: FormData) => Object.fromEntries([...f.entries()].filter(([, v]) => typeof v === "string"));
+
+export async function paketSpeichern(f: FormData) {
+  await ausfuehren("/stammdaten", "Paket gespeichert. Gilt für neue Angebote.", async (wer) => (await import("@/lib/katalog-db")).paketSpeichern(text(f, "key"), formularDaten(f), wer), "verwalten");
+}
+
+export async function modulSpeichern(f: FormData) {
+  await ausfuehren("/stammdaten?bereich=module", "Modul gespeichert. Gilt für neue Angebote.", async (wer) => {
+    await (await import("@/lib/katalog-db")).modulSpeichern(text(f, "key") || null, formularDaten(f), wer);
+  }, "verwalten");
+}
+
+export async function zusatzSpeichern(f: FormData) {
+  await ausfuehren("/stammdaten?bereich=zusaetze", "Zusatzleistung gespeichert. Gilt für neue Angebote.", async (wer) => {
+    await (await import("@/lib/katalog-db")).zusatzSpeichern(text(f, "key") || null, formularDaten(f), wer);
+  }, "verwalten");
+}
+
+export async function katalogZuruecksetzen(f: FormData) {
+  const art = text(f, "art");
+  await ausfuehren(`/stammdaten${art === "paket" ? "" : art === "modul" ? "?bereich=module" : "?bereich=zusaetze"}`, "Auf Werkseinstellung zurückgesetzt", async (wer) => (await import("@/lib/katalog-db")).zuruecksetzen(art, text(f, "key"), wer), "verwalten");
+}
+
+export async function sollSpeichern(f: FormData) {
+  await ausfuehren("/stammdaten/ziele", "Soll-Umsätze gespeichert", async (wer) => {
+    const monate = f.getAll("monat").map(String);
+    const werte = monate.map((m) => ({ monat: m, umsatz: Math.round(Number(text(f, `umsatz-${m}`).replace(/\./g, "").replace(",", ".")) * 100), auftraege: Number(text(f, `auftraege-${m}`)) }));
+    const n = await (await import("@/lib/soll")).sollSpeichern(werte, wer);
+    return { ok: `Gespeichert. ${n} Monate weichen vom Business Case ab.` };
+  }, "verwalten");
+}
+
+export async function portalLinkErneuern(f: FormData) {
+  const id = zahl(f, "id");
+  await ausfuehren(`/leads/${id}?tab=daten`, "Neuer Portal-Link erzeugt. Der alte ist gesperrt; die Mail mit dem neuen Link liegt in den Freigaben.", async (wer) => {
+    const kp = await import("@/lib/kundenportal");
+    await kp.portalLinkErneuern(id, wer);
+    const db = await getDb();
+    const [b] = await db.select().from(schema.betriebe).where(eq(schema.betriebe.id, id));
+    if (b?.email) await kp.zugangAnfordern(b.email);
+  });
 }

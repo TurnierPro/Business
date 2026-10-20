@@ -4,7 +4,8 @@ import { brauchtBenutzer } from "@/lib/auth";
 import { getDb, schema } from "@/lib/db";
 import { inTagen } from "@/lib/format";
 import { Logo } from "@/components/Logo";
-import { Navigation } from "@/components/Navigation";
+import { Navigation, Unternavigation } from "@/components/Navigation";
+import { katalogLaden } from "@/lib/katalog-db";
 import { Meldung } from "@/components/Meldung";
 import { marke } from "@/lib/marke";
 import { abmelden } from "./aktionen";
@@ -14,6 +15,7 @@ export const dynamic = "force-dynamic";
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const b = await brauchtBenutzer();
   const db = await getDb();
+  await katalogLaden(); // Stammdaten aktuell halten (eine kleine Abfrage)
   const heuteEnde = inTagen(1, "00:00"); // Mitternacht deutsche Zeit
   const [[offen], [aufgaben], [tickets]] = await Promise.all([
     db.select({ n: sql<number>`count(*)::int` }).from(schema.postausgang).where(eq(schema.postausgang.status, "zur_freigabe")),
@@ -27,7 +29,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           <a href="/" className="logo"><Logo hoehe={20} /></a>
           <div className="slogan">{marke.slogan}</div>
         </div>
-        <Navigation zahlen={{ freigaben: offen.n, aufgaben: aufgaben.n, tickets: tickets.n }} />
+        <Navigation zahlen={{ zutun: offen.n + aufgaben.n, projekte: tickets.n }} />
         <div className="fuss">
           {b.name}
           <br />
@@ -35,6 +37,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         </div>
       </aside>
       <main className="inhalt">
+        <Unternavigation />
         <Suspense>
           <Meldung />
         </Suspense>

@@ -1,3 +1,5 @@
+import fs from "node:fs";
+import path from "node:path";
 import { chromium, Browser } from "playwright-core";
 import * as v from "./vorlagen";
 import { finanzbericht } from "./finanzbericht";
@@ -48,6 +50,10 @@ function browser(): Promise<Browser> {
   return g.__nexovaBrowser;
 }
 
+let umbruchSkript: string | undefined;
+const umbruch = () => (umbruchSkript ??= fs.readFileSync(path.join(process.cwd(), "public", "dokument-umbruch.js"), "utf8"));
+
+/** HTML mit Seitenumbruch und Layout-Prüfung zu PDF. Ist das Layout nicht sauber, gibt es kein PDF (die Qualitätskontrolle blockiert dann). */
 export async function htmlZuPdf(html: string): Promise<Buffer> {
   const b = await browser();
   // Zweite Schutzebene: Dokumente brauchen weder JavaScript noch Internet (Schriften und Bilder sind eingebettet)
@@ -56,6 +62,8 @@ export async function htmlZuPdf(html: string): Promise<Buffer> {
   try {
     await seite.setContent(html, { waitUntil: "load" });
     await seite.evaluate(() => document.fonts.ready);
+    const probleme = (await seite.evaluate(`${umbruch()}; window.nexovaUmbruch ? window.nexovaUmbruch() : []`)) as string[];
+    if (probleme.length) throw new Error(`PDF-Layout nicht sauber: ${probleme.join(" · ")}`);
     return Buffer.from(await seite.pdf({ format: "A4", printBackground: true, preferCSSPageSize: true }));
   } finally {
     await seite.close();

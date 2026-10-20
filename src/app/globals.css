@@ -225,3 +225,20 @@ dl.daten dd { margin: 0; }
 .marke-klein { display: inline-block; font-size: 11px; padding: 1px 6px; border: 1px solid var(--rahmen); border-radius: 999px; margin: 4px 4px 0 0; color: var(--leise); }
 .suche-feld { width: 100%; margin: 12px 0 4px; }
 .nav-gruppe { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--leise); margin: 14px 12px 4px; }
+/* Aufklappbare Zeilen (Stammdaten) */
+.zeile-aufklappen { border-bottom: 1px solid var(--linie); }
+.zeile-aufklappen > summary { list-style: none; cursor: pointer; display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 14px 16px; }
+.zeile-aufklappen > summary::-webkit-details-marker { display: none; }
+.zeile-aufklappen > summary:hover { background: rgba(255,255,255,0.03); }
+.zeile-aufklappen .inhalt { padding: 4px 16px 16px; }
+/* Unternavigation je Bereich */
+.unternav { display: flex; gap: 4px; border-bottom: 1px solid var(--linie); margin: -8px 0 24px; overflow-x: auto; }
+.unternav a { padding: 10px 14px; color: var(--leise); text-decoration: none; border-bottom: 2px solid transparent; white-space: nowrap; }
+.unternav a[aria-current="page"] { color: var(--text); border-bottom-color: var(--akzent); }
+.unternav a:hover { color: var(--text); }
+/* „Mehr“-Menü für selten gebrauchte Knöpfe */
+.mehr { position: relative; }
+.mehr > summary { list-style: none; cursor: pointer; }
+.mehr > summary::-webkit-details-marker { display: none; }
+.mehr-menue { position: absolute; right: 0; top: calc(100% + 6px); z-index: 10; background: var(--flaeche); border: 1px solid var(--rahmen); border-radius: 6px; padding: 8px; display: grid; gap: 6px; min-width: 220px; }
+.mehr-menue .knopf { width: 100%; justify-content: flex-start; }

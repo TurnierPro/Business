@@ -71,6 +71,13 @@
       "when": 1792478907790,
       "tag": "0009_sicherheit",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1792514037077,
+      "tag": "0010_stammdaten",
+      "breakpoints": true
     }
   ]
 }

@@ -24,6 +24,7 @@ export const ZWECK: Record<string, string> = {
   monatsreport: "Monatsreport",
   kuendigung: "Kündigungsbestätigung",
   ticket_antwort: "Antwort auf Ticket",
+  portal_zugang: "Zugang zum Kundenportal",
   umzug_anleitung: "Domain umstellen: Anleitung",
   umzug_fertig: "Domain umgestellt, Kündigungshinweis",
   betreuung_ende: "Betreuung beenden (Stripe)",

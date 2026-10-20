@@ -18,9 +18,14 @@ export default async function Freigaben() {
       <div className="kopfzeile">
         <div>
           <h1>Freigaben</h1>
-          <p>Nichts geht raus, bevor einer von euch beiden hier zugestimmt hat.</p>
+          <p>Nichts geht an Kunden, bevor einer von euch hier zugestimmt hat.</p>
         </div>
       </div>
+      <ol className="karte klein" style={{ margin: "0 0 16px", paddingLeft: 36 }} aria-label="So geht's">
+        <li><b>Prüfen</b> öffnen: Du siehst den Brief, die Mail oder das Angebot genau so, wie der Kunde es bekommt.</li>
+        <li><b>Qualitätskontrolle</b> lesen: grün = alles ok, gelb = Hinweise lesen, rot = erst beheben.</li>
+        <li><b>Freigeben</b> schickt es raus. <b>Text ändern</b> oder das Angebot bearbeiten, wenn etwas nicht passt. <b>Ablehnen</b>, wenn es gar nicht raus soll.</li>
+      </ol>
       <section className="karte">
         <h2>Wartet auf euch ({offen.length})</h2>
         {offen.length ? (

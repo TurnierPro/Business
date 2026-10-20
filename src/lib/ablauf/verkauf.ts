@@ -12,7 +12,8 @@ import { portalLink } from "../kundenportal";
 import { berechne, type Auswahl } from "../katalog";
 import { zahlungUeberStripe, type StripeRechnung } from "../adapters/stripe";
 import { datumDe } from "../docs/basis";
-import { PAKETE, PaketKey, euro, UST } from "../pakete";
+import { NICHT_ENTHALTEN, PAKETE, PaketKey, euro, UST } from "../pakete";
+import { katalogLaden } from "../katalog-db";
 import { AGB_VERSION, ZAHLUNGSZIEL_TAGE } from "../recht";
 import type { ProtokollDaten } from "../docs/vorlagen";
 import { inPostausgang } from "./postausgang";
@@ -110,6 +111,7 @@ export async function erstelleAngebot(o: { betriebId: number; auswahl: Auswahl; 
   const db = await getDb();
   const b = await betrieb(o.betriebId);
   const an = anschrift(b);
+  await katalogLaden(); // aktuelle Stammdaten
   const r = berechne(o.auswahl);
   const p = PAKETE[o.auswahl.paket];
   const [angebot] = await db.insert(schema.angebote).values({ betriebId: b.id, paket: o.auswahl.paket, einmalig: r.einmalig, monatlich: r.monatlich, positionen: r.positionen }).returning();
@@ -119,7 +121,9 @@ export async function erstelleAngebot(o: { betriebId: number; auswahl: Auswahl; 
     betriebId: b.id,
     art: "angebot",
     titel: `Angebot ${nummer}`,
-    daten: { an, nummer, datum: datumDe(), paket: o.auswahl.paket, einleitung, einmalig: r.einmalig, monatlich: r.monatlich, positionen: r.positionen, zahlweg: zahlungUeberStripe() ? "stripe" : "ueberweisung", agbVersion: AGB_VERSION },
+    daten: { an, nummer, datum: datumDe(), paket: o.auswahl.paket, einleitung, einmalig: r.einmalig, monatlich: r.monatlich, positionen: r.positionen, zahlweg: zahlungUeberStripe() ? "stripe" : "ueberweisung", agbVersion: AGB_VERSION,
+      // Eingefroren: spätere Änderungen in den Stammdaten ändern kein verschicktes Angebot
+      paketName: p.name, paketInhalt: [...p.inhalt], nichtEnthalten: [...NICHT_ENTHALTEN[o.auswahl.paket]], wochen: p.wochen },
   });
   const anrede = an.inhaber ? (an.anrede === "Frau" ? `Sehr geehrte Frau ${an.inhaber.split(" ").slice(-1)[0]},` : `Sehr geehrter Herr ${an.inhaber.split(" ").slice(-1)[0]},`) : "Guten Tag,";
   const zahlen = zahlungUeberStripe() ? " Nach der Annahme können Sie die Anzahlung direkt online bezahlen." : "";

@@ -117,3 +117,38 @@ export async function portalDaten(betriebId: number) {
     website: seite ? { url: projekt!.domain ? `https://${projekt!.domain}` : `/vorschau/${seite.slug}`, domain: projekt!.domain } : null,
   };
 }
+
+/** Neuer Portal-Link: Der alte funktioniert sofort nicht mehr (z. B. wenn er weitergeleitet wurde). */
+export async function portalLinkErneuern(betriebId: number, wer: string): Promise<string> {
+  const db = await getDb();
+  await db.update(schema.betriebe).set({ portalToken: crypto.randomBytes(24).toString("base64url") }).where(eq(schema.betriebe.id, betriebId));
+  const { protokolliere } = await import("./protokoll");
+  await protokolliere(wer, "Portal-Link erneuert, alter Link gesperrt", betriebId);
+  return portalLink(betriebId);
+}
+
+/**
+ * Kunde hat seinen Link verloren und gibt seine E-Mail ein. Passt sie zu einem Kunden mit Portal,
+ * legt Nexova OS eine Mail mit dem Link in den Postausgang (Freigabe wie immer). Die Antwort ist
+ * immer gleich, damit niemand herausfinden kann, welche Adressen es gibt.
+ */
+export async function zugangAnfordern(email: string): Promise<void> {
+  const adresse = email.trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(adresse)) return;
+  const db = await getDb();
+  const kunden = (await db.select().from(schema.betriebe)).filter((b) => b.portalToken && b.status !== "gesperrt" && b.email?.toLowerCase() === adresse);
+  const { inPostausgang } = await import("./ablauf/postausgang");
+  for (const b of kunden.slice(0, 3)) {
+    const schon = (await db.select().from(schema.postausgang).where(and(eq(schema.postausgang.betriebId, b.id), eq(schema.postausgang.zweck, "portal_zugang"), eq(schema.postausgang.status, "zur_freigabe")))).length;
+    if (schon) continue;
+    await inPostausgang({
+      betriebId: b.id,
+      kanal: "mail",
+      zweck: "portal_zugang",
+      empfaenger: b.email!,
+      betreff: "Ihr Zugang zum Kundenportal",
+      text: `Guten Tag,\n\nSie haben Ihren Zugang zum Kundenportal angefordert. Hier ist Ihr persönlicher Link:\n${await portalLink(b.id)}\n\nDer Link ist nur für Sie. Bitte nicht weitergeben. Wenn Sie den Zugang nicht angefordert haben, können Sie diese Mail ignorieren.\n\nMit freundlichen Grüßen\nIhr Team von Nexova Consulting`,
+      meta: { angefordert: true },
+    });
+  }
+}

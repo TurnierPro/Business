@@ -42,7 +42,11 @@ ${schriften()}
 *{box-sizing:border-box}
 html,body{margin:0;padding:0}
 body{font-family:"Archivo",sans-serif;font-size:10.5pt;line-height:1.5;color:${t.text};background:${t.grund};-webkit-print-color-adjust:exact;print-color-adjust:exact}
-.seite{width:210mm;min-height:297mm;padding:18mm 20mm 24mm 25mm;position:relative;background:${t.grund};page-break-after:always;overflow:hidden}
+.seite{width:210mm;height:297mm;padding:18mm 20mm 34mm 25mm;position:relative;background:${t.grund};page-break-after:always;overflow:visible;display:flow-root}
+.folgeseite .kopf{margin-bottom:8mm}
+p,li,td,th,h1,h2,h3,.box,.anschrift,.infoblock{overflow-wrap:anywhere;hyphens:auto}
+tr,li,.box{break-inside:avoid}
+h1,h2,h3{break-after:avoid}
 .seite:last-child{page-break-after:auto}
 h1,h2,h3{font-weight:600;font-stretch:118%;margin:0 0 4mm;line-height:1.2;letter-spacing:.01em}
 h1{font-size:19pt}h2{font-size:13pt;margin-top:7mm}h3{font-size:11pt;margin-top:5mm}
@@ -56,8 +60,8 @@ th{font-weight:600;font-size:9pt;color:${t.textLeise};text-transform:uppercase;l
 td.zahl,th.zahl{text-align:right;font-family:"IBM Plex Mono",monospace;white-space:nowrap}
 .kopf{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10mm}
 .kopf .slogan{font-size:8.5pt;color:${t.textLeise};margin-top:2mm}
-.fuss{position:absolute;left:25mm;right:20mm;bottom:9mm;font-size:7.5pt;color:${t.textLeise};border-top:.3mm solid ${t.linie};padding-top:2.5mm;display:flex;justify-content:space-between;gap:6mm}
-.fuss div{flex:1}
+.fuss{position:absolute;left:25mm;right:20mm;bottom:8mm;font-size:7pt;line-height:1.45;color:${t.textLeise};border-top:.3mm solid ${t.linie};padding-top:2.5mm;display:grid;grid-template-columns:38fr 27fr 35fr;gap:5mm}
+.fuss div{white-space:nowrap;overflow:hidden;text-overflow:clip}
 .box{border:.3mm solid ${t.linie};padding:4mm 5mm;margin:4mm 0;background:${t.flaeche}}
 .ampel{display:inline-block;font-family:"IBM Plex Mono",monospace;font-size:8.5pt;font-weight:600;padding:.6mm 2mm;border:.3mm solid currentColor;border-radius:2px;white-space:nowrap}
 .ampel.gruen{color:${t.signalOk}}.ampel.gelb{color:${t.akzent}}.ampel.rot{color:${t.signalFehler}}
@@ -74,8 +78,10 @@ export function kopf(): string {
 export function fuss(): string {
   const a = marke.absender;
   const p = pflichtangaben();
-  // Pflichtangaben nach § 35a GmbHG: Rechtsform, Sitz, Registergericht, Nummer, alle Geschäftsführer
-  return `<div class="fuss"><div>${esc(p.firma)}<br>${esc(a.strasse)}, ${esc(a.ort)}<br>${esc(p.register)}</div><div>Tel. ${esc(a.telefon)}<br>${esc(a.email)} · ${esc(a.web)}<br>USt-IdNr. ${esc(a.ustId)}</div><div>${esc(p.gf)}<br>IBAN ${esc(a.iban)}</div></div>`;
+  // Pflichtangaben nach § 35a GmbHG: Rechtsform, Sitz, Registergericht, Nummer, alle Geschäftsführer.
+  // Feste Zeilen statt Fließtext: so bricht nichts unkontrolliert um (die Layout-Prüfung meldet zu lange Zeilen).
+  const zeilen = (l: string[]) => `<div>${l.map(esc).join("<br>")}</div>`;
+  return `<div class="fuss">${zeilen([p.firma, `${a.strasse}, ${a.ort}`, `Sitz ${a.sitz} · ${a.registergericht}`, a.hrb ? a.hrb : "HRB folgt nach Eintragung"])}${zeilen([`Tel. ${a.telefon}`, a.email, a.web, `USt-IdNr. ${a.ustId}`])}${zeilen(["Geschäftsführer:", ...a.geschaeftsfuehrer.split(/,\s*/), `IBAN ${a.iban}`])}</div>`;
 }
 
 export type Anschrift = { name: string; anrede?: string | null; inhaber?: string | null; strasse?: string | null; plz?: string | null; ort?: string | null };

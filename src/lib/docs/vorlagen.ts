@@ -30,6 +30,11 @@ export type AngebotDaten = {
   zahlweg?: "stripe" | "ueberweisung";
   anmerkungen?: string;
   agbVersion?: string;
+  // Beim Erstellen eingefroren (ältere Angebote haben das noch nicht, dann gilt der Katalog)
+  paketName?: string;
+  paketInhalt?: string[];
+  nichtEnthalten?: string[];
+  wochen?: number;
 };
 export type CheckDaten = { an: Anschrift; website?: string | null; datum: string; punkte: Pruefpunkt[]; prioritaeten: string[]; ladezeitMs?: number };
 export type LeitfadenDaten = { an: Anschrift; datum: string; fragen: string[]; hinweise: string[] };
@@ -108,8 +113,14 @@ export function brief(d: BriefDaten): string {
   });
 }
 
+/** Paketdaten für ein Angebot: eingefroren, sonst aus dem aktuellen Katalog. */
+function paketFuer(d: AngebotDaten) {
+  const k = PAKETE[d.paket];
+  return { name: d.paketName ?? k.name, inhalt: d.paketInhalt ?? k.inhalt, wochen: d.wochen ?? k.wochen, nicht: d.nichtEnthalten ?? NICHT_ENTHALTEN[d.paket] };
+}
+
 export function angebot(d: AngebotDaten): string {
-  const p = PAKETE[d.paket];
+  const p = paketFuer(d);
   const ust = Math.round(d.einmalig * UST);
   return druckSeite({
     titel: `Angebot ${d.nummer}`,
@@ -150,14 +161,14 @@ ${leistungsbeschreibung(d)}`,
 
 /** Anlage zum Angebot: was geschuldet ist, was nicht, wann abgenommen wird, was der Kunde beiträgt. */
 function leistungsbeschreibung(d: AngebotDaten): string {
-  const p = PAKETE[d.paket];
+  const p = paketFuer(d);
   const extra = (d.positionen ?? []).slice(1).map((x) => x.text);
   const mitKi = extra.some((t) => /modul|assistent|ki|angebotsentwurf|doku|chat/i.test(t)) || d.paket === "L";
   return `<div class="seite">${kopf()}
 <p class="leise mono">ANLAGE 1 ZUM ANGEBOT ${esc(d.nummer)}</p>
 <h1>Leistungsbeschreibung</h1>
 <h2>Enthalten</h2><ul>${[...p.inhalt, ...extra].map((i) => `<li>${esc(i)}</li>`).join("")}</ul>
-<h2>Nicht enthalten</h2><p>${esc(NICHT_ENTHALTEN[d.paket].join(", "))}. Größere Vorhaben bieten wir gern gesondert an.</p>
+<h2>Nicht enthalten</h2><p>${esc(p.nicht.join(", "))}. Größere Vorhaben bieten wir gern gesondert an.</p>
 <h2>Abnahme</h2>
 <p>Wenn die Website fertig ist, stellen wir sie Ihnen bereit und bitten im Kundenportal um Abnahme. Sie haben ${ABNAHME_FRIST_TAGE} Tage Zeit: abnehmen, unter Vorbehalt mit Mängeln abnehmen oder mit Begründung verweigern. Melden Sie sich in der Frist nicht und nennen keinen Mangel, gilt die Website als abgenommen (§ 640 Abs. 2 BGB). Mängel beheben wir in angemessener Frist.</p>
 <p>Abnahmekriterien: Seiten und Funktionen wie oben, Formulare kommen an, Darstellung auf Handy und Computer, Lighthouse ≥ 95, technische Barrierefreiheit nach WCAG 2.2 AA, Rechtstexte eingebunden.</p>

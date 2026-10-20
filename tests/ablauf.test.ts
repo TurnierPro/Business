@@ -425,6 +425,69 @@ test("CRM: Zwei-Faktor, Schnittstelle, Import, Kalender, Tickets, Pipeline, Kenn
   assert.ok((await suche(tickets.ticketNummer(tid))).some((x) => x.art === "Ticket"));
 });
 
+test("Stammdaten: Katalog ändern wirkt auf neue Angebote, verschickte bleiben; Soll-Umsätze", async () => {
+  const kdb = await import("../src/lib/katalog-db");
+  const { berechne } = await import("../src/lib/katalog");
+  const { PAKETE } = await import("../src/lib/pakete");
+  const vorher = PAKETE.S.einmalig;
+  const { id } = await akquise.legeBetriebAn({ name: "Katalog GmbH", gewerk: "SHK", score: 60, scoreGrund: "Test", website: "katalog.example", email: "a@katalog.example" }, "Test", "Test");
+  const alt = await verkauf.erstelleAngebot({ betriebId: id!, auswahl: { paket: "S", module: [], zusaetze: [] }, wer: "Test" });
+  await kdb.paketSpeichern("S", { name: "S – Anfragen Plus", einmalig: "3.990,00", monatlich: "159,00", wochen: "4", inklusiveModule: "0", inhalt: "Website\nGoogle-Profil", nichtEnthalten: "Shop", aenderungsMinuten: "45", zielStunden: "10", aktiv: "ja" }, "Max Steiner");
+  assert.equal(PAKETE.S.einmalig, 399000);
+  assert.equal(berechne({ paket: "S", module: [], zusaetze: [] }).einmalig, 399000);
+  await assert.rejects(() => kdb.paketSpeichern("S", { name: "", einmalig: "1", monatlich: "1" }, "Max"), /Name/);
+  await assert.rejects(() => kdb.paketSpeichern("S", { name: "X", einmalig: "-5", monatlich: "1" }, "Max"), /Betrag/);
+  // Neues Modul und Kombi-Regel aus den Daten
+  const neu = await kdb.modulSpeichern(null, { name: "Bewertungs-Erinnerung", text: "Bittet zufriedene Kunden um eine Bewertung", einmalig: "290", monatlich: "19", stufe: "1", aktiv: "ja" }, "Max Steiner");
+  const r = berechne({ paket: "M", module: ["m1", "m2", neu], zusaetze: [] });
+  assert.ok(r.positionen.some((x) => x.text.includes("Bewertungs-Erinnerung") && x.einmalig === 29000));
+  assert.ok(r.positionen.some((x) => x.text.includes("Modul 2") && x.einmalig === 49000), "Kombi-Preis Modul 2 mit Modul 1");
+  // Neues Angebot hat neuen Inhalt, altes behält den eingefrorenen
+  const n = await verkauf.erstelleAngebot({ betriebId: id!, auswahl: { paket: "S", module: [], zusaetze: [] }, wer: "Test" });
+  const doks = await db.select().from(schema.dokumente).where(eq(schema.dokumente.betriebId, id!));
+  const daten = (nr: string) => doks.find((d) => (d.daten as { nummer?: string }).nummer === nr)!.daten as { einmalig: number; paketName: string; paketInhalt: string[] };
+  assert.equal(daten(n.nummer).paketName, "S – Anfragen Plus");
+  assert.equal(daten(alt.nummer).einmalig, vorher);
+  assert.notEqual(daten(alt.nummer).paketName, "S – Anfragen Plus");
+  await kdb.zuruecksetzen("paket", "S", "Max Steiner");
+  await kdb.zuruecksetzen("modul", neu, "Max Steiner");
+  assert.equal(PAKETE.S.einmalig, vorher, "Werkseinstellung wiederhergestellt");
+
+  const soll = await import("../src/lib/soll");
+  const werte = await soll.sollwerte();
+  assert.equal(werte.length, 24);
+  assert.equal(await soll.sollSpeichern([{ monat: "2027-03", umsatz: 2_000_000, auftraege: 5 }], "Max Steiner"), 1);
+  assert.equal((await soll.sollwerte()).find((x) => x.monat === "2027-03")?.umsatz, 2_000_000);
+  await assert.rejects(() => soll.sollSpeichern([{ monat: "2030-01", umsatz: 1, auftraege: 1 }], "Max"), /Planzeitraum/);
+  const si = await soll.sollIst(new Date(2027, 2, 15));
+  assert.equal(si.zeitraeume[0].soll.umsatz, 2_000_000);
+
+  const { finde } = await import("../src/lib/bereiche");
+  assert.equal(finde("/leads/12")?.bereich.key, "leads");
+  assert.equal(finde("/freigaben/3")?.bereich.key, "zutun");
+  assert.equal(finde("/finanzen/plan")?.seite.name, "Plan und Soll");
+  assert.equal(finde("/finanzen/ausgabe/neu")?.bereich.key, "finanzen");
+  assert.equal(finde("/")?.seite.name, "Übersicht");
+});
+
+test("Kundenportal: Zugang per E-Mail anfordern, Link erneuern sperrt den alten", async () => {
+  const kp = await import("../src/lib/kundenportal");
+  const { id } = await akquise.legeBetriebAn({ name: "Portal GmbH", gewerk: "SHK", score: 60, scoreGrund: "Test", website: "portal.example", email: "chef@portal.example" }, "Test", "Test");
+  const link = await kp.portalLink(id!);
+  const zaehle = async () => (await db.select().from(schema.postausgang).where(eq(schema.postausgang.zweck, "portal_zugang"))).length;
+  const vorher = await zaehle();
+  await kp.zugangAnfordern("unbekannt@nirgends.example");
+  assert.equal(await zaehle(), vorher, "unbekannte Adresse: nichts passiert (und dieselbe Antwort)");
+  await kp.zugangAnfordern("Chef@Portal.example");
+  await kp.zugangAnfordern("chef@portal.example");
+  assert.equal(await zaehle(), vorher + 1, "eine Mail, nicht doppelt");
+  const token = link.split("/").pop()!;
+  assert.ok(await kp.betriebPerPortal(token));
+  const neu = await kp.portalLinkErneuern(id!, "Max Steiner");
+  assert.equal(await kp.betriebPerPortal(token), null, "alter Link gesperrt");
+  assert.ok(await kp.betriebPerPortal(neu.split("/").pop()!));
+});
+
 test("Datenschutz: Auskunft, Löschung mit und ohne Rechnungen", async () => {
   const ds = await import("../src/lib/ablauf/datenschutz");
   const { id } = await akquise.legeBetriebAn({ name: "Lösch GmbH", gewerk: "Maler", score: 60, scoreGrund: "Test", website: "loesch.example", email: "a@loesch.example" }, "Test", "Test");

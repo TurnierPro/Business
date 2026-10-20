@@ -2,7 +2,10 @@
 
 export type PaketKey = "START" | "S" | "S_WERKSTATT" | "M" | "L";
 
-export const PAKETE: Record<PaketKey, { name: string; einmalig: number; monatlich: number; inhalt: string[]; wochen: number }> = {
+export type Paket = { name: string; einmalig: number; monatlich: number; inhalt: string[]; wochen: number; inklusiveModule?: number; aktiv?: boolean };
+
+// Werkseinstellung laut Business Case. Änderungen aus den Stammdaten legt katalog-db.ts darüber.
+export const PAKETE: Record<PaketKey, Paket> = {
   START: {
     name: "Start",
     einmalig: 149000,
@@ -50,6 +53,7 @@ export const PAKETE: Record<PaketKey, { name: string; einmalig: number; monatlic
     einmalig: 890000,
     monatlich: 59000,
     wochen: 9,
+    inklusiveModule: 3,
     inhalt: [
       "Alles aus M",
       "Prozess-Check vor Ort",

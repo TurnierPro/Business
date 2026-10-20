@@ -4,7 +4,7 @@ import { ANNAHMEN, BUSINESS_CASE, SZENARIEN, type SzenarioKey } from "@/lib/plan
 import { planIstDiagramm, FARBEN_DUNKEL } from "@/lib/diagramm";
 import { monatName } from "@/lib/finanzen";
 import { euro } from "@/lib/pakete";
-import { FinanzReiter, Fortschritt } from "@/components/FinanzReiter";
+import { Fortschritt } from "@/components/FinanzReiter";
 import { kontostandSpeichern } from "../../aktionen";
 
 export const metadata = { title: "Plan und Ziele" };
@@ -28,7 +28,6 @@ export default async function Plan({ searchParams }: { searchParams: Promise<{ s
           <p>Wo stehen wir im Vergleich zum Business Case (Dezember 2026 bis November 2028)?</p>
         </div>
       </div>
-      <FinanzReiter aktiv="plan" />
 
       <nav className="knopfreihe" aria-label="Szenario" style={{ marginBottom: 16 }}>
         {(Object.keys(SZENARIEN) as SzenarioKey[]).map((k) => (

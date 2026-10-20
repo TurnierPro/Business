@@ -9,10 +9,16 @@ export function starteArbeiter(): void {
   if (g.__nexovaArbeiter || process.env.NEXOVA_ARBEITER === "aus") return;
   g.__nexovaArbeiter = true;
   let laeuft = false;
+  let katalogAm = 0;
   setInterval(async () => {
     if (laeuft) return;
     laeuft = true;
     try {
+      // Stammdaten (Preise, Pakete) höchstens alle 30 Sekunden neu laden
+      if (Date.now() - katalogAm > 30_000) {
+        await (await import("../katalog-db")).katalogLaden();
+        katalogAm = Date.now();
+      }
       while (await naechsterJob(HANDLER)) {}
     } catch (e) {
       console.error("[arbeiter]", e);

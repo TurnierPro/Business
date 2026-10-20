@@ -5,8 +5,9 @@ import { euro, UST } from "@/lib/pakete";
 import { datum } from "@/lib/format";
 import { Status } from "@/components/Status";
 import { berichtVorbereiten, rechnungBezahlt } from "../aktionen";
-import { FinanzReiter, Fortschritt } from "@/components/FinanzReiter";
+import { Fortschritt } from "@/components/FinanzReiter";
 import { monatsplan } from "@/lib/plan";
+import { sollIst, sollwerte } from "@/lib/soll";
 
 export const metadata = { title: "Finanzen" };
 
@@ -22,7 +23,8 @@ export default async function Finanzen({ searchParams }: { searchParams: Promise
     { key: String(jahr), text: "Jahr", aktiv: z.art === "jahr" },
   ];
   const planMonate = monatsplan("basis").filter((m) => z.monate.includes(m.monat));
-  const planUmsatz = planMonate.reduce((x, m) => x + m.umsatz, 0);
+  const [soll, si] = await Promise.all([sollwerte(), sollIst()]);
+  const planUmsatz = soll.filter((s) => z.monate.includes(s.monat)).reduce((x, s) => x + s.umsatz, 0);
   const planKosten = planMonate.reduce((x, m) => x + m.kosten, 0);
   const kacheln = [
     { name: "Umsatz netto", wert: a.umsatz },
@@ -46,7 +48,6 @@ export default async function Finanzen({ searchParams }: { searchParams: Promise
         </div>
       </div>
 
-      <FinanzReiter aktiv="uebersicht" />
       <div className="knopfreihe" style={{ marginBottom: 16, justifyContent: "space-between" }}>
         <div className="knopfreihe">
           <Link className="knopf klein" href={`/finanzen?z=${nachbar(z, -1)}`} aria-label="Zeitraum davor">←</Link>
@@ -59,6 +60,19 @@ export default async function Finanzen({ searchParams }: { searchParams: Promise
           ))}
         </nav>
       </div>
+
+      <section className="karte" style={{ marginBottom: 16 }}>
+        <div className="kopfzeile" style={{ marginBottom: 8 }}><h2 style={{ margin: 0 }}>Soll und Ist</h2><Link className="klein" href="/stammdaten/ziele">Soll anpassen</Link></div>
+        <div className="raster drei">
+          {si.zeitraeume.map((t) => (
+            <div key={t.name}>
+              <p className="klein"><b>{t.name}</b> · Umsatz</p>
+              {t.imPlan ? <Fortschritt ist={t.ist.umsatz} ziel={t.soll.umsatz} format={euro} /> : <p className="leise klein">vor dem Planstart (Dezember 2026)</p>}
+              {t.imPlan ? <p className="klein leise" style={{ marginTop: 4 }}>Aufträge: <span className="mono">{t.ist.auftraege}</span> von <span className="mono">{t.soll.auftraege}</span></p> : null}
+            </div>
+          ))}
+        </div>
+      </section>
 
       {a.zuPruefen ? <div className="hinweis">{a.zuPruefen} Beleg{a.zuPruefen > 1 ? "e" : ""} vom Beleg-Agenten ausgelesen. Bitte prüfen und bestätigen.</div> : null}
 
@@ -73,9 +87,9 @@ export default async function Finanzen({ searchParams }: { searchParams: Promise
 
       {planUmsatz || planKosten ? (
         <section className="karte abstand">
-          <div className="kopfzeile" style={{ marginBottom: 8 }}><h2>Plan (Basis-Szenario) in diesem Zeitraum</h2><Link className="klein" href="/finanzen/plan">Plan und Ziele</Link></div>
+          <div className="kopfzeile" style={{ marginBottom: 8 }}><h2>Soll im gewählten Zeitraum</h2><Link className="klein" href="/finanzen/plan">Plan und Soll</Link></div>
           <div className="raster zwei">
-            <div><p className="klein">Umsatz</p><Fortschritt ist={a.umsatz} ziel={planUmsatz} format={euro} /></div>
+            <div><p className="klein">Umsatz (Soll)</p><Fortschritt ist={a.umsatz} ziel={planUmsatz} format={euro} /></div>
             <div><p className="klein">Ausgaben (Budget)</p><Fortschritt ist={a.kosten} ziel={planKosten} format={euro} /></div>
           </div>
         </section>

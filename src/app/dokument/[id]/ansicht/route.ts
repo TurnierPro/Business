@@ -12,6 +12,6 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
   // In der Freigabe ist die Vorschau schmaler als A4: Seite passend verkleinern.
   const html = dokumentHtml(d)
     .replace("</style>", "body{background:#d6d2c8}.seite{margin:16px auto;box-shadow:0 0 0 1px #c9c4b8}</style>")
-    .replace("</body>", "<script src=\"/vorschau-zoom.js\"></script></body>");
+    .replace("</body>", "<script src=\"/dokument-umbruch.js\"></script><script src=\"/vorschau-zoom.js\"></script></body>");
   return new Response(html, { headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" } });
 }

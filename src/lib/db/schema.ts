@@ -440,3 +440,22 @@ export const betroffenenanfragen = pgTable("betroffenenanfragen", {
   erledigtAm: timestamp("erledigt_am", { withTimezone: true }),
   erfasstVon: text("erfasst_von").notNull(),
 });
+
+// Stammdaten: Pakete, KI-Module, Zusatzleistungen. Leer = Werkseinstellung aus dem Code (pakete.ts, katalog.ts).
+// Geänderte Preise gelten nur für neue Angebote; verschickte Angebote behalten ihre Positionen.
+export const katalogEintraege = pgTable("katalog_eintraege", {
+  key: text("key").primaryKey(),
+  art: text("art").notNull(), // paket | modul | zusatz
+  daten: jsonb("daten").$type<Record<string, unknown>>().notNull(),
+  geaendertVon: text("geaendert_von").notNull(),
+  geaendertAm: timestamp("geaendert_am", { withTimezone: true }).defaultNow().notNull(),
+});
+
+// Soll-Umsätze und Ziel-Aufträge je Monat (Vorgabe: Basis-Szenario des Business Case)
+export const sollwerte = pgTable("sollwerte", {
+  monat: text("monat").primaryKey(), // JJJJ-MM
+  umsatz: integer("umsatz").notNull(),
+  auftraege: integer("auftraege").notNull(),
+  geaendertVon: text("geaendert_von").notNull(),
+  geaendertAm: timestamp("geaendert_am", { withTimezone: true }).defaultNow().notNull(),
+});

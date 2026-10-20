@@ -2,6 +2,25 @@
 
 Das Betriebssystem von Nexova Consulting: Leads finden, Briefe, Online-Check und Demo, Vor-Ort-Termin, Angebot, Zahlung, Website-Bau, Livegang und Überwachung. Alles läuft automatisch, und **nichts geht raus, bevor Max oder Daniel es freigegeben haben**.
 
+## Aufbau der Oberfläche
+
+Links sechs Bereiche, oben die Reiter des Bereichs:
+
+| Bereich | Reiter |
+|---|---|
+| **Zu tun** | Übersicht (nur was jetzt dran ist), Freigaben, Aufgaben |
+| **Leads** | Alle Betriebe (Filter, Suche, nächster Schritt), Pipeline |
+| **Projekte** | Projekte (Lieferschritte, Zeiten, Domain-Umzug), Tickets |
+| **Finanzen** | Übersicht (Soll und Ist), Plan und Soll, Kennzahlen |
+| **Logs** | Protokoll, Versendet, Simulator-Postfach, Technik und Agenten |
+| **Stammdaten** | Katalog (Pakete, KI-Module, Zusatzleistungen), Soll-Umsätze, Benutzer und Sicherheit, Unterlagen, Datenschutz |
+
+Ein Betrieb hat die Reiter Überblick, Aktivitäten, Unterlagen und Post, Daten.
+
+**PDFs:** Jedes Dokument wird vor dem Erzeugen automatisch umbrochen (Folgeseiten mit Kopf und Fußzeile, Tabellen und Listen zeilenweise) und geprüft. Ragt etwas in die Fußzeile, über den Rand oder ist eine Seite verrutscht, entsteht kein PDF, und die Qualitätskontrolle blockiert die Freigabe. Stresstest: `tests/pdf.test.ts`.
+
+**Kundenportal-Zugang:** persönlicher Link in jeder Mail (kein Passwort). Verloren? Unter `/portal` per E-Mail neu anfordern (die Mail geht über die Freigabe). Weitergeleitet? Beim Betrieb unter Daten „Link erneuern“, der alte ist sofort gesperrt.
+
 ## Der Ablauf
 
 | # | Schritt | Automatisch | Freigabe durch euch |
