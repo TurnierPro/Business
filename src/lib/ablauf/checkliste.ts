@@ -2,7 +2,7 @@ import { and, asc, eq, isNull } from "drizzle-orm";
 import { getDb, schema } from "../db";
 import type { PaketKey } from "../pakete";
 
-// Lieferschritte je Paket. Punkte mit Schlüssel hakt Stelax OS selbst ab, sobald das Ereignis eintritt.
+// Lieferschritte je Paket. Punkte mit Schlüssel hakt Nexova OS selbst ab, sobald das Ereignis eintritt.
 
 type Punkt = [phase: string, titel: string, schluessel?: string];
 
@@ -17,7 +17,7 @@ const BASIS: Punkt[] = [
   ["Bau", "Klick zum Anruf mit Messung eingerichtet"],
   ["Bau", "Rechtstexte vom lizenzierten Anbieter eingebunden"],
   ["Livegang", "Livegang freigegeben", "livegang"],
-  ["Livegang", "Domain zeigt auf Stelax, Zertifikat aktiv", "domain"],
+  ["Livegang", "Domain zeigt auf Nexova, Zertifikat aktiv", "domain"],
   ["Nach Livegang", "Google-Unternehmensprofil und Search Console eingerichtet"],
   ["Nach Livegang", "Bewertungs-QR-Karte übergeben"],
   ["Nach Livegang", "Abnahme erklärt", "abnahme"],
@@ -64,7 +64,7 @@ export async function checklisteSicherstellen(projektId: number): Promise<void> 
   for (const k of fertig) await hakeAb(projektId, k);
 }
 
-export async function hakeAb(projektId: number, schluessel: string, wer = "Stelax OS"): Promise<void> {
+export async function hakeAb(projektId: number, schluessel: string, wer = "Nexova OS"): Promise<void> {
   const db = await getDb();
   await db
     .update(schema.projektAufgaben)

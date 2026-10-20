@@ -31,7 +31,7 @@ export async function checkoutAnzahlung(o: { angebotId: number; betriebId: numbe
     line_items: [{ quantity: 1, tax_rates: [steuersatz()], price_data: { currency: "eur", unit_amount: o.netto, product_data: { name: `Anzahlung 50 %: ${o.titel}`, description: `Angebot ${o.nummer}` } } }],
     // Zahlungsart für Schlusszahlung und Betreuung speichern (Zustimmung im Angebot)
     payment_intent_data: { setup_future_usage: "off_session", description: `Anzahlung Angebot ${o.nummer}`, metadata },
-    invoice_creation: { enabled: true, invoice_data: { description: `Anzahlung 50 % laut Angebot ${o.nummer}`, metadata, footer: "Stelax Consulting GmbH · Vielen Dank für Ihren Auftrag." } },
+    invoice_creation: { enabled: true, invoice_data: { description: `Anzahlung 50 % laut Angebot ${o.nummer}`, metadata, footer: "Nexova Consulting GmbH · Vielen Dank für Ihren Auftrag." } },
     metadata,
     success_url: `${o.zurueckUrl}?bezahlt=1`,
     cancel_url: `${o.zurueckUrl}?abgebrochen=1`,

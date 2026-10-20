@@ -3,7 +3,7 @@ import { euro, UST } from "../pakete";
 import { umsatzDiagramm, FARBEN_HELL } from "../diagramm";
 import { kategorieName, monatName, type Auswertung, type Zeitraum } from "../finanzen";
 
-// Quartals-, Monats- oder Jahresbericht im Stelax-Design. Grundlage für Gespräche mit dem Steuerberater und der Bank.
+// Quartals-, Monats- oder Jahresbericht im Nexova-Design. Grundlage für Gespräche mit dem Steuerberater und der Bank.
 
 export function finanzbericht(z: Zeitraum, a: Auswertung): string {
   const kachel = (name: string, wert: string) => `<td style="border:.3mm solid #D6D2C8;padding:3mm 4mm;width:33%"><div class="leise" style="font-size:8pt">${name}</div><div class="mono" style="font-size:14pt;font-weight:600">${wert}</div></td>`;
@@ -42,7 +42,7 @@ ${fuss()}</div>
 <table><thead><tr><th>Datum</th><th>Lieferant</th><th>Kategorie</th><th class="zahl">Netto</th><th class="zahl">USt</th><th>Beleg</th></tr></thead><tbody>
 ${a.ausgaben.map((x) => `<tr><td class="mono">${datumDe(new Date(x.datum))}</td><td>${esc(x.lieferant)}</td><td>${esc(kategorieName(x.kategorie))}</td><td class="zahl">${euro(x.netto)}</td><td class="zahl">${euro(x.ust)}</td><td>${x.belegName ? "ja" : "<b>fehlt</b>"}</td></tr>`).join("") || `<tr><td colspan="6" class="leise">Keine</td></tr>`}
 </tbody></table>
-<p class="ki-hinweis">Dieser Bericht ist eine Steuerungsübersicht aus Stelax OS, keine Bilanz und kein Jahresabschluss. Maßgeblich ist die Buchhaltung beim Steuerberater. Beträge in Euro, Umsatz nach Rechnungsdatum, Umsatzsteuer nach Zahlungseingang (Ist-Versteuerung), USt-Satz ${Math.round(UST * 100)} %.</p>
+<p class="ki-hinweis">Dieser Bericht ist eine Steuerungsübersicht aus Nexova OS, keine Bilanz und kein Jahresabschluss. Maßgeblich ist die Buchhaltung beim Steuerberater. Beträge in Euro, Umsatz nach Rechnungsdatum, Umsatzsteuer nach Zahlungseingang (Ist-Versteuerung), USt-Satz ${Math.round(UST * 100)} %.</p>
 ${fuss()}</div>`,
   });
 }

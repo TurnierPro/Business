@@ -40,7 +40,7 @@ export async function abnahmeAnfordern(projektId: number, wer: string): Promise<
     zweck: "abnahme_aufforderung",
     empfaenger: b.email ?? "(E-Mail-Adresse fehlt)",
     betreff: erneut ? "Mängel behoben: Bitte nehmen Sie Ihre Website ab" : "Ihre Website ist fertig: Bitte nehmen Sie sie ab",
-    text: `Guten Tag,\n\n${erneut ? "die genannten Mängel sind behoben." : "Ihre Website ist fertig und online."}${p.domain ? ` Sie finden sie unter ${p.domain}.` : ""} Bitte sehen Sie sich alles in Ruhe an und erklären Sie die Abnahme in Ihrem Kundenportal:\n${await portalLink(b.id)}\n\nDort können Sie abnehmen, unter Vorbehalt mit Mängeln abnehmen oder mit Begründung verweigern. Bitte melden Sie sich innerhalb von ${ABNAHME_FRIST_TAGE} Tagen. Nennen Sie in dieser Frist keinen Mangel, gilt die Website als abgenommen (§ 640 Abs. 2 BGB).\n\nMit freundlichen Grüßen\nMax Steiner\nStelax Consulting`,
+    text: `Guten Tag,\n\n${erneut ? "die genannten Mängel sind behoben." : "Ihre Website ist fertig und online."}${p.domain ? ` Sie finden sie unter ${p.domain}.` : ""} Bitte sehen Sie sich alles in Ruhe an und erklären Sie die Abnahme in Ihrem Kundenportal:\n${await portalLink(b.id)}\n\nDort können Sie abnehmen, unter Vorbehalt mit Mängeln abnehmen oder mit Begründung verweigern. Bitte melden Sie sich innerhalb von ${ABNAHME_FRIST_TAGE} Tagen. Nennen Sie in dieser Frist keinen Mangel, gilt die Website als abgenommen (§ 640 Abs. 2 BGB).\n\nMit freundlichen Grüßen\nMax Steiner\nNexova Consulting`,
     erlaubteZahlen: [String(ABNAHME_FRIST_TAGE)],
     meta: { projektId },
   });
@@ -115,7 +115,7 @@ async function nachAbnahme(projektId: number): Promise<void> {
     zweck: "abnahme_bestaetigung",
     empfaenger: b.email ?? "(E-Mail-Adresse fehlt)",
     betreff: "Abnahmeprotokoll zu Ihrer Website",
-    text: `Guten Tag,\n\n${ergebnis === "fiktion" ? `die Frist zur Abnahme ist am ${datumDe(p.abnahmeFrist ?? new Date())} abgelaufen, ohne dass Sie einen Mangel genannt haben. Damit gilt Ihre Website als abgenommen.` : ergebnis === "vorbehalt" ? "vielen Dank für die Abnahme. Die genannten Mängel beheben wir zeitnah und melden uns mit einem Termin." : "vielen Dank für die Abnahme Ihrer Website."} Im Anhang finden Sie das Abnahmeprotokoll. Es liegt auch in Ihrem Kundenportal.\n\nMit freundlichen Grüßen\nMax Steiner\nStelax Consulting`,
+    text: `Guten Tag,\n\n${ergebnis === "fiktion" ? `die Frist zur Abnahme ist am ${datumDe(p.abnahmeFrist ?? new Date())} abgelaufen, ohne dass Sie einen Mangel genannt haben. Damit gilt Ihre Website als abgenommen.` : ergebnis === "vorbehalt" ? "vielen Dank für die Abnahme. Die genannten Mängel beheben wir zeitnah und melden uns mit einem Termin." : "vielen Dank für die Abnahme Ihrer Website."} Im Anhang finden Sie das Abnahmeprotokoll. Es liegt auch in Ihrem Kundenportal.\n\nMit freundlichen Grüßen\nMax Steiner\nNexova Consulting`,
     anhaenge: [protokollId],
     meta: { projektId },
   });
@@ -178,7 +178,7 @@ export async function kuendigungErfassen(projektId: number, wer: string, eingang
     zweck: "kuendigung",
     empfaenger: b.email ?? "(E-Mail-Adresse fehlt)",
     betreff: "Bestätigung Ihrer Kündigung",
-    text: `Guten Tag,\n\nwir bestätigen Ihre Kündigung der Betreuung vom ${datumDe(eingang)}. Die Betreuung endet am ${datumDe(ende)}. Bis dahin kümmern wir uns wie gewohnt um Ihre Website.\n\nZum Ende übergeben wir Ihnen auf Wunsch alles, was Sie für einen Wechsel brauchen: Zugang zur Domain, die Inhalte und den Code Ihrer Seite. Sagen Sie uns einfach, wer Ihre Seite künftig betreut.\n\nSchade, dass Sie gehen. Wenn wir etwas besser machen können, freuen wir uns über ein kurzes Wort.\n\nMit freundlichen Grüßen\nMax Steiner\nStelax Consulting`,
+    text: `Guten Tag,\n\nwir bestätigen Ihre Kündigung der Betreuung vom ${datumDe(eingang)}. Die Betreuung endet am ${datumDe(ende)}. Bis dahin kümmern wir uns wie gewohnt um Ihre Website.\n\nZum Ende übergeben wir Ihnen auf Wunsch alles, was Sie für einen Wechsel brauchen: Zugang zur Domain, die Inhalte und den Code Ihrer Seite. Sagen Sie uns einfach, wer Ihre Seite künftig betreut.\n\nSchade, dass Sie gehen. Wenn wir etwas besser machen können, freuen wir uns über ein kurzes Wort.\n\nMit freundlichen Grüßen\nMax Steiner\nNexova Consulting`,
     hinweise: ["Kündigungsfrist und Mindestlaufzeit sind eine Annahme, bis die AGB final sind. Enddatum bitte prüfen."],
     meta: { projektId },
   });

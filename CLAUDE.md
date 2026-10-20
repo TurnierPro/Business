@@ -1,4 +1,4 @@
-# Stelax OS – Hinweise für Claude
+# Nexova OS – Hinweise für Claude
 
 - Max lernt programmieren. Erkläre jeden Schritt kurz und in einfachen Worten, auf Deutsch.
 - Code, Kommentare und Oberfläche auf Deutsch (Bezeichner wie `betrieb`, `freigeben`, `postausgang`).

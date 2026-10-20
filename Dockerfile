@@ -1,4 +1,4 @@
-# Stelax OS für Coolify auf Hetzner
+# Nexova OS für Coolify auf Hetzner
 FROM node:22-bookworm-slim
 
 WORKDIR /app

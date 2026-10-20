@@ -63,8 +63,8 @@ function ersatzAuswertung(b: { name: string; gewerk: string; mitarbeiter: number
     massnahmen: [
       { was: "Angebot prüfen und unterschreiben", wann: "diese Woche", wer: b.name },
       { was: "Texte, Fotos und Logo im Kundenportal hochladen", wann: "nach Auftrag", wer: b.name },
-      { was: "Seite bauen und zur Prüfung vorlegen", wann: `${PAKETE[paket].wochen} Wochen nach Inhalten`, wer: "Stelax" },
-      { was: "Google-Unternehmensprofil einrichten", wann: "mit Livegang", wer: "Stelax" },
+      { was: "Seite bauen und zur Prüfung vorlegen", wann: `${PAKETE[paket].wochen} Wochen nach Inhalten`, wer: "Nexova" },
+      { was: "Google-Unternehmensprofil einrichten", wann: "mit Livegang", wer: "Nexova" },
     ],
     einleitung: `vielen Dank für das Gespräch bei ${b.name}. Wie besprochen erhalten Sie unser Angebot. Es setzt genau bei den Punkten an, die Sie genannt haben.`,
   };
@@ -128,8 +128,8 @@ export async function erstelleAngebot(o: { betriebId: number; auswahl: Auswahl; 
     kanal: "mail",
     zweck: "angebot",
     empfaenger: b.email ?? "(E-Mail-Adresse fehlt)",
-    betreff: `Ihr Angebot von Stelax: ${p.name}`,
-    text: `${anrede}\n\n${einleitung}\n\nIm Anhang finden Sie ${o.vorAnhaenge?.length ? "das Protokoll mit Maßnahmenplan und " : ""}das Angebot. Alles liegt auch in Ihrem Kundenportal. Dort nehmen Sie das Angebot mit zwei Klicks an und sehen jederzeit, wo Ihr Projekt steht.${zahlen}\n${await portalLink(b.id)}\n\nBei Fragen rufen Sie mich gern an.\n\nMit freundlichen Grüßen\nDaniel Lück\nStelax Consulting`,
+    betreff: `Ihr Angebot von Nexova: ${p.name}`,
+    text: `${anrede}\n\n${einleitung}\n\nIm Anhang finden Sie ${o.vorAnhaenge?.length ? "das Protokoll mit Maßnahmenplan und " : ""}das Angebot. Alles liegt auch in Ihrem Kundenportal. Dort nehmen Sie das Angebot mit zwei Klicks an und sehen jederzeit, wo Ihr Projekt steht.${zahlen}\n${await portalLink(b.id)}\n\nBei Fragen rufen Sie mich gern an.\n\nMit freundlichen Grüßen\nDaniel Lück\nNexova Consulting`,
     anhaenge: [...(o.vorAnhaenge ?? []), angebotDokId],
     erlaubteZahlen: [euro(r.einmalig), euro(r.monatlich), ...r.positionen.flatMap((x) => [euro(x.einmalig), euro(x.monatlich)])],
     hinweise: [...(b.email ? [] : ["E-Mail-Adresse fehlt. Beim Betrieb ergänzen und Empfänger anpassen."]), ...r.hinweise],
@@ -193,8 +193,8 @@ export async function erstelleRechnung(o: {
     kanal: "mail",
     zweck: o.art === "anzahlung" ? "rechnung" : o.art === "schluss" ? "schlussrechnung" : "betreuungsrechnung",
     empfaenger: b.email ?? "(E-Mail-Adresse fehlt)",
-    betreff: `Rechnung ${n.nummer} von Stelax`,
-    text: `Guten Tag,\n\nim Anhang finden Sie die Rechnung ${n.nummer} über ${euro(brutto)} (brutto). ${o.art === "betreuung" ? "" : `Bitte überweisen Sie den Betrag bis zum ${datumDe(faellig)}.`}\n\n${o.art === "anzahlung" ? "Nach Zahlungseingang schicken wir Ihnen den Zugang zum Kundenportal für Texte und Fotos." : o.art === "schluss" ? "Vielen Dank für die Zusammenarbeit. Ab jetzt läuft die Betreuung." : "Der Betrag wird wie vereinbart per SEPA-Lastschrift eingezogen."}\n\nMit freundlichen Grüßen\nMax Steiner\nStelax Consulting`,
+    betreff: `Rechnung ${n.nummer} von Nexova`,
+    text: `Guten Tag,\n\nim Anhang finden Sie die Rechnung ${n.nummer} über ${euro(brutto)} (brutto). ${o.art === "betreuung" ? "" : `Bitte überweisen Sie den Betrag bis zum ${datumDe(faellig)}.`}\n\n${o.art === "anzahlung" ? "Nach Zahlungseingang schicken wir Ihnen den Zugang zum Kundenportal für Texte und Fotos." : o.art === "schluss" ? "Vielen Dank für die Zusammenarbeit. Ab jetzt läuft die Betreuung." : "Der Betrag wird wie vereinbart per SEPA-Lastschrift eingezogen."}\n\nMit freundlichen Grüßen\nMax Steiner\nNexova Consulting`,
     anhaenge: [...(o.anhaenge ?? []), dokId],
     // Regel aus dem Business Case: Rechnungen über 10.000 € brauchen zwei Freigaben.
     noetigeFreigaben: brutto > 1_000_000 ? 2 : 1,
@@ -234,7 +234,7 @@ export async function unterschriftEingegangen(angebotId: number, wer: string, an
     zweck: "auftragsbestaetigung",
     empfaenger: b.email ?? "(E-Mail-Adresse fehlt)",
     betreff: `Auftragsbestätigung ${nummer}`,
-    text: `Guten Tag,\n\nvielen Dank für Ihren Auftrag. Im Anhang finden Sie die Auftragsbestätigung zu unserem Angebot ${angebotNummer}. Sie liegt auch in Ihrem Kundenportal:\n${await portalLink(b.id)}\n\n${zahlungUeberStripe() ? "Die Anzahlung können Sie dort direkt online bezahlen, falls noch nicht geschehen." : "Die Rechnung über die Anzahlung kommt in einer eigenen E-Mail."} Danach geht es los.\n\nMit freundlichen Grüßen\nDaniel Lück\nStelax Consulting`,
+    text: `Guten Tag,\n\nvielen Dank für Ihren Auftrag. Im Anhang finden Sie die Auftragsbestätigung zu unserem Angebot ${angebotNummer}. Sie liegt auch in Ihrem Kundenportal:\n${await portalLink(b.id)}\n\n${zahlungUeberStripe() ? "Die Anzahlung können Sie dort direkt online bezahlen, falls noch nicht geschehen." : "Die Rechnung über die Anzahlung kommt in einer eigenen E-Mail."} Danach geht es los.\n\nMit freundlichen Grüßen\nDaniel Lück\nNexova Consulting`,
     anhaenge: [dokId],
     erlaubteZahlen: [euro(a.einmalig), euro(a.monatlich), ...positionen.flatMap((x) => [euro(x.einmalig), euro(x.monatlich)])],
     hinweise: nachweis.unternehmer ? [] : ["Annahme ohne Unternehmer-Bestätigung (intern erfasst). Bitte mit dem Kunden klären."],
@@ -280,7 +280,7 @@ export async function zahlungEingegangen(angebotId: number, wer: string, stripe?
     zweck: "kickoff",
     empfaenger: b.email ?? "(E-Mail-Adresse fehlt)",
     betreff: "Los geht's: Ihr Zugang für Texte und Fotos",
-    text: `Guten Tag,\n\ndie Anzahlung ist da, vielen Dank. Jetzt brauchen wir Ihre Inhalte. Über diesen Link laden Sie Texte, Fotos und Ihr Logo hoch, ganz ohne Anmeldung:\n${basisUrl()}/portal/${token}\n\nDen Stand Ihres Projekts, Ihre Unterlagen und Rechnungen finden Sie wie immer in Ihrem Kundenportal:\n${await portalLink(a.betriebId)}\n\nSobald alles da ist, bauen wir Ihre Seite. Den Livegang planen wir ${PAKETE[a.paket as PaketKey].wochen <= 4 ? "30 Tage" : `${PAKETE[a.paket as PaketKey].wochen} Wochen`} nach Erhalt der Inhalte.\n\nMit freundlichen Grüßen\nMax Steiner\nStelax Consulting`,
+    text: `Guten Tag,\n\ndie Anzahlung ist da, vielen Dank. Jetzt brauchen wir Ihre Inhalte. Über diesen Link laden Sie Texte, Fotos und Ihr Logo hoch, ganz ohne Anmeldung:\n${basisUrl()}/portal/${token}\n\nDen Stand Ihres Projekts, Ihre Unterlagen und Rechnungen finden Sie wie immer in Ihrem Kundenportal:\n${await portalLink(a.betriebId)}\n\nSobald alles da ist, bauen wir Ihre Seite. Den Livegang planen wir ${PAKETE[a.paket as PaketKey].wochen <= 4 ? "30 Tage" : `${PAKETE[a.paket as PaketKey].wochen} Wochen`} nach Erhalt der Inhalte.\n\nMit freundlichen Grüßen\nMax Steiner\nNexova Consulting`,
     meta: { projektId: p.id },
   });
   return p.id;

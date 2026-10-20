@@ -14,7 +14,7 @@ export async function schluesselErzeugen(name: string, rechte: string[], wer: st
   if (!name.trim()) throw new Error("Name fehlt");
   const gueltig = rechte.filter((r) => RECHTE[r]);
   if (!gueltig.length) throw new Error("Mindestens ein Recht wählen");
-  const schluessel = `stx_${crypto.randomBytes(24).toString("base64url")}`;
+  const schluessel = `nxv_${crypto.randomBytes(24).toString("base64url")}`;
   const db = await getDb();
   await db.insert(schema.apiSchluessel).values({ name: name.trim(), praefix: schluessel.slice(0, 8), hash: hash(schluessel), rechte: gueltig, erstelltVon: wer });
   await protokolliere(wer, `API-Schlüssel erzeugt: ${name}`);
@@ -27,10 +27,10 @@ export async function schluesselWiderrufen(id: number, wer: string): Promise<voi
   await protokolliere(wer, `API-Schlüssel ${id} widerrufen`);
 }
 
-/** Prüft „Authorization: Bearer stx_…“ und das nötige Recht. Gibt den Namen des Schlüssels zurück oder eine Fehler-Antwort. */
+/** Prüft „Authorization: Bearer nxv_…“ und das nötige Recht. Gibt den Namen des Schlüssels zurück oder eine Fehler-Antwort. */
 export async function pruefeZugriff(req: Request, recht: string): Promise<{ name: string } | Response> {
   const roh = req.headers.get("authorization")?.replace(/^Bearer\s+/i, "") ?? "";
-  if (!roh.startsWith("stx_")) return json({ fehler: "API-Schlüssel fehlt (Authorization: Bearer stx_…)" }, 401);
+  if (!roh.startsWith("nxv_")) return json({ fehler: "API-Schlüssel fehlt (Authorization: Bearer nxv_…)" }, 401);
   const db = await getDb();
   const [s] = await db.select().from(schema.apiSchluessel).where(and(eq(schema.apiSchluessel.hash, hash(roh)), isNull(schema.apiSchluessel.widerrufenAm)));
   if (!s) return json({ fehler: "Ungültiger Schlüssel" }, 401);

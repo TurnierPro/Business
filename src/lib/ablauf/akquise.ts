@@ -153,13 +153,13 @@ Ich komme in den nächsten Tagen gern für 20 Minuten vorbei und zeige Ihnen, wa
 Mit freundlichen Grüßen
 
 Daniel Lück
-Stelax Consulting`;
+Nexova Consulting`;
   const briefText = await schreibe({
     zweck: "akquise_brief",
     modell: "text",
     betriebId,
     aufgabe:
-      "Schreibe einen kurzen Akquise-Brief (höchstens 170 Wörter) an diesen Inhaber. Beginne mit der Anrede, ende mit Grüßen von Daniel Lück, Stelax Consulting. Nenne eine konkrete Beobachtung aus dem Check. Kündige an, dass Daniel in den nächsten Tagen für 20 Minuten vorbeikommt. Keine Preise. Nur den Brieftext ausgeben.",
+      "Schreibe einen kurzen Akquise-Brief (höchstens 170 Wörter) an diesen Inhaber. Beginne mit der Anrede, ende mit Grüßen von Daniel Lück, Nexova Consulting. Nenne eine konkrete Beobachtung aus dem Check. Kündige an, dass Daniel in den nächsten Tagen für 20 Minuten vorbeikommt. Keine Preise. Nur den Brieftext ausgeben.",
     daten: { anrede, betrieb: b.name, gewerk: b.gewerk, ort: b.ort, beobachtungen: schwach.map((p) => p.befund) },
     ersatz: briefErsatz,
   });

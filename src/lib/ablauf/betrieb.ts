@@ -23,17 +23,17 @@ function backupOrdner() {
   return datenOrdner("backups");
 }
 
-/** Format: „STX1“ | Salz (16) | IV (12) | Tag (16) | Daten. Schlüssel aus Passphrase per scrypt. */
+/** Format: „NXV1“ | Salz (16) | IV (12) | Tag (16) | Daten. Schlüssel aus Passphrase per scrypt. */
 export function verschluesseleBackup(daten: Buffer, passphrase: string): Buffer {
   const salz = crypto.randomBytes(16);
   const iv = crypto.randomBytes(12);
   const c = crypto.createCipheriv("aes-256-gcm", crypto.scryptSync(passphrase, salz, 32), iv);
   const inhalt = Buffer.concat([c.update(daten), c.final()]);
-  return Buffer.concat([Buffer.from("STX1"), salz, iv, c.getAuthTag(), inhalt]);
+  return Buffer.concat([Buffer.from("NXV1"), salz, iv, c.getAuthTag(), inhalt]);
 }
 
 export function entschluesseleBackup(daten: Buffer, passphrase: string): Buffer {
-  if (daten.subarray(0, 4).toString() !== "STX1") throw new Error("Keine Stelax-Backup-Datei");
+  if (daten.subarray(0, 4).toString() !== "NXV1") throw new Error("Keine Nexova-Backup-Datei");
   const salz = daten.subarray(4, 20), iv = daten.subarray(20, 32), tag = daten.subarray(32, 48);
   const d = crypto.createDecipheriv("aes-256-gcm", crypto.scryptSync(passphrase, salz, 32), iv);
   d.setAuthTag(tag);
@@ -46,10 +46,10 @@ export async function backup(): Promise<string> {
   const pg = await eingebauteDb();
   if (pg) {
     const dump = await pg.dumpDataDir("gzip");
-    datei = path.join(backupOrdner(), `stelax-${stempel}.tar.gz`);
+    datei = path.join(backupOrdner(), `nexova-${stempel}.tar.gz`);
     fs.writeFileSync(datei, Buffer.from(await dump.arrayBuffer()));
   } else {
-    datei = path.join(backupOrdner(), `stelax-${stempel}.dump`);
+    datei = path.join(backupOrdner(), `nexova-${stempel}.dump`);
     await run("pg_dump", ["--format=custom", `--file=${datei}`, process.env.DATABASE_URL!]);
   }
   // Alte Backups löschen
@@ -74,7 +74,7 @@ export async function backup(): Promise<string> {
 
 /** Spielt das neueste Backup in eine leere Datenbank ein und zählt nach. */
 export async function ruecksicherung(): Promise<string> {
-  const dateien = fs.readdirSync(backupOrdner()).filter((f) => f.startsWith("stelax-")).sort();
+  const dateien = fs.readdirSync(backupOrdner()).filter((f) => f.startsWith("nexova-")).sort();
   const neuestes = dateien.at(-1);
   if (!neuestes) {
     await melde("ruecksicherung", false, "Probe-Rücksicherung fehlgeschlagen", "Kein Backup gefunden.");

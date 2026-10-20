@@ -88,7 +88,7 @@ export const dokumente = pgTable("dokumente", {
   erstelltAm: timestamp("erstellt_am", { withTimezone: true }).defaultNow().notNull(),
 });
 
-// Postausgang: Nichts verlässt Stelax, ohne hier freigegeben zu sein.
+// Postausgang: Nichts verlässt Nexova, ohne hier freigegeben zu sein.
 export const postausgang = pgTable("postausgang", {
   id: serial("id").primaryKey(),
   betriebId: integer("betrieb_id").references(() => betriebe.id, { onDelete: "cascade" }),
@@ -160,7 +160,7 @@ export const rechnungen = pgTable(
     mahnstufe: integer("mahnstufe").notNull().default(0),
     gemahntAm: timestamp("gemahnt_am", { withTimezone: true }),
     bezahltAm: timestamp("bezahlt_am", { withTimezone: true }),
-    // eigen = von Stelax OS erstellt, stripe = von Stripe erstellt und verschickt
+    // eigen = von Nexova OS erstellt, stripe = von Stripe erstellt und verschickt
     quelle: text("quelle").notNull().default("eigen"),
     stripeId: text("stripe_id"),
     stripeUrl: text("stripe_url"),
@@ -296,7 +296,7 @@ export const kontostaende = pgTable("kontostaende", {
   am: timestamp("am", { withTimezone: true }).defaultNow().notNull(),
 });
 
-// Unterlagen-Register: Stand je Unterlage aus dem Bericht „Dokumente für die Stelax GmbH“
+// Unterlagen-Register: Stand je Unterlage aus dem Bericht „Dokumente für die Nexova GmbH“
 export const unterlagen = pgTable("unterlagen", {
   key: text("key").primaryKey(),
   status: text("status").notNull().default("offen"), // offen | in_arbeit | erledigt | entfaellt
@@ -363,7 +363,7 @@ export const zeiten = pgTable("zeiten", {
   erstelltAm: timestamp("erstellt_am", { withTimezone: true }).defaultNow().notNull(),
 });
 
-// Lieferschritte je Projekt (Checkliste aus der Paket-Vorlage). Mit Schlüssel hakt Stelax OS selbst ab.
+// Lieferschritte je Projekt (Checkliste aus der Paket-Vorlage). Mit Schlüssel hakt Nexova OS selbst ab.
 export const projektAufgaben = pgTable("projekt_aufgaben", {
   id: serial("id").primaryKey(),
   projektId: integer("projekt_id").notNull().references(() => projekte.id, { onDelete: "cascade" }),

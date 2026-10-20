@@ -4,9 +4,9 @@ import { NextResponse, type NextRequest } from "next/server";
 // Die echte Prüfung der Signatur passiert serverseitig in jeder geschützten Seite.
 const OFFEN = ["/login", "/vorschau", "/portal", "/api/gesundheit", "/api/stripe", "/api/tls-erlaubt", "/api/v1", "/kalender", "/_next", "/favicon"];
 
-// Hosts von Stelax OS selbst. Jeder andere Host ist eine Kunden-Domain und bekommt die Kunden-Website.
+// Hosts von Nexova OS selbst. Jeder andere Host ist eine Kunden-Domain und bekommt die Kunden-Website.
 function eigenerHost(host: string): boolean {
-  const eigene = [process.env.BASE_URL, ...(process.env.STELAX_HOSTS ?? "").split(",")]
+  const eigene = [process.env.BASE_URL, ...(process.env.NEXOVA_HOSTS ?? "").split(",")]
     .map((x) => (x ?? "").trim().replace(/^https?:\/\//, "").split("/")[0].split(":")[0].toLowerCase())
     .filter(Boolean);
   return !host || host === "localhost" || /^[\d.]+$/.test(host) || eigene.includes(host);
@@ -57,7 +57,7 @@ export function middleware(req: NextRequest) {
 function pruefe(req: NextRequest): NextResponse {
   const { pathname } = req.nextUrl;
   const roh = (req.headers.get("host") ?? "").toLowerCase();
-  const host = roh.startsWith("[") ? "" : roh.split(":")[0]; // IPv6-Adresse: immer Stelax OS
+  const host = roh.startsWith("[") ? "" : roh.split(":")[0]; // IPv6-Adresse: immer Nexova OS
   if (!eigenerHost(host) && !pathname.startsWith("/_next")) {
     const r = NextResponse.rewrite(new URL(`/kunde-seite/${encodeURIComponent(host)}${pathname === "/" ? "" : pathname}${req.nextUrl.search}`, req.url));
     r.headers.set("Content-Security-Policy", CSP_KUNDENSEITE);
@@ -76,7 +76,7 @@ function pruefe(req: NextRequest): NextResponse {
     return r;
   };
   if (OFFEN.some((p) => pathname.startsWith(p))) return weiter(NextResponse.next({ request: { headers: kopf } }));
-  if (!req.cookies.get("stelax_sitzung")) return NextResponse.redirect(new URL("/login", req.url));
+  if (!req.cookies.get("nexova_sitzung")) return NextResponse.redirect(new URL("/login", req.url));
   return weiter(NextResponse.next({ request: { headers: kopf } }));
 }
 

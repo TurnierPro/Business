@@ -41,6 +41,6 @@ export function pruefeMitSchritt(geheimnis: string, eingabe: string, zeit = Date
   return d === undefined ? null : Math.floor(zeit / 30000) + d;
 }
 
-export function otpauthUrl(geheimnis: string, email: string, firma = "Stelax OS"): string {
+export function otpauthUrl(geheimnis: string, email: string, firma = "Nexova OS"): string {
   return `otpauth://totp/${encodeURIComponent(`${firma}:${email}`)}?secret=${geheimnis}&issuer=${encodeURIComponent(firma)}&digits=6&period=30`;
 }

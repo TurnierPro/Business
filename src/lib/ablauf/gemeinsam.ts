@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm";
 import { getDb, schema } from "../db";
 import type { Anschrift } from "../docs/basis";
 
-export const SYSTEM = "Stelax OS";
+export const SYSTEM = "Nexova OS";
 
 export function basisUrl(): string {
   return (process.env.BASE_URL ?? "http://localhost:3000").replace(/\/$/, "");

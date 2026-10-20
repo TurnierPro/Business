@@ -49,7 +49,7 @@ export async function monatsreports(jetzt = new Date()): Promise<string> {
       zweck: "monatsreport",
       empfaenger: b.email ?? "(E-Mail-Adresse fehlt)",
       betreff: `Ihr Monatsreport ${monat}`,
-      text: `Guten Tag,\n\nim Anhang finden Sie den Monatsreport für ${monat}: ${anfragen === 1 ? "1 Anfrage" : `${anfragen} Anfragen`} über Ihre Website. Alle Anfragen sehen Sie auch in Ihrem Kundenportal:\n${await portalLink(b.id)}\n\nViele Grüße\nMax Steiner\nStelax Consulting`,
+      text: `Guten Tag,\n\nim Anhang finden Sie den Monatsreport für ${monat}: ${anfragen === 1 ? "1 Anfrage" : `${anfragen} Anfragen`} über Ihre Website. Alle Anfragen sehen Sie auch in Ihrem Kundenportal:\n${await portalLink(b.id)}\n\nViele Grüße\nMax Steiner\nNexova Consulting`,
       anhaenge: [dokId],
       meta: { projektId: p.id, monat },
     });

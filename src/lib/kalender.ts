@@ -37,7 +37,7 @@ export async function kalender(token: string): Promise<string | null> {
       const ende = new Date(start.getTime() + (a.dauerMin ?? (a.art === "termin" ? 60 : 15)) * 60_000);
       return [
         "BEGIN:VEVENT",
-        `UID:stelax-${a.id}@stelax-os`,
+        `UID:nexova-${a.id}@nexova-os`,
         `DTSTAMP:${jetzt}`,
         `DTSTART:${ics(start)}`,
         `DTEND:${ics(ende)}`,
@@ -47,5 +47,5 @@ export async function kalender(token: string): Promise<string | null> {
         "END:VEVENT",
       ].join("\r\n");
     });
-  return ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Stelax OS//DE", `X-WR-CALNAME:Stelax OS – ${esc(b.name)}`, "CALSCALE:GREGORIAN", ...zeilen, "END:VCALENDAR", ""].join("\r\n");
+  return ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Nexova OS//DE", `X-WR-CALNAME:Nexova OS – ${esc(b.name)}`, "CALSCALE:GREGORIAN", ...zeilen, "END:VCALENDAR", ""].join("\r\n");
 }

@@ -118,7 +118,7 @@ export default async function Datenschutz() {
       </div>
 
       <section className="karte abstand" style={{ padding: 0 }}>
-        <div style={{ padding: "16px 16px 0" }}><h2>Verzeichnis der Verarbeitungstätigkeiten (Art. 30 Abs. 1)</h2><p className="leise klein">Verantwortlich: Stelax Consulting GmbH. {DSB_HINWEIS}</p></div>
+        <div style={{ padding: "16px 16px 0" }}><h2>Verzeichnis der Verarbeitungstätigkeiten (Art. 30 Abs. 1)</h2><p className="leise klein">Verantwortlich: Nexova Consulting GmbH. {DSB_HINWEIS}</p></div>
         <table className="tabelle klein">
           <thead><tr><th>Verarbeitung</th><th>Zweck und Rechtsgrundlage</th><th className="weg-mobil">Daten und Betroffene</th><th className="weg-mobil">Empfänger, Drittland</th><th>Löschung</th></tr></thead>
           <tbody>{VERARBEITUNGEN.map((v) => <tr key={v.name}><td><b>{v.name}</b></td><td>{v.zweck}<div className="leise">{v.rechtsgrundlage}</div></td><td className="weg-mobil">{v.daten}<div className="leise">{v.betroffene}</div></td><td className="weg-mobil">{v.empfaenger}<div className="leise">Drittland: {v.drittland}</div></td><td>{v.loeschung}</td></tr>)}</tbody>
@@ -126,7 +126,7 @@ export default async function Datenschutz() {
       </section>
 
       <section className="karte abstand" style={{ padding: 0 }}>
-        <div style={{ padding: "16px 16px 0" }}><h2>Technische und organisatorische Maßnahmen (Art. 32)</h2><p className="leise klein">Technisch in Stelax OS umgesetzt und mit Tests abgesichert; „offen“ heißt: vor dem ersten echten Kunden erledigen.</p></div>
+        <div style={{ padding: "16px 16px 0" }}><h2>Technische und organisatorische Maßnahmen (Art. 32)</h2><p className="leise klein">Technisch in Nexova OS umgesetzt und mit Tests abgesichert; „offen“ heißt: vor dem ersten echten Kunden erledigen.</p></div>
         <table className="tabelle klein">
           <thead><tr><th>Bereich</th><th>Maßnahme</th><th>Stand</th></tr></thead>
           <tbody>{TOMS.map((t) => <tr key={t.massnahme}><td>{t.bereich}</td><td>{t.massnahme}</td><td><span className={`status ${t.umgesetzt ? "ok" : "warten"}`}>{t.umgesetzt ? "umgesetzt" : "offen"}</span></td></tr>)}</tbody>

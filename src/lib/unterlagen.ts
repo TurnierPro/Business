@@ -6,7 +6,7 @@ import { getDb, schema } from "./db";
 import { datenOrdner } from "./pfade";
 import { protokolliere } from "./protokoll";
 
-// Unterlagen-Register aus dem Bericht „Dokumente für die Stelax GmbH“ (docs/unterlagen-bericht.md).
+// Unterlagen-Register aus dem Bericht „Dokumente für die Nexova GmbH“ (docs/unterlagen-bericht.md).
 // Keine Rechtsberatung: Wo Anwalt, Steuerberater oder Notar steht, prüfen diese.
 
 export type Unterlage = (typeof daten)[number];
@@ -18,11 +18,11 @@ export const ETAPPEN: { nr: number; name: string; bis: string }[] = [
   { nr: 3, name: "Vor dem ersten Brief und Kunden", bis: "2027-01-15" },
   { nr: 4, name: "Innerhalb von 3 Monaten", bis: "2027-04-15" },
   { nr: 5, name: "Später, mit Anlass", bis: "2028-11-30" },
-  { nr: 0, name: "Entfällt für Stelax", bis: "" },
+  { nr: 0, name: "Entfällt für Nexova", bis: "" },
 ];
 
-// Was Stelax OS bereits technisch abdeckt (rechtliche Prüfung bleibt offen)
-export const IN_STELAX_OS: Record<string, string> = {
+// Was Nexova OS bereits technisch abdeckt (rechtliche Prüfung bleibt offen)
+export const IN_NEXOVA_OS: Record<string, string> = {
   "Werbe-Sperrliste": "Sperrliste mit automatischem Abgleich vor jedem Versand (Leads → Widerspruch)",
   "Art.-14/21-Hinweis im Akquisebrief": "Steht in jedem Akquise-Brief (Vorlage Brief)",
   "Protokoll der Datenquelle je Lead": "Quelle und Datenquelle beim Lead gespeichert",
@@ -49,9 +49,9 @@ export const IN_STELAX_OS: Record<string, string> = {
   "Briefbogen, E-Mail-Signatur": "Pflichtangaben nach § 35a GmbHG in Fußzeile und Mail-Signatur (brand/tokens.json)",
 };
 
-export function inStelaxOs(u: Unterlage): string | null {
-  const treffer = Object.keys(IN_STELAX_OS).find((k) => u.titel.startsWith(k) || u.titel.includes(k));
-  return treffer ? IN_STELAX_OS[treffer] : null;
+export function inNexovaOs(u: Unterlage): string | null {
+  const treffer = Object.keys(IN_NEXOVA_OS).find((k) => u.titel.startsWith(k) || u.titel.includes(k));
+  return treffer ? IN_NEXOVA_OS[treffer] : null;
 }
 
 export const FRISTEN: { datum: string; was: string; quelle: string }[] = [

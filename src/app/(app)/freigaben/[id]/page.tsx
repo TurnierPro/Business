@@ -67,7 +67,7 @@ export default async function Eintrag({ params }: { params: Promise<{ id: string
               <h2>E-Mail</h2>
               <p><b>Betreff:</b> {e.betreff}</p>
               <div className="textblock">{e.text}<span className="leise">{mailSignatur()}</span></div>
-              <p className="leise klein" style={{ marginTop: 8 }}>Die Signatur mit den Pflichtangaben (§ 35a GmbHG) hängt Stelax OS automatisch an.</p>
+              <p className="leise klein" style={{ marginTop: 8 }}>Die Signatur mit den Pflichtangaben (§ 35a GmbHG) hängt Nexova OS automatisch an.</p>
             </div>
           ) : null}
           {doks.length ? (

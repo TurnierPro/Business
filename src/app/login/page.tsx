@@ -56,7 +56,7 @@ export default async function Login({ searchParams }: { searchParams: Promise<{ 
           <h1 style={{ fontSize: 22, marginBottom: 20 }}>Anmelden</h1>
           {fehler ? <div className="hinweis fehler" role="alert">E-Mail oder Passwort stimmt nicht.</div> : null}
           {gesperrt ? <div className="hinweis fehler" role="alert">Zu viele Fehlversuche. Bitte in 15 Minuten erneut versuchen.</div> : null}
-          {startPasswortUnsicher() && !benutzer.length ? <div className="hinweis fehler" role="alert">Einrichtung: Auf dem Server zuerst STELAX_START_PASSWORT (mindestens 12 Zeichen) setzen.</div> : null}
+          {startPasswortUnsicher() && !benutzer.length ? <div className="hinweis fehler" role="alert">Einrichtung: Auf dem Server zuerst NEXOVA_START_PASSWORT (mindestens 12 Zeichen) setzen.</div> : null}
           <label className="feld">
             <span>E-Mail</span>
             <input name="email" type="email" autoComplete="username" required defaultValue={entwicklung ? benutzer[0]?.email : undefined} />
@@ -69,9 +69,9 @@ export default async function Login({ searchParams }: { searchParams: Promise<{ 
         </form>
         {entwicklung ? (
           <p className="leise klein" style={{ marginTop: 16 }}>
-            Nur auf dem eigenen Rechner sichtbar: Konten {benutzer.map((b) => b.email).join(" und ")}, Start-Passwort <span className="mono">{process.env.STELAX_START_PASSWORT ? "aus STELAX_START_PASSWORT" : START_PASSWORT}</span>. Beim ersten Anmelden muss es geändert werden.
+            Nur auf dem eigenen Rechner sichtbar: Konten {benutzer.map((b) => b.email).join(" und ")}, Start-Passwort <span className="mono">{process.env.NEXOVA_START_PASSWORT ? "aus NEXOVA_START_PASSWORT" : START_PASSWORT}</span>. Beim ersten Anmelden muss es geändert werden.
           </p>
-        ) : erster ? <p className="leise klein" style={{ marginTop: 16 }}>Konten angelegt. Start-Passwort aus STELAX_START_PASSWORT, beim ersten Anmelden ändern.</p> : null}
+        ) : erster ? <p className="leise klein" style={{ marginTop: 16 }}>Konten angelegt. Start-Passwort aus NEXOVA_START_PASSWORT, beim ersten Anmelden ändern.</p> : null}
       </div>
     </div>
   );

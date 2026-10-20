@@ -80,7 +80,7 @@ export async function ticketAntworten(id: number, text: string, erledigt: boolea
     zweck: "ticket_antwort",
     empfaenger: b.email ?? "(E-Mail-Adresse fehlt)",
     betreff: `${erledigt ? "Erledigt" : "Rückmeldung"}: ${t.betreff} (${ticketNummer(id)})`,
-    text: `Guten Tag,\n\n${text.trim()}\n\nMit freundlichen Grüßen\n${wer}\nStelax Consulting`,
+    text: `Guten Tag,\n\n${text.trim()}\n\nMit freundlichen Grüßen\n${wer}\nNexova Consulting`,
     meta: { ticketId: id },
   });
   await ticketAendern(id, { status: erledigt ? "erledigt" : "wartet_kunde", loesung: erledigt ? text.trim() : undefined }, wer);

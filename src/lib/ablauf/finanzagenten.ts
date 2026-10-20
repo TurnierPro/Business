@@ -73,7 +73,7 @@ function mahnung(r: typeof schema.rechnungen.$inferSelect, b: typeof schema.betr
   const tage = Math.max(0, Math.floor((jetzt.getTime() - faellig.getTime()) / 864e5));
   const zinsen = verzugszinsen(brutto, tage);
   const frist = datumDe(new Date(jetzt.getTime() + 7 * 864e5));
-  const gruss = "\n\nMit freundlichen Grüßen\nMax Steiner\nStelax Consulting";
+  const gruss = "\n\nMit freundlichen Grüßen\nMax Steiner\nNexova Consulting";
   const forderung = `Rechnungsbetrag ${euro(brutto)}\nVerzugszinsen ${VERZUGSZINS_PROZENT.toLocaleString("de-DE")} % p. a. für ${tage} Tage: ${euro(zinsen)}\nPauschale nach § 288 Abs. 5 BGB: ${euro(VERZUGSPAUSCHALE)}\nGesamt: ${euro(brutto + zinsen + VERZUGSPAUSCHALE)}`;
   const texte = {
     zahlungserinnerung: {
@@ -115,8 +115,8 @@ export async function steuerberaterBericht(jetzt = new Date()): Promise<string> 
     kanal: "mail",
     zweck: "finanzbericht",
     empfaenger: process.env.STEUERBERATER_EMAIL ?? "(Adresse des Steuerberaters fehlt)",
-    betreff: `Stelax Consulting: Unterlagen ${z.name}`,
-    text: `Guten Tag,\n\nim Anhang finden Sie unseren Finanzbericht für das ${z.name} mit allen Rechnungen und Ausgaben. Die Belege und die Listen als CSV schicken wir Ihnen gern zusätzlich oder legen sie wie gewohnt ab.\n\nViele Grüße\nMax Steiner\nStelax Consulting`,
+    betreff: `Nexova Consulting: Unterlagen ${z.name}`,
+    text: `Guten Tag,\n\nim Anhang finden Sie unseren Finanzbericht für das ${z.name} mit allen Rechnungen und Ausgaben. Die Belege und die Listen als CSV schicken wir Ihnen gern zusätzlich oder legen sie wie gewohnt ab.\n\nViele Grüße\nMax Steiner\nNexova Consulting`,
     anhaenge: [dokId],
     hinweise: a.ausgaben.some((x) => !x.belegName) ? [`${a.ausgaben.filter((x) => !x.belegName).length} Ausgaben ohne Beleg. Vor dem Versand ergänzen.`] : [],
     meta: { zeitraum: z.key },

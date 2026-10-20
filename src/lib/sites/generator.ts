@@ -110,7 +110,7 @@ textarea{min-height:140px}footer{border-top:1px solid #e3e0d8;margin-top:56px;pa
 img{max-width:100%;height:auto;border-radius:6px}
 :focus-visible{outline:3px solid ${farbe};outline-offset:2px}
 </style></head><body>
-${i.demo ? '<div class="demo" role="note">Unverbindlicher Entwurf von Stelax Consulting. Texte mit Unterstützung von KI erstellt. Nicht öffentlich, wird nach 60 Tagen gelöscht.</div>' : ""}
+${i.demo ? '<div class="demo" role="note">Unverbindlicher Entwurf von Nexova Consulting. Texte mit Unterstützung von KI erstellt. Nicht öffentlich, wird nach 60 Tagen gelöscht.</div>' : ""}
 <header><a class="marke" href="${link("index")}">${esc(i.firma)}</a>
 <nav aria-label="Hauptmenü"><a href="${link("index")}">Start</a><a href="${link("leistungen")}">Leistungen</a>${i.karriere?.length ? `<a href="${link("karriere")}">Karriere</a>` : ""}<a href="${link("kontakt")}">Kontakt</a></nav></header>
 <main>${inhalt}</main>

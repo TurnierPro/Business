@@ -12,8 +12,8 @@ import { datenOrdner } from "../pfade";
 export type Db = ReturnType<typeof drizzlePglite<typeof schema>>;
 
 type Speicher = { db?: Promise<Db>; pglite?: PGlite };
-const g = globalThis as unknown as { __stelaxDb?: Speicher };
-g.__stelaxDb ??= {};
+const g = globalThis as unknown as { __nexovaDb?: Speicher };
+g.__nexovaDb ??= {};
 
 const migrationsOrdner = path.join(process.cwd(), "drizzle");
 
@@ -31,21 +31,21 @@ async function verbinden(): Promise<Db> {
   const ziel = url === "memory://" ? undefined : path.join(datenOrdner(), "db");
   if (ziel) fs.mkdirSync(ziel, { recursive: true });
   const pglite = new PGlite(ziel);
-  g.__stelaxDb!.pglite = pglite;
+  g.__nexovaDb!.pglite = pglite;
   const db = drizzlePglite(pglite, { schema });
   await migratePglite(db, { migrationsFolder: migrationsOrdner });
   return db;
 }
 
 export function getDb(): Promise<Db> {
-  g.__stelaxDb!.db ??= verbinden();
-  return g.__stelaxDb!.db;
+  g.__nexovaDb!.db ??= verbinden();
+  return g.__nexovaDb!.db;
 }
 
 /** Nur für die eingebaute Datenbank: Rohzugriff für Backup und Probe-Rücksicherung. */
 export async function eingebauteDb(): Promise<PGlite | undefined> {
   await getDb();
-  return g.__stelaxDb!.pglite;
+  return g.__nexovaDb!.pglite;
 }
 
 export { schema };

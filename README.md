@@ -1,6 +1,6 @@
-# Stelax OS
+# Nexova OS
 
-Das Betriebssystem von Stelax Consulting: Leads finden, Briefe, Online-Check und Demo, Vor-Ort-Termin, Angebot, Zahlung, Website-Bau, Livegang und Überwachung. Alles läuft automatisch, und **nichts geht raus, bevor Max oder Daniel es freigegeben haben**.
+Das Betriebssystem von Nexova Consulting: Leads finden, Briefe, Online-Check und Demo, Vor-Ort-Termin, Angebot, Zahlung, Website-Bau, Livegang und Überwachung. Alles läuft automatisch, und **nichts geht raus, bevor Max oder Daniel es freigegeben haben**.
 
 ## Der Ablauf
 
@@ -22,7 +22,7 @@ Das Betriebssystem von Stelax Consulting: Leads finden, Briefe, Online-Check und
 
 ## CRM: Aufgaben, Pipeline, Tickets, Zeiten
 
-- **Aufgaben:** deine fälligen Aufgaben und Termine (auch auf „Heute“ und als Kalender-Abo). Viele legt Stelax OS selbst an (Besuch, Angebot nachfassen, Inhalte nachfassen) und schließt sie, wenn es weitergeht.
+- **Aufgaben:** deine fälligen Aufgaben und Termine (auch auf „Heute“ und als Kalender-Abo). Viele legt Nexova OS selbst an (Besuch, Angebot nachfassen, Inhalte nachfassen) und schließt sie, wenn es weitergeht.
 - **Pipeline:** alle Betriebe nach Stufe, mit Wert, Prognose und Warnung bei Chancen, die zu lange liegen.
 - **Betriebe:** Ansprechpartner, Aktivitäten (Notiz, Anruf, Termin, Aufgabe), Zuständig, Schlagworte, Tickets; Import und Export als CSV.
 - **Projekte:** Lieferschritte je Paket (teils automatisch abgehakt) und Zeiterfassung mit Ziel aus dem Business Case.
@@ -38,11 +38,11 @@ Prüfbericht mit Penetrationstest, Datenschutz-Checkliste für die Gründung und
 
 ## Bestehende Websites umziehen
 
-Hat ein Betrieb schon eine Domain, bleibt er Inhaber, und seine E-Mail läuft unverändert weiter. Standard: Er ändert nach unserer Anleitung zwei A-Einträge (oder wir machen es am Telefon gemeinsam). Alternativ holen wir die Domain mit seinem Auth-Code zu uns. Stelax OS prüft vorher alle DNS-Einträge (E-Mail, Nachweise, Risiken), sichert die alte Seite, leitet alte Adressen weiter, merkt die Umstellung selbst und sagt dem Kunden erst dann, dass er das alte Webhosting kündigen kann. Einrichtung auf dem Server: [`docs/betrieb.md`](docs/betrieb.md#kunden-domains-umzug-bestehender-websites).
+Hat ein Betrieb schon eine Domain, bleibt er Inhaber, und seine E-Mail läuft unverändert weiter. Standard: Er ändert nach unserer Anleitung zwei A-Einträge (oder wir machen es am Telefon gemeinsam). Alternativ holen wir die Domain mit seinem Auth-Code zu uns. Nexova OS prüft vorher alle DNS-Einträge (E-Mail, Nachweise, Risiken), sichert die alte Seite, leitet alte Adressen weiter, merkt die Umstellung selbst und sagt dem Kunden erst dann, dass er das alte Webhosting kündigen kann. Einrichtung auf dem Server: [`docs/betrieb.md`](docs/betrieb.md#kunden-domains-umzug-bestehender-websites).
 
 ## Unterlagen und Pflichten
 
-Unter **Unterlagen** stehen alle 125 Punkte aus dem Bericht „Dokumente für die Stelax GmbH“ (`docs/unterlagen-bericht.md`), nach Etappen bis zum 30.11.2028, mit Status, Notiz und abgelegter Datei, dazu Fristen und offene Entscheidungen. Rechtliche Festwerte (AGB-Version, Basiszins, Abnahmefrist, Zahlungsziel) stehen an einer Stelle: `src/lib/recht.ts`. Pflichtangaben nach § 35a GmbHG kommen aus `brand/tokens.json` und stehen in jeder Fußzeile und jeder Mail-Signatur. Beim Betrieb: Datenauskunft (Art. 15) und Löschung (Art. 17; Rechnungen und Vertragsunterlagen bleiben). Unter System: Entwurf des Verzeichnisses als Auftragsverarbeiter. Keine Rechtsberatung: Texte und Werte prüfen Anwalt und Steuerberater.
+Unter **Unterlagen** stehen alle 125 Punkte aus dem Bericht „Dokumente für die Nexova GmbH“ (`docs/unterlagen-bericht.md`), nach Etappen bis zum 30.11.2028, mit Status, Notiz und abgelegter Datei, dazu Fristen und offene Entscheidungen. Rechtliche Festwerte (AGB-Version, Basiszins, Abnahmefrist, Zahlungsziel) stehen an einer Stelle: `src/lib/recht.ts`. Pflichtangaben nach § 35a GmbHG kommen aus `brand/tokens.json` und stehen in jeder Fußzeile und jeder Mail-Signatur. Beim Betrieb: Datenauskunft (Art. 15) und Löschung (Art. 17; Rechnungen und Vertragsunterlagen bleiben). Unter System: Entwurf des Verzeichnisses als Auftragsverarbeiter. Keine Rechtsberatung: Texte und Werte prüfen Anwalt und Steuerberater.
 
 ## Finanzen
 
@@ -52,13 +52,13 @@ Unter **Finanzen**: Umsatz, Ausgaben, Ergebnis, offene Forderungen, Umsatzsteuer
 
 Beim Betrieb **„Angebot erstellen“**: Paket, Entlastungs-Module und Zusatzleistungen gemeinsam mit dem Kunden auswählen, der Preis rechnet live mit (Paket L: 3 Module inklusive; Modul 2 günstiger mit Modul 1; Hinweis, wenn ein Modul einen Prozess-Check braucht). Danach Qualitätskontrolle und eure Freigabe, dann geht das Angebot an den Kunden.
 
-Der Kunde nimmt im Portal an und landet direkt bei **Stripe** für die Anzahlung (Karte oder SEPA). Stripe schickt die Rechnung und speichert die Zahlungsart. Beim Livegang kommt der **Start der Betreuung**, nach der Abnahme die **Schlusszahlung** als eigener Eintrag in die Freigabe; erst nach eurem Klick zieht Stripe ein. Es gibt keine doppelten Rechnungen: Mit Stripe erstellt Stelax OS keine eigenen Rechnungen (umschaltbar mit `ZAHLUNGSWEG=ueberweisung`).
+Der Kunde nimmt im Portal an und landet direkt bei **Stripe** für die Anzahlung (Karte oder SEPA). Stripe schickt die Rechnung und speichert die Zahlungsart. Beim Livegang kommt der **Start der Betreuung**, nach der Abnahme die **Schlusszahlung** als eigener Eintrag in die Freigabe; erst nach eurem Klick zieht Stripe ein. Es gibt keine doppelten Rechnungen: Mit Stripe erstellt Nexova OS keine eigenen Rechnungen (umschaltbar mit `ZAHLUNGSWEG=ueberweisung`).
 
 Vor dem Echtbetrieb mit dem Steuerberater klären: Rechnungsangaben in Stripe (Steuernummer, Anschrift, Leistungsdatum) und E-Rechnungspflicht ab 2027/2028.
 
 ## Kundenportal
 
-Jeder Kunde bekommt mit dem Angebot einen geheimen Link zu seinem Portal (`/portal/k/…`). Dort sieht er abgehakt, wo sein Projekt steht (Gespräch, Angebot, Annahme, Anzahlung, Inhalte, Bau und Prüfung, Livegang, Betreuung), was gerade von ihm gebraucht wird (Angebot annehmen, Inhalte hochladen, Rechnung bezahlen), seine Unterlagen, Rechnungen und die fertige Website. **Sichtbar ist nur, was durch Qualitätskontrolle und Freigabe gegangen und verschickt ist.** In Stelax OS öffnet „Kundenportal ansehen“ beim Betrieb die Ansicht des Kunden.
+Jeder Kunde bekommt mit dem Angebot einen geheimen Link zu seinem Portal (`/portal/k/…`). Dort sieht er abgehakt, wo sein Projekt steht (Gespräch, Angebot, Annahme, Anzahlung, Inhalte, Bau und Prüfung, Livegang, Betreuung), was gerade von ihm gebraucht wird (Angebot annehmen, Inhalte hochladen, Rechnung bezahlen), seine Unterlagen, Rechnungen und die fertige Website. **Sichtbar ist nur, was durch Qualitätskontrolle und Freigabe gegangen und verschickt ist.** In Nexova OS öffnet „Kundenportal ansehen“ beim Betrieb die Ansicht des Kunden.
 
 ## Agenten
 
@@ -70,7 +70,7 @@ Auf der leeren Startseite (oder unter System) „Beispieldaten laden“: 16 erfu
 
 ## Lokal starten (zum Lernen und Testen)
 
-**Am Mac am einfachsten:** Node.js (LTS) von nodejs.org installieren, dann `Stelax OS starten.command` doppelklicken. Beim ersten Mal fragt macOS nach: Rechtsklick auf die Datei → „Öffnen“ → „Öffnen“.
+**Am Mac am einfachsten:** Node.js (LTS) von nodejs.org installieren, dann `Nexova OS starten.command` doppelklicken. Beim ersten Mal fragt macOS nach: Rechtsklick auf die Datei → „Öffnen“ → „Öffnen“.
 
 Oder von Hand, Voraussetzung Node.js 22:
 
@@ -80,7 +80,7 @@ npx playwright-core install chromium   # einmalig, für die PDFs
 npm run dev
 ```
 
-Dann <http://localhost:3000> öffnen. Beim ersten Start werden die Konten `max@stelax.de` und `daniel@stelax.de` angelegt, das Start-Passwort steht auf der Anmeldeseite. Danach unter **System** ändern.
+Dann <http://localhost:3000> öffnen. Beim ersten Start werden die Konten `max@nexova.de` und `daniel@nexova.de` angelegt, das Start-Passwort steht auf der Anmeldeseite. Danach unter **System** ändern.
 
 Ohne weitere Einstellungen läuft alles mit **Simulatoren**: Mails und Briefe landen unter **Simulator**, nichts verlässt den Rechner. Die Daten liegen im Ordner `data/` (nicht im Git).
 
@@ -109,7 +109,7 @@ Jeder Dienst hat einen Simulator und wird „echt“, sobald seine Zugangsdaten 
 
 ## Auf den Server (Hetzner + Coolify)
 
-Coolify baut aus diesem Repo mit `Dockerfile` bzw. `docker-compose.yml` (App + PostgreSQL). In Coolify mindestens setzen: `BASE_URL`, `SESSION_SECRET`, `POSTGRES_PASSWORD`, `STELAX_START_PASSWORT`. Details im Betriebshandbuch: [`docs/betrieb.md`](docs/betrieb.md).
+Coolify baut aus diesem Repo mit `Dockerfile` bzw. `docker-compose.yml` (App + PostgreSQL). In Coolify mindestens setzen: `BASE_URL`, `SESSION_SECRET`, `POSTGRES_PASSWORD`, `NEXOVA_START_PASSWORT`. Details im Betriebshandbuch: [`docs/betrieb.md`](docs/betrieb.md).
 
 ## Aufbau
 
@@ -119,7 +119,7 @@ drizzle/          Datenbank-Migrationen (mit `npm run db:generate` aus dem Schem
 src/lib/db/       Datenbank und Schema
 src/lib/ablauf/   Der Geschäftsablauf: akquise, verkauf, lieferung, postausgang, betrieb (Backups usw.)
 src/lib/adapters/ Anbindungen an Fremddienste, jeweils mit Simulator
-src/lib/docs/     Druckvorlagen im Stelax-Design und PDF-Erzeugung
+src/lib/docs/     Druckvorlagen im Nexova-Design und PDF-Erzeugung
 src/lib/sites/    Website-Generator (Branchenvorlagen) und Qualitätsprüfung
 src/lib/jobs/     Hintergrund-Jobs und Zeitplan
 src/app/          Oberfläche (Next.js)

@@ -310,7 +310,7 @@ export async function umzugPruefen(f: FormData) {
 
 export async function providerwechselErledigt(f: FormData) {
   const id = zahl(f, "id");
-  await ausfuehren(`/projekte/${id}`, "Vermerkt. Stelax OS prüft jetzt, ob die Domain auf uns zeigt.", async (wer) => (await import("@/lib/ablauf/umzug")).providerwechselErledigt(id, wer));
+  await ausfuehren(`/projekte/${id}`, "Vermerkt. Nexova OS prüft jetzt, ob die Domain auf uns zeigt.", async (wer) => (await import("@/lib/ablauf/umzug")).providerwechselErledigt(id, wer));
 }
 
 // ---------- CRM: Kontakte, Aktivitäten, Aufgaben ----------
@@ -465,7 +465,7 @@ export async function apiSchluesselErzeugen(f: FormData) {
   const schluessel = await (await import("@/lib/api")).schluesselErzeugen(text(f, "name"), f.getAll("rechte").map(String), b.name).catch((e: Error) => e);
   if (schluessel instanceof Error) redirect("/einstellungen?fehler=" + encodeURIComponent(schluessel.message));
   // Der Schlüssel wird genau einmal angezeigt (nur in einem kurzlebigen Cookie, nicht in der Adresse)
-  (await cookies()).set("stelax_neuer_schluessel", schluessel, { httpOnly: true, sameSite: "strict", path: "/einstellungen", maxAge: 120 });
+  (await cookies()).set("nexova_neuer_schluessel", schluessel, { httpOnly: true, sameSite: "strict", path: "/einstellungen", maxAge: 120 });
   redirect("/einstellungen?ok=" + encodeURIComponent("Schlüssel erzeugt. Jetzt kopieren, er wird nur einmal angezeigt.") + "#api");
 }
 

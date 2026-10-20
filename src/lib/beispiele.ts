@@ -323,7 +323,7 @@ const AUSGABEN: [number, string, string, string, number, number, boolean][] = [
 ];
 
 async function belegPdf(lieferant: string, beschreibung: string, brutto: number, datum: Date): Promise<string> {
-  const html = druckSeite({ titel: "Beleg", inhalt: `<div class="seite"><h1>${esc(lieferant)}</h1><p class="mono">Rechnung vom ${datum.toLocaleDateString("de-DE")}</p><p>An: Stelax Consulting GmbH i. G.</p><table><tr><td>${esc(beschreibung)}</td><td class="zahl">${(brutto / 100).toFixed(2).replace(".", ",")} €</td></tr></table><p class="leise">Beispielbeleg, erfunden.</p></div>` });
+  const html = druckSeite({ titel: "Beleg", inhalt: `<div class="seite"><h1>${esc(lieferant)}</h1><p class="mono">Rechnung vom ${datum.toLocaleDateString("de-DE")}</p><p>An: Nexova Consulting GmbH i. G.</p><table><tr><td>${esc(beschreibung)}</td><td class="zahl">${(brutto / 100).toFixed(2).replace(".", ",")} €</td></tr></table><p class="leise">Beispielbeleg, erfunden.</p></div>` });
   const pfad = path.join(datenOrdner("belege", "beispiel"), `${Date.now()}-${Math.round(Math.random() * 1e6)}.pdf`);
   fs.writeFileSync(pfad, await htmlZuPdf(html));
   return pfad;

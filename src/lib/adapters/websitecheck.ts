@@ -18,7 +18,7 @@ export async function pruefeWebsite(url: string | null | undefined): Promise<{ p
   let endUrl = ziel;
   try {
     // Nur öffentliche Adressen (eine Lead-Website darf nie auf unser internes Netz zeigen)
-    const res = await sicheresFetch(ziel, { timeoutMs: 15000, headers: { "User-Agent": "Stelax-Online-Check/0.1" } });
+    const res = await sicheresFetch(ziel, { timeoutMs: 15000, headers: { "User-Agent": "Nexova-Online-Check/0.1" } });
     html = await res.text();
     endUrl = res.url;
   } catch {

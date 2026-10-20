@@ -7,7 +7,7 @@ export async function melde(art: string, ok: boolean, titel: string, detail?: st
     try {
       await fetch(process.env.NTFY_URL, {
         method: "POST",
-        headers: { Title: `Stelax OS: ${titel}`, Priority: ok ? "default" : "high", Tags: ok ? "white_check_mark" : "warning" },
+        headers: { Title: `Nexova OS: ${titel}`, Priority: ok ? "default" : "high", Tags: ok ? "white_check_mark" : "warning" },
         body: detail ?? titel,
       });
       gepusht = true;

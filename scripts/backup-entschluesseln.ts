@@ -1,5 +1,5 @@
 // Notfall: verschlüsseltes Backup von der Storage Box wieder lesbar machen.
-// Aufruf: BACKUP_SCHLUESSEL=… npx tsx scripts/backup-entschluesseln.ts stelax-2027-01-15-02-00.tar.gz.enc
+// Aufruf: BACKUP_SCHLUESSEL=… npx tsx scripts/backup-entschluesseln.ts nexova-2027-01-15-02-00.tar.gz.enc
 import fs from "node:fs";
 import { entschluesseleBackup } from "../src/lib/ablauf/betrieb";
 

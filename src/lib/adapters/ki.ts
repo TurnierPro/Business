@@ -42,7 +42,7 @@ export async function schreibe(a: KiAuftrag): Promise<{ text: string; simuliert:
     .stream({
       model,
       max_tokens: 16000,
-      system: `Du schreibst für Stelax Consulting. Halte dich streng an diese Regeln:\n\n${stimme()}`,
+      system: `Du schreibst für Nexova Consulting. Halte dich streng an diese Regeln:\n\n${stimme()}`,
       messages: [{ role: "user", content: inhalt }],
       ...(a.websuche ? { tools: [{ type: "web_search_20260209", name: "web_search", max_uses: 10 }] } : {}),
     } as Anthropic.MessageStreamParams)
@@ -95,7 +95,7 @@ export function pruefeText(text: string, erlaubt: string[] = []): string[] {
     }
   }
   for (const wort of ["garantiert", "Garantie", "KI-gestützt", "Digitalisierung", "nur heute", "jetzt zugreifen"]) {
-    if (text.includes(wort)) hinweise.push(`Wort „${wort}“ passt nicht zur Stelax-Stimme.`);
+    if (text.includes(wort)) hinweise.push(`Wort „${wort}“ passt nicht zur Nexova-Stimme.`);
   }
   return hinweise;
 }

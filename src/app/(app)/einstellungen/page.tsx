@@ -23,7 +23,7 @@ export default async function Einstellungen() {
     db.select().from(schema.benutzer).orderBy(schema.benutzer.name),
     db.select().from(schema.apiSchluessel).orderBy(desc(schema.apiSchluessel.erstelltAm)),
   ]);
-  const neuerSchluessel = (await cookies()).get("stelax_neuer_schluessel")?.value;
+  const neuerSchluessel = (await cookies()).get("nexova_neuer_schluessel")?.value;
   const geheim = mein.totpGeheim && !mein.totpAktiv ? entschluessele(mein.totpGeheim) : null;
   const qr = geheim ? await QRCode.toDataURL(otpauthUrl(geheim, mein.email), { margin: 1, width: 220 }) : null;
   const kalender = await kalenderLink(ich.id);
@@ -35,7 +35,7 @@ export default async function Einstellungen() {
         <section className="karte" id="zwei-faktor">
           <h2>Zwei-Faktor-Anmeldung</h2>
           {mein.totpAktiv ? (
-            <p><span className="status ok">aktiv</span> Bei der Anmeldung fragt Stelax OS nach dem Code aus deiner App.</p>
+            <p><span className="status ok">aktiv</span> Bei der Anmeldung fragt Nexova OS nach dem Code aus deiner App.</p>
           ) : qr ? (
             <>
               <p>1. QR-Code mit einer Authenticator-App scannen (z. B. 2FAS, 1Password, Google Authenticator). 2. Den 6-stelligen Code eingeben.</p>
@@ -109,7 +109,7 @@ export default async function Einstellungen() {
 
       <section className="karte abstand" id="api">
         <h2>Schnittstelle (API)</h2>
-        <p className="leise klein">Für n8n, Website-Formulare oder andere Programme. Adresse: <span className="mono">{basisUrl()}/api/v1/…</span> mit <span className="mono">Authorization: Bearer stx_…</span>. Endpunkte: <span className="mono">GET /betriebe</span>, <span className="mono">POST /betriebe</span> (Lead anlegen), <span className="mono">GET /projekte</span>, <span className="mono">POST /tickets</span>. Was die Schnittstelle anlegt, läuft durch dieselben Regeln wie alles andere (Sperrliste, Freigabe).</p>
+        <p className="leise klein">Für n8n, Website-Formulare oder andere Programme. Adresse: <span className="mono">{basisUrl()}/api/v1/…</span> mit <span className="mono">Authorization: Bearer nxv_…</span>. Endpunkte: <span className="mono">GET /betriebe</span>, <span className="mono">POST /betriebe</span> (Lead anlegen), <span className="mono">GET /projekte</span>, <span className="mono">POST /tickets</span>. Was die Schnittstelle anlegt, läuft durch dieselben Regeln wie alles andere (Sperrliste, Freigabe).</p>
         {neuerSchluessel ? <div className="hinweis ok" role="status">Neuer Schlüssel, nur jetzt sichtbar: <span className="mono" style={{ userSelect: "all", wordBreak: "break-all" }}>{neuerSchluessel}</span></div> : null}
         {schluessel.length ? (
           <table className="tabelle">

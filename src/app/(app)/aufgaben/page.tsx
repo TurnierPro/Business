@@ -28,7 +28,7 @@ export default async function Aufgaben({ searchParams }: { searchParams: Promise
   return (
     <>
       <div className="kopfzeile">
-        <div><h1>Aufgaben</h1><p>{alle ? "Alle offenen Aufgaben und Termine im Team." : "Deine offenen Aufgaben und Termine."} Viele legt Stelax OS selbst an, z. B. „Angebot nachfassen“.</p></div>
+        <div><h1>Aufgaben</h1><p>{alle ? "Alle offenen Aufgaben und Termine im Team." : "Deine offenen Aufgaben und Termine."} Viele legt Nexova OS selbst an, z. B. „Angebot nachfassen“.</p></div>
         <a className="knopf klein" href={alle ? "/aufgaben" : "/aufgaben?alle=1"}>{alle ? "Nur meine" : "Alle im Team"}</a>
       </div>
       <div className="raster zwei" style={{ alignItems: "start" }}>

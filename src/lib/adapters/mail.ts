@@ -35,7 +35,7 @@ export async function sendeMail(m: Mail): Promise<string> {
 
 async function sendeUeberResend(m: Mail): Promise<string> {
   const absender = process.env.MAIL_FROM ?? process.env.SMTP_FROM;
-  if (!absender) throw new Error("MAIL_FROM fehlt, z. B. \"Stelax Consulting <hallo@stelax.de>\" (Domain muss bei Resend bestätigt sein).");
+  if (!absender) throw new Error("MAIL_FROM fehlt, z. B. \"Nexova Consulting <hallo@nexova.de>\" (Domain muss bei Resend bestätigt sein).");
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}`, "Content-Type": "application/json" },

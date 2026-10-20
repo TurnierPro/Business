@@ -1,4 +1,4 @@
-# Betriebshandbuch Stelax OS
+# Betriebshandbuch Nexova OS
 
 Was jede Meldung bedeutet und was du tust. Meldungen erscheinen unter **System → Meldungen** und, mit `NTFY_URL`, als Push auf dem Handy.
 
@@ -23,7 +23,7 @@ Was jede Meldung bedeutet und was du tust. Meldungen erscheinen unter **System �
 
 ## Kunden-Domains (Umzug bestehender Websites)
 
-Stelax OS liefert Kunden-Websites unter ihrer eigenen Domain aus: Jeder Host, der nicht Stelax OS selbst ist (`BASE_URL`, `STELAX_HOSTS`), bekommt die passende Kunden-Website. `www.` leitet auf die Domain ohne `www` um, alte Adressen der früheren Website per 301 auf die neuen Seiten.
+Nexova OS liefert Kunden-Websites unter ihrer eigenen Domain aus: Jeder Host, der nicht Nexova OS selbst ist (`BASE_URL`, `NEXOVA_HOSTS`), bekommt die passende Kunden-Website. `www.` leitet auf die Domain ohne `www` um, alte Adressen der früheren Website per 301 auf die neuen Seiten.
 
 **Was einmal eingerichtet werden muss (vor dem ersten Umzug testen):**
 
@@ -40,7 +40,7 @@ https:// {
   tls { on_demand }
   reverse_proxy app:3000
 }
-stelax.de, os.stelax.de {
+nexova.de, os.nexova.de {
   reverse_proxy app:3000
 }
 ```
@@ -55,7 +55,7 @@ stelax.de, os.stelax.de {
 1. Neuen Server bei Hetzner anlegen, Coolify installieren (Modul 2 und 3).
 2. Repo verbinden, Umgebungsvariablen aus dem Passwortmanager eintragen.
 3. Neuestes Backup von der Storage Box holen und einspielen:
-   `pg_restore --clean --no-owner --dbname="$DATABASE_URL" stelax-JJJJ-MM-TT-HH-MM.dump`
+   `pg_restore --clean --no-owner --dbname="$DATABASE_URL" nexova-JJJJ-MM-TT-HH-MM.dump`
 4. Ordner `/data/sites` und `/data/uploads` von der Storage Box zurückkopieren.
 5. Anmelden, unter System prüfen, ob alles grün ist. Dauer notieren (Ziel: unter 2 Stunden).
 

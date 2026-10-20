@@ -1,6 +1,6 @@
-# Stelax-Stimme
+# Nexova-Stimme
 
-Jeder Text, den Stelax OS schreibt, folgt diesen Regeln. Diese Datei wird bei jedem KI-Aufruf mitgeschickt.
+Jeder Text, den Nexova OS schreibt, folgt diesen Regeln. Diese Datei wird bei jedem KI-Aufruf mitgeschickt.
 
 ## Haltung
 - Wir verkaufen mehr Anfragen, mehr Bewerbungen und weniger Büroarbeit. Nie „KI“, „Digitalisierung“ oder „Website“ als Produkt.

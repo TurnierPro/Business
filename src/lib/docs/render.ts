@@ -38,14 +38,14 @@ export function dokumentHtml(d: Dok): string {
   }
 }
 
-const g = globalThis as unknown as { __stelaxBrowser?: Promise<Browser> };
+const g = globalThis as unknown as { __nexovaBrowser?: Promise<Browser> };
 
 function browser(): Promise<Browser> {
-  g.__stelaxBrowser ??= chromium.launch({
+  g.__nexovaBrowser ??= chromium.launch({
     executablePath: process.env.CHROMIUM_PATH || undefined,
     args: ["--no-sandbox", "--font-render-hinting=none"],
   });
-  return g.__stelaxBrowser;
+  return g.__nexovaBrowser;
 }
 
 export async function htmlZuPdf(html: string): Promise<Buffer> {

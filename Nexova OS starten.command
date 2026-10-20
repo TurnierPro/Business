@@ -1,9 +1,9 @@
 #!/bin/bash
-# Stelax OS auf dem Mac starten: Doppelklick auf diese Datei.
+# Nexova OS auf dem Mac starten: Doppelklick auf diese Datei.
 # Beim ersten Mal dauert es ein paar Minuten (Bibliotheken und Chromium werden geladen).
 
 cd "$(dirname "$0")" || exit 1
-echo "Stelax OS wird gestartet ..."
+echo "Nexova OS wird gestartet ..."
 
 if ! command -v node >/dev/null 2>&1; then
   echo ""
@@ -23,14 +23,14 @@ fi
 # Neu bauen, wenn sich der Code geändert hat
 STAND=$(find src brand drizzle package.json -type f -newer .next/BUILD_ID 2>/dev/null | head -1)
 if [ ! -f .next/BUILD_ID ] || [ -n "$STAND" ]; then
-  echo "Stelax OS wird gebaut ..."
+  echo "Nexova OS wird gebaut ..."
   npm run build || { read -r -p "Bauen fehlgeschlagen. Enter drücken zum Schließen."; exit 1; }
 fi
 
 ( until curl -s -o /dev/null http://localhost:3000/api/gesundheit; do sleep 1; done; open "http://localhost:3000" ) &
 
 echo ""
-echo "Stelax OS läuft unter http://localhost:3000"
+echo "Nexova OS läuft unter http://localhost:3000"
 echo "Zum Beenden dieses Fenster schließen oder ctrl+c drücken."
 echo ""
 npm start

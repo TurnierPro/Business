@@ -39,7 +39,7 @@ export default async function Projekt({ params }: { params: Promise<{ id: string
   const [punkte, zeit] = await Promise.all([checkliste(id), zeitenVonProjekt(id)]);
   const ziel = (ZIEL_STUNDEN[p.paket] ?? 12) * 60;
   const erledigtePunkte = punkte.filter((x) => x.erledigtAm).length;
-  const UMZUG: Record<string, string> = { geprueft: "geprüft, Umstellung beim Livegang", providerwechsel: "Providerwechsel durch Stelax offen", wartet_dns: "wartet auf Umstellung beim Kunden", umgestellt: "umgestellt" };
+  const UMZUG: Record<string, string> = { geprueft: "geprüft, Umstellung beim Livegang", providerwechsel: "Providerwechsel durch Nexova offen", wartet_dns: "wartet auf Umstellung beim Kunden", umgestellt: "umgestellt" };
   const portal = `${basisUrl()}/portal/${p.portalToken}`;
 
   return (
@@ -105,7 +105,7 @@ export default async function Projekt({ params }: { params: Promise<{ id: string
                         <input type="hidden" name="id" value={x.id} />
                         <button className="haken-knopf" style={x.erledigtAm ? { background: "var(--ok)", borderColor: "var(--ok)", color: "var(--grund)" } : undefined} aria-label={`${x.titel}: ${x.erledigtAm ? "erledigt, zurücknehmen" : "abhaken"}`}>✓</button>
                       </form>
-                      <div style={{ flex: 1 }}><div className="titel" style={x.erledigtAm ? { color: "var(--leise)" } : undefined}>{x.titel}</div><div className="unter">{x.erledigtAm ? `erledigt ${datum(x.erledigtAm)} · ${x.erledigtVon}` : x.schluessel ? "hakt Stelax OS selbst ab" : "offen"}</div></div>
+                      <div style={{ flex: 1 }}><div className="titel" style={x.erledigtAm ? { color: "var(--leise)" } : undefined}>{x.titel}</div><div className="unter">{x.erledigtAm ? `erledigt ${datum(x.erledigtAm)} · ${x.erledigtVon}` : x.schluessel ? "hakt Nexova OS selbst ab" : "offen"}</div></div>
                     </li>
                   ))}
                 </ul>
@@ -150,7 +150,7 @@ export default async function Projekt({ params }: { params: Promise<{ id: string
         <section className="karte abstand">
           <div className="kopfzeile" style={{ marginBottom: 8 }}>
             <div><h2 style={{ margin: 0 }}>Domain-Umzug: <span className="mono">{umzug.domain}</span></h2>
-              <p className="leise klein">{umzug.weg === "uebernehmen" ? "Weg B: Stelax übernimmt die Domain-Verwaltung (AuthInfo)" : "Weg A: Kunde ändert A-Einträge, Domain und E-Mail bleiben beim Anbieter"} · Auftrag vom {datum(umzug.vollmachtAm ? new Date(umzug.vollmachtAm) : null)}{umzug.rechteBestaetigt ? " · Rechte an Inhalten bestätigt" : ""}</p></div>
+              <p className="leise klein">{umzug.weg === "uebernehmen" ? "Weg B: Nexova übernimmt die Domain-Verwaltung (AuthInfo)" : "Weg A: Kunde ändert A-Einträge, Domain und E-Mail bleiben beim Anbieter"} · Auftrag vom {datum(umzug.vollmachtAm ? new Date(umzug.vollmachtAm) : null)}{umzug.rechteBestaetigt ? " · Rechte an Inhalten bestätigt" : ""}</p></div>
             <Status wert={umzug.status === "umgestellt" ? "fertig" : umzug.status ? "wartet" : "laeuft"} />
           </div>
           <p><b>Stand:</b> {umzug.status ? UMZUG[umzug.status] : "Bestandsaufnahme läuft"}{umzug.stand ? ` · Domain bei ${umzug.stand.dnsAnbieter ?? umzug.anbieterAngabe ?? "unbekannt"} · E-Mail bei ${umzug.stand.mailAnbieter ?? "keinem erkannten Dienst"}` : ""}{umzug.stand?.simuliert ? " · Simulator" : ""}</p>
@@ -181,7 +181,7 @@ export default async function Projekt({ params }: { params: Promise<{ id: string
           <summary style={{ cursor: "pointer", fontWeight: 600 }}>Kündigung der Betreuung erfassen</summary>
           <form action={kuendigungErfassen} style={{ marginTop: 12 }}>
             <input type="hidden" name="id" value={id} />
-            <p className="leise">Stelax OS berechnet das Ende (12 Monate Mindestlaufzeit, danach zum Ende des Folgemonats; in den AGB prüfen), legt die Bestätigung in den Postausgang und beendet ein Stripe-Abo nach Freigabe.</p>
+            <p className="leise">Nexova OS berechnet das Ende (12 Monate Mindestlaufzeit, danach zum Ende des Folgemonats; in den AGB prüfen), legt die Bestätigung in den Postausgang und beendet ein Stripe-Abo nach Freigabe.</p>
             <label className="feld"><span>Kündigung eingegangen am</span><input type="date" name="eingang" required defaultValue={new Date().toISOString().slice(0, 10)} style={{ maxWidth: 220 }} /></label>
             <button className="knopf">Kündigung erfassen</button>
           </form>

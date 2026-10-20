@@ -6,7 +6,7 @@ import path from "node:path";
 
 // Sicherheits- und Datenschutz-Tests: jeder Fund aus dem Penetrationstest bekommt hier einen Test, damit er nie zurückkommt.
 process.env.DATABASE_URL = "memory://";
-process.env.DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "stelax-sicher-"));
+process.env.DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "nexova-sicher-"));
 
 const { getDb, schema } = await import("../src/lib/db");
 const s = await import("../src/lib/sicherheit");
@@ -85,7 +85,7 @@ test("Zwei-Faktor: jeder Code nur einmal, Geheimnis verschlüsselt", async () =>
 test("Passwort-Regeln", async () => {
   const { passwortProblem, pruefePasswort, hashPasswort, pruefeAnmeldung } = await import("../src/lib/auth");
   assert.ok(passwortProblem("kurz"));
-  assert.ok(passwortProblem("stelax-start-2026"));
+  assert.ok(passwortProblem("nexova-start-2026"));
   assert.ok(passwortProblem("111111111111111"));
   assert.equal(passwortProblem("Grüner Hobel fährt nach Durlach"), null);
   const h = hashPasswort("Grüner Hobel fährt nach Durlach");
@@ -134,20 +134,20 @@ test("Datenpanne: 72-Stunden-Frist, Betroffenenanfrage: ein Monat", async () => 
 });
 
 test("Sicherheits-Header und CSP in der Middleware", async () => {
-  process.env.BASE_URL = "https://os.stelax.example";
+  process.env.BASE_URL = "https://os.nexova.example";
   const { NextRequest } = await import("next/server");
   const { middleware } = await import("../src/middleware");
-  const app = middleware(new NextRequest("https://os.stelax.example/login", { headers: { host: "os.stelax.example" } }));
+  const app = middleware(new NextRequest("https://os.nexova.example/login", { headers: { host: "os.nexova.example" } }));
   const csp = app.headers.get("content-security-policy") ?? "";
   assert.match(csp, /script-src 'self' 'nonce-[A-Za-z0-9+/=]+'/);
   assert.match(csp, /frame-ancestors 'self'/);
   assert.match(csp, /object-src 'none'/);
   assert.equal(app.headers.get("x-content-type-options"), "nosniff");
   assert.equal(app.headers.get("x-frame-options"), "SAMEORIGIN");
-  const portal = middleware(new NextRequest("https://os.stelax.example/portal/k/abc", { headers: { host: "os.stelax.example" } }));
+  const portal = middleware(new NextRequest("https://os.nexova.example/portal/k/abc", { headers: { host: "os.nexova.example" } }));
   assert.equal(portal.headers.get("referrer-policy"), "no-referrer", "Portal-Link geht nie als Referrer raus");
   const kunde = middleware(new NextRequest("https://mueller.example/", { headers: { host: "mueller.example" } }));
   assert.match(kunde.headers.get("content-security-policy") ?? "", /default-src 'none'/, "Kunden-Websites ohne JavaScript");
-  const ohne = middleware(new NextRequest("https://os.stelax.example/leads", { headers: { host: "os.stelax.example" } }));
+  const ohne = middleware(new NextRequest("https://os.nexova.example/leads", { headers: { host: "os.nexova.example" } }));
   assert.match(ohne.headers.get("location") ?? "", /\/login$/);
 });

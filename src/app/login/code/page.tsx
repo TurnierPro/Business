@@ -48,7 +48,7 @@ export default async function Code({ searchParams }: { searchParams: Promise<{ f
         <div style={{ marginBottom: 32 }}><Logo hoehe={30} /></div>
         <form action={bestaetigen} className="karte">
           <h1 style={{ fontSize: 22, marginBottom: 12 }}>Code aus der App</h1>
-          <p className="leise" style={{ marginBottom: 16 }}>Öffne deine Authenticator-App und gib den 6-stelligen Code für Stelax OS ein.</p>
+          <p className="leise" style={{ marginBottom: 16 }}>Öffne deine Authenticator-App und gib den 6-stelligen Code für Nexova OS ein.</p>
           {fehler ? <div className="hinweis fehler" role="alert">Der Code stimmt nicht. Bitte den aktuellen Code eingeben.</div> : null}
           <label className="feld"><span>Code</span><input name="code" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9 ]{6,7}" required autoFocus className="mono" /></label>
           <button className="knopf haupt" style={{ width: "100%" }}>Anmelden</button>

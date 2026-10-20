@@ -182,7 +182,7 @@
   {
     "key": "2-1",
     "kategorie": "Datenschutz",
-    "titel": "AVV-Muster (Stelax als Auftragsverarbeiter) mit Anlagen: Leistungs- und Datenbeschreibung, TOM, Liste der Unterauftragsverarbeiter, Änderungsverfahren mit 30 Tagen Vorabinfo und Einspruchsrecht",
+    "titel": "AVV-Muster (Nexova als Auftragsverarbeiter) mit Anlagen: Leistungs- und Datenbeschreibung, TOM, Liste der Unterauftragsverarbeiter, Änderungsverfahren mit 30 Tagen Vorabinfo und Einspruchsrecht",
     "status": "Pflicht",
     "grundlage": "Art. 28, 32 DSGVO",
     "wer": "Vorlage (LfDI BW oder EU-SCC 2021/915) + Anwalt",
@@ -202,7 +202,7 @@
   {
     "key": "2-3",
     "kategorie": "Datenschutz",
-    "titel": "Rollenprüfung Stripe und lexoffice/sevDesk (Stelax ist dort selbst Verantwortlicher, Stripe teils eigener Verantwortlicher)",
+    "titel": "Rollenprüfung Stripe und lexoffice/sevDesk (Nexova ist dort selbst Verantwortlicher, Stripe teils eigener Verantwortlicher)",
     "status": "Empfohlen",
     "grundlage": "Art. 4 Nr. 7, 8, Art. 28 DSGVO",
     "wer": "Selbst",
@@ -372,7 +372,7 @@
   {
     "key": "3-3",
     "kategorie": "KI-Verordnung",
-    "titel": "Rollen-Memo je Produkt (Stelax Anbieter oder Betreiber, Kunde Betreiber, Anthropic GPAI-Anbieter)",
+    "titel": "Rollen-Memo je Produkt (Nexova Anbieter oder Betreiber, Kunde Betreiber, Anthropic GPAI-Anbieter)",
     "status": "Empfohlen",
     "grundlage": "Art. 3 Nr. 3, 4 KI-VO",
     "wer": "Selbst + Anwalt",
@@ -902,7 +902,7 @@
   {
     "key": "7-2",
     "kategorie": "Personal (später)",
-    "titel": "Art.-13-Information für Bewerber bei Stelax",
+    "titel": "Art.-13-Information für Bewerber bei Nexova",
     "status": "Pflicht",
     "grundlage": "Art. 13 DSGVO",
     "wer": "Selbst",

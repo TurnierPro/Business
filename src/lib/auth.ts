@@ -5,9 +5,9 @@ import { eq } from "drizzle-orm";
 import { getDb, schema } from "./db";
 import { signiere } from "./geheim";
 
-export const COOKIE = "stelax_sitzung";
+export const COOKIE = "nexova_sitzung";
 const LAUFZEIT_TAGE = 14;
-export const START_PASSWORT = process.env.STELAX_START_PASSWORT ?? "stelax-start-2026";
+export const START_PASSWORT = process.env.NEXOVA_START_PASSWORT ?? "nexova-start-2026";
 
 export function hashPasswort(passwort: string): string {
   const salz = crypto.randomBytes(16).toString("hex");
@@ -45,7 +45,7 @@ function liesSitzung(roh: string | undefined): { id: number; version: number } |
 }
 
 /** Auf dem Server muss das Start-Passwort gesetzt sein (nie das Übungs-Passwort aus dem Code). */
-export const startPasswortUnsicher = () => process.env.NODE_ENV === "production" && (!process.env.STELAX_START_PASSWORT || process.env.STELAX_START_PASSWORT.length < 12);
+export const startPasswortUnsicher = () => process.env.NODE_ENV === "production" && (!process.env.NEXOVA_START_PASSWORT || process.env.NEXOVA_START_PASSWORT.length < 12);
 
 /** Legt beim allerersten Start die beiden Gründer an. Das Start-Passwort muss beim ersten Anmelden geändert werden. */
 export async function startBenutzer(): Promise<boolean> {
@@ -54,8 +54,8 @@ export async function startBenutzer(): Promise<boolean> {
   if (vorhanden.length) return false;
   if (startPasswortUnsicher()) return false;
   await db.insert(schema.benutzer).values([
-    { email: "max@stelax.de", name: "Max Steiner", passwortHash: hashPasswort(START_PASSWORT), mussPasswortAendern: true },
-    { email: "daniel@stelax.de", name: "Daniel Lück", passwortHash: hashPasswort(START_PASSWORT), mussPasswortAendern: true },
+    { email: "max@nexova.de", name: "Max Steiner", passwortHash: hashPasswort(START_PASSWORT), mussPasswortAendern: true },
+    { email: "daniel@nexova.de", name: "Daniel Lück", passwortHash: hashPasswort(START_PASSWORT), mussPasswortAendern: true },
   ]);
   return true;
 }
@@ -89,7 +89,7 @@ export function darf(b: Benutzer, was: "aendern" | "verwalten"): boolean {
 }
 
 // Zwischenschritt bei der Anmeldung mit Zwei-Faktor: Passwort ist richtig, Code fehlt noch (5 Minuten gültig).
-export const COOKIE_2FA = "stelax_2fa";
+export const COOKIE_2FA = "nexova_2fa";
 export function zwischenWert(benutzerId: number): string {
   const wert = `${benutzerId}.${Date.now() + 5 * 60_000}`;
   return `${wert}.${signiere(`2fa:${wert}`)}`;
@@ -106,7 +106,7 @@ export function liesZwischen(roh: string | undefined): number | null {
 /** Passwort-Regeln: mindestens 12 Zeichen, nicht das Start-Passwort, nicht nur Ziffern. */
 export function passwortProblem(neu: string): string | null {
   if (neu.length < 12) return "Das Passwort braucht mindestens 12 Zeichen.";
-  if (neu === START_PASSWORT || /^stelax/i.test(neu)) return "Bitte nicht das Start-Passwort oder „stelax…“ verwenden.";
+  if (neu === START_PASSWORT || /^nexova/i.test(neu)) return "Bitte nicht das Start-Passwort oder „nexova…“ verwenden.";
   if (/^\d+$/.test(neu) || new Set(neu).size < 5) return "Das Passwort ist zu einfach.";
   return null;
 }

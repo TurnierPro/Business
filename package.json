@@ -1,8 +1,8 @@
 {
-  "name": "stelax-os",
+  "name": "nexova-os",
   "version": "0.1.0",
   "private": true,
-  "description": "Stelax OS: Leads, Freigaben, Dokumente, Lieferung und Überwachung für Stelax Consulting",
+  "description": "Nexova OS: Leads, Freigaben, Dokumente, Lieferung und Überwachung für Nexova Consulting",
   "scripts": {
     "dev": "next dev -p 3000",
     "build": "next build",

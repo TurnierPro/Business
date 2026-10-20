@@ -62,10 +62,10 @@ export default async function Portal({ params, searchParams }: { params: Promise
           <fieldset className="feld" style={{ border: 0, padding: 0 }}>
             <legend style={{ fontWeight: 600, marginBottom: 8 }}>Wie ziehen wir um?</legend>
             <label className="haken"><input type="radio" name="umzugWeg" value="selbst" defaultChecked /><span><b>Empfohlen:</b> Die Domain bleibt, wo sie ist. Sie oder Ihre IT ändern zwei Einträge, wir schicken eine Anleitung oder machen es gemeinsam am Telefon. Ihre E-Mail bleibt unberührt.</span></label>
-            <label className="haken"><input type="radio" name="umzugWeg" value="uebernehmen" /><span>Stelax übernimmt die Verwaltung der Domain (Umzug mit Auth-Code). Sie bleiben Inhaber.</span></label>
+            <label className="haken"><input type="radio" name="umzugWeg" value="uebernehmen" /><span>Nexova übernimmt die Verwaltung der Domain (Umzug mit Auth-Code). Sie bleiben Inhaber.</span></label>
           </fieldset>
           <label className="feld"><span>Auth-Code (nur beim zweiten Weg, gern auch später)</span><input name="authInfo" autoComplete="off" placeholder="bekommen Sie bei Ihrem Anbieter unter Domain → Umzug" /></label>
-          <label className="haken"><input type="checkbox" name="umzugVollmacht" value="ja" /><span>Ich beauftrage Stelax, meine Website unter dieser Domain umzuziehen und dafür die nötigen Einstellungen vorzunehmen bzw. vorzubereiten. Inhaber der Domain bleibt mein Betrieb.</span></label>
+          <label className="haken"><input type="checkbox" name="umzugVollmacht" value="ja" /><span>Ich beauftrage Nexova, meine Website unter dieser Domain umzuziehen und dafür die nötigen Einstellungen vorzunehmen bzw. vorzubereiten. Inhaber der Domain bleibt mein Betrieb.</span></label>
         </fieldset>
         <label className="haken" style={{ marginBottom: 16 }}><input type="checkbox" name="rechteInhalte" value="ja" required /><span>Ich darf die Texte, Fotos und das Logo, die ich hochlade oder die von meiner bisherigen Website übernommen werden sollen, verwenden. Bei Fotos von einer früheren Agentur oder aus Bilddatenbanken kläre ich die Rechte.</span></label>
         <input type="hidden" name="ansprechpartner" value={b?.inhaber ?? b?.name ?? ""} />

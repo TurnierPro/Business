@@ -2,12 +2,12 @@ import Link from "next/link";
 import { Status } from "@/components/Status";
 import { Fortschritt } from "@/components/FinanzReiter";
 import { datum } from "@/lib/format";
-import { ENTSCHEIDUNGEN, ETAPPEN, FRISTEN, inStelaxOs, stand, UNTERLAGEN } from "@/lib/unterlagen";
+import { ENTSCHEIDUNGEN, ETAPPEN, FRISTEN, inNexovaOs, stand, UNTERLAGEN } from "@/lib/unterlagen";
 import { unterlageSpeichern } from "../aktionen";
 
 export const metadata = { title: "Unterlagen" };
 
-// Alle Verträge, Anmeldungen und Nachweise für die GmbH, aus dem Bericht „Dokumente für die Stelax GmbH“.
+// Alle Verträge, Anmeldungen und Nachweise für die GmbH, aus dem Bericht „Dokumente für die Nexova GmbH“.
 // Wir haken hier ab, was erledigt ist, und legen die fertige Datei gleich dazu.
 
 const STATUS = [
@@ -82,14 +82,14 @@ export default async function Unterlagen({ searchParams }: { searchParams: Promi
           {liste.map((u) => {
             const z = st.get(u.key);
             const wert = statusVon(u.key, u.etappe);
-            const os = inStelaxOs(u);
+            const os = inNexovaOs(u);
             return (
               <details key={u.key}>
                 <summary>
                   <div>
                     <div className="titel">{u.titel}</div>
                     <div className="klein leise">{u.kategorie} · {u.wer} · {u.prioritaet}</div>
-                    {os ? <span className="marke">In Stelax OS umgesetzt</span> : null}
+                    {os ? <span className="marke">In Nexova OS umgesetzt</span> : null}
                   </div>
                   <Status wert={wert} />
                 </summary>
@@ -97,7 +97,7 @@ export default async function Unterlagen({ searchParams }: { searchParams: Promi
                   <div className="klein">
                     <div><strong>Pflicht?</strong> {u.status}</div>
                     <div><strong>Grundlage:</strong> {u.grundlage}</div>
-                    {os ? <div><strong>In Stelax OS:</strong> {os}</div> : null}
+                    {os ? <div><strong>In Nexova OS:</strong> {os}</div> : null}
                     {z?.geaendertAm ? <div className="leise">Zuletzt geändert {datum(z.geaendertAm)} von {z.geaendertVon}</div> : null}
                   </div>
                   <form action={unterlageSpeichern} encType="multipart/form-data" className="raster zwei">

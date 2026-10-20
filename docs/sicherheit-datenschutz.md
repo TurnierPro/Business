@@ -1,6 +1,6 @@
 # Sicherheit und Datenschutz: Prüfbericht (Stand 20.10.2026)
 
-Geprüft wurde Stelax OS selbst (eigenes System, lokal): Code-Durchsicht mit Blick eines Angreifers, Angriffe gegen den laufenden Server, Abhängigkeiten, Datenschutz nach DSGVO, BDSG, TDDDG und UWG. **Keine Rechtsberatung**: Die Datenschutz-Dokumente sind Entwürfe; vor dem ersten echten Kunden mit Anwalt oder externem Datenschutzberater abstimmen. Vor dem Verkauf als Produkt einen **externen** Penetrationstest beauftragen. Ein Test durch den eigenen Entwickler ersetzt ihn nicht.
+Geprüft wurde Nexova OS selbst (eigenes System, lokal): Code-Durchsicht mit Blick eines Angreifers, Angriffe gegen den laufenden Server, Abhängigkeiten, Datenschutz nach DSGVO, BDSG, TDDDG und UWG. **Keine Rechtsberatung**: Die Datenschutz-Dokumente sind Entwürfe; vor dem ersten echten Kunden mit Anwalt oder externem Datenschutzberater abstimmen. Vor dem Verkauf als Produkt einen **externen** Penetrationstest beauftragen. Ein Test durch den eigenen Entwickler ersetzt ihn nicht.
 
 ## 1. Penetrationstest
 
@@ -8,7 +8,7 @@ Geprüft wurde Stelax OS selbst (eigenes System, lokal): Code-Durchsicht mit Bli
 
 | # | Fund | Schwere | Status |
 |---|---|---|---|
-| 1 | Start-Passwort stand auf der Login-Seite (auch auf dem Server beim ersten Start) und im Code | **hoch** | behoben: nur auf dem eigenen Rechner sichtbar; Server braucht `STELAX_START_PASSWORT` (≥ 12 Zeichen); Wechsel beim ersten Anmelden ist Pflicht |
+| 1 | Start-Passwort stand auf der Login-Seite (auch auf dem Server beim ersten Start) und im Code | **hoch** | behoben: nur auf dem eigenen Rechner sichtbar; Server braucht `NEXOVA_START_PASSWORT` (≥ 12 Zeichen); Wechsel beim ersten Anmelden ist Pflicht |
 | 2 | Keine Sperre nach Fehlversuchen: Passwort und Zwei-Faktor-Code ließen sich durchprobieren | **hoch** | behoben: 5 Fehlversuche je Konto bzw. 20 je Netz → 15 Minuten Sperre; Code: 5 Versuche |
 | 3 | Server-seitige Abrufe (Website-Check, Domain-Umzug, Überwachung) konnten auf interne Adressen zielen (SSRF, z. B. Cloud-Metadaten, Datenbank) | **hoch** | behoben: nur öffentliche Adressen, jede Weiterleitung neu geprüft, nur Ports 80/443 |
 | 4 | Keine Sicherheits-Header (CSP, Clickjacking, nosniff, Referrer, Permissions) | mittel | behoben: strenge CSP mit Nonce, Kunden-Websites ganz ohne Skripte, Portal-Links nie als Referrer |
@@ -37,7 +37,7 @@ Geprüft wurde Stelax OS selbst (eigenes System, lokal): Code-Durchsicht mit Bli
 
 **Wiederholen:** `node scripts/pentest.mjs` gegen einen laufenden Server (nur gegen eigene Systeme!).
 
-## 2. Datenschutz: Was in Stelax OS umgesetzt ist
+## 2. Datenschutz: Was in Nexova OS umgesetzt ist
 
 Unter **Datenschutz** im Menü:
 - **Verzeichnis der Verarbeitungstätigkeiten** als Verantwortliche (Art. 30 Abs. 1). Das Verzeichnis als Auftragsverarbeiter je Kunde steht unter System.
@@ -58,19 +58,19 @@ Dazu wie bisher:
 
 | Pflicht | Grundlage | Stand |
 |---|---|---|
-| Verzeichnis der Verarbeitungstätigkeiten | Art. 30 DSGVO | Entwurf in Stelax OS, mit Berater prüfen |
-| TOM dokumentiert | Art. 32 DSGVO | in Stelax OS; organisatorische Punkte offen |
+| Verzeichnis der Verarbeitungstätigkeiten | Art. 30 DSGVO | Entwurf in Nexova OS, mit Berater prüfen |
+| TOM dokumentiert | Art. 32 DSGVO | in Nexova OS; organisatorische Punkte offen |
 | AV-Verträge mit Hetzner, Anthropic, Resend, Briefdienst abschließen und ablegen | Art. 28 DSGVO | offen (Register „Unterlagen“) |
 | Drittland: Anthropic und Resend (USA). Grundlage prüfen: Data Privacy Framework, sonst Standardvertragsklauseln; Alternative: EU-Anbieter | Art. 44 ff. DSGVO | offen |
-| AV-Vertrag-Muster für eure Kunden (Stelax als Auftragsverarbeiter), mit TOM und Unterauftragnehmern | Art. 28 DSGVO | offen, Anwalt |
-| Datenschutzerklärung und Impressum auf stelax.de, Datenschutzhinweise fürs Kundenportal | Art. 13 DSGVO, § 5 DDG | offen |
+| AV-Vertrag-Muster für eure Kunden (Nexova als Auftragsverarbeiter), mit TOM und Unterauftragnehmern | Art. 28 DSGVO | offen, Anwalt |
+| Datenschutzerklärung und Impressum auf nexova.de, Datenschutzhinweise fürs Kundenportal | Art. 13 DSGVO, § 5 DDG | offen |
 | Entscheidung Datenschutzbeauftragter schriftlich festhalten (unter 20 Personen nicht Pflicht) | § 38 BDSG | offen |
 | Schwellwertanalyse Datenschutz-Folgenabschätzung für KI-Auswertung von Gesprächsaufnahmen | Art. 35 DSGVO | offen; Empfehlung: kurz dokumentieren, Einwilligung und schnelle Löschung sind umgesetzt |
 | Verpflichtung auf Vertraulichkeit für alle mit Zugang | Art. 29, 32 Abs. 4 DSGVO | offen |
 | Datenpannen-Prozess, Zuständige benennen | Art. 33/34 DSGVO | Register umgesetzt, Zuständige festlegen |
 | Prozess für Anfragen von Betroffenen | Art. 12–22 DSGVO | umgesetzt |
 | Löschkonzept | Art. 5, 17 DSGVO | umgesetzt |
-| Keine Cookies ohne Einwilligung (Stelax OS und Kunden-Websites setzen keine) | § 25 TDDDG | umgesetzt |
+| Keine Cookies ohne Einwilligung (Nexova OS und Kunden-Websites setzen keine) | § 25 TDDDG | umgesetzt |
 | Werbung nur per Brief, Widerspruch sofort beachten | § 7 UWG, Art. 21 DSGVO | umgesetzt (Sperrliste) |
 | Aufbewahrung Rechnungen 8 Jahre, Handelsbriefe 6 Jahre, GoBD-Verfahrensdokumentation | § 147 AO, § 257 HGB, GoBD | Löschregeln beachten das; Doku offen |
 | Mitarbeiterdaten (ab erster Einstellung) | § 26 BDSG | später |
@@ -82,10 +82,10 @@ Dazu wie bisher:
 3. Datenbank nicht nach außen öffnen (nur im Docker-Netz).
 4. Umgebungsvariablen nur in Coolify und im Passwortmanager:
    - `SESSION_SECRET` mit mindestens 32 zufälligen Zeichen
-   - `STELAX_START_PASSWORT`
+   - `NEXOVA_START_PASSWORT`
    - `BACKUP_SCHLUESSEL`
    - Stripe-Schlüssel
 5. Caddy oder Traefik mit HTTPS. `BASE_URL` mit `https://` setzen, dann sind HSTS und HTTPS-Pflicht aktiv.
-6. Zwei-Faktor für alle Konten einschalten: Stelax OS, Hetzner, Coolify, GitHub, Stripe, Domain-Anbieter, E-Mail.
+6. Zwei-Faktor für alle Konten einschalten: Nexova OS, Hetzner, Coolify, GitHub, Stripe, Domain-Anbieter, E-Mail.
 7. Backups: Rücksicherung einmal von Hand üben, mit `scripts/backup-entschluesseln.ts`.
 8. Geräte: Festplattenverschlüsselung (FileVault), Bildschirmsperre, Passwortmanager, keine Firmendaten auf Arbeitgeber-Geräten.

@@ -102,12 +102,12 @@ export async function systemAufgabe(o: { betriebId: number; titel: string; text?
     .where(and(eq(schema.aktivitaeten.betriebId, o.betriebId), eq(schema.aktivitaeten.titel, o.titel), isNull(schema.aktivitaeten.erledigtAm)));
   if (schon) return;
   const faellig = inTagen(o.inTagen);
-  await db.insert(schema.aktivitaeten).values({ betriebId: o.betriebId, projektId: o.projektId ?? null, art: "aufgabe", titel: o.titel, text: o.text ?? null, faelligAm: faellig, zustaendig: o.zustaendig, erstelltVon: "Stelax OS" });
+  await db.insert(schema.aktivitaeten).values({ betriebId: o.betriebId, projektId: o.projektId ?? null, art: "aufgabe", titel: o.titel, text: o.text ?? null, faelligAm: faellig, zustaendig: o.zustaendig, erstelltVon: "Nexova OS" });
 }
 
 /** Offene Systemaufgaben eines Betriebs schließen, wenn das Ereignis eingetreten ist (z. B. Angebot angenommen). */
 export async function systemAufgabeErledigt(betriebId: number, titelAnfang: string): Promise<void> {
   const db = await getDb();
-  const offen = await db.select().from(schema.aktivitaeten).where(and(eq(schema.aktivitaeten.betriebId, betriebId), isNull(schema.aktivitaeten.erledigtAm), eq(schema.aktivitaeten.erstelltVon, "Stelax OS")));
+  const offen = await db.select().from(schema.aktivitaeten).where(and(eq(schema.aktivitaeten.betriebId, betriebId), isNull(schema.aktivitaeten.erledigtAm), eq(schema.aktivitaeten.erstelltVon, "Nexova OS")));
   for (const a of offen.filter((x) => x.titel.startsWith(titelAnfang))) await db.update(schema.aktivitaeten).set({ erledigtAm: new Date() }).where(eq(schema.aktivitaeten.id, a.id));
 }

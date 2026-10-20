@@ -6,7 +6,7 @@ import path from "node:path";
 
 // Spielt den kompletten Ablauf mit Simulatoren durch: Lead → Brief → Termin → Angebot → Zahlung → Livegang.
 process.env.DATABASE_URL = "memory://";
-process.env.DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "stelax-test-"));
+process.env.DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "nexova-test-"));
 delete process.env.ANTHROPIC_API_KEY;
 delete process.env.SMTP_HOST;
 
@@ -184,7 +184,7 @@ test("Resend: Mail mit Anhang über die API", async () => {
     return new Response(JSON.stringify({ id: "test-123" }), { status: 200 });
   }) as typeof fetch;
   process.env.RESEND_API_KEY = "re_test";
-  process.env.MAIL_FROM = "Stelax Consulting <hallo@stelax.example>";
+  process.env.MAIL_FROM = "Nexova Consulting <hallo@nexova.example>";
   try {
     const r = await sendeMail({ an: "kunde@example.com", betreff: "Test", text: "Hallo", anhaenge: [{ name: "a.pdf", inhalt: Buffer.from("PDF") }] });
     assert.match(r, /test-123/);
@@ -375,7 +375,7 @@ test("CRM: Zwei-Faktor, Schnittstelle, Import, Kalender, Tickets, Pipeline, Kenn
   assert.equal(neu.status, 201);
   assert.equal((await route.POST(anfrage("POST", { name: "API Elektro GmbH", website: "api-elektro.example" }))).status, 409, "Doppelte abgelehnt");
   assert.equal((await route.GET(anfrage("GET"))).status, 403);
-  assert.equal((await route.GET(anfrage("GET", undefined, "stx_falsch"))).status, 401);
+  assert.equal((await route.GET(anfrage("GET", undefined, "nxv_falsch"))).status, 401);
 
   // CSV-Import mit Semikolon, Anführungszeichen und Doppeltem
   const imp = await import("../src/lib/import");
@@ -518,7 +518,7 @@ test("Rechnung über 10.000 € braucht zwei verschiedene Personen", async () =>
 
 test("Backup und Probe-Rücksicherung", async () => {
   const b = await betrieb.backup();
-  assert.match(b, /stelax-/);
+  assert.match(b, /nexova-/);
   const r = await betrieb.ruecksicherung();
   assert.match(r, /Betriebe wiederhergestellt/);
 });

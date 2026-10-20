@@ -127,7 +127,7 @@ export async function zeigtAufUns(eingabe: string): Promise<{ ok: boolean; detai
   const ziel = process.env.SERVER_IP;
   if (istSimuliert(domain)) {
     const ok = process.env.DNS_SIMULATOR_UMGESTELLT === "ja";
-    return { ok, detail: ok ? "Simulator: Domain zeigt auf Stelax" : "Simulator: Domain zeigt noch auf den alten Anbieter" };
+    return { ok, detail: ok ? "Simulator: Domain zeigt auf Nexova" : "Simulator: Domain zeigt noch auf den alten Anbieter" };
   }
   if (!ziel) return { ok: false, detail: "SERVER_IP ist nicht gesetzt" };
   const r = resolver();
