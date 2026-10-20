@@ -8,6 +8,8 @@ import { kalenderLink } from "@/lib/kalender";
 import { RECHTE } from "@/lib/api";
 import { basisUrl } from "@/lib/ablauf/gemeinsam";
 import { datum, datumZeit } from "@/lib/format";
+import { entschluessele } from "@/lib/geheim";
+import { ueberallAbmelden } from "../aktionen";
 import { apiSchluesselErzeugen, apiSchluesselWiderrufen, benutzerAendern, benutzerAnlegen, leadsImportieren, zweiFaktorBestaetigen, zweiFaktorStarten } from "../aktionen";
 
 export const metadata = { title: "Einstellungen" };
@@ -22,7 +24,8 @@ export default async function Einstellungen() {
     db.select().from(schema.apiSchluessel).orderBy(desc(schema.apiSchluessel.erstelltAm)),
   ]);
   const neuerSchluessel = (await cookies()).get("stelax_neuer_schluessel")?.value;
-  const qr = mein.totpGeheim && !mein.totpAktiv ? await QRCode.toDataURL(otpauthUrl(mein.totpGeheim, mein.email), { margin: 1, width: 220 }) : null;
+  const geheim = mein.totpGeheim && !mein.totpAktiv ? entschluessele(mein.totpGeheim) : null;
+  const qr = geheim ? await QRCode.toDataURL(otpauthUrl(geheim, mein.email), { margin: 1, width: 220 }) : null;
   const kalender = await kalenderLink(ich.id);
   return (
     <>
@@ -37,7 +40,7 @@ export default async function Einstellungen() {
             <>
               <p>1. QR-Code mit einer Authenticator-App scannen (z. B. 2FAS, 1Password, Google Authenticator). 2. Den 6-stelligen Code eingeben.</p>
               <img src={qr} alt="QR-Code für die Authenticator-App" width={220} height={220} style={{ background: "#fff", borderRadius: 6 }} />
-              <p className="leise klein mono" style={{ wordBreak: "break-all" }}>Schlüssel zum Abtippen: {mein.totpGeheim}</p>
+              <p className="leise klein mono" style={{ wordBreak: "break-all" }}>Schlüssel zum Abtippen: {geheim}</p>
               <form action={zweiFaktorBestaetigen} className="knopfreihe">
                 <input name="code" inputMode="numeric" autoComplete="one-time-code" placeholder="123456" aria-label="Code" required style={{ maxWidth: 160 }} className="mono" />
                 <button className="knopf haupt">Bestätigen und einschalten</button>
@@ -51,6 +54,11 @@ export default async function Einstellungen() {
           )}
         </section>
 
+        <section className="karte">
+          <h2>Passwort und Sitzungen</h2>
+          <p>Passwort ändern beendet alle anderen Sitzungen. „Überall abmelden“ hilft, wenn ein Gerät verloren ging.</p>
+          <div className="knopfreihe"><a className="knopf" href="/passwort">Passwort ändern</a><form action={ueberallAbmelden}><button className="knopf">Überall abmelden</button></form></div>
+        </section>
         <section className="karte">
           <h2>Kalender abonnieren</h2>
           <p>Deine Termine und fälligen Aufgaben im Handy-Kalender. In iPhone: Einstellungen → Kalender → Accounts → Kalenderabo hinzufügen. In Outlook oder Google: „Aus dem Internet“ bzw. „Per URL“.</p>

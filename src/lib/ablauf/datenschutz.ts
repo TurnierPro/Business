@@ -120,3 +120,60 @@ export async function verarbeitungen() {
     return { kunde: name, paket: PAKETE[paket]?.name ?? paket, seit: p.erstelltAm, taetigkeiten, betroffene: "Kunden, Interessenten und Bewerber des Betriebs", unterauftragnehmer: unter, loeschung: "Anfragen 12 Monate nach Eingang, Bewerbungen 6 Monate nach Abschluss, Logs 14 Tage (Annahme, im AVV festlegen)" };
   });
 }
+
+// ---------- Datenpannen (Art. 33/34) ----------
+
+export const PANNE_RISIKO: Record<string, string> = { pruefen: "wird bewertet", kein: "kein Risiko (nur dokumentieren)", risiko: "Risiko: Meldung an Aufsicht in 72 h", hoch: "hohes Risiko: Aufsicht und Betroffene informieren" };
+
+export async function panneErfassen(p: { entdecktAm: Date; beschreibung: string; betroffene?: string; daten?: string }, wer: string): Promise<number> {
+  if (p.beschreibung.trim().length < 10) throw new Error("Bitte kurz beschreiben, was passiert ist.");
+  const db = await getDb();
+  const [neu] = await db.insert(schema.datenpannen).values({ entdecktAm: p.entdecktAm, beschreibung: p.beschreibung.trim(), betroffene: p.betroffene || null, daten: p.daten || null, erfasstVon: wer }).returning({ id: schema.datenpannen.id });
+  await protokolliere(wer, `Datenpanne erfasst (#${neu.id})`);
+  const { melde } = await import("../adapters/push");
+  await melde("job", false, "Datenpanne erfasst", "Frist: Meldung an die Aufsicht binnen 72 Stunden ab Kenntnis, wenn ein Risiko besteht. Jetzt bewerten.");
+  return neu.id;
+}
+
+export async function panneAktualisieren(id: number, w: { risiko?: string; massnahmen?: string; gemeldet?: boolean; informiert?: boolean; abgeschlossen?: boolean }, wer: string): Promise<void> {
+  const db = await getDb();
+  const [p] = await db.select().from(schema.datenpannen).where(eq(schema.datenpannen.id, id));
+  if (!p) throw new Error("Nicht gefunden");
+  await db
+    .update(schema.datenpannen)
+    .set({
+      risiko: w.risiko && PANNE_RISIKO[w.risiko] ? w.risiko : p.risiko,
+      massnahmen: w.massnahmen ?? p.massnahmen,
+      gemeldetAm: w.gemeldet ? (p.gemeldetAm ?? new Date()) : p.gemeldetAm,
+      betroffeneInformiertAm: w.informiert ? (p.betroffeneInformiertAm ?? new Date()) : p.betroffeneInformiertAm,
+      abgeschlossenAm: w.abgeschlossen ? (p.abgeschlossenAm ?? new Date()) : null,
+    })
+    .where(eq(schema.datenpannen.id, id));
+  await protokolliere(wer, `Datenpanne #${id} aktualisiert`);
+}
+
+/** Restzeit bis zur 72-Stunden-Frist in Stunden (negativ = überschritten). */
+export const restStunden = (entdeckt: Date, jetzt = new Date()) => Math.floor((entdeckt.getTime() + 72 * 3600_000 - jetzt.getTime()) / 3600_000);
+
+// ---------- Anfragen von Betroffenen (Art. 12: ein Monat) ----------
+
+export const ANFRAGE_ARTEN: Record<string, string> = { auskunft: "Auskunft (Art. 15)", berichtigung: "Berichtigung (Art. 16)", loeschung: "Löschung (Art. 17)", einschraenkung: "Einschränkung (Art. 18)", uebertragung: "Datenübertragung (Art. 20)", widerspruch: "Widerspruch (Art. 21)" };
+
+export async function betroffenenanfrageErfassen(a: { eingangAm: Date; art: string; person: string; betriebId?: number | null; notiz?: string }, wer: string): Promise<void> {
+  if (!ANFRAGE_ARTEN[a.art]) throw new Error("Unbekannte Art");
+  if (!a.person.trim()) throw new Error("Wer hat angefragt?");
+  const db = await getDb();
+  await db.insert(schema.betroffenenanfragen).values({ eingangAm: a.eingangAm, art: a.art, person: a.person.trim(), betriebId: a.betriebId ?? null, notiz: a.notiz || null, erfasstVon: wer });
+  await protokolliere(wer, `Betroffenenanfrage erfasst: ${ANFRAGE_ARTEN[a.art]}`, a.betriebId ?? null);
+}
+
+export async function betroffenenanfrageErledigt(id: number, wer: string): Promise<void> {
+  const db = await getDb();
+  await db.update(schema.betroffenenanfragen).set({ erledigtAm: new Date() }).where(eq(schema.betroffenenanfragen.id, id));
+  await protokolliere(wer, `Betroffenenanfrage #${id} erledigt`);
+}
+
+/** Frist: ein Monat ab Eingang (Art. 12 Abs. 3 DSGVO). */
+export function anfrageFrist(eingang: Date): Date {
+  return new Date(eingang.getFullYear(), eingang.getMonth() + 1, eingang.getDate(), 23, 59);
+}

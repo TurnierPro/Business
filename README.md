@@ -32,6 +32,10 @@ Das Betriebssystem von Stelax Consulting: Leads finden, Briefe, Online-Check und
 
 Vergleich mit Salesforce, HubSpot, Pipedrive, MOCO, awork und HERO sowie der Weg zum verkaufbaren Produkt: [`docs/crm-funktionen.md`](docs/crm-funktionen.md).
 
+## Sicherheit und Datenschutz
+
+Prüfbericht mit Penetrationstest, Datenschutz-Checkliste für die Gründung und Server-Härtung: [`docs/sicherheit-datenschutz.md`](docs/sicherheit-datenschutz.md). Im Menü unter **Datenschutz**: Verzeichnis, Maßnahmen, Dienstleister, Löschkonzept, Datenpannen (72 h) und Anfragen von Betroffenen (1 Monat).
+
 ## Bestehende Websites umziehen
 
 Hat ein Betrieb schon eine Domain, bleibt er Inhaber, und seine E-Mail läuft unverändert weiter. Standard: Er ändert nach unserer Anleitung zwei A-Einträge (oder wir machen es am Telefon gemeinsam). Alternativ holen wir die Domain mit seinem Auth-Code zu uns. Stelax OS prüft vorher alle DNS-Einträge (E-Mail, Nachweise, Risiken), sichert die alte Seite, leitet alte Adressen weiter, merkt die Umstellung selbst und sagt dem Kunden erst dann, dass er das alte Webhosting kündigen kann. Einrichtung auf dem Server: [`docs/betrieb.md`](docs/betrieb.md#kunden-domains-umzug-bestehender-websites).

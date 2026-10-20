@@ -8,6 +8,7 @@ import { datenOrdner } from "../pfade";
 import { melde } from "../adapters/push";
 import { bestandsaufnahme as dnsBestand, istSimuliert, normDomain, zeigtAufUns, type DnsStand } from "../adapters/dns";
 import { verschluessele } from "../geheim";
+import { sicheresFetch } from "../sicherheit";
 import { portalLink } from "../kundenportal";
 import { datumDe } from "../docs/basis";
 import { inPostausgang } from "./postausgang";
@@ -117,7 +118,7 @@ async function alteSeiteSichern(projektId: number, domain: string): Promise<{ se
   } else {
     const holen = async (url: string) => {
       try {
-        const r = await fetch(url, { signal: AbortSignal.timeout(10000), redirect: "follow", headers: { "User-Agent": "StelaxOS-Umzug/1.0" } });
+        const r = await sicheresFetch(url, { headers: { "User-Agent": "StelaxOS-Umzug/1.0" } });
         return r.ok ? await r.text() : null;
       } catch {
         return null;

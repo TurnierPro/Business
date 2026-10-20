@@ -50,7 +50,9 @@ function browser(): Promise<Browser> {
 
 export async function htmlZuPdf(html: string): Promise<Buffer> {
   const b = await browser();
-  const seite = await b.newPage();
+  // Zweite Schutzebene: Dokumente brauchen weder JavaScript noch Internet (Schriften und Bilder sind eingebettet)
+  const seite = await b.newPage({ javaScriptEnabled: false });
+  await seite.route("**/*", (r) => (r.request().url().startsWith("data:") ? r.continue() : r.abort()));
   try {
     await seite.setContent(html, { waitUntil: "load" });
     await seite.evaluate(() => document.fonts.ready);

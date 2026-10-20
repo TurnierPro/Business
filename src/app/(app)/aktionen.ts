@@ -12,6 +12,8 @@ import * as post from "@/lib/ablauf/postausgang";
 import * as verkauf from "@/lib/ablauf/verkauf";
 import { protokolliere } from "@/lib/protokoll";
 import { berlinZeit, inTagen } from "@/lib/format";
+import { internerPfad } from "@/lib/sicherheit";
+import { entschluessele, verschluessele } from "@/lib/geheim";
 
 // Alle Knöpfe der Oberfläche landen hier. Jede Aktion meldet Erfolg oder Fehler zurück.
 
@@ -29,8 +31,14 @@ async function ausfuehren(ziel: string, ok: string, fn: (wer: string) => Promise
     }
   } catch (e) {
     fehler = e instanceof Error ? e.message : String(e);
+    // Technische Fehler (z. B. aus der Datenbank) nicht anzeigen: verraten sonst Aufbau und Daten
+    if (/duplicate key|violates|relation |column |syntax|ECONN|ENOENT|at \S+:\d+/i.test(fehler)) {
+      console.error("Aktion fehlgeschlagen:", e);
+      fehler = "Technischer Fehler. Bitte erneut versuchen; Details stehen im Server-Log.";
+    }
   }
   revalidatePath("/", "layout");
+  ziel = internerPfad(ziel);
   const trenner = ziel.includes("?") ? "&" : "?";
   redirect(`${ziel}${trenner}${fehler ? `fehler=${encodeURIComponent(fehler)}` : `ok=${encodeURIComponent(ok)}`}`);
 }
@@ -169,16 +177,15 @@ export async function jobWiederholen(f: FormData) {
   await ausfuehren("/system", "Job wird wiederholt", () => wiederholen(zahl(f, "id")));
 }
 
-export async function passwortAendern(f: FormData) {
-  await ausfuehren("/system", "Passwort geändert", async (wer) => {
-    const neu = String(f.get("neu") ?? "");
-    if (neu.length < 12) throw new Error("Das neue Passwort braucht mindestens 12 Zeichen.");
-    const db = await getDb();
-    const [b] = await db.select().from(schema.benutzer).where(eq(schema.benutzer.name, wer));
-    if (!b || !pruefePasswort(String(f.get("alt") ?? ""), b.passwortHash)) throw new Error("Das bisherige Passwort stimmt nicht.");
-    await db.update(schema.benutzer).set({ passwortHash: hashPasswort(neu) }).where(eq(schema.benutzer.id, b.id));
-    await protokolliere(wer, "Passwort geändert");
-  });
+/** Alle Sitzungen dieses Kontos beenden (z. B. Handy verloren). */
+export async function ueberallAbmelden() {
+  const ich = await brauchtBenutzer();
+  const db = await getDb();
+  const [b] = await db.select().from(schema.benutzer).where(eq(schema.benutzer.id, ich.id));
+  await db.update(schema.benutzer).set({ sitzungVersion: b.sitzungVersion + 1 }).where(eq(schema.benutzer.id, b.id));
+  await protokolliere(ich.name, "Überall abgemeldet");
+  (await cookies()).delete(COOKIE);
+  redirect("/login");
 }
 
 export async function beispieleLaden() {
@@ -435,7 +442,8 @@ export async function zweiFaktorStarten() {
   await ausfuehren("/einstellungen", "Code mit der App scannen und bestätigen", async () => {
     const ich = await brauchtBenutzer();
     const db = await getDb();
-    await db.update(schema.benutzer).set({ totpGeheim: (await import("@/lib/totp")).neuesGeheimnis(), totpAktiv: false }).where(eq(schema.benutzer.id, ich.id));
+    // Geheimnis verschlüsselt speichern: ein Datenbank-Abzug allein reicht nicht für den zweiten Faktor
+    await db.update(schema.benutzer).set({ totpGeheim: verschluessele((await import("@/lib/totp")).neuesGeheimnis()), totpAktiv: false, totpLetzterSchritt: null }).where(eq(schema.benutzer.id, ich.id));
   });
 }
 
@@ -444,8 +452,9 @@ export async function zweiFaktorBestaetigen(f: FormData) {
     const ich = await brauchtBenutzer();
     const db = await getDb();
     const [b] = await db.select().from(schema.benutzer).where(eq(schema.benutzer.id, ich.id));
-    if (!b.totpGeheim || !(await import("@/lib/totp")).pruefe(b.totpGeheim, text(f, "code"))) throw new Error("Der Code stimmt nicht. Uhrzeit am Handy prüfen und den aktuellen Code eingeben.");
-    await db.update(schema.benutzer).set({ totpAktiv: true }).where(eq(schema.benutzer.id, ich.id));
+    const schritt = b.totpGeheim ? (await import("@/lib/totp")).pruefeMitSchritt(entschluessele(b.totpGeheim), text(f, "code")) : null;
+    if (schritt === null) throw new Error("Der Code stimmt nicht. Uhrzeit am Handy prüfen und den aktuellen Code eingeben.");
+    await db.update(schema.benutzer).set({ totpAktiv: true, totpLetzterSchritt: schritt }).where(eq(schema.benutzer.id, ich.id));
     await protokolliere(wer, "Zwei-Faktor-Anmeldung eingeschaltet");
   });
 }
@@ -472,4 +481,29 @@ export async function leadsImportieren(f: FormData) {
     const r = await (await import("@/lib/import")).leadsImportieren(await datei.text(), wer);
     return { ok: `${r.neu} Leads importiert${r.uebersprungen.length ? `, ${r.uebersprungen.length} übersprungen (${r.uebersprungen.slice(0, 5).map((x) => `Zeile ${x.zeile}: ${x.grund}`).join("; ")}${r.uebersprungen.length > 5 ? " …" : ""})` : ""}` };
   });
+}
+
+// ---------- Datenschutz: Datenpannen und Betroffenenanfragen ----------
+
+export async function panneErfassen(f: FormData) {
+  await ausfuehren("/datenschutz", "Datenpanne erfasst. Jetzt bewerten: Frist 72 Stunden.", async (wer) => {
+    const ds = await import("@/lib/ablauf/datenschutz");
+    await ds.panneErfassen({ entdecktAm: datumAus(f, "datum") ?? new Date(), beschreibung: text(f, "beschreibung"), betroffene: text(f, "betroffene"), daten: text(f, "daten") }, wer);
+  });
+}
+
+export async function panneAktualisieren(f: FormData) {
+  await ausfuehren("/datenschutz", "Gespeichert", async (wer) =>
+    (await import("@/lib/ablauf/datenschutz")).panneAktualisieren(zahl(f, "id"), { risiko: text(f, "risiko"), massnahmen: text(f, "massnahmen"), gemeldet: f.get("gemeldet") === "ja", informiert: f.get("informiert") === "ja", abgeschlossen: f.get("abgeschlossen") === "ja" }, wer),
+  );
+}
+
+export async function betroffenenanfrageErfassen(f: FormData) {
+  await ausfuehren("/datenschutz", "Anfrage erfasst. Frist: ein Monat.", async (wer) =>
+    (await import("@/lib/ablauf/datenschutz")).betroffenenanfrageErfassen({ eingangAm: datumAus(f, "eingang", "12:00") ?? new Date(), art: text(f, "art"), person: text(f, "person"), notiz: text(f, "notiz") }, wer),
+  );
+}
+
+export async function betroffenenanfrageErledigt(f: FormData) {
+  await ausfuehren("/datenschutz", "Erledigt", async (wer) => (await import("@/lib/ablauf/datenschutz")).betroffenenanfrageErledigt(zahl(f, "id"), wer));
 }

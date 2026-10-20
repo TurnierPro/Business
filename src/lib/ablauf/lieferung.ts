@@ -13,6 +13,7 @@ import { zahlungUeberStripe } from "../adapters/stripe";
 import { inPostausgang } from "./postausgang";
 import { systemAufgabeErledigt } from "./crm";
 import { hakeAb } from "./checkliste";
+import { pruefeDatei } from "../sicherheit";
 import { betrieb, slugAus, zufallsCode, SYSTEM } from "./gemeinsam";
 
 // Lieferung: Inhalte vom Kunden, Seite bauen, prüfen, Livegang nach Freigabe.
@@ -30,10 +31,12 @@ export async function inhalteEinreichen(token: string, form: FormData): Promise<
   const bilder: { datei: string; alt: string }[] = [];
   const ordner = datenOrdner("uploads", `projekt-${p.id}`);
   const dateien = form.getAll("fotos").filter((f): f is File => f instanceof File && f.size > 0);
-  for (const [i, f] of dateien.entries()) {
-    if (!f.type.startsWith("image/")) continue;
-    const name = `foto-${i + 1}.${(f.name.split(".").pop() || "jpg").replace(/[^a-z0-9]/gi, "").slice(0, 4)}`;
-    fs.writeFileSync(path.join(ordner, name), Buffer.from(await f.arrayBuffer()));
+  for (const [i, f] of dateien.slice(0, 40).entries()) {
+    // Nur echte Fotos (Inhalt geprüft); alles andere wird still übersprungen
+    const geprueft = await pruefeDatei(f, ["bild"]).catch(() => null);
+    if (!geprueft) continue;
+    const name = `foto-${i + 1}.${geprueft.endung}`;
+    fs.writeFileSync(path.join(ordner, name), geprueft.daten);
     bilder.push({ datei: name, alt: String(form.get(`alt-${i + 1}`) || "") });
   }
   const inhalte = {

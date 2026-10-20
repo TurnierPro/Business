@@ -10,7 +10,7 @@ export function Navigation({ zahlen }: { zahlen: Zahlen }) {
     { punkte: [{ href: "/", text: "Heute" }, { href: "/aufgaben", text: "Aufgaben", zahl: zahlen.aufgaben }, { href: "/freigaben", text: "Freigaben", zahl: zahlen.freigaben }] },
     { titel: "Vertrieb", punkte: [{ href: "/pipeline", text: "Pipeline" }, { href: "/leads", text: "Betriebe" }] },
     { titel: "Lieferung", punkte: [{ href: "/projekte", text: "Projekte" }, { href: "/tickets", text: "Tickets", zahl: zahlen.tickets }] },
-    { titel: "Firma", punkte: [{ href: "/finanzen", text: "Finanzen" }, { href: "/kennzahlen", text: "Kennzahlen" }, { href: "/unterlagen", text: "Unterlagen" }] },
+    { titel: "Firma", punkte: [{ href: "/finanzen", text: "Finanzen" }, { href: "/kennzahlen", text: "Kennzahlen" }, { href: "/unterlagen", text: "Unterlagen" }, { href: "/datenschutz", text: "Datenschutz" }] },
     { titel: "Technik", punkte: [{ href: "/simulator", text: "Simulator" }, { href: "/system", text: "System" }, { href: "/einstellungen", text: "Einstellungen" }] },
   ];
   return (

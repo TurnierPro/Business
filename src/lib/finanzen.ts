@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { and, asc, eq, gte, lt } from "drizzle-orm";
 import { getDb, schema } from "./db";
+import { pruefeDatei } from "./sicherheit";
 import { datenOrdner } from "./pfade";
 import { einreihen } from "./jobs/warteschlange";
 import { protokolliere } from "./protokoll";
@@ -125,11 +126,12 @@ export function inCent(text: string): number {
 
 async function belegSpeichern(datei: File | null): Promise<{ pfad: string; name: string } | null> {
   if (!datei || datei.size === 0) return null;
-  if (!/^(image\/|application\/pdf)/.test(datei.type)) throw new Error("Beleg bitte als Foto oder PDF.");
+  // Echter Inhalt zählt, nicht Name oder Browser-Angabe
+  const { daten, endung } = await pruefeDatei(datei, ["bild", "pdf"]);
   const jahr = new Date().getFullYear();
-  const name = `${Date.now()}-${datei.name.replace(/[^a-zA-Z0-9._-]/g, "_").slice(-60)}`;
+  const name = `${Date.now()}-${datei.name.replace(/[^a-zA-Z0-9_-]/g, "_").replace(/_(pdf|jpe?g|png|webp|gif|heic)$/i, "").slice(-50)}.${endung}`;
   const pfad = path.join(datenOrdner("belege", String(jahr)), name);
-  fs.writeFileSync(pfad, Buffer.from(await datei.arrayBuffer()));
+  fs.writeFileSync(pfad, daten);
   return { pfad, name: datei.name };
 }
 

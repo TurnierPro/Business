@@ -1,14 +1,16 @@
+import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { and, eq, gte, inArray, lt, sql } from "drizzle-orm";
+import { and, eq, gte, inArray, isNotNull, lt, sql } from "drizzle-orm";
 import { PGlite } from "@electric-sql/pglite";
 import { getDb, eingebauteDb, schema } from "../db";
 import { datenOrdner } from "../pfade";
 import { melde } from "../adapters/push";
 import { protokolliere } from "../protokoll";
-import { ANGEBOT_LOESCHEN_TAGE } from "../recht";
+import { ANGEBOT_LOESCHEN_TAGE, frist } from "../recht";
+import { alteVersucheLoeschen, sicheresFetch } from "../sicherheit";
 import { loescheSeite } from "../sites/generator";
 import { SYSTEM } from "./gemeinsam";
 
@@ -19,6 +21,23 @@ const AUFBEWAHRUNG_TAGE = 30;
 
 function backupOrdner() {
   return datenOrdner("backups");
+}
+
+/** Format: „STX1“ | Salz (16) | IV (12) | Tag (16) | Daten. Schlüssel aus Passphrase per scrypt. */
+export function verschluesseleBackup(daten: Buffer, passphrase: string): Buffer {
+  const salz = crypto.randomBytes(16);
+  const iv = crypto.randomBytes(12);
+  const c = crypto.createCipheriv("aes-256-gcm", crypto.scryptSync(passphrase, salz, 32), iv);
+  const inhalt = Buffer.concat([c.update(daten), c.final()]);
+  return Buffer.concat([Buffer.from("STX1"), salz, iv, c.getAuthTag(), inhalt]);
+}
+
+export function entschluesseleBackup(daten: Buffer, passphrase: string): Buffer {
+  if (daten.subarray(0, 4).toString() !== "STX1") throw new Error("Keine Stelax-Backup-Datei");
+  const salz = daten.subarray(4, 20), iv = daten.subarray(20, 32), tag = daten.subarray(32, 48);
+  const d = crypto.createDecipheriv("aes-256-gcm", crypto.scryptSync(passphrase, salz, 32), iv);
+  d.setAuthTag(tag);
+  return Buffer.concat([d.update(daten.subarray(48)), d.final()]);
 }
 
 export async function backup(): Promise<string> {
@@ -38,11 +57,15 @@ export async function backup(): Promise<string> {
     const voll = path.join(backupOrdner(), f);
     if (Date.now() - fs.statSync(voll).mtimeMs > AUFBEWAHRUNG_TAGE * 864e5) fs.rmSync(voll);
   }
-  // Kopie außerhalb des Servers (Hetzner Storage Box), sobald eingerichtet
+  // Kopie außerhalb des Servers (Hetzner Storage Box), nur verschlüsselt (AES-256-GCM, Schlüssel nur im Passwortmanager und in Coolify)
   let extern = "nur lokal (BACKUP_ZIEL fehlt)";
   if (process.env.BACKUP_ZIEL) {
-    await run("rsync", ["-a", "-e", "ssh -p 23", `${backupOrdner()}/`, process.env.BACKUP_ZIEL]);
-    extern = "auf Storage Box kopiert";
+    if (!process.env.BACKUP_SCHLUESSEL || process.env.BACKUP_SCHLUESSEL.length < 32) throw new Error("BACKUP_SCHLUESSEL fehlt (mindestens 32 Zeichen). Ohne Verschlüsselung verlässt kein Backup den Server.");
+    const ausgang = datenOrdner("backup-extern");
+    fs.writeFileSync(path.join(ausgang, `${path.basename(datei)}.enc`), verschluesseleBackup(fs.readFileSync(datei), process.env.BACKUP_SCHLUESSEL));
+    for (const f of fs.readdirSync(ausgang)) if (!fs.existsSync(path.join(backupOrdner(), f.replace(/\.enc$/, "")))) fs.rmSync(path.join(ausgang, f));
+    await run("rsync", ["-a", "--delete", "-e", "ssh -p 23", `${ausgang}/`, process.env.BACKUP_ZIEL]);
+    extern = "verschlüsselt auf Storage Box kopiert";
   }
   const kb = Math.round(fs.statSync(datei).size / 1024);
   await melde("backup", !!process.env.BACKUP_ZIEL || process.env.NODE_ENV !== "production", process.env.BACKUP_ZIEL ? "Backup erstellt" : "Backup erstellt, nur lokal", `${path.basename(datei)}, ${kb} KB, ${extern}`);
@@ -86,7 +109,7 @@ export async function erreichbarkeit(): Promise<string> {
     if (umzug.domain && umzug.status !== "umgestellt") continue; // Domain zeigt noch auf den alten Anbieter
     if (p.domain && process.env.NODE_ENV === "production") {
       try {
-        const res = await fetch(`https://${p.domain}`, { signal: AbortSignal.timeout(10000) });
+        const res = await sicheresFetch(`https://${p.domain}`);
         if (!res.ok) fehler.push(`${p.domain}: HTTP ${res.status}`);
       } catch {
         fehler.push(`${p.domain}: nicht erreichbar`);
@@ -98,6 +121,8 @@ export async function erreichbarkeit(): Promise<string> {
   if (fehler.length) await melde("erreichbarkeit", false, `${fehler.length} Seite(n) nicht erreichbar`, fehler.join("\n"));
   return fehler.length ? fehler.join("; ") : `${live.length} Live-Seiten erreichbar`;
 }
+
+const vor = (tage: number) => new Date(Date.now() - tage * 864e5);
 
 export async function aufraeumen(): Promise<string> {
   const db = await getDb();
@@ -126,7 +151,23 @@ export async function aufraeumen(): Promise<string> {
     angebote++;
   }
   // Anfragen über Kunden-Websites nach 12 Monaten löschen (Annahme, im AVV festlegen)
-  const anfragen = await db.delete(schema.anfragen).where(lt(schema.anfragen.am, jahr)).returning({ id: schema.anfragen.id });
+  const anfragen = await db.delete(schema.anfragen).where(lt(schema.anfragen.am, vor(frist("Anfragen über Kunden-Websites")))).returning({ id: schema.anfragen.id });
+  // Gesprächsaufnahmen spätestens nach 30 Tagen, auch wenn das Protokoll nie verschickt wurde
+  for (const t of await db.select().from(schema.termine).where(and(isNotNull(schema.termine.audioPfad), lt(schema.termine.erstelltAm, vor(frist("Gesprächsaufnahmen")))))) {
+    fs.rmSync(t.audioPfad!, { force: true });
+    await db.update(schema.termine).set({ audioPfad: null, audioGeloeschtAm: jetzt }).where(eq(schema.termine.id, t.id));
+  }
+  // Sicherungen alter Websites aus dem Umzug
+  const umzugOrdner = datenOrdner("umzug");
+  for (const o of fs.readdirSync(umzugOrdner)) {
+    const voll = path.join(umzugOrdner, o);
+    if (fs.statSync(voll).mtime < vor(frist("Sicherung alter Kunden-Websites (Umzug)"))) fs.rmSync(voll, { recursive: true, force: true });
+  }
+  await db.delete(schema.simulatorPost).where(lt(schema.simulatorPost.am, vor(frist("Simulator-Postfach"))));
+  await db.delete(schema.meldungen).where(lt(schema.meldungen.am, vor(frist("Systemmeldungen"))));
+  await db.delete(schema.jobs).where(and(eq(schema.jobs.status, "fertig"), lt(schema.jobs.erstelltAm, vor(frist("Erledigte Hintergrund-Jobs")))));
+  await db.delete(schema.protokoll).where(lt(schema.protokoll.am, vor(frist("Änderungsprotokoll"))));
+  await alteVersucheLoeschen(frist("Anmelde-Fehlversuche (IP gekürzt)"));
   if (alt.length || leads.length || angebote || anfragen.length) await protokolliere(SYSTEM, "Aufgeräumt", null, `${alt.length} Demos, ${leads.length} Leads, ${angebote} Angebote ohne Auftrag, ${anfragen.length} alte Anfragen gelöscht`);
   return `${alt.length} Demos, ${leads.length} Leads, ${angebote} Angebote, ${anfragen.length} Anfragen gelöscht`;
 }

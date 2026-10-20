@@ -5,7 +5,7 @@ import { REGELN } from "@/lib/jobs/zeitplan";
 import { JOB_NAMEN } from "@/lib/jobs/handler";
 import { Status } from "@/components/Status";
 import { datumZeit } from "@/lib/format";
-import { beispieleEntfernen, beispieleLaden, jobStarten, jobWiederholen, passwortAendern } from "../aktionen";
+import { beispieleEntfernen, beispieleLaden, jobStarten, jobWiederholen } from "../aktionen";
 import { beispieleErlaubt } from "@/lib/beispiele";
 import { AGENTEN } from "@/lib/agenten";
 import { verarbeitungen } from "@/lib/ablauf/datenschutz";
@@ -130,12 +130,9 @@ export default async function System() {
           {kosten.length ? <ul className="liste">{kosten.map((k) => <li key={k.zweck}><span>{k.zweck} ({k.n}×)</span><span className="mono">{((k.s ?? 0) / 1_000_000).toFixed(3)} USD</span></li>)}</ul> : <p className="leise">Noch keine Aufrufe. Im Simulator entstehen keine Kosten.</p>}
         </section>
         <section className="karte">
-          <h2>Passwort ändern</h2>
-          <form action={passwortAendern}>
-            <label className="feld"><span>Bisheriges Passwort</span><input type="password" name="alt" autoComplete="current-password" required /></label>
-            <label className="feld"><span>Neues Passwort</span><input type="password" name="neu" autoComplete="new-password" minLength={12} required /><small>Mindestens 12 Zeichen. Zwei-Faktor-Anmeldung folgt vor dem ersten echten Kunden.</small></label>
-            <button className="knopf">Ändern</button>
-          </form>
+          <h2>Passwort und Zwei-Faktor</h2>
+          <p className="leise">Passwort, Zwei-Faktor-Anmeldung, Benutzer und Sitzungen findest du unter Einstellungen.</p>
+          <a className="knopf" href="/einstellungen">Zu den Einstellungen</a>
         </section>
       </div>
 

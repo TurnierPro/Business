@@ -45,3 +45,27 @@ export function mailSignatur(): string {
   const p = pflichtangaben();
   return `\n\n--\n${p.firma}\n${a.strasse}, ${a.ort}\nTel. ${a.telefon} · ${a.email} · ${a.web}\n${p.register}\n${p.gf}`;
 }
+
+/**
+ * Löschkonzept (Art. 5 Abs. 1 lit. e, Art. 17 DSGVO). Der Aufräum-Agent löscht täglich um 3 Uhr.
+ * Aufbewahrungspflichten gehen vor: Rechnungen und Buchungsbelege 8 Jahre (§ 147 AO), Handelsbriefe 6 Jahre (§ 257 HGB).
+ */
+export const LOESCHFRISTEN: { was: string; tage: number | null; grund: string; automatisch: boolean }[] = [
+  { was: "Demo-Websites", tage: 60, grund: "Zusage im Akquise-Brief", automatisch: true },
+  { was: "Leads ohne Reaktion", tage: 182, grund: "Zusage im Akquise-Brief (6 Monate)", automatisch: true },
+  { was: "Angebote ohne Auftrag (samt Betrieb)", tage: ANGEBOT_LOESCHEN_TAGE, grund: "Zweck entfallen", automatisch: true },
+  { was: "Gesprächsaufnahmen", tage: 30, grund: "Löschung nach Versand des Protokolls, spätestens nach 30 Tagen", automatisch: true },
+  { was: "Anfragen über Kunden-Websites", tage: 365, grund: "Annahme, im AV-Vertrag mit dem Kunden festlegen", automatisch: true },
+  { was: "Sicherung alter Kunden-Websites (Umzug)", tage: 180, grund: "Nur für Weiterleitungen und Rückfragen nötig", automatisch: true },
+  { was: "Simulator-Postfach", tage: 90, grund: "Nur zum Testen", automatisch: true },
+  { was: "Systemmeldungen", tage: 180, grund: "Betrieb und Fehlersuche", automatisch: true },
+  { was: "Erledigte Hintergrund-Jobs", tage: 30, grund: "Fehlersuche", automatisch: true },
+  { was: "Anmelde-Fehlversuche (IP gekürzt)", tage: 30, grund: "Schutz vor Angriffen", automatisch: true },
+  { was: "Änderungsprotokoll", tage: 3 * 365, grund: "Nachweis (Art. 5 Abs. 2 DSGVO), regelmäßige Verjährung", automatisch: true },
+  { was: "Backups", tage: 30, grund: "Wiederherstellung; gelöschte Daten verschwinden spätestens dann auch aus Backups", automatisch: true },
+  { was: "Rechnungen, Buchungsbelege", tage: 8 * 365, grund: "§ 147 AO (8 Jahre ab Jahresende)", automatisch: false },
+  { was: "Angebote, Auftragsbestätigungen, Abnahmeprotokolle von Kunden", tage: 6 * 365, grund: "§ 257 HGB (Handelsbriefe, 6 Jahre ab Jahresende)", automatisch: false },
+  { was: "Kundendaten nach Vertragsende", tage: null, grund: "Sperren statt löschen, solange Aufbewahrungspflichten laufen; danach löschen", automatisch: false },
+];
+
+export const frist = (was: string) => LOESCHFRISTEN.find((f) => f.was === was)?.tage ?? 0;

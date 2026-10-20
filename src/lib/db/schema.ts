@@ -22,6 +22,12 @@ export const benutzer = pgTable("benutzer", {
   // Zwei-Faktor-Anmeldung (TOTP, z. B. mit einer Authenticator-App)
   totpGeheim: text("totp_geheim"),
   totpAktiv: boolean("totp_aktiv").notNull().default(false),
+  // Schutz gegen doppelt verwendete Codes (Replay)
+  totpLetzterSchritt: integer("totp_letzter_schritt"),
+  // Start-Passwort muss beim ersten Anmelden geändert werden
+  mussPasswortAendern: boolean("muss_passwort_aendern").notNull().default(false),
+  // Wird erhöht bei Passwortwechsel oder „überall abmelden“: alte Sitzungen werden ungültig
+  sitzungVersion: integer("sitzung_version").notNull().default(0),
   // Geheimer Link für das Kalender-Abo (Termine und Aufgaben)
   kalenderToken: text("kalender_token"),
   erstelltAm: timestamp("erstellt_am", { withTimezone: true }).defaultNow().notNull(),
@@ -398,4 +404,39 @@ export const apiSchluessel = pgTable("api_schluessel", {
   erstelltAm: timestamp("erstellt_am", { withTimezone: true }).defaultNow().notNull(),
   zuletztAm: timestamp("zuletzt_am", { withTimezone: true }),
   widerrufenAm: timestamp("widerrufen_am", { withTimezone: true }),
+});
+
+// Fehlversuche und Formular-Aufrufe je Schlüssel (E-Mail, IP) für Sperren und Mengenbegrenzung
+export const versuche = pgTable("versuche", {
+  id: serial("id").primaryKey(),
+  art: text("art").notNull(), // login | code | formular
+  schluessel: text("schluessel").notNull(),
+  am: timestamp("am", { withTimezone: true }).defaultNow().notNull(),
+});
+
+// Datenpannen (Art. 33/34 DSGVO): Meldung an die Aufsicht binnen 72 Stunden, wenn ein Risiko besteht
+export const datenpannen = pgTable("datenpannen", {
+  id: serial("id").primaryKey(),
+  entdecktAm: timestamp("entdeckt_am", { withTimezone: true }).notNull(),
+  beschreibung: text("beschreibung").notNull(),
+  betroffene: text("betroffene"),
+  daten: text("daten"),
+  risiko: text("risiko").notNull().default("pruefen"), // pruefen | kein | risiko | hoch
+  massnahmen: text("massnahmen"),
+  gemeldetAm: timestamp("gemeldet_am", { withTimezone: true }),
+  betroffeneInformiertAm: timestamp("betroffene_informiert_am", { withTimezone: true }),
+  abgeschlossenAm: timestamp("abgeschlossen_am", { withTimezone: true }),
+  erfasstVon: text("erfasst_von").notNull(),
+});
+
+// Anfragen von Betroffenen (Art. 15–22 DSGVO): Antwort spätestens nach einem Monat
+export const betroffenenanfragen = pgTable("betroffenenanfragen", {
+  id: serial("id").primaryKey(),
+  eingangAm: timestamp("eingang_am", { withTimezone: true }).notNull(),
+  art: text("art").notNull(), // auskunft | loeschung | berichtigung | widerspruch | einschraenkung | uebertragung
+  person: text("person").notNull(),
+  betriebId: integer("betrieb_id"),
+  notiz: text("notiz"),
+  erledigtAm: timestamp("erledigt_am", { withTimezone: true }),
+  erfasstVon: text("erfasst_von").notNull(),
 });

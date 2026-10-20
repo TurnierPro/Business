@@ -8,6 +8,7 @@ export async function GET() {
     await db.execute(sql`select 1`);
     return Response.json({ ok: true, zeit: new Date().toISOString() });
   } catch (e) {
-    return Response.json({ ok: false, fehler: e instanceof Error ? e.message : String(e) }, { status: 503 });
+    console.error("Gesundheit:", e); // Details nur ins Server-Log, nicht nach außen
+    return Response.json({ ok: false }, { status: 503 });
   }
 }

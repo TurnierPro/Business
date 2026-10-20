@@ -1,6 +1,8 @@
 // Online-Check einer Website. Prüft, was ohne Zusatzdienst prüfbar ist.
 // Lighthouse und axe kommen in Modul 8 dazu; die Struktur der Ergebnisse bleibt gleich.
 
+import { sicheresFetch } from "../sicherheit";
+
 export type Pruefpunkt = { name: string; ampel: "gruen" | "gelb" | "rot"; befund: string };
 
 export async function pruefeWebsite(url: string | null | undefined): Promise<{ punkte: Pruefpunkt[]; erreichbar: boolean; ladezeitMs?: number }> {
@@ -15,7 +17,8 @@ export async function pruefeWebsite(url: string | null | undefined): Promise<{ p
   let html = "";
   let endUrl = ziel;
   try {
-    const res = await fetch(ziel, { redirect: "follow", signal: AbortSignal.timeout(15000), headers: { "User-Agent": "Stelax-Online-Check/0.1" } });
+    // Nur öffentliche Adressen (eine Lead-Website darf nie auf unser internes Netz zeigen)
+    const res = await sicheresFetch(ziel, { timeoutMs: 15000, headers: { "User-Agent": "Stelax-Online-Check/0.1" } });
     html = await res.text();
     endUrl = res.url;
   } catch {

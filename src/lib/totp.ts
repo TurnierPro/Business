@@ -30,9 +30,15 @@ export function code(geheimnis: string, zeit = Date.now()): string {
 
 /** Prüft den Code; erlaubt 30 Sekunden Uhrabweichung in beide Richtungen. */
 export function pruefe(geheimnis: string, eingabe: string, zeit = Date.now()): boolean {
+  return pruefeMitSchritt(geheimnis, eingabe, zeit) !== null;
+}
+
+/** Wie pruefe, gibt aber den Zeitschritt zurück (für den Schutz gegen doppelt verwendete Codes). */
+export function pruefeMitSchritt(geheimnis: string, eingabe: string, zeit = Date.now()): number | null {
   const c = eingabe.replace(/\s/g, "");
-  if (!/^\d{6}$/.test(c)) return false;
-  return [-1, 0, 1].some((d) => crypto.timingSafeEqual(Buffer.from(code(geheimnis, zeit + d * 30000)), Buffer.from(c)));
+  if (!/^\d{6}$/.test(c)) return null;
+  const d = [-1, 0, 1].find((x) => crypto.timingSafeEqual(Buffer.from(code(geheimnis, zeit + x * 30000)), Buffer.from(c)));
+  return d === undefined ? null : Math.floor(zeit / 30000) + d;
 }
 
 export function otpauthUrl(geheimnis: string, email: string, firma = "Stelax OS"): string {

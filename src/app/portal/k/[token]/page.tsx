@@ -8,6 +8,7 @@ import { zahlungUeberStripe } from "@/lib/adapters/stripe";
 import { anzahlungsLink } from "@/lib/ablauf/zahlung";
 import { abnahmeErklaeren } from "@/lib/ablauf/vertrag";
 import { AGB_URL, AGB_VERSION } from "@/lib/recht";
+import { erlaubt, GRENZEN, versuchMerken } from "@/lib/sicherheit";
 import { kontingent, ticketAnlegen, ticketNummer, TICKET_STATUS } from "@/lib/ablauf/tickets";
 
 export const metadata = { title: "Ihr Kundenportal", robots: { index: false } };
@@ -49,6 +50,8 @@ async function aenderungWuenschen(f: FormData) {
   const token = String(f.get("token"));
   const b = await betriebPerPortal(token);
   if (!b) notFound();
+  if (!(await erlaubt("formular", `portal:${b.id}`, GRENZEN.formularJeIp))) redirect(`/portal/k/${token}?ticketfehler=1#wunsch`);
+  await versuchMerken("formular", `portal:${b.id}`);
   try {
     await ticketAnlegen({ betriebId: b.id, betreff: String(f.get("betreff") ?? ""), beschreibung: String(f.get("beschreibung") ?? ""), kategorie: String(f.get("kategorie") ?? "aenderung"), prioritaet: f.get("dringend") === "ja" ? "dringend" : "normal", quelle: "portal" }, `Kunde (Portal)`);
   } catch {

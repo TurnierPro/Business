@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { and, desc, eq, inArray, lte, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, lte, sql } from "drizzle-orm";
 import { getDb, schema } from "@/lib/db";
 import { inTagen } from "@/lib/format";
 import { brauchtBenutzer } from "@/lib/auth";
@@ -42,6 +42,10 @@ export default async function Heute() {
   const etappe = ETAPPEN.filter((e) => e.nr > 0).find((e) => UNTERLAGEN.some((u) => u.etappe === e.nr && !["erledigt", "entfaellt"].includes(unterlagenStand.get(u.key)?.status ?? "offen")));
   const offenInEtappe = etappe ? UNTERLAGEN.filter((u) => u.etappe === etappe.nr && !["erledigt", "entfaellt"].includes(unterlagenStand.get(u.key)?.status ?? "offen")).length : 0;
   const frist = FRISTEN.find((f) => f.datum >= heute);
+  const [pannen, anfragenDs] = await Promise.all([
+    db.select().from(schema.datenpannen).where(isNull(schema.datenpannen.abgeschlossenAm)),
+    db.select().from(schema.betroffenenanfragen).where(isNull(schema.betroffenenanfragen.erledigtAm)),
+  ]);
 
   return (
     <>
@@ -60,6 +64,12 @@ export default async function Heute() {
           <p className="leise">Lade 16 erfundene Betriebe in allen Phasen: vom neuen Lead über Brief, Termin und Angebot bis zur Website, die live ist. Unter System kannst du sie jederzeit wieder entfernen.</p>
           <form action={beispieleLaden}><button className="knopf haupt">Beispieldaten laden</button></form>
         </section>
+      ) : null}
+
+      {pannen.length || anfragenDs.length ? (
+        <Link href="/datenschutz" className="hinweis fehler" style={{ display: "block", marginBottom: 16 }}>
+          Datenschutz: {pannen.length ? `${pannen.length} offene Datenpanne(n), Meldefrist 72 Stunden` : ""}{pannen.length && anfragenDs.length ? " · " : ""}{anfragenDs.length ? `${anfragenDs.length} Anfrage(n) von Betroffenen offen, Frist ein Monat` : ""}
+        </Link>
       ) : null}
 
       {etappe ? (
