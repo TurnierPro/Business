@@ -11,6 +11,7 @@ import { verschluessele } from "../geheim";
 import { portalLink } from "../kundenportal";
 import { datumDe } from "../docs/basis";
 import { inPostausgang } from "./postausgang";
+import { hakeAb } from "./checkliste";
 import { anschrift, betrieb, neuesDokument, SYSTEM } from "./gemeinsam";
 
 // Umzug einer bestehenden Website zu Stelax. Grundsatz: Der Kunde bleibt Inhaber seiner Domain,
@@ -223,6 +224,7 @@ export async function umstellungPruefen(jetzt = new Date()): Promise<string> {
     await speichern(p.id, { ...u, status: "umgestellt", umgestelltAm: jetzt.toISOString(), letztePruefung: { am: jetzt.toISOString(), detail: r.detail } });
     const b = await betrieb(p.betriebId);
     await protokolliere(SYSTEM, `Domain ${u.domain} zeigt auf Stelax`, b.id, r.detail);
+    await hakeAb(p.id, "domain");
     await inPostausgang({
       betriebId: b.id,
       projektId: p.id,

@@ -61,6 +61,9 @@ export const PAKETE: Record<PaketKey, { name: string; einmalig: number; monatlic
   },
 };
 
+// Änderungen im Monat, die in der Betreuung enthalten sind (Minuten, laut Paketinhalt)
+export const AENDERUNGS_MINUTEN: Record<PaketKey, number> = { START: 15, S: 30, S_WERKSTATT: 30, M: 30, L: 30 };
+
 // Ausdrücklich nicht enthalten (Business Case). Steht in der Leistungsbeschreibung jedes Angebots.
 const NICHT_S = ["Bewertungsmanagement", "Werbeanzeigen", "Social Media", "Blog", "Logo", "Shop", "Mehrsprachigkeit", "Karriereseite", "Terminbuchung", "Chatbot"];
 export const NICHT_ENTHALTEN: Record<PaketKey, string[]> = {

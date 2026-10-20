@@ -16,6 +16,14 @@ export const benutzer = pgTable("benutzer", {
   email: text("email").notNull().unique(),
   name: text("name").notNull(),
   passwortHash: text("passwort_hash").notNull(),
+  // admin | vertrieb | technik | lesen
+  rolle: text("rolle").notNull().default("admin"),
+  aktiv: boolean("aktiv").notNull().default(true),
+  // Zwei-Faktor-Anmeldung (TOTP, z. B. mit einer Authenticator-App)
+  totpGeheim: text("totp_geheim"),
+  totpAktiv: boolean("totp_aktiv").notNull().default(false),
+  // Geheimer Link für das Kalender-Abo (Termine und Aufgaben)
+  kalenderToken: text("kalender_token"),
   erstelltAm: timestamp("erstellt_am", { withTimezone: true }).defaultNow().notNull(),
 });
 
@@ -40,6 +48,8 @@ export const betriebe = pgTable("betriebe", {
   datenquelle: text("datenquelle"),
   status: text("status").notNull().default("neu"),
   notizen: text("notizen"),
+  tags: jsonb("tags").$type<string[]>().notNull().default([]),
+  zustaendig: text("zustaendig"),
   besuchAb: timestamp("besuch_ab", { withTimezone: true }),
   // Geheimer Link zum Kundenportal (entsteht mit dem ersten Angebot)
   portalToken: text("portal_token").unique(),
@@ -301,4 +311,91 @@ export const anfragen = pgTable("anfragen", {
   nachricht: text("nachricht").notNull(),
   dateien: jsonb("dateien").$type<string[]>().notNull().default([]),
   am: timestamp("am", { withTimezone: true }).defaultNow().notNull(),
+});
+
+// Ansprechpartner je Betrieb (Inhaber, Büro, Meister, IT …)
+export const kontakte = pgTable("kontakte", {
+  id: serial("id").primaryKey(),
+  betriebId: integer("betrieb_id").notNull().references(() => betriebe.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  rolle: text("rolle"),
+  telefon: text("telefon"),
+  email: text("email"),
+  notiz: text("notiz"),
+  haupt: boolean("haupt").notNull().default(false),
+  erstelltAm: timestamp("erstellt_am", { withTimezone: true }).defaultNow().notNull(),
+});
+
+// Alles, was mit einem Kunden passiert: Notiz, Anruf, Termin, Aufgabe. Aufgaben und Termine haben ein Fälligkeitsdatum.
+export const aktivitaeten = pgTable("aktivitaeten", {
+  id: serial("id").primaryKey(),
+  betriebId: integer("betrieb_id").references(() => betriebe.id, { onDelete: "cascade" }),
+  projektId: integer("projekt_id"),
+  ticketId: integer("ticket_id"),
+  art: text("art").notNull(), // notiz | anruf | termin | aufgabe
+  titel: text("titel").notNull(),
+  text: text("text"),
+  faelligAm: timestamp("faellig_am", { withTimezone: true }),
+  dauerMin: integer("dauer_min"),
+  zustaendig: text("zustaendig"),
+  erledigtAm: timestamp("erledigt_am", { withTimezone: true }),
+  erstelltVon: text("erstellt_von").notNull(),
+  erstelltAm: timestamp("erstellt_am", { withTimezone: true }).defaultNow().notNull(),
+});
+
+// Zeiterfassung: Grundlage für „Stunden je Projekt“ und „Betreuung je Kunde“ aus dem Business Case
+export const zeiten = pgTable("zeiten", {
+  id: serial("id").primaryKey(),
+  betriebId: integer("betrieb_id").references(() => betriebe.id, { onDelete: "cascade" }),
+  projektId: integer("projekt_id"),
+  ticketId: integer("ticket_id"),
+  wer: text("wer").notNull(),
+  datum: timestamp("datum", { withTimezone: true }).defaultNow().notNull(),
+  minuten: integer("minuten").notNull(),
+  taetigkeit: text("taetigkeit").notNull(),
+  notiz: text("notiz"),
+  erstelltAm: timestamp("erstellt_am", { withTimezone: true }).defaultNow().notNull(),
+});
+
+// Lieferschritte je Projekt (Checkliste aus der Paket-Vorlage). Mit Schlüssel hakt Stelax OS selbst ab.
+export const projektAufgaben = pgTable("projekt_aufgaben", {
+  id: serial("id").primaryKey(),
+  projektId: integer("projekt_id").notNull().references(() => projekte.id, { onDelete: "cascade" }),
+  phase: text("phase").notNull(),
+  titel: text("titel").notNull(),
+  schluessel: text("schluessel"),
+  reihenfolge: integer("reihenfolge").notNull(),
+  erledigtAm: timestamp("erledigt_am", { withTimezone: true }),
+  erledigtVon: text("erledigt_von"),
+});
+
+// Tickets: Änderungswünsche, Fehler und Fragen aus der Betreuung (Kontingent je Paket)
+export const tickets = pgTable("tickets", {
+  id: serial("id").primaryKey(),
+  betriebId: integer("betrieb_id").notNull().references(() => betriebe.id, { onDelete: "cascade" }),
+  projektId: integer("projekt_id"),
+  betreff: text("betreff").notNull(),
+  beschreibung: text("beschreibung").notNull(),
+  kategorie: text("kategorie").notNull().default("aenderung"), // aenderung | fehler | frage | wunsch
+  prioritaet: text("prioritaet").notNull().default("normal"), // normal | hoch | dringend
+  status: text("status").notNull().default("neu"), // neu | in_arbeit | wartet_kunde | erledigt
+  quelle: text("quelle").notNull().default("portal"), // portal | telefon | mail | intern | api
+  zustaendig: text("zustaendig"),
+  loesung: text("loesung"),
+  erstelltVon: text("erstellt_von").notNull(),
+  erstelltAm: timestamp("erstellt_am", { withTimezone: true }).defaultNow().notNull(),
+  erledigtAm: timestamp("erledigt_am", { withTimezone: true }),
+});
+
+// Schlüssel für die Schnittstelle (/api/v1). Gespeichert wird nur der Hash.
+export const apiSchluessel = pgTable("api_schluessel", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  praefix: text("praefix").notNull(),
+  hash: text("hash").notNull().unique(),
+  rechte: jsonb("rechte").$type<string[]>().notNull().default([]),
+  erstelltVon: text("erstellt_von").notNull(),
+  erstelltAm: timestamp("erstellt_am", { withTimezone: true }).defaultNow().notNull(),
+  zuletztAm: timestamp("zuletzt_am", { withTimezone: true }),
+  widerrufenAm: timestamp("widerrufen_am", { withTimezone: true }),
 });

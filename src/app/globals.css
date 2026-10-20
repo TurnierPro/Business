@@ -210,3 +210,18 @@ dl.daten dd { margin: 0; }
 .register summary .titel { font-weight: 500; }
 .register .inhalt { padding: 4px 16px 16px; display: grid; gap: 12px; }
 .register .marke { display: inline-block; font-size: 12px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--akzent); color: var(--akzent); margin-top: 6px; }
+
+/* Aufgaben abhaken */
+.haken-knopf { width: 28px; height: 28px; border-radius: 50%; border: 1.5px solid var(--rahmen); background: transparent; color: transparent; cursor: pointer; flex: none; font-size: 14px; line-height: 1; }
+.haken-knopf:hover, .haken-knopf:focus-visible { border-color: var(--ok); color: var(--ok); }
+.liste li { gap: 12px; }
+/* Pipeline: Spalten nebeneinander, auf dem Handy wischen */
+.pipeline { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(240px, 1fr); gap: 12px; overflow-x: auto; padding-bottom: 8px; }
+.pipeline .spalte { background: var(--flaeche); border: 1px solid var(--linie); border-radius: 2px; padding: 12px; min-height: 200px; }
+.pipeline .spalte h2 { font-size: 15px; margin: 0 0 4px; }
+.pipeline .karte-klein { display: block; border: 1px solid var(--linie); border-radius: 4px; padding: 10px; margin-top: 8px; color: inherit; text-decoration: none; background: var(--grund); }
+.pipeline .karte-klein:hover { border-color: var(--akzent); }
+.pipeline .karte-klein.liegt { border-left: 3px solid var(--fehler); }
+.marke-klein { display: inline-block; font-size: 11px; padding: 1px 6px; border: 1px solid var(--rahmen); border-radius: 999px; margin: 4px 4px 0 0; color: var(--leise); }
+.suche-feld { width: 100%; margin: 12px 0 4px; }
+.nav-gruppe { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--leise); margin: 14px 12px 4px; }

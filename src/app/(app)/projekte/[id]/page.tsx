@@ -8,6 +8,9 @@ import { basisUrl } from "@/lib/ablauf/gemeinsam";
 import { PAKETE, PaketKey } from "@/lib/pakete";
 import { abnahmeErneut, kuendigungErfassen, neuBauen, providerwechselErledigt, umzugPruefen } from "../../aktionen";
 import { umzugVon } from "@/lib/ablauf/umzug";
+import { checkliste, PHASEN } from "@/lib/ablauf/checkliste";
+import { stunden, TAETIGKEITEN, ZIEL_STUNDEN, zeitenVonProjekt } from "@/lib/ablauf/zeiten";
+import { checklistePunkt, zeitErfassen, zeitLoeschen } from "../../aktionen";
 import { bfsgHinweis } from "@/lib/ablauf/lieferung";
 
 const SCHRITTE = [
@@ -33,6 +36,9 @@ export default async function Projekt({ params }: { params: Promise<{ id: string
   const index = abgenommen ? SCHRITTE.length : p.status === "live" ? 5 : SCHRITTE.findIndex((s) => s.key === p.status);
   const bfsg = bfsgHinweis(p.onboarding);
   const umzug = umzugVon(p);
+  const [punkte, zeit] = await Promise.all([checkliste(id), zeitenVonProjekt(id)]);
+  const ziel = (ZIEL_STUNDEN[p.paket] ?? 12) * 60;
+  const erledigtePunkte = punkte.filter((x) => x.erledigtAm).length;
   const UMZUG: Record<string, string> = { geprueft: "geprüft, Umstellung beim Livegang", providerwechsel: "Providerwechsel durch Stelax offen", wartet_dns: "wartet auf Umstellung beim Kunden", umgestellt: "umgestellt" };
   const portal = `${basisUrl()}/portal/${p.portalToken}`;
 
@@ -78,6 +84,65 @@ export default async function Projekt({ params }: { params: Promise<{ id: string
               ))}
             </ul>
           ) : <p className="leise">Läuft nach dem ersten Bau.</p>}
+        </section>
+      </div>
+
+
+      <div className="raster zwei abstand" style={{ alignItems: "start" }}>
+        <section className="karte">
+          <div className="kopfzeile" style={{ marginBottom: 4 }}><h2 style={{ margin: 0 }}>Lieferschritte</h2><span className="mono klein">{erledigtePunkte} / {punkte.length}</span></div>
+          <div className="balken" role="progressbar" aria-valuenow={erledigtePunkte} aria-valuemax={punkte.length}><span style={{ width: `${(erledigtePunkte / Math.max(1, punkte.length)) * 100}%` }} /></div>
+          {PHASEN.map((ph) => {
+            const teil = punkte.filter((x) => x.phase === ph);
+            return teil.length ? (
+              <div key={ph}>
+                <h3>{ph}</h3>
+                <ul className="liste">
+                  {teil.map((x) => (
+                    <li key={x.id}>
+                      <form action={checklistePunkt} style={{ display: "contents" }}>
+                        <input type="hidden" name="projektId" value={id} />
+                        <input type="hidden" name="id" value={x.id} />
+                        <button className="haken-knopf" style={x.erledigtAm ? { background: "var(--ok)", borderColor: "var(--ok)", color: "var(--grund)" } : undefined} aria-label={`${x.titel}: ${x.erledigtAm ? "erledigt, zurücknehmen" : "abhaken"}`}>✓</button>
+                      </form>
+                      <div style={{ flex: 1 }}><div className="titel" style={x.erledigtAm ? { color: "var(--leise)" } : undefined}>{x.titel}</div><div className="unter">{x.erledigtAm ? `erledigt ${datum(x.erledigtAm)} · ${x.erledigtVon}` : x.schluessel ? "hakt Stelax OS selbst ab" : "offen"}</div></div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null;
+          })}
+          <form action={checklistePunkt} className="knopfreihe" style={{ marginTop: 12 }}>
+            <input type="hidden" name="projektId" value={id} />
+            <select name="phase" defaultValue="Bau" aria-label="Phase" style={{ width: "auto" }}>{PHASEN.map((ph) => <option key={ph}>{ph}</option>)}</select>
+            <input name="titel" placeholder="Eigener Schritt" aria-label="Eigener Schritt" required style={{ maxWidth: 260 }} />
+            <button className="knopf klein">Hinzufügen</button>
+          </form>
+        </section>
+        <section className="karte">
+          <h2>Zeiterfassung</h2>
+          <p>Lieferung: <b className="mono">{stunden(zeit.lieferungMinuten)}</b> von Ziel <span className="mono">{stunden(ziel)}</span>{zeit.gesamtMinuten > zeit.lieferungMinuten ? <span className="leise"> · Betreuung {stunden(zeit.gesamtMinuten - zeit.lieferungMinuten)}</span> : null}</p>
+          <div className="balken" role="progressbar" aria-valuenow={zeit.lieferungMinuten} aria-valuemax={ziel}><span style={{ width: `${Math.min(100, (zeit.lieferungMinuten / ziel) * 100)}%`, background: zeit.lieferungMinuten > ziel ? "var(--fehler)" : undefined }} /></div>
+          <p className="leise klein" style={{ marginTop: 6 }}>Ziel aus dem Business Case (Paket {PAKETE[p.paket as PaketKey].name}). Daraus entsteht die Kennzahl „Stunden je Projekt“.</p>
+          <form action={zeitErfassen} className="raster zwei" style={{ marginTop: 12 }}>
+            <input type="hidden" name="projektId" value={id} />
+            <input type="hidden" name="zurueck" value={`/projekte/${id}`} />
+            <label className="feld"><span>Dauer</span><select name="minuten" defaultValue="60">{[15, 30, 45, 60, 90, 120, 180, 240, 300, 360, 480].map((m) => <option key={m} value={m}>{stunden(m)}</option>)}</select></label>
+            <label className="feld"><span>Tätigkeit</span><select name="taetigkeit" defaultValue="bau">{Object.entries(TAETIGKEITEN).map(([k, n]) => <option key={k} value={k}>{n}</option>)}</select></label>
+            <label className="feld"><span>Datum</span><input type="date" name="datum" defaultValue={new Date().toISOString().slice(0, 10)} /></label>
+            <label className="feld"><span>Notiz</span><input name="notiz" /></label>
+            <div><button className="knopf">Zeit erfassen</button></div>
+          </form>
+          {zeit.liste.length ? (
+            <ul className="liste" style={{ marginTop: 12 }}>
+              {zeit.liste.slice(0, 20).map((z) => (
+                <li key={z.id}>
+                  <div style={{ flex: 1 }}><div className="titel">{stunden(z.minuten)} · {TAETIGKEITEN[z.taetigkeit] ?? z.taetigkeit}</div><div className="unter">{datum(z.datum)} · {z.wer}{z.notiz ? ` · ${z.notiz}` : ""}</div></div>
+                  <form action={zeitLoeschen}><input type="hidden" name="id" value={z.id} /><input type="hidden" name="zurueck" value={`/projekte/${id}`} /><button className="knopf klein">Löschen</button></form>
+                </li>
+              ))}
+            </ul>
+          ) : null}
         </section>
       </div>
 

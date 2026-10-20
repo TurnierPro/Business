@@ -4,22 +4,24 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 import { eq } from "drizzle-orm";
-import { brauchtBenutzer, COOKIE, hashPasswort, pruefePasswort } from "@/lib/auth";
+import { brauchtBenutzer, COOKIE, darf, hashPasswort, pruefePasswort } from "@/lib/auth";
 import { getDb, schema } from "@/lib/db";
 import { einreihen, wiederholen } from "@/lib/jobs/warteschlange";
 import * as akquise from "@/lib/ablauf/akquise";
 import * as post from "@/lib/ablauf/postausgang";
 import * as verkauf from "@/lib/ablauf/verkauf";
 import { protokolliere } from "@/lib/protokoll";
+import { berlinZeit, inTagen } from "@/lib/format";
 
 // Alle Knöpfe der Oberfläche landen hier. Jede Aktion meldet Erfolg oder Fehler zurück.
 
 type Ergebnis = { ziel?: string; ok?: string } | void | unknown;
 
-async function ausfuehren(ziel: string, ok: string, fn: (wer: string) => Promise<Ergebnis>): Promise<never> {
+async function ausfuehren(ziel: string, ok: string, fn: (wer: string) => Promise<Ergebnis>, recht: "aendern" | "verwalten" = "aendern"): Promise<never> {
   const b = await brauchtBenutzer();
   let fehler: string | null = null;
   try {
+    if (!darf(b, recht)) throw new Error(recht === "verwalten" ? "Das darf nur ein Admin." : "Dein Konto darf nur lesen.");
     const r = (await fn(b.name)) as { ziel?: string; ok?: string } | undefined;
     if (r && typeof r === "object") {
       ziel = r.ziel ?? ziel;
@@ -302,4 +304,172 @@ export async function umzugPruefen(f: FormData) {
 export async function providerwechselErledigt(f: FormData) {
   const id = zahl(f, "id");
   await ausfuehren(`/projekte/${id}`, "Vermerkt. Stelax OS prüft jetzt, ob die Domain auf uns zeigt.", async (wer) => (await import("@/lib/ablauf/umzug")).providerwechselErledigt(id, wer));
+}
+
+// ---------- CRM: Kontakte, Aktivitäten, Aufgaben ----------
+
+const datumAus = (f: FormData, k: string, uhr = "09:00") => {
+  const t = text(f, k);
+  if (!t) return null;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(t)) throw new Error("Datum ungültig");
+  return berlinZeit(t, text(f, `${k}Uhr`) || uhr);
+};
+
+export async function kontaktSpeichern(f: FormData) {
+  const betriebId = zahl(f, "betriebId");
+  await ausfuehren(`/leads/${betriebId}`, "Kontakt gespeichert", async (wer) =>
+    (await import("@/lib/ablauf/crm")).kontaktSpeichern({ id: zahl(f, "id") || undefined, betriebId, name: text(f, "name"), rolle: text(f, "rolle"), telefon: text(f, "telefon"), email: text(f, "email"), notiz: text(f, "notiz"), haupt: f.get("haupt") === "ja" }, wer),
+  );
+}
+
+export async function kontaktLoeschen(f: FormData) {
+  await ausfuehren(`/leads/${zahl(f, "betriebId")}`, "Kontakt gelöscht", async (wer) => (await import("@/lib/ablauf/crm")).kontaktLoeschen(zahl(f, "id"), wer));
+}
+
+export async function aktivitaetAnlegen(f: FormData) {
+  const zurueck = text(f, "zurueck") || "/aufgaben";
+  await ausfuehren(zurueck, "Gespeichert", async (wer) => {
+    const crm = await import("@/lib/ablauf/crm");
+    const art = text(f, "art") as "notiz";
+    await crm.aktivitaetAnlegen(
+      { betriebId: zahl(f, "betriebId") || null, projektId: zahl(f, "projektId") || null, ticketId: zahl(f, "ticketId") || null, art, titel: text(f, "titel") || crm.ARTEN[art] || "", text: text(f, "text"), faelligAm: datumAus(f, "faellig"), dauerMin: zahl(f, "dauer") || null, zustaendig: text(f, "zustaendig") || null },
+      wer,
+    );
+  });
+}
+
+export async function aufgabeErledigen(f: FormData) {
+  await ausfuehren(text(f, "zurueck") || "/aufgaben", "Erledigt", async (wer) => (await import("@/lib/ablauf/crm")).erledigen(zahl(f, "id"), f.get("rueckgaengig") !== "ja", wer));
+}
+
+export async function aufgabeVerschieben(f: FormData) {
+  await ausfuehren(text(f, "zurueck") || "/aufgaben", "Verschoben", async () => {
+    await (await import("@/lib/ablauf/crm")).verschieben(zahl(f, "id"), inTagen(zahl(f, "tage") || 1));
+  });
+}
+
+export async function betriebZuweisen(f: FormData) {
+  const id = zahl(f, "id");
+  await ausfuehren(`/leads/${id}`, "Gespeichert", async () => (await import("@/lib/pipeline")).betriebZuweisen(id, text(f, "zustaendig") || null, text(f, "tags").split(",")));
+}
+
+// ---------- Lieferung: Checkliste und Zeiten ----------
+
+export async function checklistePunkt(f: FormData) {
+  const projektId = zahl(f, "projektId");
+  await ausfuehren(`/projekte/${projektId}`, "Gespeichert", async (wer) => {
+    const c = await import("@/lib/ablauf/checkliste");
+    if (zahl(f, "id")) await c.umschalten(zahl(f, "id"), wer);
+    else await c.punktHinzufuegen(projektId, text(f, "phase"), text(f, "titel"));
+  });
+}
+
+export async function zeitErfassen(f: FormData) {
+  const zurueck = text(f, "zurueck") || "/";
+  await ausfuehren(zurueck, "Zeit erfasst", async (wer) => {
+    const minuten = zahl(f, "minuten") || Math.round(Number(text(f, "stunden").replace(",", ".")) * 60);
+    await (await import("@/lib/ablauf/zeiten")).zeitErfassen({ projektId: zahl(f, "projektId") || null, betriebId: zahl(f, "betriebId") || null, minuten, taetigkeit: text(f, "taetigkeit"), notiz: text(f, "notiz"), datum: datumAus(f, "datum", "12:00") ?? undefined }, wer);
+  });
+}
+
+export async function zeitLoeschen(f: FormData) {
+  await ausfuehren(text(f, "zurueck") || "/", "Gelöscht", async () => (await import("@/lib/ablauf/zeiten")).zeitLoeschen(zahl(f, "id")));
+}
+
+// ---------- Tickets ----------
+
+export async function ticketAnlegen(f: FormData) {
+  await ausfuehren("/tickets", "Ticket angelegt", async (wer) => {
+    const id = await (await import("@/lib/ablauf/tickets")).ticketAnlegen({ betriebId: zahl(f, "betriebId"), betreff: text(f, "betreff"), beschreibung: text(f, "beschreibung"), kategorie: text(f, "kategorie"), prioritaet: text(f, "prioritaet"), quelle: text(f, "quelle") || "telefon" }, wer);
+    return { ziel: `/tickets/${id}` };
+  });
+}
+
+export async function ticketAendern(f: FormData) {
+  const id = zahl(f, "id");
+  await ausfuehren(`/tickets/${id}`, "Gespeichert", async (wer) => (await import("@/lib/ablauf/tickets")).ticketAendern(id, { status: text(f, "status"), zustaendig: text(f, "zustaendig"), prioritaet: text(f, "prioritaet") }, wer));
+}
+
+export async function ticketZeit(f: FormData) {
+  const id = zahl(f, "id");
+  await ausfuehren(`/tickets/${id}`, "Zeit gebucht", async (wer) => (await import("@/lib/ablauf/tickets")).ticketZeit(id, zahl(f, "minuten"), text(f, "notiz"), wer));
+}
+
+export async function ticketAntworten(f: FormData) {
+  const id = zahl(f, "id");
+  await ausfuehren(`/tickets/${id}`, "Antwort liegt im Postausgang zur Freigabe", async (wer) => {
+    await (await import("@/lib/ablauf/tickets")).ticketAntworten(id, text(f, "antwort"), f.get("erledigt") === "ja", wer);
+  });
+}
+
+// ---------- Einstellungen: Benutzer, Zwei-Faktor, API, Import ----------
+
+export async function benutzerAnlegen(f: FormData) {
+  await ausfuehren("/einstellungen", "Benutzer angelegt. Start-Passwort sicher weitergeben.", async (wer) => {
+    const email = text(f, "email").toLowerCase();
+    const rolle = text(f, "rolle");
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error("E-Mail ungültig");
+    if (!["admin", "vertrieb", "technik", "lesen"].includes(rolle)) throw new Error("Rolle ungültig");
+    if (text(f, "passwort").length < 10) throw new Error("Start-Passwort: mindestens 10 Zeichen");
+    const db = await getDb();
+    await db.insert(schema.benutzer).values({ email, name: text(f, "name"), rolle, passwortHash: hashPasswort(text(f, "passwort")) });
+    await protokolliere(wer, `Benutzer angelegt: ${email} (${rolle})`);
+  }, "verwalten");
+}
+
+export async function benutzerAendern(f: FormData) {
+  await ausfuehren("/einstellungen", "Gespeichert", async (wer) => {
+    const id = zahl(f, "id");
+    const db = await getDb();
+    const ich = await brauchtBenutzer();
+    const rolle = text(f, "rolle");
+    const aktiv = f.get("aktiv") === "ja";
+    if (id === ich.id && (!aktiv || rolle !== "admin")) throw new Error("Du kannst dich nicht selbst sperren oder herabstufen.");
+    if (!["admin", "vertrieb", "technik", "lesen"].includes(rolle)) throw new Error("Rolle ungültig");
+    await db.update(schema.benutzer).set({ rolle, aktiv, ...(f.get("zweiFaktorAus") === "ja" ? { totpAktiv: false, totpGeheim: null } : {}) }).where(eq(schema.benutzer.id, id));
+    await protokolliere(wer, `Benutzer ${id}: ${rolle}${aktiv ? "" : ", gesperrt"}`);
+  }, "verwalten");
+}
+
+export async function zweiFaktorStarten() {
+  await ausfuehren("/einstellungen", "Code mit der App scannen und bestätigen", async () => {
+    const ich = await brauchtBenutzer();
+    const db = await getDb();
+    await db.update(schema.benutzer).set({ totpGeheim: (await import("@/lib/totp")).neuesGeheimnis(), totpAktiv: false }).where(eq(schema.benutzer.id, ich.id));
+  });
+}
+
+export async function zweiFaktorBestaetigen(f: FormData) {
+  await ausfuehren("/einstellungen", "Zwei-Faktor-Anmeldung ist aktiv", async (wer) => {
+    const ich = await brauchtBenutzer();
+    const db = await getDb();
+    const [b] = await db.select().from(schema.benutzer).where(eq(schema.benutzer.id, ich.id));
+    if (!b.totpGeheim || !(await import("@/lib/totp")).pruefe(b.totpGeheim, text(f, "code"))) throw new Error("Der Code stimmt nicht. Uhrzeit am Handy prüfen und den aktuellen Code eingeben.");
+    await db.update(schema.benutzer).set({ totpAktiv: true }).where(eq(schema.benutzer.id, ich.id));
+    await protokolliere(wer, "Zwei-Faktor-Anmeldung eingeschaltet");
+  });
+}
+
+export async function apiSchluesselErzeugen(f: FormData) {
+  const b = await brauchtBenutzer();
+  if (!darf(b, "verwalten")) redirect("/einstellungen?fehler=" + encodeURIComponent("Das darf nur ein Admin."));
+  const schluessel = await (await import("@/lib/api")).schluesselErzeugen(text(f, "name"), f.getAll("rechte").map(String), b.name).catch((e: Error) => e);
+  if (schluessel instanceof Error) redirect("/einstellungen?fehler=" + encodeURIComponent(schluessel.message));
+  // Der Schlüssel wird genau einmal angezeigt (nur in einem kurzlebigen Cookie, nicht in der Adresse)
+  (await cookies()).set("stelax_neuer_schluessel", schluessel, { httpOnly: true, sameSite: "strict", path: "/einstellungen", maxAge: 120 });
+  redirect("/einstellungen?ok=" + encodeURIComponent("Schlüssel erzeugt. Jetzt kopieren, er wird nur einmal angezeigt.") + "#api");
+}
+
+export async function apiSchluesselWiderrufen(f: FormData) {
+  await ausfuehren("/einstellungen", "Widerrufen", async (wer) => (await import("@/lib/api")).schluesselWiderrufen(zahl(f, "id"), wer), "verwalten");
+}
+
+export async function leadsImportieren(f: FormData) {
+  await ausfuehren("/leads", "Import fertig", async (wer) => {
+    const datei = f.get("datei");
+    if (!(datei instanceof File) || !datei.size) throw new Error("Bitte eine CSV-Datei wählen");
+    if (datei.size > 5 * 1024 * 1024) throw new Error("Datei zu groß (höchstens 5 MB)");
+    const r = await (await import("@/lib/import")).leadsImportieren(await datei.text(), wer);
+    return { ok: `${r.neu} Leads importiert${r.uebersprungen.length ? `, ${r.uebersprungen.length} übersprungen (${r.uebersprungen.slice(0, 5).map((x) => `Zeile ${x.zeile}: ${x.grund}`).join("; ")}${r.uebersprungen.length > 5 ? " …" : ""})` : ""}` };
+  });
 }

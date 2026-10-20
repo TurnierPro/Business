@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import { eq } from "drizzle-orm";
 import { getDb, schema } from "@/lib/db";
-import { COOKIE, pruefePasswort, sitzungsWert, startBenutzer, START_PASSWORT, aktuellerBenutzer } from "@/lib/auth";
+import { COOKIE, COOKIE_2FA, pruefePasswort, sitzungsWert, startBenutzer, START_PASSWORT, aktuellerBenutzer, zwischenWert } from "@/lib/auth";
 import { protokolliere } from "@/lib/protokoll";
 import { Logo } from "@/components/Logo";
 import { marke } from "@/lib/marke";
@@ -14,7 +14,12 @@ async function anmelden(f: FormData) {
   const email = String(f.get("email") ?? "").trim().toLowerCase();
   const db = await getDb();
   const [b] = await db.select().from(schema.benutzer).where(eq(schema.benutzer.email, email));
-  if (!b || !pruefePasswort(String(f.get("passwort") ?? ""), b.passwortHash)) redirect("/login?fehler=1");
+  if (!b || !b.aktiv || !pruefePasswort(String(f.get("passwort") ?? ""), b.passwortHash)) redirect("/login?fehler=1");
+  if (b.totpAktiv) {
+    // Passwort stimmt, jetzt noch der Code aus der Authenticator-App
+    (await cookies()).set(COOKIE_2FA, zwischenWert(b.id), { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", path: "/", maxAge: 300 });
+    redirect("/login/code");
+  }
   (await cookies()).set(COOKIE, sitzungsWert(b.id), { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", path: "/", maxAge: 14 * 86400 });
   await protokolliere(b.name, "Angemeldet");
   redirect("/");

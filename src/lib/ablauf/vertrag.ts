@@ -8,6 +8,7 @@ import { datumDe } from "../docs/basis";
 import { PAKETE, PaketKey, euro, UST } from "../pakete";
 import { ABNAHME_FRIST_TAGE } from "../recht";
 import { inPostausgang } from "./postausgang";
+import { hakeAb } from "./checkliste";
 import { anschrift, betrieb, neuesDokument, SYSTEM } from "./gemeinsam";
 import { erstelleRechnung } from "./verkauf";
 
@@ -94,6 +95,7 @@ export async function abnahmefiktion(jetzt = new Date()): Promise<string> {
 /** Abnahmeprotokoll an den Kunden und Schlusszahlung vorbereiten. Beides geht durch Qualitätskontrolle und Freigabe. */
 async function nachAbnahme(projektId: number): Promise<void> {
   const p = await projekt(projektId);
+  await hakeAb(projektId, "abnahme");
   const b = await betrieb(p.betriebId);
   const db = await getDb();
   const ergebnis = p.abnahmeStatus as "abgenommen" | "vorbehalt" | "fiktion";

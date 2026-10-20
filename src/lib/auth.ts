@@ -48,18 +48,40 @@ export async function startBenutzer(): Promise<boolean> {
   return true;
 }
 
-export type Benutzer = { id: number; name: string; email: string };
+export type Rolle = "admin" | "vertrieb" | "technik" | "lesen";
+export const ROLLEN: Record<Rolle, string> = { admin: "Admin (alles)", vertrieb: "Vertrieb", technik: "Technik", lesen: "Nur lesen" };
+export type Benutzer = { id: number; name: string; email: string; rolle: Rolle };
 
 export async function aktuellerBenutzer(): Promise<Benutzer | null> {
   const id = liesSitzung((await cookies()).get(COOKIE)?.value);
   if (!id) return null;
   const db = await getDb();
   const [b] = await db.select().from(schema.benutzer).where(eq(schema.benutzer.id, id));
-  return b ? { id: b.id, name: b.name, email: b.email } : null;
+  return b && b.aktiv ? { id: b.id, name: b.name, email: b.email, rolle: b.rolle as Rolle } : null;
 }
 
 export async function brauchtBenutzer(): Promise<Benutzer> {
   const b = await aktuellerBenutzer();
   if (!b) redirect("/login");
   return b;
+}
+
+/** Nur-lesen-Konten dürfen nichts ändern; Benutzer und Schlüssel verwaltet nur Admin. */
+export function darf(b: Benutzer, was: "aendern" | "verwalten"): boolean {
+  return was === "verwalten" ? b.rolle === "admin" : b.rolle !== "lesen";
+}
+
+// Zwischenschritt bei der Anmeldung mit Zwei-Faktor: Passwort ist richtig, Code fehlt noch (5 Minuten gültig).
+export const COOKIE_2FA = "stelax_2fa";
+export function zwischenWert(benutzerId: number): string {
+  const wert = `${benutzerId}.${Date.now() + 5 * 60_000}`;
+  return `${wert}.${signiere(`2fa:${wert}`)}`;
+}
+export function liesZwischen(roh: string | undefined): number | null {
+  if (!roh) return null;
+  const [id, ablauf, sig] = roh.split(".");
+  if (!id || !ablauf || !sig) return null;
+  const erwartet = signiere(`2fa:${id}.${ablauf}`);
+  if (sig.length !== erwartet.length || !crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(erwartet))) return null;
+  return Number(ablauf) < Date.now() ? null : Number(id);
 }

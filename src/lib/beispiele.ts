@@ -19,6 +19,9 @@ import * as finanzagenten from "./ablauf/finanzagenten";
 import * as vertrag from "./ablauf/vertrag";
 import * as berichte from "./ablauf/berichte";
 import * as umzug from "./ablauf/umzug";
+import * as crm from "./ablauf/crm";
+import * as tickets from "./ablauf/tickets";
+import * as zeiten from "./ablauf/zeiten";
 import { AGB_VERSION } from "./recht";
 
 // Beispieldaten: erfundene Betriebe in allen Phasen des Ablaufs, damit man sieht, wie alles zusammenhängt.
@@ -252,12 +255,46 @@ export async function beispieleLaden(): Promise<string> {
     await berichte.monatsreports();
     await warte();
   }
+  await crmBeispiele();
   await finanzBeispiele();
   // Systemmeldungen
   await betrieb.backup();
   await betrieb.ruecksicherung();
   await betrieb.tagesbericht();
   return "Beispieldaten geladen: 16 Betriebe in allen Phasen.";
+}
+
+// Ansprechpartner, Anrufe, Aufgaben, Tickets und Zeiten, damit Pipeline, Aufgaben und Kennzahlen etwas zeigen.
+async function crmBeispiele(): Promise<void> {
+  const db = await getDb();
+  const id = async (b: Beispiel) => (await db.select({ id: schema.betriebe.id }).from(schema.betriebe).where(eq(schema.betriebe.name, b.name)))[0]?.id;
+  const live = await id(BETRIEBE.live);
+  const bereit = await id(BETRIEBE.bereit);
+  const unterschrift = await id(BETRIEBE.unterschrift);
+  const besuch = await id(BETRIEBE.besuch);
+  if (live) {
+    await crm.kontaktSpeichern({ betriebId: live, name: BETRIEBE.live.inhaber ?? "Inhaber", rolle: "Inhaber", telefon: BETRIEBE.live.telefon, email: BETRIEBE.live.email, haupt: true }, DANIEL);
+    await crm.kontaktSpeichern({ betriebId: live, name: "Sandra Beispiel", rolle: "Büro", telefon: "0721 1111112", email: "buero@sanitaer-muster-gmbh.example" }, DANIEL);
+    await crm.aktivitaetAnlegen({ betriebId: live, art: "anruf", titel: "Rückfrage zum Monatsreport", text: "Will wissen, ob Anrufe auch gezählt werden. Erklärt: kommt mit der Anruf-Messung." }, MAX);
+    const t = await tickets.ticketAnlegen({ betriebId: live, betreff: "Neue Öffnungszeiten ab November", beschreibung: "Ab 1. November Mo–Fr 7–16 Uhr, Samstag nur Notdienst.", quelle: "portal" }, "Kunde (Portal)");
+    await tickets.ticketZeit(t, 15, "Öffnungszeiten auf Start- und Kontaktseite geändert", MAX);
+    await tickets.ticketAnlegen({ betriebId: live, betreff: "Foto vom neuen Firmenwagen", beschreibung: "Bitte das Foto vom neuen Transporter auf die Über-uns-Seite.", kategorie: "wunsch", quelle: "telefon" }, DANIEL);
+    const [p] = await db.select().from(schema.projekte).where(eq(schema.projekte.betriebId, live));
+    if (p) for (const [min, art, tageZurueck] of [[90, "vertrieb", 50], [120, "abstimmung", 44], [240, "bau", 42], [180, "bau", 41], [60, "inhalte", 40], [90, "pruefung", 39], [45, "betreuung", 10]] as const) {
+      await zeiten.zeitErfassen({ projektId: p.id, minuten: min, taetigkeit: art, datum: new Date(Date.now() - tageZurueck * 864e5) }, MAX);
+    }
+    await db.update(schema.betriebe).set({ zustaendig: crm.TECHNIK, tags: ["Referenzkunde"] }).where(eq(schema.betriebe.id, live));
+  }
+  if (bereit) {
+    const [p] = await db.select().from(schema.projekte).where(eq(schema.projekte.betriebId, bereit));
+    if (p) await zeiten.zeitErfassen({ projektId: p.id, minuten: 300, taetigkeit: "bau", notiz: "Seiten und Karriere" }, MAX);
+    await crm.aktivitaetAnlegen({ betriebId: bereit, art: "aufgabe", titel: "Vorschau mit Kundin durchgehen", faelligAm: new Date(), zustaendig: crm.TECHNIK }, MAX);
+  }
+  if (unterschrift) await db.update(schema.betriebe).set({ zustaendig: crm.VERTRIEB, tags: ["Werkstatt", "Pilot Modul 4"] }).where(eq(schema.betriebe.id, unterschrift));
+  if (besuch) {
+    await crm.aktivitaetAnlegen({ betriebId: besuch, art: "termin", titel: "Besuch mit Demo", faelligAm: new Date(Date.now() + 864e5), dauerMin: 45, zustaendig: crm.VERTRIEB }, DANIEL);
+    await db.update(schema.betriebe).set({ letzteAktivitaet: new Date(Date.now() - 20 * 864e5) }).where(eq(schema.betriebe.id, besuch));
+  }
 }
 
 // Ausgaben der letzten Monate (Planwerte aus dem Business Case, leicht schwankend), einige mit Beleg.

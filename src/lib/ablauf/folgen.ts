@@ -3,6 +3,8 @@ import { eq } from "drizzle-orm";
 import { getDb, schema } from "../db";
 import { protokolliere } from "../protokoll";
 import { setzeStatus, SYSTEM } from "./gemeinsam";
+import * as crm from "./crm";
+import { hakeAb } from "./checkliste";
 
 type Eintrag = typeof schema.postausgang.$inferSelect;
 
@@ -12,6 +14,14 @@ export async function nachVersand(e: Eintrag): Promise<void> {
   if (e.zweck === "akquise_brief" && e.betriebId) {
     await setzeStatus(e.betriebId, "angeschrieben");
     await db.update(schema.betriebe).set({ besuchAb: new Date(Date.now() + 8 * 864e5) }).where(eq(schema.betriebe.id, e.betriebId));
+    await crm.systemAufgabe({ betriebId: e.betriebId, titel: "Besuch vor Ort", text: "Brief ist raus. Demo dabeihaben, Einwilligung zur Aufnahme einholen.", inTagen: 8, zustaendig: crm.VERTRIEB });
+  }
+  if (e.zweck === "angebot" && e.betriebId) {
+    await crm.systemAufgabe({ betriebId: e.betriebId, titel: "Angebot nachfassen", text: "Anrufen: Fragen zum Angebot? Annahme geht im Kundenportal.", inTagen: 5, zustaendig: crm.VERTRIEB });
+  }
+  if (e.zweck === "kickoff" && e.projektId) await hakeAb(e.projektId, "kickoff");
+  if (e.zweck === "kickoff" && e.betriebId) {
+    await crm.systemAufgabe({ betriebId: e.betriebId, projektId: e.projektId ?? undefined, titel: "Inhalte nachfassen", text: "Sind Texte und Fotos unterwegs? Hilfe beim Fotografieren anbieten.", inTagen: 7, zustaendig: crm.TECHNIK });
   }
   if (e.zweck === "angebot") {
     const angebotId = Number(e.meta.angebotId);

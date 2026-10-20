@@ -85,7 +85,7 @@ export async function schritte(betriebId: number): Promise<Schritt[]> {
 
 export async function portalDaten(betriebId: number) {
   const db = await getDb();
-  const [doks, schr, angebote, projekte, rechnungen, post, anfragen] = await Promise.all([
+  const [doks, schr, angebote, projekte, rechnungen, post, anfragen, tickets] = await Promise.all([
     sichtbareDokumente(betriebId),
     schritte(betriebId),
     db.select().from(schema.angebote).where(eq(schema.angebote.betriebId, betriebId)).orderBy(desc(schema.angebote.erstelltAm)),
@@ -93,6 +93,7 @@ export async function portalDaten(betriebId: number) {
     db.select().from(schema.rechnungen).where(eq(schema.rechnungen.betriebId, betriebId)).orderBy(desc(schema.rechnungen.erstelltAm)),
     versendet(betriebId),
     db.select().from(schema.anfragen).where(eq(schema.anfragen.betriebId, betriebId)).orderBy(desc(schema.anfragen.am)).limit(50),
+    db.select().from(schema.tickets).where(eq(schema.tickets.betriebId, betriebId)).orderBy(desc(schema.tickets.erstelltAm)).limit(20),
   ]);
   const verschickteNummern = new Set(post.map((p) => p.meta.rechnungsnummer).filter(Boolean));
   const angebot = angebote[0];
@@ -111,6 +112,7 @@ export async function portalDaten(betriebId: number) {
     // Abnahme erst, wenn die Aufforderung verschickt ist (dann läuft die Frist)
     abnahmeOffen: projekt?.abnahmeStatus === "offen" && projekt.abnahmeFrist ? projekt : null,
     anfragen,
+    tickets,
     projekt,
     website: seite ? { url: projekt!.domain ? `https://${projekt!.domain}` : `/vorschau/${seite.slug}`, domain: projekt!.domain } : null,
   };

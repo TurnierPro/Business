@@ -85,6 +85,11 @@ test("Kompletter Ablauf von Lead bis Livegang", async () => {
   assert.equal(t.audioPfad, null);
   assert.ok(t.audioGeloeschtAm);
 
+  // Nachfass-Agent: nach dem Angebot gibt es eine Aufgabe für den Vertrieb
+  const aufgabe = async (titel: string) => (await db.select().from(schema.aktivitaeten).where(eq(schema.aktivitaeten.betriebId, lead.id))).find((a) => a.titel === titel);
+  assert.ok((await aufgabe("Angebot nachfassen")) && !(await aufgabe("Angebot nachfassen"))!.erledigtAm, "Nachfass-Aufgabe angelegt");
+  assert.ok((await aufgabe("Besuch vor Ort"))?.erledigtAm, "Besuchs-Aufgabe mit dem Termin erledigt");
+
   // Annahme im Portal → Anzahlung über Stripe (Simulator): keine eigene Rechnung, Stripe-Rechnung bezahlt
   const angebotId = Number(angebotMail.meta.angebotId);
   await verkauf.unterschriftEingegangen(angebotId, "Simulator");
@@ -145,6 +150,11 @@ test("Kompletter Ablauf von Lead bis Livegang", async () => {
   assert.deepEqual(rechnungen.map((r) => [r.art, r.quelle, r.status]), [["anzahlung", "stripe", "bezahlt"], ["schluss", "stripe", "bezahlt"]]);
   const [mitAbo] = await db.select().from(schema.projekte).where(eq(schema.projekte.id, projektId));
   assert.ok(mitAbo.stripeAboId);
+  assert.ok((await aufgabe("Angebot nachfassen"))?.erledigtAm, "Nachfassen erledigt sich mit der Annahme");
+  const { checkliste } = await import("../src/lib/ablauf/checkliste");
+  const punkte = await checkliste(projektId);
+  for (const k of ["anzahlung", "kickoff", "inhalte", "gebaut", "livegang", "domain", "abnahme"]) assert.ok(punkte.find((x) => x.schluessel === k)?.erledigtAm, `Checkliste: ${k} abgehakt`);
+  assert.ok(punkte.some((x) => x.titel.startsWith("Karriereseite")), "Paket M hat Karriere-Schritte");
   const [angenommen] = await db.select().from(schema.angebote).where(eq(schema.angebote.id, angebotId));
   assert.equal(angenommen.status, "abgeschlossen");
   assert.ok(angenommen.annahme?.agbVersion, "Annahme-Nachweis gespeichert");
@@ -347,6 +357,72 @@ test("Domain-Umzug: Auftrag, Bestandsaufnahme, Anleitung, Umstellung, Auslieferu
   assert.ok((await zwecke()).includes("abnahme_aufforderung"));
   const fertig = (await db.select().from(schema.postausgang).where(eq(schema.postausgang.projektId, p.id))).find((e) => e.zweck === "umzug_fertig")!;
   assert.match(fertig.text, /nur das Webhosting, nicht die Domain/);
+});
+
+test("CRM: Zwei-Faktor, Schnittstelle, Import, Kalender, Tickets, Pipeline, Kennzahlen, Suche", async () => {
+  // TOTP nach RFC 6238, Testwert aus dem Standard (Zeit 59 s, Geheimnis „12345678901234567890“)
+  const totp = await import("../src/lib/totp");
+  assert.equal(totp.code("GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ", 59_000), "287082");
+  assert.ok(totp.pruefe("GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ", "287 082", 59_000));
+  assert.ok(!totp.pruefe("GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ", "287083", 59_000));
+
+  // Schnittstelle: Schlüssel mit Recht „leads“ legt an, ohne Recht „lesen“ kein Lesen
+  const api = await import("../src/lib/api");
+  const key = await api.schluesselErzeugen("Test", ["leads"], "Test");
+  const route = await import("../src/app/api/v1/betriebe/route");
+  const anfrage = (methode: string, body?: unknown, k = key) => new Request("http://x/api/v1/betriebe", { method: methode, headers: { Authorization: `Bearer ${k}`, "Content-Type": "application/json" }, body: body ? JSON.stringify(body) : undefined });
+  const neu = await route.POST(anfrage("POST", { name: "API Elektro GmbH", ort: "Karlsruhe", website: "api-elektro.example" }));
+  assert.equal(neu.status, 201);
+  assert.equal((await route.POST(anfrage("POST", { name: "API Elektro GmbH", website: "api-elektro.example" }))).status, 409, "Doppelte abgelehnt");
+  assert.equal((await route.GET(anfrage("GET"))).status, 403);
+  assert.equal((await route.GET(anfrage("GET", undefined, "stx_falsch"))).status, 401);
+
+  // CSV-Import mit Semikolon, Anführungszeichen und Doppeltem
+  const imp = await import("../src/lib/import");
+  const r = await imp.leadsImportieren('Firma;Ort;Ansprechpartner;Website\n"Maler ""Pinsel"" KG";Bruchsal;Eva Pinsel;pinsel.example\nAPI Elektro GmbH;Karlsruhe;;api-elektro.example\n;;;\n', "Test");
+  assert.equal(r.neu, 1);
+  assert.equal(r.uebersprungen.length, 1);
+  const [pinsel] = await db.select().from(schema.betriebe).where(eq(schema.betriebe.name, 'Maler "Pinsel" KG'));
+  assert.ok(pinsel?.datenquelle?.includes("CSV-Import"));
+
+  // Aufgabe und Kalender
+  const crm = await import("../src/lib/ablauf/crm");
+  const { berlinZeit } = await import("../src/lib/format");
+  await crm.aktivitaetAnlegen({ betriebId: pinsel.id, art: "termin", titel: "Besuch Pinsel", faelligAm: berlinZeit("2026-11-03", "10:00"), dauerMin: 45, zustaendig: "Daniel Lück" }, "Daniel Lück");
+  await assert.rejects(() => crm.aktivitaetAnlegen({ art: "aufgabe", titel: "ohne Datum" }, "Test"), /Datum/);
+  let [daniel] = await db.select().from(schema.benutzer).where(eq(schema.benutzer.name, "Daniel Lück"));
+  daniel ??= (await db.insert(schema.benutzer).values({ email: "daniel@test.example", name: "Daniel Lück", passwortHash: "x:y" }).returning())[0];
+  const kal = await import("../src/lib/kalender");
+  const link = await kal.kalenderLink(daniel.id);
+  const ics = await kal.kalender(link.split("/").pop()!);
+  assert.ok(ics?.includes("SUMMARY:Besuch Pinsel (Maler \"Pinsel\" KG)") && ics.includes("DTSTART:20261103T090000Z"), ics ?? "kein Kalender");
+
+  // Ticket: Zeit zählt gegen das Kontingent, Antwort geht in den Postausgang
+  const tickets = await import("../src/lib/ablauf/tickets");
+  const [kp] = await db.insert(schema.projekte).values({ betriebId: pinsel.id, paket: "S", portalToken: "ticket-token-1234567890", status: "live" }).returning();
+  const tid = await tickets.ticketAnlegen({ betriebId: pinsel.id, betreff: "Neue Öffnungszeiten", beschreibung: "Ab November Mo–Fr 7–16 Uhr", quelle: "portal" }, "Kunde (Portal)");
+  await tickets.ticketZeit(tid, 20, "Öffnungszeiten geändert", "Max Steiner");
+  await tickets.ticketZeit(tid, 20, "Handy-Ansicht geprüft", "Max Steiner");
+  const k = await tickets.kontingent(pinsel.id);
+  assert.deepEqual([k.enthalten, k.verbraucht, k.ueber], [30, 40, 10]);
+  await tickets.ticketAntworten(tid, "Die neuen Öffnungszeiten stehen jetzt auf Ihrer Website.", true, "Max Steiner");
+  const [t] = await db.select().from(schema.tickets).where(eq(schema.tickets.id, tid));
+  assert.equal(t.status, "erledigt");
+  assert.equal(t.projektId, kp.id);
+  assert.ok((await db.select().from(schema.postausgang).where(eq(schema.postausgang.zweck, "ticket_antwort"))).some((e) => Number(e.meta.ticketId) === tid && e.status === "zur_freigabe"));
+
+  // Pipeline, Kennzahlen, Suche
+  const { pipeline, prognose } = await import("../src/lib/pipeline");
+  const stufen = await pipeline();
+  assert.ok(stufen.find((s) => s.key === "neu")!.karten.some((x) => x.name === 'Maler "Pinsel" KG'));
+  assert.ok(prognose(stufen) > 0);
+  const { kennzahlen } = await import("../src/lib/kennzahlen");
+  const kz = await kennzahlen();
+  assert.equal(kz.messgroessen.length, 4);
+  assert.ok(kz.trichter[0].anzahl >= kz.trichter[5].anzahl);
+  const { suche } = await import("../src/lib/suche");
+  assert.ok((await suche("pinsel")).some((x) => x.art === "Betrieb"));
+  assert.ok((await suche(tickets.ticketNummer(tid))).some((x) => x.art === "Ticket"));
 });
 
 test("Datenschutz: Auskunft, Löschung mit und ohne Rechnungen", async () => {

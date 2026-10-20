@@ -11,6 +11,8 @@ import { schreibe, jsonAus } from "../adapters/ki";
 import { PAKETE, PaketKey, euro } from "../pakete";
 import { zahlungUeberStripe } from "../adapters/stripe";
 import { inPostausgang } from "./postausgang";
+import { systemAufgabeErledigt } from "./crm";
+import { hakeAb } from "./checkliste";
 import { betrieb, slugAus, zufallsCode, SYSTEM } from "./gemeinsam";
 
 // Lieferung: Inhalte vom Kunden, Seite bauen, prüfen, Livegang nach Freigabe.
@@ -64,6 +66,8 @@ export async function inhalteEinreichen(token: string, form: FormData): Promise<
   const db = await getDb();
   await db.update(schema.projekte).set({ inhalte, onboarding, status: "bau", domain: inhalte.domain || null, inhalteAm: new Date() }).where(eq(schema.projekte.id, p.id));
   await protokolliere("Kunde (Portal)", "Inhalte eingereicht", p.betriebId, `${bilder.length} Fotos`);
+  await systemAufgabeErledigt(p.betriebId, "Inhalte nachfassen");
+  await hakeAb(p.id, "inhalte");
   await einreihen("bau", { projektId: p.id });
 }
 
@@ -119,6 +123,7 @@ export async function bau(projektId: number): Promise<string> {
   await db.update(schema.projekte).set({ seitenSlug: slug, pruefung, status: allesOk ? "bereit" : "pruefung" }).where(eq(schema.projekte.id, projektId));
   await protokolliere(SYSTEM, allesOk ? "Seite gebaut, Prüfung bestanden" : "Seite gebaut, Prüfung NICHT bestanden", b.id, pruefung.filter((x) => !x.ok).map((x) => x.detail).join(" · "));
 
+  if (allesOk) await hakeAb(projektId, "gebaut");
   if (allesOk) {
     const bfsg = bfsgHinweis(p.onboarding);
     await inPostausgang({
@@ -155,12 +160,14 @@ export async function livegangDurchfuehren(projektId: number): Promise<void> {
   await db.update(schema.seiten).set({ zugangscode: null }).where(eq(schema.seiten.slug, p.seitenSlug));
   await db.update(schema.projekte).set({ status: "live", liveAm: new Date(), aboAb: new Date() }).where(eq(schema.projekte.id, projektId));
   await protokolliere(SYSTEM, "Livegang durchgeführt, Betreuung läuft", p.betriebId, p.domain ?? p.seitenSlug);
+  await hakeAb(projektId, "livegang");
   // Bestehende Domain: erst umstellen, dann Abnahme. Sonst Abnahme sofort.
   // Schlusszahlung erst nach Abnahme (§ 641 BGB).
   const { umzugVon, umstellungStarten } = await import("./umzug");
   const u = umzugVon(p);
   if (u && u.status !== "umgestellt") await umstellungStarten(projektId);
   else {
+    await hakeAb(projektId, "domain");
     const { abnahmeAnfordern } = await import("./vertrag");
     await abnahmeAnfordern(projektId, SYSTEM);
   }

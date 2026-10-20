@@ -16,6 +16,8 @@ import { PAKETE, PaketKey, euro, UST } from "../pakete";
 import { AGB_VERSION, ZAHLUNGSZIEL_TAGE } from "../recht";
 import type { ProtokollDaten } from "../docs/vorlagen";
 import { inPostausgang } from "./postausgang";
+import { systemAufgabeErledigt } from "./crm";
+import { checklisteSicherstellen } from "./checkliste";
 import { anschrift, basisUrl, betrieb, neuesDokument, setzeStatus, SYSTEM } from "./gemeinsam";
 
 // Verkauf: Termin aufnehmen, Protokoll und Angebot, Unterschrift, Anzahlung, Projektstart.
@@ -32,6 +34,7 @@ export async function terminAufnehmen(o: { betriebId: number; datei: File; einwi
     .values({ betriebId: o.betriebId, einwilligung: true, einwilligungAm: new Date(), einwilligungVon: o.wer, audioPfad: ziel })
     .returning({ id: schema.termine.id });
   await setzeStatus(o.betriebId, "termin");
+  await systemAufgabeErledigt(o.betriebId, "Besuch vor Ort");
   await protokolliere(o.wer, "Termin aufgenommen (Einwilligung bestätigt)", o.betriebId);
   await einreihen("transkription", { terminId: t.id });
   return t.id;
@@ -212,6 +215,7 @@ export async function unterschriftEingegangen(angebotId: number, wer: string, an
   const nachweis = annahme ?? { name: wer, am: new Date().toISOString(), agbVersion: AGB_VERSION, unternehmer: false };
   await db.update(schema.angebote).set({ status: "unterschrieben", unterschriebenAm: new Date(), annahme: nachweis }).where(eq(schema.angebote.id, angebotId));
   await setzeStatus(a.betriebId, "kunde");
+  await systemAufgabeErledigt(a.betriebId, "Angebot nachfassen");
   await protokolliere(wer, `Angebot angenommen (${PAKETE[a.paket as PaketKey].name}, AGB ${nachweis.agbVersion}${nachweis.unternehmer ? ", Unternehmer bestätigt" : ""})`, a.betriebId);
 
   const b = await betrieb(a.betriebId);
@@ -266,6 +270,7 @@ export async function zahlungEingegangen(angebotId: number, wer: string, stripe?
   }
   const token = crypto.randomBytes(18).toString("base64url");
   const [p] = await db.insert(schema.projekte).values({ betriebId: a.betriebId, angebotId, paket: a.paket, portalToken: token }).returning();
+  await checklisteSicherstellen(p.id);
   const b = await betrieb(a.betriebId);
   await protokolliere(wer, "Anzahlung eingegangen, Projekt angelegt", a.betriebId);
   await inPostausgang({

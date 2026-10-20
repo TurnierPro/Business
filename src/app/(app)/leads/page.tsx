@@ -5,7 +5,7 @@ import { Status } from "@/components/Status";
 import { datum } from "@/lib/format";
 import { wochenlaufStarten } from "../aktionen";
 
-export const metadata = { title: "Leads" };
+export const metadata = { title: "Betriebe" };
 
 const FILTER: { key: string; text: string }[] = [
   { key: "aktiv", text: "Aktiv" },
@@ -36,11 +36,13 @@ export default async function Leads({ searchParams }: { searchParams: Promise<{ 
     <>
       <div className="kopfzeile">
         <div>
-          <h1>Leads</h1>
-          <p>Betriebe vom ersten Fund bis zum Auftrag.</p>
+          <h1>Betriebe</h1>
+          <p>Leads und Kunden vom ersten Fund bis zur Betreuung.</p>
         </div>
         <div className="knopfreihe">
           <form action={wochenlaufStarten}><button className="knopf">Wochenlauf jetzt starten</button></form>
+          <a className="knopf klein" href="/betriebe-export">Export (CSV)</a>
+          <Link className="knopf klein" href="/einstellungen">Import</Link>
           <Link className="knopf haupt" href="/leads/neu">Lead anlegen</Link>
         </div>
       </div>

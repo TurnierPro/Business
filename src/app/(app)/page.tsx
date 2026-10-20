@@ -1,12 +1,15 @@
 import Link from "next/link";
 import { and, desc, eq, inArray, lte, sql } from "drizzle-orm";
 import { getDb, schema } from "@/lib/db";
+import { inTagen } from "@/lib/format";
 import { brauchtBenutzer } from "@/lib/auth";
 import { Status } from "@/components/Status";
 import { datumZeit, ZWECK } from "@/lib/format";
 import { beispieleErlaubt } from "@/lib/beispiele";
 import { beispieleLaden } from "./aktionen";
 import { ETAPPEN, FRISTEN, stand, UNTERLAGEN } from "@/lib/unterlagen";
+import { offeneAufgaben } from "@/lib/ablauf/crm";
+import { AufgabenListe } from "@/components/AufgabenListe";
 
 export const metadata = { title: "Heute" };
 
@@ -31,6 +34,8 @@ export default async function Heute() {
   const [{ n: anzahlBetriebe }] = await db.select({ n: sql<number>`count(*)::int` }).from(schema.betriebe);
   const [{ n: laedt }] = await db.select({ n: sql<number>`count(*)::int` }).from(schema.jobs).where(and(eq(schema.jobs.art, "beispieldaten"), inArray(schema.jobs.status, ["wartet", "laeuft"])));
 
+  const tagEnde = inTagen(1, "00:00");
+  const meineAufgaben = await offeneAufgaben({ wer: b.name, bis: tagEnde });
   // Unterlagen: nächste Etappe mit offenen Punkten und nächste Frist
   const unterlagenStand = await stand();
   const heute = jetzt.toISOString().slice(0, 10);
@@ -69,6 +74,11 @@ export default async function Heute() {
         <Link className="kennzahl" href="/leads?status=besuch"><div className="wert">{besuche.length}</div><div className="name">Besuche fällig</div></Link>
         <Link className="kennzahl" href="/projekte"><div className="wert">{projekte.length}</div><div className="name">Projekte in Arbeit</div></Link>
       </div>
+
+      <section className="karte abstand">
+        <div className="kopfzeile" style={{ marginBottom: 4 }}><h2 style={{ margin: 0 }}>Deine Aufgaben heute</h2><Link className="knopf klein" href="/aufgaben">Alle Aufgaben</Link></div>
+        <AufgabenListe eintraege={meineAufgaben} zurueck="/" leer="Heute nichts fällig." />
+      </section>
 
       <div className="raster zwei abstand">
         <section className="karte">

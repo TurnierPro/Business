@@ -20,6 +20,18 @@ Das Betriebssystem von Stelax Consulting: Leads finden, Briefe, Online-Check und
 | 11 | Laufende Betreuung | Monatsreport, Mahnstufen, Kündigung und Vertragsende | **jede Mail freigeben** |
 | 12 | Überwachung | Erreichbarkeit, Backups, Probe-Rücksicherung, Löschfristen, Tagesbericht | – |
 
+## CRM: Aufgaben, Pipeline, Tickets, Zeiten
+
+- **Aufgaben:** deine fälligen Aufgaben und Termine (auch auf „Heute“ und als Kalender-Abo). Viele legt Stelax OS selbst an (Besuch, Angebot nachfassen, Inhalte nachfassen) und schließt sie, wenn es weitergeht.
+- **Pipeline:** alle Betriebe nach Stufe, mit Wert, Prognose und Warnung bei Chancen, die zu lange liegen.
+- **Betriebe:** Ansprechpartner, Aktivitäten (Notiz, Anruf, Termin, Aufgabe), Zuständig, Schlagworte, Tickets; Import und Export als CSV.
+- **Projekte:** Lieferschritte je Paket (teils automatisch abgehakt) und Zeiterfassung mit Ziel aus dem Business Case.
+- **Tickets:** Wünsche und Fehler aus dem Kundenportal oder per Telefon, Zeit gegen das Monatskontingent, Antwort über den Postausgang.
+- **Kennzahlen:** die Messgrößen aus dem Business Case und der Vertriebstrichter.
+- **Einstellungen:** Benutzer und Rollen, Zwei-Faktor-Anmeldung, Kalender-Abo, API-Schlüssel, CSV-Import.
+
+Vergleich mit Salesforce, HubSpot, Pipedrive, MOCO, awork und HERO sowie der Weg zum verkaufbaren Produkt: [`docs/crm-funktionen.md`](docs/crm-funktionen.md).
+
 ## Bestehende Websites umziehen
 
 Hat ein Betrieb schon eine Domain, bleibt er Inhaber, und seine E-Mail läuft unverändert weiter. Standard: Er ändert nach unserer Anleitung zwei A-Einträge (oder wir machen es am Telefon gemeinsam). Alternativ holen wir die Domain mit seinem Auth-Code zu uns. Stelax OS prüft vorher alle DNS-Einträge (E-Mail, Nachweise, Risiken), sichert die alte Seite, leitet alte Adressen weiter, merkt die Umstellung selbst und sagt dem Kunden erst dann, dass er das alte Webhosting kündigen kann. Einrichtung auf dem Server: [`docs/betrieb.md`](docs/betrieb.md#kunden-domains-umzug-bestehender-websites).
@@ -112,7 +124,7 @@ tests/            Ablauf-Test
 
 ## Offene Punkte
 
-- Zwei-Faktor-Anmeldung vor dem ersten echten Kunden
+- Zwei-Faktor-Anmeldung für alle Konten einschalten (Einstellungen), bevor echte Kundendaten drin sind
 - Workflow-Analyse mit offenen Entscheidungen: [`docs/workflow-analyse.md`](docs/workflow-analyse.md)
 - HRB-Nummer nach Eintragung in `brand/tokens.json` (`hrb`), Vornamen der Geschäftsführer prüfen
 - Lighthouse und axe-core in die Qualitätsprüfung (Modul 8/11)

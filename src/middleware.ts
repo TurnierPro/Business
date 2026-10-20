@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 
 // Schneller Vorabcheck: ohne Sitzungs-Cookie direkt zur Anmeldung.
 // Die echte Prüfung der Signatur passiert serverseitig in jeder geschützten Seite.
-const OFFEN = ["/login", "/vorschau", "/portal", "/api/gesundheit", "/api/stripe", "/api/tls-erlaubt", "/_next", "/favicon"];
+const OFFEN = ["/login", "/vorschau", "/portal", "/api/gesundheit", "/api/stripe", "/api/tls-erlaubt", "/api/v1", "/kalender", "/_next", "/favicon"];
 
 // Hosts von Stelax OS selbst. Jeder andere Host ist eine Kunden-Domain und bekommt die Kunden-Website.
 function eigenerHost(host: string): boolean {

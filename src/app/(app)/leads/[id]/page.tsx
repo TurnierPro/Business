@@ -9,7 +9,10 @@ import { datum, datumZeit, DOKART, ZWECK } from "@/lib/format";
 import { PAKETE, PaketKey, euro } from "@/lib/pakete";
 import { istEcht } from "@/lib/adapters/dienste";
 import { basisUrl } from "@/lib/ablauf/gemeinsam";
-import { betriebSpeichern, datenLoeschen, einstufen, terminHochladen, unterschriftSimulieren, widerspruch, zahlungSimulieren } from "../../aktionen";
+import { aktivitaetAnlegen, betriebSpeichern, betriebZuweisen, datenLoeschen, einstufen, kontaktLoeschen, kontaktSpeichern, terminHochladen, unterschriftSimulieren, widerspruch, zahlungSimulieren } from "../../aktionen";
+import { AufgabenListe } from "@/components/AufgabenListe";
+import { ARTEN } from "@/lib/ablauf/crm";
+import { ticketNummer } from "@/lib/ablauf/tickets";
 
 const SCHRITTE = [
   { key: "neu", text: "Gefunden" },
@@ -25,6 +28,15 @@ export default async function Lead({ params }: { params: Promise<{ id: string }>
   const db = await getDb();
   const [b] = await db.select().from(schema.betriebe).where(eq(schema.betriebe.id, id));
   if (!b) notFound();
+  const [kontakte, aktivitaeten, tickets, benutzer] = await Promise.all([
+    db.select().from(schema.kontakte).where(eq(schema.kontakte.betriebId, id)).orderBy(desc(schema.kontakte.haupt), schema.kontakte.name),
+    db.select().from(schema.aktivitaeten).where(eq(schema.aktivitaeten.betriebId, id)).orderBy(desc(schema.aktivitaeten.erstelltAm)),
+    db.select().from(schema.tickets).where(eq(schema.tickets.betriebId, id)).orderBy(desc(schema.tickets.erstelltAm)),
+    db.select({ name: schema.benutzer.name }).from(schema.benutzer),
+  ]);
+  const offeneAufgaben = aktivitaeten.filter((a) => !a.erledigtAm && a.faelligAm).sort((x, y) => x.faelligAm!.getTime() - y.faelligAm!.getTime());
+  const chronik = aktivitaeten.filter((a) => a.erledigtAm || !a.faelligAm);
+  const morgen = new Date(Date.now() + 864e5).toISOString().slice(0, 10);
   const [doks, post, termine, angebote, projekte, demos, laufend, verlauf] = await Promise.all([
     db.select().from(schema.dokumente).where(eq(schema.dokumente.betriebId, id)).orderBy(desc(schema.dokumente.erstelltAm)),
     db.select().from(schema.postausgang).where(eq(schema.postausgang.betriebId, id)).orderBy(desc(schema.postausgang.erstelltAm)),
@@ -45,7 +57,7 @@ export default async function Lead({ params }: { params: Promise<{ id: string }>
 
   return (
     <>
-      <Link href="/leads" className="zurueck">← Leads</Link>
+      <Link href="/leads" className="zurueck">← Betriebe</Link>
       <div className="kopfzeile">
         <div>
           <h1>{b.name}</h1>
@@ -166,6 +178,74 @@ export default async function Lead({ params }: { params: Promise<{ id: string }>
           ) : null}
         </section>
       ) : null}
+
+
+      <div className="raster zwei abstand" style={{ alignItems: "start" }}>
+        <section className="karte">
+          <h2>Aktivitäten</h2>
+          <form action={aktivitaetAnlegen} className="raster zwei" style={{ marginBottom: 12 }}>
+            <input type="hidden" name="betriebId" value={id} />
+            <input type="hidden" name="zurueck" value={`/leads/${id}`} />
+            <label className="feld"><span>Art</span><select name="art" defaultValue="anruf">{Object.entries(ARTEN).map(([k, n]) => <option key={k} value={k}>{n}</option>)}</select></label>
+            <label className="feld"><span>Kurz</span><input name="titel" placeholder="z. B. Rückruf wegen Fotos" /></label>
+            <label className="feld" style={{ gridColumn: "1 / -1" }}><span>Notiz</span><textarea name="text" rows={2} placeholder="Was wurde besprochen? Bei Aufgabe oder Termin: Datum unten." /></label>
+            <label className="feld"><span>Datum (Aufgabe, Termin)</span><input type="date" name="faellig" defaultValue={morgen} /></label>
+            <label className="feld"><span>Für</span><select name="zustaendig" defaultValue={b.zustaendig ?? ""}><option value="">mich</option>{benutzer.map((x) => <option key={x.name}>{x.name}</option>)}</select></label>
+            <div><button className="knopf">Speichern</button></div>
+          </form>
+          {offeneAufgaben.length ? <><h3>Offen</h3><AufgabenListe eintraege={offeneAufgaben.map((a) => ({ a, betrieb: null }))} zurueck={`/leads/${id}`} mitBetrieb={false} /></> : <p className="leise klein">Kein nächster Schritt geplant.</p>}
+          {chronik.length ? (
+            <>
+              <h3>Chronik</h3>
+              <ul className="liste">
+                {chronik.slice(0, 25).map((a) => <li key={a.id}><div><div className="titel">{ARTEN[a.art]}: {a.titel}</div><div className="unter">{datumZeit(a.erledigtAm ?? a.erstelltAm)} · {a.erstelltVon}{a.text ? ` · ${a.text}` : ""}</div></div></li>)}
+              </ul>
+            </>
+          ) : null}
+        </section>
+        <div>
+          <section className="karte">
+            <h2>Ansprechpartner</h2>
+            {kontakte.length ? (
+              <ul className="liste">
+                {kontakte.map((k) => (
+                  <li key={k.id}>
+                    <div style={{ flex: 1 }}><div className="titel">{k.name}{k.haupt ? <span className="marke-klein" style={{ marginLeft: 6 }}>Hauptkontakt</span> : null}</div><div className="unter">{[k.rolle, k.telefon ? <a key="t" href={`tel:${k.telefon.replace(/\s/g, "")}`}>{k.telefon}</a> : null, k.email ? <a key="m" href={`mailto:${k.email}`}>{k.email}</a> : null].filter(Boolean).map((x, i) => <span key={i}>{i ? " · " : ""}{x}</span>)}</div></div>
+                    <form action={kontaktLoeschen}><input type="hidden" name="id" value={k.id} /><input type="hidden" name="betriebId" value={id} /><button className="knopf klein" aria-label={`${k.name} löschen`}>Löschen</button></form>
+                  </li>
+                ))}
+              </ul>
+            ) : <p className="leise klein">Noch keine. {b.inhaber ? `Inhaber laut Stammdaten: ${b.inhaber}.` : ""}</p>}
+            <details style={{ marginTop: 8 }}>
+              <summary style={{ cursor: "pointer" }}>Ansprechpartner hinzufügen</summary>
+              <form action={kontaktSpeichern} style={{ marginTop: 8 }}>
+                <input type="hidden" name="betriebId" value={id} />
+                <div className="raster zwei">
+                  <label className="feld"><span>Name</span><input name="name" required /></label>
+                  <label className="feld"><span>Rolle</span><input name="rolle" placeholder="Büro, Meister, IT …" /></label>
+                  <label className="feld"><span>Telefon</span><input name="telefon" type="tel" /></label>
+                  <label className="feld"><span>E-Mail</span><input name="email" type="email" /></label>
+                </div>
+                <label className="haken" style={{ marginBottom: 12 }}><input type="checkbox" name="haupt" value="ja" /><span>Hauptkontakt</span></label>
+                <button className="knopf">Hinzufügen</button>
+              </form>
+            </details>
+          </section>
+          <form action={betriebZuweisen} className="karte abstand">
+            <h2>Zuständig und Schlagworte</h2>
+            <input type="hidden" name="id" value={id} />
+            <div className="raster zwei">
+              <label className="feld"><span>Zuständig</span><select name="zustaendig" defaultValue={b.zustaendig ?? ""}><option value="">niemand</option>{benutzer.map((x) => <option key={x.name}>{x.name}</option>)}</select></label>
+              <label className="feld"><span>Schlagworte (mit Komma)</span><input name="tags" defaultValue={b.tags.join(", ")} placeholder="Messe 2027, Empfehlung" /></label>
+            </div>
+            <button className="knopf">Speichern</button>
+          </form>
+          <section className="karte abstand">
+            <div className="kopfzeile" style={{ marginBottom: 4 }}><h2 style={{ margin: 0 }}>Tickets</h2>{b.status === "kunde" ? <Link className="knopf klein" href={`/tickets?betrieb=${id}`}>Ticket aufnehmen</Link> : null}</div>
+            {tickets.length ? <ul className="liste">{tickets.map((t) => <li key={t.id}><div><div className="titel"><Link href={`/tickets/${t.id}`}>{ticketNummer(t.id)} {t.betreff}</Link></div><div className="unter">{datum(t.erstelltAm)}</div></div><Status wert={t.status === "in_arbeit" ? "in_arbeit_ticket" : t.status === "erledigt" ? "fertig" : t.status} /></li>)}</ul> : <p className="leise klein">Keine Tickets.</p>}
+          </section>
+        </div>
+      </div>
 
       <div className="raster zwei abstand">
         <section className="karte">

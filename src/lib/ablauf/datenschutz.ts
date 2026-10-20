@@ -16,6 +16,12 @@ const AUFBEWAHREN = ["rechnung", "angebot", "auftragsbestaetigung", "abnahmeprot
 export async function datenauskunft(betriebId: number, wer: string) {
   const db = await getDb();
   const b = await betrieb(betriebId);
+  const [kontakte, aktivitaeten, tickets, zeiten] = await Promise.all([
+    db.select().from(schema.kontakte).where(eq(schema.kontakte.betriebId, betriebId)),
+    db.select().from(schema.aktivitaeten).where(eq(schema.aktivitaeten.betriebId, betriebId)),
+    db.select().from(schema.tickets).where(eq(schema.tickets.betriebId, betriebId)),
+    db.select().from(schema.zeiten).where(eq(schema.zeiten.betriebId, betriebId)),
+  ]);
   const [termine, angebote, projekte, rechnungen, dokumente, post, anfragen, verlauf] = await Promise.all([
     db.select().from(schema.termine).where(eq(schema.termine.betriebId, betriebId)),
     db.select().from(schema.angebote).where(eq(schema.angebote.betriebId, betriebId)),
@@ -32,6 +38,10 @@ export async function datenauskunft(betriebId: number, wer: string) {
     erstelltAm: new Date().toISOString(),
     hinweis: "Auskunft nach Art. 15 DSGVO. Zwecke: Akquise (Art. 6 Abs. 1 lit. f), Vertrag (lit. b), Aufbewahrung von Rechnungen (lit. c, § 147 AO, 8 Jahre).",
     stammdaten,
+    ansprechpartner: kontakte,
+    aktivitaeten,
+    tickets,
+    zeiten,
     termine: termine.map(({ audioPfad, ...t }) => ({ ...t, aufnahmeGespeichert: !!audioPfad })),
     angebote,
     projekte: projekte.map(({ portalToken: _t, ...p }) => p),
@@ -73,6 +83,9 @@ export async function allesLoeschen(betriebId: number, bestaetigung: string, wer
     return "Alle Daten gelöscht";
   }
   await db.delete(schema.termine).where(eq(schema.termine.betriebId, betriebId));
+  await db.delete(schema.kontakte).where(eq(schema.kontakte.betriebId, betriebId));
+  await db.delete(schema.aktivitaeten).where(eq(schema.aktivitaeten.betriebId, betriebId));
+  await db.delete(schema.tickets).where(eq(schema.tickets.betriebId, betriebId));
   await db.delete(schema.anfragen).where(eq(schema.anfragen.betriebId, betriebId));
   await db.delete(schema.seiten).where(eq(schema.seiten.betriebId, betriebId));
   await db.delete(schema.dokumente).where(and(eq(schema.dokumente.betriebId, betriebId), notInArray(schema.dokumente.art, AUFBEWAHREN)));
