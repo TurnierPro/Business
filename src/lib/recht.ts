@@ -57,6 +57,8 @@ export const LOESCHFRISTEN: { was: string; tage: number | null; grund: string; a
   { was: "Gesprächsaufnahmen", tage: 30, grund: "Löschung nach Versand des Protokolls, spätestens nach 30 Tagen", automatisch: true },
   { was: "Anfragen über Kunden-Websites", tage: 365, grund: "Annahme, im AV-Vertrag mit dem Kunden festlegen", automatisch: true },
   { was: "Sicherung alter Kunden-Websites (Umzug)", tage: 180, grund: "Nur für Weiterleitungen und Rückfragen nötig", automatisch: true },
+  { was: "Nachrichten ohne Zuordnung", tage: 90, grund: "Kein Betrieb erkennbar, Zweck entfallen", automatisch: true },
+  { was: "Nachrichten an Betriebe (Mail, WhatsApp, Telefon)", tage: null, grund: "Gehören zum Betrieb und werden mit ihm gelöscht; geschäftliche Korrespondenz 6 Jahre (§ 257 HGB)", automatisch: false },
   { was: "Simulator-Postfach", tage: 90, grund: "Nur zum Testen", automatisch: true },
   { was: "Systemmeldungen", tage: 180, grund: "Betrieb und Fehlersuche", automatisch: true },
   { was: "Erledigte Hintergrund-Jobs", tage: 30, grund: "Fehlersuche", automatisch: true },

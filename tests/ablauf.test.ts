@@ -585,3 +585,133 @@ test("Backup und Probe-Rücksicherung", async () => {
   const r = await betrieb.ruecksicherung();
   assert.match(r, /Betriebe wiederhergestellt/);
 });
+
+test("Microsoft 365: Anmeldung und Versand über Graph mit HTML und Anhang", async () => {
+  const { sendeMail, aktiverMailDienst } = await import("../src/lib/adapters/mail");
+  const { mailHtml } = await import("../src/lib/docs/mailvorlage");
+  const vorher = globalThis.fetch;
+  const aufrufe: { url: string; body: string; auth?: string }[] = [];
+  globalThis.fetch = (async (url: string, init: RequestInit) => {
+    aufrufe.push({ url, body: String(init.body), auth: (init.headers as Record<string, string>).Authorization });
+    if (url.includes("login.microsoftonline.com")) return new Response(JSON.stringify({ access_token: "ms-token" }), { status: 200 });
+    return new Response(null, { status: 202 });
+  }) as typeof fetch;
+  Object.assign(process.env, { MS_TENANT_ID: "tenant-1", MS_CLIENT_ID: "client-1", MS_CLIENT_SECRET: "geheim", MS_ABSENDER: "hallo@nexova.example", MAIL_ANTWORT_AN: "team@nexova.example" });
+  try {
+    assert.equal(aktiverMailDienst(), "microsoft");
+    const r = await sendeMail({ an: "kunde@example.com", betreff: "Ihr Angebot", text: "Hallo", html: mailHtml({ betreff: "Ihr Angebot", text: "Hallo" }), anhaenge: [{ name: "Angebot.pdf", inhalt: Buffer.from("PDF") }] });
+    assert.match(r, /Microsoft 365/);
+    assert.equal(aufrufe[0].url, "https://login.microsoftonline.com/tenant-1/oauth2/v2.0/token");
+    assert.match(aufrufe[0].body, /grant_type=client_credentials/);
+    assert.equal(aufrufe[1].url, "https://graph.microsoft.com/v1.0/users/hallo%40nexova.example/sendMail");
+    assert.equal(aufrufe[1].auth, "Bearer ms-token");
+    const m = JSON.parse(aufrufe[1].body).message;
+    assert.equal(m.body.contentType, "HTML");
+    assert.match(m.body.content, /NE.*X.*OVA/s);
+    assert.equal(m.toRecipients[0].emailAddress.address, "kunde@example.com");
+    assert.equal(m.replyTo[0].emailAddress.address, "team@nexova.example");
+    assert.equal(m.attachments[0].contentBytes, Buffer.from("PDF").toString("base64"));
+    assert.equal(JSON.parse(aufrufe[1].body).saveToSentItems, true);
+  } finally {
+    globalThis.fetch = vorher;
+    for (const k of ["MS_TENANT_ID", "MS_CLIENT_ID", "MS_CLIENT_SECRET", "MS_ABSENDER", "MAIL_ANTWORT_AN"]) delete process.env[k];
+  }
+});
+
+test("Google Workspace: signierte Anmeldung und Versand über die Gmail-API", async () => {
+  const crypto = await import("node:crypto");
+  const { sendeMail, aktiverMailDienst } = await import("../src/lib/adapters/mail");
+  const { privateKey, publicKey } = crypto.generateKeyPairSync("rsa", { modulusLength: 2048 });
+  const vorher = globalThis.fetch;
+  const aufrufe: { url: string; body: string }[] = [];
+  globalThis.fetch = (async (url: string, init: RequestInit) => {
+    aufrufe.push({ url, body: String(init.body) });
+    if (url.startsWith("https://oauth2.googleapis.com/token")) return new Response(JSON.stringify({ access_token: "g-token" }), { status: 200 });
+    return new Response(JSON.stringify({ id: "gmail-42" }), { status: 200 });
+  }) as typeof fetch;
+  Object.assign(process.env, { GOOGLE_CLIENT_EMAIL: "nexova@projekt.iam.gserviceaccount.com", GOOGLE_PRIVATE_KEY: privateKey.export({ type: "pkcs8", format: "pem" }).toString().replace(/\n/g, "\\n"), GOOGLE_ABSENDER: "hallo@nexova.example" });
+  try {
+    assert.equal(aktiverMailDienst(), "google");
+    const r = await sendeMail({ an: "kunde@example.com", betreff: "Rechnung", text: "Nur Text", html: "<p>HTML-Fassung</p>", anhaenge: [{ name: "Rechnung.pdf", inhalt: Buffer.from("PDF") }] });
+    assert.match(r, /gmail-42/);
+    // Anmeldung: JWT mit gültiger Signatur, Bereich nur gmail.send, im Namen des Absenders
+    const jwt = new URLSearchParams(aufrufe[0].body).get("assertion")!;
+    const [k, i, sig] = jwt.split(".");
+    assert.ok(crypto.createVerify("RSA-SHA256").update(`${k}.${i}`).verify(publicKey, Buffer.from(sig, "base64url")));
+    const inhalt = JSON.parse(Buffer.from(i, "base64url").toString());
+    assert.equal(inhalt.scope, "https://www.googleapis.com/auth/gmail.send");
+    assert.equal(inhalt.sub, "hallo@nexova.example");
+    // Versand: fertige MIME-Nachricht mit Text, HTML und Anhang
+    assert.equal(aufrufe[1].url, "https://gmail.googleapis.com/gmail/v1/users/hallo%40nexova.example/messages/send");
+    const mime = Buffer.from(JSON.parse(aufrufe[1].body).raw, "base64url").toString();
+    assert.match(mime, /To: kunde@example.com/);
+    assert.match(mime, /text\/plain/);
+    assert.match(mime, /text\/html/);
+    assert.match(mime, /filename=Rechnung.pdf/);
+  } finally {
+    globalThis.fetch = vorher;
+    for (const k of ["GOOGLE_CLIENT_EMAIL", "GOOGLE_PRIVATE_KEY", "GOOGLE_ABSENDER"]) delete process.env[k];
+  }
+});
+
+test("Mail-Design: Text wird maskiert, Links klickbar, Pflichtangaben im Fuß", async () => {
+  const { mailHtml } = await import("../src/lib/docs/mailvorlage");
+  const html = mailHtml({ betreff: "Test <b>", text: "Hallo <script>alert(1)</script>\n\nPortal: https://os.nexova.example/portal/k/abc." });
+  assert.ok(!html.includes("<script>"), "kein Skript");
+  assert.match(html, /&lt;script&gt;/);
+  assert.match(html, /<a href="https:\/\/os.nexova.example\/portal\/k\/abc"/);
+  assert.match(html, /Handelsregister|Amtsgericht|Geschäftsführ/);
+  assert.ok(!/<svg|<style|class=/.test(html), "nur Inline-Styles, keine SVG (Gmail, Outlook)");
+});
+
+test("Nachrichten: WhatsApp, Telefon, Mail landen beim Betrieb; Antwort nur als Entwurf über die Freigabe", async () => {
+  const n = await import("../src/lib/ablauf/nachrichten");
+  const { id } = await akquise.legeBetriebAn({ name: "Kanal Elektro GmbH", gewerk: "Elektro", score: 70, scoreGrund: "Test", telefon: "0721 123456", email: "info@kanal-elektro.example" }, "Test", "Test");
+  // WhatsApp von der bekannten Nummer (andere Schreibweise) → zugeordnet, Aufgabe, Entwurf
+  const w = await n.nachrichtEingang({ kanal: "whatsapp", absender: "+49 721 123456", inhalt: "Können Sie nächste Woche vorbeikommen?", externeId: "wamid.1" }, "Test");
+  assert.equal(w.betriebId, id);
+  const doppelt = await n.nachrichtEingang({ kanal: "whatsapp", absender: "+49721123456", inhalt: "Können Sie nächste Woche vorbeikommen?", externeId: "wamid.1" }, "Test");
+  assert.equal(doppelt.id, w.id);
+  assert.equal(doppelt.neu, false, "Webhook zweimal → nur einmal gespeichert");
+  await abarbeiten();
+  const aufgaben = await db.select().from(schema.aktivitaeten).where(eq(schema.aktivitaeten.betriebId, id!));
+  assert.ok(aufgaben.some((a) => a.titel.startsWith("WhatsApp beantworten")));
+  const entwurf = (await db.select().from(schema.postausgang).where(eq(schema.postausgang.betriebId, id!))).find((e) => e.zweck === "antwort")!;
+  assert.equal(entwurf.kanal, "whatsapp");
+  assert.equal(entwurf.status, "zur_freigabe", "Bot schreibt nur Entwürfe");
+  assert.notEqual(entwurf.qkStatus, "blockiert", entwurf.hinweise.join(" | "));
+  await post.freigeben(entwurf.id, "Daniel Lück");
+  await abarbeiten();
+  const sim = await db.select().from(schema.simulatorPost).where(eq(schema.simulatorPost.kanal, "whatsapp"));
+  assert.equal(sim.at(-1)!.an, "+49721123456");
+  const verlauf = await db.select().from(schema.nachrichten).where(eq(schema.nachrichten.betriebId, id!));
+  assert.ok(verlauf.some((x) => x.richtung === "aus" && x.kanal === "whatsapp"), "Antwort steht im Verlauf");
+  assert.equal(verlauf.find((x) => x.id === w.id)!.status, "erledigt");
+
+  // Telefon: Rückruf-Aufgabe für heute, kein Entwurf
+  await n.nachrichtEingang({ kanal: "telefon", absender: "0721/123456", inhalt: "Verpasster Anruf", dauerSek: 0, externeId: "call-1" }, "Test");
+  assert.ok((await db.select().from(schema.aktivitaeten).where(eq(schema.aktivitaeten.betriebId, id!))).some((a) => a.titel.startsWith("Rückruf")));
+
+  // WhatsApp an jemanden, der nicht geschrieben hat: Qualitätskontrolle blockiert (kein Erstkontakt, 24-Stunden-Regel)
+  const kalt = await post.inPostausgang({ betriebId: id, kanal: "whatsapp", zweck: "test", empfaenger: "+49 170 9999999", betreff: "x", text: "Guten Tag, kurze Frage zu Ihrer Website." });
+  await abarbeiten();
+  const k = await post.eintrag(kalt);
+  assert.equal(k.qkStatus, "blockiert");
+  assert.ok(k.hinweise.some((h) => /24 Stunden/.test(h)));
+
+  // Unbekannter Absender: kein Entwurf, erst nach Zuordnung
+  const u = await n.nachrichtEingang({ kanal: "mail", absender: "fremd@example.com", betreff: "Anfrage", inhalt: "Was kostet eine Website?" }, "Test");
+  assert.equal(u.betriebId, null);
+  assert.equal((await n.unbekannteNachrichten()).length, 1);
+  await n.nachrichtZuordnen(u.id, id!, "Daniel Lück");
+  await abarbeiten();
+  const mailEntwurf = (await db.select().from(schema.postausgang).where(eq(schema.postausgang.betriebId, id!))).find((e) => e.zweck === "antwort" && e.kanal === "mail")!;
+  assert.equal(mailEntwurf.empfaenger, "fremd@example.com");
+  assert.match(mailEntwurf.betreff, /^AW: Anfrage/);
+
+  // Datenschutz: Auskunft enthält Nachrichten
+  const ds = await import("../src/lib/ablauf/datenschutz");
+  const auskunft = await ds.datenauskunft(id!, "Test");
+  assert.ok(auskunft.nachrichten.length >= 4);
+  await assert.rejects(() => n.nachrichtEingang({ kanal: "fax", absender: "x", inhalt: "y" }, "Test"), /Unbekannter Kanal/);
+});

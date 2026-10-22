@@ -151,3 +151,40 @@ test("Sicherheits-Header und CSP in der Middleware", async () => {
   const ohne = middleware(new NextRequest("https://os.nexova.example/leads", { headers: { host: "os.nexova.example" } }));
   assert.match(ohne.headers.get("location") ?? "", /\/login$/);
 });
+
+test("WhatsApp-Webhook: nur mit gültiger Signatur von Meta, Prüftoken nötig", async () => {
+  const crypto = await import("node:crypto");
+  process.env.WHATSAPP_APP_SECRET = "app-geheimnis";
+  process.env.WHATSAPP_VERIFY_TOKEN = "pruef-123";
+  const route = await import("../src/app/api/whatsapp/route");
+  const nachricht = JSON.stringify({ entry: [{ changes: [{ value: { contacts: [{ wa_id: "4915112345678", profile: { name: "Fremd" } }], messages: [{ id: "wamid.sig", from: "4915112345678", timestamp: "1760000000", type: "text", text: { body: "Hallo" } }] } }] }] });
+  const anfrage = (sig: string | null) => new Request("https://os.nexova.example/api/whatsapp", { method: "POST", body: nachricht, headers: sig ? { "x-hub-signature-256": sig } : {} });
+  assert.equal((await route.POST(anfrage(null))).status, 401);
+  assert.equal((await route.POST(anfrage("sha256=" + "0".repeat(64)))).status, 401, "gefälschte Signatur");
+  const falsch = crypto.createHmac("sha256", "anderes-geheimnis").update(nachricht).digest("hex");
+  assert.equal((await route.POST(anfrage(`sha256=${falsch}`))).status, 401);
+  assert.equal((await db.select().from(schema.nachrichten)).length, 0, "nichts gespeichert");
+  const echt = crypto.createHmac("sha256", "app-geheimnis").update(nachricht).digest("hex");
+  assert.equal((await route.POST(anfrage(`sha256=${echt}`))).status, 200);
+  const [n] = await db.select().from(schema.nachrichten);
+  assert.equal(n.absender, "+4915112345678");
+  assert.equal(n.status, "unbekannt");
+  // Einrichtung durch Meta: falsches Prüftoken → 403
+  assert.equal((await route.GET(new Request("https://x/api/whatsapp?hub.mode=subscribe&hub.verify_token=falsch&hub.challenge=abc"))).status, 403);
+  const ok = await route.GET(new Request("https://x/api/whatsapp?hub.mode=subscribe&hub.verify_token=pruef-123&hub.challenge=abc"));
+  assert.equal(await ok.text(), "abc");
+  delete process.env.WHATSAPP_APP_SECRET;
+  assert.equal((await route.POST(anfrage(`sha256=${echt}`))).status, 401, "ohne Geheimnis nie offen");
+});
+
+test("Nachrichten-API: nur mit Schlüssel und Recht „nachrichten“", async () => {
+  const api = await import("../src/lib/api");
+  const route = await import("../src/app/api/v1/nachrichten/route");
+  const ohneRecht = await api.schluesselErzeugen("Nur lesen", ["lesen"], "Test");
+  const mitRecht = await api.schluesselErzeugen("n8n Postfach", ["nachrichten"], "Test");
+  const anfrage = (s?: string) => new Request("https://x/api/v1/nachrichten", { method: "POST", headers: { "Content-Type": "application/json", ...(s ? { Authorization: `Bearer ${s}` } : {}) }, body: JSON.stringify({ kanal: "telefon", absender: "+49 30 1234567", inhalt: "Verpasster Anruf", externeId: "call-api-1" }) });
+  assert.equal((await route.POST(anfrage())).status, 401);
+  assert.equal((await route.POST(anfrage(ohneRecht))).status, 403);
+  assert.equal((await route.POST(anfrage(mitRecht))).status, 201);
+  assert.equal((await route.POST(anfrage(mitRecht))).status, 200, "zweimal eingeliefert → nicht doppelt");
+});

@@ -357,6 +357,12 @@ async function finanzBeispiele(): Promise<void> {
   await finanzagenten.zahlungserinnerungen();
   await finanzagenten.betreuungsrechnungen(new Date(heute.getFullYear(), heute.getMonth() + 1, 2));
   await finanzagenten.steuerberaterBericht();
+  // Nachrichten über verschiedene Kanäle: eine bekannte Kundin per Mail, ein verpasster Anruf, ein unbekannter Absender
+  const { nachrichtEingang } = await import("./ablauf/nachrichten");
+  const [kunde] = await db.select().from(schema.betriebe).where(and(eq(schema.betriebe.quelle, QUELLE), eq(schema.betriebe.status, "kunde")));
+  if (kunde?.email) await nachrichtEingang({ kanal: "mail", absender: kunde.email, betreff: "Öffnungszeiten ändern", inhalt: "Guten Tag,\n\nab November haben wir samstags geschlossen. Können Sie das bitte auf der Website ändern?\n\nDanke und Grüße", externeId: "beispiel-mail-1" }, "Beispieldaten");
+  if (kunde?.telefon) await nachrichtEingang({ kanal: "telefon", absender: kunde.telefon, inhalt: "Verpasster Anruf, keine Nachricht hinterlassen", dauerSek: 0, externeId: "beispiel-anruf-1" }, "Beispieldaten");
+  await nachrichtEingang({ kanal: "whatsapp", absender: "+49 170 5550123", name: "Unbekannt", inhalt: "Hallo, machen Sie auch Websites für Dachdecker?", externeId: "beispiel-wa-1" }, "Beispieldaten");
   await warte();
 }
 
@@ -375,6 +381,7 @@ export async function beispieleEntfernen(): Promise<string> {
   await db.delete(schema.protokoll).where(inArray(schema.protokoll.betriebId, ids));
   await db.delete(schema.sperrliste).where(sql`${schema.sperrliste.grund} like '%(Beispiel)%'`);
   await db.delete(schema.simulatorPost);
+  await db.delete(schema.nachrichten).where(sql`${schema.nachrichten.externeId} like 'beispiel-%'`);
   await db.delete(schema.ausgaben).where(sql`${schema.ausgaben.lieferant} like '%(Beispiel)%'`);
   await db.delete(schema.postausgang).where(eq(schema.postausgang.zweck, "finanzbericht"));
   fs.rmSync(path.join(datenOrdner("belege"), "beispiel"), { recursive: true, force: true });

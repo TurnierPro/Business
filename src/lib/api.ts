@@ -6,7 +6,7 @@ import { protokolliere } from "./protokoll";
 // Schnittstelle für andere Systeme (n8n, Website-Formulare, später Kunden-Systeme).
 // Schlüssel werden einmal angezeigt; gespeichert ist nur der SHA-256-Hash.
 
-export const RECHTE: Record<string, string> = { lesen: "Daten lesen", leads: "Leads anlegen", tickets: "Tickets anlegen" };
+export const RECHTE: Record<string, string> = { lesen: "Daten lesen", leads: "Leads anlegen", tickets: "Tickets anlegen", nachrichten: "Nachrichten einliefern (Mail, WhatsApp, Telefon)" };
 
 const hash = (s: string) => crypto.createHash("sha256").update(s).digest("hex");
 

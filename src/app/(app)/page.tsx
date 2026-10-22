@@ -4,7 +4,8 @@ import { getDb, schema } from "@/lib/db";
 import { datumZeit, inTagen, ZWECK } from "@/lib/format";
 import { brauchtBenutzer } from "@/lib/auth";
 import { beispieleErlaubt } from "@/lib/beispiele";
-import { beispieleLaden } from "./aktionen";
+import { beispieleLaden, nachrichtErledigt, nachrichtZuordnen } from "./aktionen";
+import { KANAELE, unbekannteNachrichten } from "@/lib/ablauf/nachrichten";
 import { ETAPPEN, FRISTEN, stand, UNTERLAGEN } from "@/lib/unterlagen";
 import { offeneAufgaben } from "@/lib/ablauf/crm";
 import { AufgabenListe } from "@/components/AufgabenListe";
@@ -45,6 +46,8 @@ export default async function ZuTun() {
     db.select({ n: sql<number>`count(*)::int` }).from(schema.betriebe),
     db.select({ n: sql<number>`count(*)::int` }).from(schema.jobs).where(and(eq(schema.jobs.art, "beispieldaten"), inArray(schema.jobs.status, ["wartet", "laeuft"]))),
   ]);
+  const unbekannt = await unbekannteNachrichten();
+  const alleBetriebe = unbekannt.length ? await db.select({ id: schema.betriebe.id, name: schema.betriebe.name }).from(schema.betriebe).orderBy(schema.betriebe.name) : [];
   const stunde = Number(jetzt.toLocaleString("de-DE", { hour: "numeric", hourCycle: "h23", timeZone: "Europe/Berlin" }));
   const gruss = stunde < 11 ? "Guten Morgen" : stunde < 18 ? "Hallo" : "Guten Abend";
   const heute = jetzt.toISOString().slice(0, 10);
@@ -60,7 +63,7 @@ export default async function ZuTun() {
     ...(fristBald ? [{ text: `Frist ${new Date(frist!.datum).toLocaleDateString("de-DE")}: ${frist!.was}`, href: "/unterlagen", dringend: false }] : []),
     ...(etappe ? [{ text: `Unterlagen „${etappe.name}“: ${UNTERLAGEN.filter((u) => u.etappe === etappe.nr && offen(u)).length} offen (bis ${new Date(etappe.bis).toLocaleDateString("de-DE")})`, href: `/unterlagen?etappe=${etappe.nr}`, dringend: false }] : []),
   ];
-  const nichts = !freigaben.length && !meineAufgaben.length && !neueLeads.length && !besuche.length && !tickets.length;
+  const nichts = !freigaben.length && !meineAufgaben.length && !neueLeads.length && !besuche.length && !tickets.length && !unbekannt.length;
 
   return (
     <>
@@ -119,6 +122,24 @@ export default async function ZuTun() {
         <Block titel="4. Besuche fällig" zahl={besuche.length} erklaerung="Der Brief ist seit einer Woche da. Jetzt vorbeigehen, Demo zeigen, beim Termin aufnehmen (nur mit Einwilligung).">
           <ul className="liste">
             {besuche.map((l) => <li key={l.id}><div style={{ flex: 1 }}><div className="titel">{l.name}</div><div className="unter">{l.strasse}, {l.plz} {l.ort}</div></div><Link className="knopf klein" href={`/leads/${l.id}`}>Öffnen</Link></li>)}
+          </ul>
+        </Block>
+      ) : null}
+
+      {unbekannt.length ? (
+        <Block titel="Nachrichten ohne Betrieb" zahl={unbekannt.length} erklaerung="Absender nicht erkannt (unbekannte Mail-Adresse oder Nummer). Betrieb wählen, dann entstehen Aufgabe und Antwortentwurf. Ohne Zuordnung werden sie nach 90 Tagen gelöscht.">
+          <ul className="liste">
+            {unbekannt.slice(0, 5).map((n) => (
+              <li key={n.id} style={{ flexWrap: "wrap" }}>
+                <div style={{ flex: "1 1 260px" }}><div className="titel">{KANAELE[n.kanal]} von {n.absender}</div><div className="unter">{datumZeit(n.zeit)} · {n.betreff ? `${n.betreff}: ` : ""}{n.inhalt.slice(0, 140)}</div></div>
+                <form action={nachrichtZuordnen} className="knopfreihe">
+                  <input type="hidden" name="id" value={n.id} />
+                  <select name="betriebId" aria-label="Betrieb wählen" required defaultValue=""><option value="" disabled>Betrieb wählen</option>{alleBetriebe.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}</select>
+                  <button className="knopf klein">Zuordnen</button>
+                </form>
+                <form action={nachrichtErledigt}><input type="hidden" name="id" value={n.id} /><button className="knopf klein">Ignorieren</button></form>
+              </li>
+            ))}
           </ul>
         </Block>
       ) : null}

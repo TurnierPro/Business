@@ -3,7 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { and, eq, gte, inArray, isNotNull, lt, sql } from "drizzle-orm";
+import { and, eq, gte, inArray, isNotNull, isNull, lt, sql } from "drizzle-orm";
 import { PGlite } from "@electric-sql/pglite";
 import { getDb, eingebauteDb, schema } from "../db";
 import { datenOrdner } from "../pfade";
@@ -163,6 +163,7 @@ export async function aufraeumen(): Promise<string> {
     const voll = path.join(umzugOrdner, o);
     if (fs.statSync(voll).mtime < vor(frist("Sicherung alter Kunden-Websites (Umzug)"))) fs.rmSync(voll, { recursive: true, force: true });
   }
+  await db.delete(schema.nachrichten).where(and(isNull(schema.nachrichten.betriebId), lt(schema.nachrichten.zeit, vor(frist("Nachrichten ohne Zuordnung")))));
   await db.delete(schema.simulatorPost).where(lt(schema.simulatorPost.am, vor(frist("Simulator-Postfach"))));
   await db.delete(schema.meldungen).where(lt(schema.meldungen.am, vor(frist("Systemmeldungen"))));
   await db.delete(schema.jobs).where(and(eq(schema.jobs.status, "fertig"), lt(schema.jobs.erstelltAm, vor(frist("Erledigte Hintergrund-Jobs")))));

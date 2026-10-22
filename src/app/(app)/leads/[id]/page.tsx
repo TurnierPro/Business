@@ -9,10 +9,11 @@ import { datum, datumZeit, DOKART, ZWECK } from "@/lib/format";
 import { PAKETE, PaketKey, euro } from "@/lib/pakete";
 import { istEcht } from "@/lib/adapters/dienste";
 import { basisUrl } from "@/lib/ablauf/gemeinsam";
-import { aktivitaetAnlegen, portalLinkErneuern, betriebSpeichern, betriebZuweisen, datenLoeschen, einstufen, kontaktLoeschen, kontaktSpeichern, terminHochladen, unterschriftSimulieren, widerspruch, zahlungSimulieren } from "../../aktionen";
+import { aktivitaetAnlegen, antwortEntwerfen, nachrichtErledigt, portalLinkErneuern, betriebSpeichern, betriebZuweisen, datenLoeschen, einstufen, kontaktLoeschen, kontaktSpeichern, terminHochladen, unterschriftSimulieren, widerspruch, zahlungSimulieren } from "../../aktionen";
 import { AufgabenListe } from "@/components/AufgabenListe";
 import { ARTEN } from "@/lib/ablauf/crm";
 import { ticketNummer } from "@/lib/ablauf/tickets";
+import { KANAELE } from "@/lib/ablauf/nachrichten";
 
 const SCHRITTE = [
   { key: "neu", text: "Gefunden" },
@@ -32,11 +33,12 @@ export default async function Lead({ params, searchParams }: { params: Promise<{
   const db = await getDb();
   const [b] = await db.select().from(schema.betriebe).where(eq(schema.betriebe.id, id));
   if (!b) notFound();
-  const [kontakte, aktivitaeten, tickets, benutzer] = await Promise.all([
+  const [kontakte, aktivitaeten, tickets, benutzer, nachrichten] = await Promise.all([
     db.select().from(schema.kontakte).where(eq(schema.kontakte.betriebId, id)).orderBy(desc(schema.kontakte.haupt), schema.kontakte.name),
     db.select().from(schema.aktivitaeten).where(eq(schema.aktivitaeten.betriebId, id)).orderBy(desc(schema.aktivitaeten.erstelltAm)),
     db.select().from(schema.tickets).where(eq(schema.tickets.betriebId, id)).orderBy(desc(schema.tickets.erstelltAm)),
     db.select({ name: schema.benutzer.name }).from(schema.benutzer),
+    db.select().from(schema.nachrichten).where(eq(schema.nachrichten.betriebId, id)).orderBy(desc(schema.nachrichten.zeit)).limit(50),
   ]);
   const offeneAufgaben = aktivitaeten.filter((a) => !a.erledigtAm && a.faelligAm).sort((x, y) => x.faelligAm!.getTime() - y.faelligAm!.getTime());
   const chronik = aktivitaeten.filter((a) => a.erledigtAm || !a.faelligAm);
@@ -214,6 +216,28 @@ export default async function Lead({ params, searchParams }: { params: Promise<{
             <div><button className="knopf">Speichern</button></div>
           </form>
           {offeneAufgaben.length ? <><h3>Offen</h3><AufgabenListe eintraege={offeneAufgaben.map((a) => ({ a, betrieb: null }))} zurueck={`/leads/${id}`} mitBetrieb={false} /></> : <p className="leise klein">Kein nächster Schritt geplant.</p>}
+          {nachrichten.length ? (
+            <>
+              <h3>Nachrichten</h3>
+              <ul className="liste">
+                {nachrichten.map((n) => (
+                  <li key={n.id} style={{ flexWrap: "wrap" }}>
+                    <div style={{ flex: "1 1 280px" }}>
+                      <div className="titel">{n.richtung === "ein" ? "←" : "→"} {KANAELE[n.kanal]}{n.betreff ? `: ${n.betreff}` : ""}</div>
+                      <div className="unter">{datumZeit(n.zeit)} · {n.richtung === "ein" ? n.absender : `an ${n.empfaenger}`}{n.dauerSek ? ` · ${Math.round(n.dauerSek / 60)} Min.` : ""}</div>
+                      <div className="klein" style={{ whiteSpace: "pre-wrap", marginTop: 4 }}>{n.inhalt.length > 400 ? `${n.inhalt.slice(0, 400)} …` : n.inhalt}</div>
+                    </div>
+                    {n.richtung === "ein" && n.status === "neu" ? (
+                      <div className="knopfreihe">
+                        {n.kanal === "mail" || n.kanal === "whatsapp" ? <form action={antwortEntwerfen}><input type="hidden" name="id" value={n.id} /><input type="hidden" name="zurueck" value={`/leads/${id}?tab=aktivitaeten`} /><button className="knopf klein">Antwort entwerfen</button></form> : null}
+                        <form action={nachrichtErledigt}><input type="hidden" name="id" value={n.id} /><input type="hidden" name="zurueck" value={`/leads/${id}?tab=aktivitaeten`} /><button className="knopf klein">Erledigt</button></form>
+                      </div>
+                    ) : <Status wert={n.richtung === "aus" ? "versendet" : n.status} />}
+                  </li>
+                ))}
+              </ul>
+            </>
+          ) : null}
           {chronik.length ? (
             <>
               <h3>Chronik</h3>

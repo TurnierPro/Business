@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { and, eq, inArray, notInArray } from "drizzle-orm";
+import { and, eq, inArray, ne, notInArray, or } from "drizzle-orm";
 import { getDb, schema } from "../db";
 import { protokolliere } from "../protokoll";
 import { datenOrdner } from "../pfade";
@@ -16,11 +16,12 @@ const AUFBEWAHREN = ["rechnung", "angebot", "auftragsbestaetigung", "abnahmeprot
 export async function datenauskunft(betriebId: number, wer: string) {
   const db = await getDb();
   const b = await betrieb(betriebId);
-  const [kontakte, aktivitaeten, tickets, zeiten] = await Promise.all([
+  const [kontakte, aktivitaeten, tickets, zeiten, nachrichten] = await Promise.all([
     db.select().from(schema.kontakte).where(eq(schema.kontakte.betriebId, betriebId)),
     db.select().from(schema.aktivitaeten).where(eq(schema.aktivitaeten.betriebId, betriebId)),
     db.select().from(schema.tickets).where(eq(schema.tickets.betriebId, betriebId)),
     db.select().from(schema.zeiten).where(eq(schema.zeiten.betriebId, betriebId)),
+    db.select().from(schema.nachrichten).where(eq(schema.nachrichten.betriebId, betriebId)),
   ]);
   const [termine, angebote, projekte, rechnungen, dokumente, post, anfragen, verlauf] = await Promise.all([
     db.select().from(schema.termine).where(eq(schema.termine.betriebId, betriebId)),
@@ -42,6 +43,7 @@ export async function datenauskunft(betriebId: number, wer: string) {
     aktivitaeten,
     tickets,
     zeiten,
+    nachrichten,
     termine: termine.map(({ audioPfad, ...t }) => ({ ...t, aufnahmeGespeichert: !!audioPfad })),
     angebote,
     projekte: projekte.map(({ portalToken: _t, ...p }) => p),
@@ -86,6 +88,8 @@ export async function allesLoeschen(betriebId: number, bestaetigung: string, wer
   await db.delete(schema.kontakte).where(eq(schema.kontakte.betriebId, betriebId));
   await db.delete(schema.aktivitaeten).where(eq(schema.aktivitaeten.betriebId, betriebId));
   await db.delete(schema.tickets).where(eq(schema.tickets.betriebId, betriebId));
+  // Von Nachrichten bleiben nur unsere versendeten Mails (Handelsbriefe), der Rest geht
+  await db.delete(schema.nachrichten).where(and(eq(schema.nachrichten.betriebId, betriebId), or(ne(schema.nachrichten.richtung, "aus"), ne(schema.nachrichten.kanal, "mail"))));
   await db.delete(schema.anfragen).where(eq(schema.anfragen.betriebId, betriebId));
   await db.delete(schema.seiten).where(eq(schema.seiten.betriebId, betriebId));
   await db.delete(schema.dokumente).where(and(eq(schema.dokumente.betriebId, betriebId), notInArray(schema.dokumente.art, AUFBEWAHREN)));

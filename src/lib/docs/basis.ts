@@ -42,8 +42,8 @@ ${schriften()}
 *{box-sizing:border-box}
 html,body{margin:0;padding:0}
 body{font-family:"Archivo",sans-serif;font-size:10.5pt;line-height:1.5;color:${t.text};background:${t.grund};-webkit-print-color-adjust:exact;print-color-adjust:exact}
-.seite{width:210mm;height:297mm;padding:18mm 20mm 34mm 25mm;position:relative;background:${t.grund};page-break-after:always;overflow:visible;display:flow-root}
-.folgeseite .kopf{margin-bottom:8mm}
+.seite{width:210mm;height:297mm;padding:12mm 20mm 34mm 25mm;position:relative;background:${t.grund};page-break-after:always;overflow:visible;display:flow-root}
+/* Kopf auf jeder Seite an derselben Stelle: 12 mm von oben (wie im DIN-Brief) */
 p,li,td,th,h1,h2,h3,.box,.anschrift,.infoblock{overflow-wrap:anywhere;hyphens:auto}
 tr,li,.box{break-inside:avoid}
 h1,h2,h3{break-after:avoid}

@@ -542,6 +542,39 @@ export async function sollSpeichern(f: FormData) {
   }, "verwalten");
 }
 
+export async function testmailAnMich() {
+  const ich = await brauchtBenutzer();
+  await ausfuehren("/stammdaten/konnektoren", "Testmail liegt in den Freigaben", async (wer) => {
+    const { aktiverMailDienst, MAIL_DIENSTE } = await import("@/lib/adapters/mail");
+    const id = await post.inPostausgang({
+      kanal: "mail",
+      zweck: "testmail",
+      empfaenger: ich.email,
+      betreff: "Testmail aus Nexova OS",
+      text: `Hallo ${wer.split(" ")[0]},\n\ndiese Mail prüft den Versandweg „${MAIL_DIENSTE[aktiverMailDienst()].name}“. Wenn sie im Postfach ankommt, im Nexova-Design und mit Signatur, ist alles richtig angeschlossen.\n\nAuch Testmails gehen nur nach Qualitätskontrolle und Freigabe raus.`,
+    });
+    return { ziel: `/freigaben/${id}` };
+  });
+}
+
+export async function nachrichtZuordnen(f: FormData) {
+  await ausfuehren("/", "Nachricht zugeordnet", async (wer) => {
+    const n = await import("@/lib/ablauf/nachrichten");
+    await n.nachrichtZuordnen(zahl(f, "id"), zahl(f, "betriebId"), wer);
+  });
+}
+
+export async function nachrichtErledigt(f: FormData) {
+  await ausfuehren(text(f, "zurueck") || "/", "Erledigt", async (wer) => (await import("@/lib/ablauf/nachrichten")).nachrichtErledigt(zahl(f, "id"), wer));
+}
+
+export async function antwortEntwerfen(f: FormData) {
+  await ausfuehren(text(f, "zurueck") || "/freigaben", "Entwurf liegt in den Freigaben", async () => {
+    const r = await (await import("@/lib/ablauf/nachrichten")).antwortEntwerfen(zahl(f, "id"));
+    return { ok: r };
+  });
+}
+
 export async function portalLinkErneuern(f: FormData) {
   const id = zahl(f, "id");
   await ausfuehren(`/leads/${id}?tab=daten`, "Neuer Portal-Link erzeugt. Der alte ist gesperrt; die Mail mit dem neuen Link liegt in den Freigaben.", async (wer) => {

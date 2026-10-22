@@ -10,6 +10,7 @@ import { ablehnen, angebotAendern, eintragSpeichern, freigeben } from "../../akt
 import { AngebotEditor } from "@/components/AngebotEditor";
 import type { AngebotDaten } from "@/lib/docs/vorlagen";
 import { mailSignatur } from "@/lib/recht";
+import { mailHtml } from "@/lib/docs/mailvorlage";
 
 export const metadata = { title: "Freigabe prüfen" };
 
@@ -64,10 +65,24 @@ export default async function Eintrag({ params }: { params: Promise<{ id: string
           {vorschauUrl ? <iframe className="vorschau" src={vorschauUrl} title="Vorschau" /> : null}
           {e.kanal === "mail" ? (
             <div className="karte" style={{ marginTop: vorschauUrl ? 16 : 0 }}>
-              <h2>E-Mail</h2>
+              <h2>E-Mail, so wie sie ankommt</h2>
               <p><b>Betreff:</b> {e.betreff}</p>
-              <div className="textblock">{e.text}<span className="leise">{mailSignatur()}</span></div>
-              <p className="leise klein" style={{ marginTop: 8 }}>Die Signatur mit den Pflichtangaben (§ 35a GmbHG) hängt Nexova OS automatisch an.</p>
+              {/* sandbox: keine Skripte, keine Formulare, Links öffnen nichts im System */}
+              <iframe className="vorschau mailvorschau" sandbox="" srcDoc={mailHtml({ betreff: e.betreff, text: e.text })} title="Vorschau der E-Mail" />
+              <details style={{ marginTop: 8 }}>
+                <summary className="leise klein" style={{ cursor: "pointer" }}>Nur-Text-Fassung (für alte Mail-Programme)</summary>
+                <div className="textblock">{e.text}<span className="leise">{mailSignatur()}</span></div>
+              </details>
+              <p className="leise klein" style={{ marginTop: 8 }}>Logo, Design und Signatur mit den Pflichtangaben (§ 35a GmbHG) setzt Nexova OS automatisch. Du prüfst nur den Text.</p>
+            </div>
+          ) : null}
+          {e.kanal === "whatsapp" ? (
+            <div className="karte">
+              <h2>WhatsApp, so wie sie ankommt</h2>
+              <div style={{ background: "#e7ddd0", borderRadius: 8, padding: 16 }}>
+                <div style={{ background: "#dcf8c6", color: "#1b1b1b", borderRadius: 8, padding: "8px 12px", marginLeft: "auto", maxWidth: "85%", whiteSpace: "pre-wrap", fontSize: 14, lineHeight: 1.45 }}>{e.text}</div>
+              </div>
+              <p className="leise klein" style={{ marginTop: 8 }}>Geht nur raus, wenn der Kunde in den letzten 24 Stunden selbst geschrieben hat (Regel von WhatsApp). Keine Signatur, darum Absender im Text nennen.</p>
             </div>
           ) : null}
           {doks.length ? (
@@ -92,7 +107,7 @@ export default async function Eintrag({ params }: { params: Promise<{ id: string
               ) : (
                 <form action={freigeben}>
                   <input type="hidden" name="id" value={e.id} />
-                  <button className="knopf haupt" style={{ width: "100%" }}>{e.kanal === "livegang" ? "Livegang freigeben" : e.kanal === "zahlung" ? "Zahlung freigeben" : e.kanal === "brief" ? "Brief freigeben und versenden" : "Freigeben und senden"}</button>
+                  <button className="knopf haupt" style={{ width: "100%" }}>{e.kanal === "livegang" ? "Livegang freigeben" : e.kanal === "zahlung" ? "Zahlung freigeben" : e.kanal === "brief" ? "Brief freigeben und versenden" : e.kanal === "whatsapp" ? "WhatsApp freigeben und senden" : "Freigeben und senden"}</button>
                 </form>
               )}
               <form action={ablehnen} style={{ marginTop: 16 }}>

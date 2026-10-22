@@ -60,7 +60,7 @@ export function istInterneAdresse(ip: string): boolean {
 }
 
 /** fetch nur zu öffentlichen Adressen, Weiterleitungen werden einzeln geprüft (höchstens 5). */
-export async function sicheresFetch(url: string, o: { timeoutMs?: number; headers?: Record<string, string> } = {}): Promise<Response> {
+export async function sicheresFetch(url: string, o: { timeoutMs?: number; headers?: Record<string, string>; method?: string; body?: string } = {}): Promise<Response> {
   let ziel = new URL(url);
   for (let i = 0; i < 6; i++) {
     if (!["http:", "https:"].includes(ziel.protocol)) throw new Error("Nur http und https erlaubt");
@@ -68,7 +68,7 @@ export async function sicheresFetch(url: string, o: { timeoutMs?: number; header
     const host = ziel.hostname.replace(/^\[|\]$/g, "");
     const adressen = net.isIP(host) ? [{ address: host }] : await lookup(host, { all: true });
     if (!adressen.length || adressen.some((a) => istInterneAdresse(a.address))) throw new Error(`Interne Adresse blockiert: ${host}`);
-    const r = await fetch(ziel, { redirect: "manual", signal: AbortSignal.timeout(o.timeoutMs ?? 10_000), headers: o.headers });
+    const r = await fetch(ziel, { redirect: "manual", signal: AbortSignal.timeout(o.timeoutMs ?? 10_000), headers: o.headers, method: o.method, body: o.body });
     const weiter = r.headers.get("location");
     if (r.status >= 300 && r.status < 400 && weiter) {
       ziel = new URL(weiter, ziel);

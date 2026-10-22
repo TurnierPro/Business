@@ -59,6 +59,10 @@ const TEXTE: Record<string, [string, "" | "ok" | "warten" | "fehler"]> = {
   erinnerung: ["Erinnerung", "warten"],
   mahnung1: ["1. Mahnung", "warten"],
   mahnung2: ["letzte Mahnung", "fehler"],
+  aktiv: ["aktiv", "ok"],
+  bereit_anschluss: ["bereit zum Anschließen", ""],
+  bewusst_aus: ["bewusst aus", ""],
+  unbekannt: ["nicht zugeordnet", "warten"],
 };
 
 export function Status({ wert }: { wert: string }) {

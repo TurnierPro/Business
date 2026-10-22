@@ -65,6 +65,15 @@ window.nexovaUmbruch = function () {
   var erste = alle()[0];
   var start = erste ? erste.getBoundingClientRect().top + window.scrollY : 0;
   if (erste && start > 1) probleme.push("Seite 1 beginnt nicht oben (Abstand verrutscht)");
+  // Kopf (Logo) auf allen Seiten an derselben Stelle, sonst „springt“ die oberste Zeile beim Blättern
+  var kopfOben = null;
+  alle().forEach(function (s, n) {
+    var k = s.querySelector(".kopf");
+    if (!k) return;
+    var abstand = k.getBoundingClientRect().top - s.getBoundingClientRect().top;
+    if (kopfOben === null) kopfOben = abstand;
+    else if (Math.abs(abstand - kopfOben) > 1) probleme.push("Seite " + (n + 1) + ": Kopfzeile verrutscht (" + Math.round((abstand - kopfOben) / MM) + " mm)");
+  });
   alle().forEach(function (s, n) {
     var oben = s.getBoundingClientRect().top + window.scrollY;
     if (Math.abs(oben - start - n * SEITE) > 2) probleme.push("Seite " + (n + 1) + " ist verrutscht");

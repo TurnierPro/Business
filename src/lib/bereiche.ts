@@ -9,7 +9,7 @@ export const BEREICHE: Bereich[] = [
   { key: "projekte", name: "Projekte", href: "/projekte", seiten: [{ href: "/projekte", name: "Projekte" }, { href: "/tickets", name: "Tickets" }] },
   { key: "finanzen", name: "Finanzen", href: "/finanzen", seiten: [{ href: "/finanzen", name: "Übersicht", exakt: true }, { href: "/finanzen/plan", name: "Plan und Soll" }, { href: "/kennzahlen", name: "Kennzahlen" }] },
   { key: "logs", name: "Logs", href: "/logs", seiten: [{ href: "/logs", name: "Protokoll", exakt: true }, { href: "/logs/post", name: "Versendet" }, { href: "/simulator", name: "Simulator-Postfach" }, { href: "/system", name: "Technik und Agenten" }] },
-  { key: "stammdaten", name: "Stammdaten", href: "/stammdaten", seiten: [{ href: "/stammdaten", name: "Katalog", exakt: true }, { href: "/stammdaten/ziele", name: "Soll-Umsätze" }, { href: "/einstellungen", name: "Benutzer und Sicherheit" }, { href: "/unterlagen", name: "Unterlagen" }, { href: "/datenschutz", name: "Datenschutz" }] },
+  { key: "stammdaten", name: "Stammdaten", href: "/stammdaten", seiten: [{ href: "/stammdaten", name: "Katalog", exakt: true }, { href: "/stammdaten/ziele", name: "Soll-Umsätze" }, { href: "/stammdaten/konnektoren", name: "Konnektoren" }, { href: "/einstellungen", name: "Benutzer und Sicherheit" }, { href: "/unterlagen", name: "Unterlagen" }, { href: "/datenschutz", name: "Datenschutz" }] },
 ];
 
 const passt = (pfad: string, s: Seite) => (s.exakt ? pfad === s.href : pfad === s.href || pfad.startsWith(`${s.href}/`));

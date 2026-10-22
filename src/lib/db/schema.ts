@@ -93,7 +93,7 @@ export const postausgang = pgTable("postausgang", {
   id: serial("id").primaryKey(),
   betriebId: integer("betrieb_id").references(() => betriebe.id, { onDelete: "cascade" }),
   projektId: integer("projekt_id"),
-  kanal: text("kanal").notNull(), // mail | brief | livegang
+  kanal: text("kanal").notNull(), // mail | brief | whatsapp | livegang | zahlung
   zweck: text("zweck").notNull(), // akquise_brief | angebot | rechnung | kickoff | inhalte_fehlen | livegang | schlussrechnung
   empfaenger: text("empfaenger").notNull(),
   betreff: text("betreff").notNull(),
@@ -459,3 +459,30 @@ export const sollwerte = pgTable("sollwerte", {
   geaendertVon: text("geaendert_von").notNull(),
   geaendertAm: timestamp("geaendert_am", { withTimezone: true }).defaultNow().notNull(),
 });
+
+// Alle Nachrichten über alle Kanäle an einer Stelle: E-Mail, WhatsApp, Telefon, Kundenportal, Website-Formular.
+// Grundlage für spätere Bots (WhatsApp, Telefon): Sie schreiben eingehende Nachrichten hierher,
+// Antworten entstehen nur als Entwurf im Postausgang und gehen erst nach Freigabe raus.
+export const nachrichten = pgTable(
+  "nachrichten",
+  {
+    id: serial("id").primaryKey(),
+    kanal: text("kanal").notNull(), // mail | whatsapp | telefon | portal | formular
+    richtung: text("richtung").notNull(), // ein | aus
+    betriebId: integer("betrieb_id").references(() => betriebe.id, { onDelete: "cascade" }),
+    kontaktId: integer("kontakt_id"),
+    ticketId: integer("ticket_id"),
+    postausgangId: integer("postausgang_id"),
+    externeId: text("externe_id"), // ID beim Fremddienst (verhindert Doppelte, wenn ein Webhook zweimal kommt)
+    absender: text("absender").notNull(), // E-Mail-Adresse oder Telefonnummer (E.164)
+    empfaenger: text("empfaenger"),
+    betreff: text("betreff"),
+    inhalt: text("inhalt").notNull(), // Text, bei Telefon die Zusammenfassung
+    anhaenge: jsonb("anhaenge").$type<string[]>().notNull().default([]),
+    dauerSek: integer("dauer_sek"), // nur Telefon
+    status: text("status").notNull().default("neu"), // neu | erledigt | unbekannt (kein Betrieb gefunden)
+    quelle: text("quelle").notNull(), // wer hat sie eingetragen (z. B. „API: n8n“, „WhatsApp-Webhook“)
+    zeit: timestamp("zeit", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [uniqueIndex("nachrichten_extern").on(t.kanal, t.externeId)],
+);

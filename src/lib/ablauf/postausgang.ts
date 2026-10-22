@@ -4,6 +4,7 @@ import { einreihen } from "../jobs/warteschlange";
 import { protokolliere } from "../protokoll";
 import { sendeMail } from "../adapters/mail";
 import { sendeBrief } from "../adapters/post";
+import { sendeWhatsApp, telefonNormal } from "../adapters/whatsapp";
 import { dokumentPdf } from "../docs/render";
 import { archivieren } from "../docs/archiv";
 import { pruefeText, schreibe, jsonAus } from "../adapters/ki";
@@ -11,6 +12,7 @@ import { pruefeSeite } from "../sites/qualitaet";
 import { sperrSchluessel } from "./gemeinsam";
 import { nachVersand } from "./folgen";
 import { mailSignatur } from "../recht";
+import { mailHtml } from "../docs/mailvorlage";
 
 // Der Postausgang ist die einzige Tür nach draußen.
 // Regel 1: Versendet wird nur, was den Status „freigegeben“ hat und genug Freigaben trägt.
@@ -19,7 +21,7 @@ import { mailSignatur } from "../recht";
 export type NeuerEintrag = {
   betriebId?: number | null;
   projektId?: number | null;
-  kanal: "mail" | "brief" | "livegang" | "zahlung";
+  kanal: "mail" | "brief" | "whatsapp" | "livegang" | "zahlung";
   zweck: string;
   empfaenger: string;
   betreff: string;
@@ -102,6 +104,12 @@ export async function qualitaetskontrolle(id: number): Promise<string> {
 
   if (await istGesperrt(e.betriebId)) blocker.push("Betrieb steht auf der Sperrliste.");
   if (e.kanal === "mail" && !MAIL.test(e.empfaenger.trim())) blocker.push("Keine gültige E-Mail-Adresse beim Empfänger.");
+  if (e.kanal === "whatsapp") {
+    const { whatsappFensterOffen } = await import("./nachrichten");
+    if (!telefonNormal(e.empfaenger)) blocker.push("Keine gültige Handynummer beim Empfänger.");
+    else if (!(await whatsappFensterOffen(e.empfaenger))) blocker.push("WhatsApp nur als Antwort: Der Kunde hat in den letzten 24 Stunden nicht geschrieben. Bitte per E-Mail antworten.");
+    if (e.text.length > 4000) blocker.push("Zu lang für WhatsApp (höchstens 4000 Zeichen).");
+  }
   const nurIntern = e.kanal === "livegang" || e.kanal === "zahlung";
   if (!nurIntern) hinweise.push(...pruefeText(e.text, (e.meta.erlaubteZahlen as string[]) ?? []));
   if (e.text.trim().length < 20 && !nurIntern) blocker.push("Der Text ist leer oder zu kurz.");
@@ -158,6 +166,7 @@ export async function freigeben(id: number, wer: string): Promise<"freigegeben" 
   if (e.kanal === "mail" && !MAIL.test(e.empfaenger.trim())) {
     throw new Error("Keine gültige E-Mail-Adresse beim Empfänger. Bitte unter „Text ändern“ eintragen.");
   }
+  if (e.kanal === "whatsapp" && !telefonNormal(e.empfaenger)) throw new Error("Keine gültige Handynummer beim Empfänger.");
   if (e.qkStatus === "ausstehend") throw new Error("Die Qualitätskontrolle läuft noch. In ein paar Sekunden neu laden.");
   if (e.qkStatus === "blockiert") throw new Error("Die Qualitätskontrolle hat Fehler gefunden. Erst beheben, dann freigeben.");
   const freigaben = [...e.freigaben, { name: wer, am: new Date().toISOString() }];
@@ -193,6 +202,7 @@ export async function versende(id: number): Promise<string> {
   const db = await getDb();
   const doks = e.anhaenge.length ? await db.select().from(schema.dokumente).where(inArray(schema.dokumente.id, e.anhaenge)) : [];
   let ergebnis = "";
+  let externeId: string | null = null;
   if (e.kanal === "brief") {
     const d = doks[0];
     if (!d) throw new Error("Brief ohne Dokument");
@@ -201,7 +211,13 @@ export async function versende(id: number): Promise<string> {
     // Genau die versendeten PDFs werden eingefroren und liegen danach unverändert im Kundenportal
     const anhaenge = await Promise.all(doks.map(async (d) => ({ name: `${d.titel}.pdf`, inhalt: await archivieren(d) })));
     // Pflichtangaben nach § 35a GmbHG hängen an jeder Mail
-    ergebnis = await sendeMail({ an: e.empfaenger, betreff: e.betreff, text: e.text + mailSignatur(), anhaenge });
+    // Immer zwei Fassungen: Nur-Text (mit Signatur) und HTML im Nexova-Design
+    ergebnis = await sendeMail({ an: e.empfaenger, betreff: e.betreff, text: e.text + mailSignatur(), html: mailHtml({ betreff: e.betreff, text: e.text }), anhaenge });
+  } else if (e.kanal === "whatsapp") {
+    // Das 24-Stunden-Fenster kann sich seit der Qualitätskontrolle geschlossen haben
+    const { whatsappFensterOffen } = await import("./nachrichten");
+    if (!(await whatsappFensterOffen(e.empfaenger))) throw new Error("Versand verweigert: WhatsApp-Fenster (24 Stunden) ist geschlossen. Bitte per E-Mail antworten.");
+    ({ ergebnis, externeId } = await sendeWhatsApp({ an: e.empfaenger, text: e.text }));
   } else if (e.kanal === "zahlung") {
     const { fuehreZahlungAus } = await import("./zahlung");
     ergebnis = await fuehreZahlungAus(e);
@@ -210,6 +226,7 @@ export async function versende(id: number): Promise<string> {
   }
   await db.update(schema.postausgang).set({ status: "versendet", versendetAm: new Date(), fehler: null }).where(and(eq(schema.postausgang.id, id), eq(schema.postausgang.status, "freigegeben")));
   await protokolliere("Nexova OS", `Versendet (${e.kanal}): ${e.betreff}`, e.betriebId, ergebnis);
+  await (await import("./nachrichten")).ausgangFesthalten(e, externeId);
   await nachVersand(e);
   return ergebnis;
 }

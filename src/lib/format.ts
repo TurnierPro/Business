@@ -29,9 +29,11 @@ export const ZWECK: Record<string, string> = {
   umzug_fertig: "Domain umgestellt, Kündigungshinweis",
   betreuung_ende: "Betreuung beenden (Stripe)",
   test: "Test",
+  testmail: "Testmail (Konnektor prüfen)",
+  antwort: "Antwort auf Nachricht",
 };
 
-export const KANAL: Record<string, string> = { mail: "E-Mail", brief: "Brief", livegang: "Livegang", zahlung: "Zahlung" };
+export const KANAL: Record<string, string> = { mail: "E-Mail", brief: "Brief", whatsapp: "WhatsApp", livegang: "Livegang", zahlung: "Zahlung" };
 
 export const DOKART: Record<string, string> = {
   brief: "Brief",
