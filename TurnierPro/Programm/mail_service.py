@@ -127,7 +127,7 @@ def sende_email(betreff: str, text: str, anhaenge: list[Path] | None = None,
     absender = config.get_imap_email()
     passwort = config.get_imap_passwort()
     if not absender or not passwort:
-        raise RuntimeError("Kein E-Mail-Konto hinterlegt (Konto & E-Mail).")
+        raise RuntimeError("Kein E-Mail-Konto hinterlegt (Einstellungen › Zugänge).")
     empfaenger = (empfaenger or config.get_abschluss_email()).strip()
 
     msg = EmailMessage()

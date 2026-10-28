@@ -307,7 +307,7 @@ def _verarbeite_ordner(imap, ordner: str, typ: str, verarbeitet: set[str],
     if status != "OK":
         verfuegbar = _ordner_verfuegbar(imap)
         raise FileNotFoundError(
-            f"Mail-Ordner '{ordner}' nicht gefunden. Bitte unter 'Konto & E-Mail' → "
+            f"Mail-Ordner '{ordner}' nicht gefunden. Bitte unter Einstellungen › Zugänge → "
             "'Verfügbare Ordner laden' einen dieser Ordner wählen: "
             + " · ".join(verfuegbar[:25])
         )
