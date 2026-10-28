@@ -1,14 +1,14 @@
-# Nexova OS – Hinweise für Claude
+# TurnierPro-App – Hinweise für Claude
 
 - Max lernt programmieren. Erkläre jeden Schritt kurz und in einfachen Worten, auf Deutsch.
-- Code, Kommentare und Oberfläche auf Deutsch (Bezeichner wie `betrieb`, `freigeben`, `postausgang`).
-- Grundregel: Nichts verlässt das System ohne Freigabe im Postausgang (`src/lib/ablauf/postausgang.ts`). Kein neuer Versandweg an dieser Tür vorbei.
-- Nachrichten aller Kanäle (Mail, WhatsApp, Telefon, Portal, Formular) laufen über `src/lib/ablauf/nachrichten.ts` in die Tabelle `nachrichten`. Bots liefern dort ein und schreiben nur Entwürfe. Neue Konnektoren zusätzlich in `src/lib/konnektoren.ts` eintragen.
-- Jeder Fremddienst bekommt einen Adapter in `src/lib/adapters/` mit Simulator; echt nur, wenn die Zugangsdaten gesetzt sind. In `dienste.ts` eintragen.
-- Design: dunkles Markenthema aus `brand/tokens.json` und `src/app/globals.css`; ein Messing-Knopf (`knopf haupt`) pro Ansicht; Status immer mit Wort. Gedrucktes immer hell.
-- Rechtliche Festwerte (AGB-Version, Basiszins, Fristen) nur in `src/lib/recht.ts`; Pflichtangaben § 35a aus `brand/tokens.json`.
-- Sicherheit: Abrufe an Adressen, die von außen kommen (Kunden-URLs, Eingaben), nur mit `sicheresFetch`; feste Dienst-Adressen in Adaptern (Graph, Gmail, Stripe …) dürfen normales `fetch` nutzen. Webhooks prüfen immer die Signatur. Uploads nur über `pruefeDatei`, Uploads nur über `pruefeDatei`, Weiterleitungen nur über `internerPfad` (alles in `src/lib/sicherheit.ts`). Öffentliche Formulare mit Mengenbegrenzung. Keine Inline-Skripte (CSP mit Nonce). Jeder neue Sicherheitsfund bekommt einen Test in `tests/sicherheit.test.ts`.
-- Datenschutz: Neue personenbezogene Daten → Löschfrist in `LOESCHFRISTEN` (`recht.ts`), Eintrag im Verzeichnis (`src/lib/datenschutz-doku.ts`), Datenauskunft und Löschung (`ablauf/datenschutz.ts`) ergänzen.
-- Texte für Kunden folgen `brand/stimme.md`. Keine Preise, Zahlen oder Zusagen, die nicht in den Daten stehen.
-- Schemaänderung: `src/lib/db/schema.ts` ändern, dann `npm run db:generate`, Migration mit committen.
-- Vor dem Commit: `npm run typecheck` und `npm test` (Tests brauchen Chromium, ggf. `CHROMIUM_PATH` setzen).
+- Code, Kommentare und Oberfläche auf Deutsch (Bezeichner wie `verein`, `aufgabe`, `speichere`).
+- Name immer „TurnierPro“ (zusammen, großes T und P). Du-Form in allen Texten.
+- Aufbau: Flask-Server in `TurnierPro/app.py`, Oberfläche ohne Build-Schritt in `TurnierPro/static/js/*.js` (ES-Module) und `static/css/app.css`.
+- Geteilte Daten (Vertrieb, Aufgaben, Projekte, Team …) nur über `speicher.py`/`geteilt.py` schreiben. Neue Bereiche in `SAMMLUNGEN` eintragen. Nie eine gemeinsame Datei von beiden Macs beschreiben lassen: jeder Mac schreibt nur in seine eigene Journaldatei.
+- Zugangsdaten (API-Schlüssel, Passwörter) nur lokal über `config.speichere_einstellungen` (pro Mac), nie in den geteilten Ordner und nie ins Repository.
+- Automatik (Belege ablegen, Monatsabschluss, alles mit Mailversand) nur ausführen, wenn `geteilt.ist_automatik_mac()` bzw. `darf_automatik_laufen()` zustimmt.
+- Die `Finanzübersicht_JAHR.xlsx` wird nur gelesen.
+- Design: Markenfarben Primärgrün `#1E7B4B`, Waldgrün `#1B5E3A`, Mintgrau `#E5EEE8`; Überschriften und Zahlen in Montserrat. Ein grüner Hauptknopf (`knopf haupt`) pro Ansicht, Status immer mit Wort (`pille`). Logo nur als Originaldatei `static/img/logo.png`, nie nachbauen, immer auf hellem Grund. Gedrucktes und Exporte immer hell.
+- Sicherheit: ändernde Anfragen brauchen den Kopf `X-TurnierPro: 1` (macht `api()` in `kern.js`), keine Inline-Skripte (CSP), Nutzertexte immer mit `esc()` ausgeben. Server lauscht nur auf 127.0.0.1.
+- Keine erfundenen Zahlen in der Oberfläche: Diagramme nur mit echten Daten, sonst ein leerer Zustand mit Hinweis.
+- Vor dem Commit: `python -m pytest -q tests` (aus dem Repository-Ordner) und die Oberfläche einmal im Browser prüfen.

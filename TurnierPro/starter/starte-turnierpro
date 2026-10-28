@@ -1,0 +1,52 @@
+#!/bin/bash
+# TurnierPro — Programmstart.
+#
+# Öffnet das Programmfenster (fenster.py). Der Server selbst läuft dauerhaft
+# als Hintergrunddienst (LaunchAgent de.turnierpro.app); das Fenster
+# stößt ihn an, falls er gerade nicht läuft. Es läuft immer der aktuelle Code
+# aus dem Projektordner, ohne nach jeder Änderung neu bauen zu müssen.
+
+LOG="$HOME/Library/Logs/TurnierPro.log"
+ICLOUD="$HOME/Library/Mobile Documents/com~apple~CloudDocs"
+
+meldung() {  # Titel, Text
+  /usr/bin/osascript -e "display dialog \"$2\" with title \"$1\" buttons {\"OK\"} default button 1 with icon caution" >/dev/null 2>&1
+}
+
+# Projektordner suchen. Der bevorzugte Pfad zuerst, danach eine Suche in
+# iCloud Drive — die Ordner werden regelmäßig umbenannt.
+# Zuerst den Ordner nehmen, den der Installer hinterlegt hat.
+MERKER="$HOME/Library/Application Support/TurnierPro/projektordner"
+APP_DIR=""
+[ -f "$MERKER" ] && APP_DIR="$(cat "$MERKER")"
+if [ ! -f "$APP_DIR/app.py" ]; then
+  APP_DIR=$(/usr/bin/find "$ICLOUD" -maxdepth 5 -type f -name "speicher.py" -path "*TurnierPro*" 2>/dev/null | head -1 | xargs -I{} dirname "{}")
+fi
+export TP_APP_DIR="$APP_DIR"
+
+# Python-Umgebung liegt bewusst NICHT in iCloud (Kaltstart sonst ~3 Minuten).
+PY="$HOME/Library/Application Support/TurnierPro/venv/bin/python"
+if [ ! -x "$PY" ]; then
+  meldung "TurnierPro" "Die Python-Umgebung fehlt. Bitte einmal 'TurnierPro installieren.command' im Programmordner ausführen."
+  exit 1
+fi
+
+# Fenster mit dem Python-Interpreter IN diesem App-Paket starten
+# (Contents/MacOS/TurnierPro, vom Installer kopiert). Nur so gehört das Fenster
+# im Dock zu „TurnierPro“ – mit eigenem Icon und Namen statt Python.
+PAKET="$(cd "$(dirname "$0")/../.." && pwd)"
+FENSTER="$PAKET/Contents/Resources/fenster.py"
+[ -f "$FENSTER" ] || FENSTER="$APP_DIR/fenster.py"   # Rückfall: direkt aus dem Projektordner
+EIGEN="$PAKET/Contents/MacOS/TurnierPro"
+SITE=$(echo "$HOME/Library/Application Support/TurnierPro/venv/lib/"python3.*/site-packages)
+if [ -x "$EIGEN" ] && [ -d "$SITE" ]; then
+  export PYTHONPATH="$SITE"
+  PY="$EIGEN"
+fi
+
+# Nativ auf Apple Silicon starten (die Pakete sind arm64, nicht Rosetta).
+if [ "$(/usr/sbin/sysctl -n hw.optional.arm64 2>/dev/null)" = "1" ]; then
+  exec /usr/bin/arch -arm64 "$PY" -u "$FENSTER" 2>>"$LOG"
+else
+  exec "$PY" -u "$FENSTER" 2>>"$LOG"
+fi

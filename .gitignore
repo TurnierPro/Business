@@ -1,7 +1,15 @@
-node_modules/
-.next/
-data/
+__pycache__/
+*.pyc
+.venv/
+venv/
+dist/
+build/
+.pytest_cache/
+.DS_Store
+# Zugangsdaten und Daten gehören nie ins Repository
 .env
-.env.local
-*.tsbuildinfo
-next-env.d.ts
+einstellungen.json
+app_defaults.json
+TurnierPro/output/
+TurnierPro/cache/
+TurnierPro Daten/

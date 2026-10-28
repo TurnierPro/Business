@@ -1,0 +1,106 @@
+TurnierPro – Einrichtung auf euren Macs
+=======================================
+
+Das ist unsere Unternehmens-App. Sie vereint das bisherige Artefakt (Vertrieb,
+Aufgaben, Projekte, Umsatzziel, Kalender) und die Finanz-App (Steuer &
+Monatsabschluss mit Qonto, Stripe, Postfach und KI-Prüfung) in einem Programm.
+Beide Macs arbeiten mit denselben Daten über einen geteilten iCloud-Ordner.
+
+Es sind KEINE Zugangsdaten enthalten. Die trägt jeder auf seinem Mac selbst ein.
+
+
+1. Was ihr braucht
+------------------
+- Mac mit macOS 12 oder neuer (Apple-Chip oder Intel)
+- Python 3.11 oder neuer von python.org (einmal installieren, falls noch nicht da)
+- Einen iCloud-Ordner, den ihr beide teilt (z. B. "05_TurnierPro")
+
+
+2. Ordner ablegen (nur einmal, von einem von euch)
+--------------------------------------------------
+Den Ordner "TurnierPro" in den geteilten iCloud-Ordner legen, zum Beispiel so:
+
+  05_TurnierPro/                 ← geteilter iCloud-Ordner
+  ├── 02_Finanzen/               ← wie bisher (Rechnungen, Kontoauszüge, Excel)
+  ├── TurnierPro/                ← dieser Programmordner
+  └── TurnierPro Daten/          ← legt die App beim ersten Start selbst an
+
+In "TurnierPro Daten" liegen Vertrieb, Aufgaben, Projekte und Team. Jeder Mac
+schreibt dort nur in seine eigene Datei. Darum gibt es keine iCloud-
+Konfliktkopien, auch wenn ihr gleichzeitig arbeitet.
+
+Wichtig: In iCloud für den Ordner "TurnierPro Daten" am besten "Immer auf
+diesem Gerät behalten" einstellen (Rechtsklick im Finder). Die App holt
+ausgelagerte Dateien zwar selbst nach, so geht es aber schneller.
+
+
+3. Installieren (auf JEDEM Mac einmal)
+--------------------------------------
+Rechtsklick auf "TurnierPro installieren.command" → "Öffnen" → "Öffnen" bestätigen.
+(Rechtsklick nur beim ersten Mal, weil die Datei nicht von Apple signiert ist.
+Kommt trotzdem eine Sperre: Systemeinstellungen → Datenschutz & Sicherheit →
+"Dennoch öffnen".)
+
+Das Terminal richtet in 2–3 Minuten alles ein:
+- Python-Umgebung (liegt außerhalb von iCloud, damit der Start schnell ist)
+- Hintergrunddienst (läuft dauerhaft, auch nach Neustart)
+- das Programm "TurnierPro" in Programme und im Dock
+- die alte App "TurnierPro Finanzen" wird abgemeldet und entfernt
+
+Eure bisherigen Einstellungen aus der Finanz-App (Zugänge, Finanzordner,
+schon importierte Mails) werden beim ersten Start automatisch übernommen.
+Das alte Dock-Symbol "TurnierPro Finanzen" einfach aus dem Dock ziehen.
+
+
+4. Erster Start
+---------------
+- Die App fragt: "Wer arbeitet an diesem Mac?" → Namen eintragen oder wählen.
+- Einstellungen › Zugänge prüfen (Claude, Stripe, Qonto, Postfach, Finanzordner).
+  Die Punkte zeigen, was eingerichtet ist.
+- Einstellungen › Allgemein: Unter "Verbundene Macs" seht ihr beide Macs,
+  sobald beide die App geöffnet haben.
+
+
+5. Daten aus dem bisherigen Artefakt übernehmen (einmal)
+--------------------------------------------------------
+Im alten Artefakt oben rechts "Export ▾ → Als Excel speichern" wählen, und zwar
+1. im Vertrieb (enthält Vereine und alle Kontakte),
+2. im Hauptmenü (enthält die Aufgaben),
+3. in Projekte (enthält Projekte und Kommentare).
+
+In der neuen App: Einstellungen › Import & Export → Datei wählen → "Prüfen" →
+"Übernehmen". Die drei Dateien nacheinander. Doppelte Einträge werden erkannt,
+ein zweiter Import schadet also nicht.
+
+Das Umsatzziel einmal neu eintragen (Startseite › Umsatzziel › "Ziel festlegen").
+Der aktuelle Umsatz kommt jetzt direkt aus der Finanzübersicht_JAHR.xlsx.
+
+
+6. Wichtig zu wissen
+--------------------
+- Zugangsdaten (API-Schlüssel, Passwörter) bleiben nur auf dem jeweiligen Mac
+  unter ~/Library/Application Support/TurnierPro. Sie liegen NICHT im geteilten
+  Ordner.
+- Automatik (Belege ablegen, Monatsabschluss am 3.) läuft nur auf EINEM Mac.
+  Welcher das ist, steht unter Einstellungen › Automatik und lässt sich dort
+  mit einem Klick ändern. So kommt nichts doppelt.
+- Die Finanzübersicht_JAHR.xlsx wird nur gelesen. Beträge wie bisher in der
+  Excel pflegen, die App zeigt sie an.
+- Die KI-Prüfung kostet über die Claude API ein paar Cent pro Lauf. Ergebnisse
+  werden im geteilten Ordner gespeichert, der zweite Mac zahlt also nicht noch
+  einmal.
+- Sicherung: Einstellungen › Import & Export › "Komplette Sicherung (JSON)".
+
+
+7. Schnelltasten
+----------------
+⌘K   Suche über Vereine, Aufgaben und Projekte
+N    neuen Kontakt erfassen
+Esc  Fenster schließen
+
+
+Bei Problemen
+-------------
+Protokoll: ~/Library/Logs/TurnierPro.log
+Die App neu starten: Programm beenden und wieder öffnen. Hilft das nicht,
+"TurnierPro installieren.command" noch einmal ausführen (ändert keine Daten).

@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2BA468"/>
+      <stop offset="1" stop-color="#16663F"/>
+    </linearGradient>
+    <radialGradient id="glanz" cx="0.5" cy="0.08" r="0.75">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.22"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="schatten" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="14" stdDeviation="16" flood-color="#000" flood-opacity="0.28"/>
+    </filter>
+    <filter id="ballschatten" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#0B3D24" flood-opacity="0.35"/>
+    </filter>
+  </defs>
+  <!-- macOS-Raster: Kachel 824×824 mit Rand 100, Eckenradius ~185 -->
+  <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#g)" filter="url(#schatten)"/>
+  <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#glanz)"/>
+  <g filter="url(#ballschatten)">
+    <circle cx="512" cy="512" r="238" fill="#FFFFFF"/>
+    <g fill="#1E7D4E" transform="translate(512 512) scale(23.6) translate(-12 -12)">
+      <path d="M13 5.3l1.35-.95c1.82.56 3.37 1.76 4.38 3.34l-.39 1.34-1.35.46L13 6.7V5.3zm-3.35-.95L11 5.3v1.4L7.01 9.49l-1.35-.46-.39-1.34c1.01-1.58 2.56-2.78 4.38-3.34zM7.08 17.11l-1.14.1A7.938 7.938 0 014 12c0-.12.01-.23.02-.35l1-.73 1.38.48 1.460 4.34-.78 1.37zm7.42 2.48c-.79.26-1.63.41-2.5.41s-1.71-.15-2.5-.41l-.69-1.49.64-1.1h5.11l.64 1.11-.7 1.48zM14.27 15H9.73l-1.35-4.02L12 8.44l3.63 2.54L14.27 15zm3.79 2.21l-1.14-.1-.79-1.37 1.46-4.34 1.39-.47 1 .73c.01.11.02.22.02.34 0 1.990-.73 3.81-1.94 5.21z"/>
+    </g>
+  </g>
+</svg>

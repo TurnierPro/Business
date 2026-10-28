@@ -1,1 +1,0 @@
-ALTER TABLE "projekte" ADD COLUMN "umzug" jsonb DEFAULT '{}'::jsonb NOT NULL;

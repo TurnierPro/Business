@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Vorlage: der Installer ersetzt __APP_DIR__, __PY__ und __LOG__. -->
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>de.turnierpro.app</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/usr/bin/arch</string>
+    <string>-arm64</string>
+    <string>__PY__</string>
+    <string>-u</string>
+    <string>app.py</string>
+  </array>
+  <key>WorkingDirectory</key><string>__APP_DIR__</string>
+  <key>EnvironmentVariables</key>
+  <dict><key>TP_KEIN_BROWSER</key><string>1</string></dict>
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><true/>
+  <key>ThrottleInterval</key><integer>20</integer>
+  <key>StandardOutPath</key><string>__LOG__</string>
+  <key>StandardErrorPath</key><string>__LOG__</string>
+</dict>
+</plist>
