@@ -130,3 +130,18 @@ def test_gleiche_nummer_mit_anderer_zeit_bleibt_erhalten(ordner):
     (j / "a.jsonl").write_text(zeile(1, "eins") + "\n")
     (j / "a 2.jsonl").write_text(zeile(2, "zwei") + "\n")
     assert len(Speicher(ordner, "b").liste("vereine")) == 2
+
+
+def test_kopierte_einstellungen_bekommen_eigene_kennung(monkeypatch):
+    """Zugänge per einstellungen.json übertragen: der zweite Mac darf nicht die Kennung des ersten übernehmen."""
+    import config
+
+    monkeypatch.setattr(config, "_rechnername", lambda: "mac-von-max")
+    config.speichere_einstellungen({"geraet_id": "", "geraet_rechner": "", "ich": ""})
+    max_id = config.geraet_id()
+    config.speichere_einstellungen({"ich": "max", "stripe_api_key": "rk_test"})
+    assert config.geraet_id() == max_id  # gleicher Mac: Kennung bleibt
+    monkeypatch.setattr(config, "_rechnername", lambda: "mac-von-felix")  # Datei liegt jetzt auf Felix' Mac
+    felix_id = config.geraet_id()
+    e = config.lade_einstellungen()
+    assert felix_id != max_id and e["ich"] == "" and e["stripe_api_key"] == "rk_test"

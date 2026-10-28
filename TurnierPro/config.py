@@ -147,12 +147,44 @@ def speichere_einstellungen(neu: dict) -> None:
 
 
 # ── Dieser Mac ──────────────────────────────────────────────────────────
+def _rechnername() -> str:
+    """Feste Kennung der Hardware (Mac: IOPlatformUUID), sonst der Rechnername."""
+    if sys.platform == "darwin":
+        try:
+            import re
+            import subprocess
+
+            aus = subprocess.run(["/usr/sbin/ioreg", "-rd1", "-c", "IOPlatformExpertDevice"],
+                                 capture_output=True, text=True, timeout=5).stdout
+            treffer = re.search(r'"IOPlatformUUID" = "([^"]+)"', aus)
+            if treffer:
+                return treffer.group(1)
+        except (OSError, subprocess.SubprocessError):
+            pass
+    try:
+        import socket
+
+        return socket.gethostname()
+    except OSError:
+        return ""
+
+
 def geraet_id() -> str:
-    """Feste, zufällige Kennung dieses Macs. Bestimmt die eigene Journaldatei."""
+    """Feste, zufällige Kennung dieses Macs. Bestimmt die eigene Journaldatei.
+
+    Wurde einstellungen.json von einem anderen Mac kopiert (um Zugänge zu
+    übertragen), passt der gespeicherte Rechnername nicht. Dann bekommt dieser
+    Mac eine eigene Kennung und fragt neu, wer an ihm arbeitet. Sonst würden
+    zwei Macs in dieselbe Journaldatei schreiben.
+    """
     e = lade_einstellungen()
-    if not e.get("geraet_id"):
-        speichere_einstellungen({"geraet_id": uuid.uuid4().hex[:12]})
+    rechner = _rechnername()
+    if not e.get("geraet_id") or (e.get("geraet_rechner") and rechner and e["geraet_rechner"] != rechner):
+        speichere_einstellungen({"geraet_id": uuid.uuid4().hex[:12], "geraet_rechner": rechner,
+                                 "ich": "", "geraet_name": ""})
         e = lade_einstellungen()
+    elif not e.get("geraet_rechner") and rechner:
+        speichere_einstellungen({"geraet_rechner": rechner})
     return e["geraet_id"]
 
 
