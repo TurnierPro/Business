@@ -153,7 +153,9 @@ class Speicher:
         alle: dict[tuple, dict] = {}
         for eintrag in self._dateien.values():
             for op in eintrag["ops"]:
-                alle[(op.get("g", ""), op.get("n", 0))] = op
+                # Zeit gehört zum Schlüssel: Nach einem Neustart mit ausgelagerter
+                # Datei könnte dieselbe laufende Nummer sonst zweimal vorkommen.
+                alle[(op.get("g", ""), op.get("n", 0), op.get("z", 0))] = op
         ops = sorted(alle.values(), key=lambda o: (o.get("z", 0), o.get("g", ""), o.get("n", 0)))
         self._zustand = {k: {} for k in SAMMLUNGEN}
         self._anzahl = 0
@@ -202,6 +204,8 @@ class Speicher:
             raise SpeicherFehler("Zu viele Änderungen auf einmal.")
         with self._lock:
             self.aktualisieren()
+            if self.eigene_datei.name in self._icloud_wartet:
+                raise SpeicherFehler("iCloud lädt die Daten dieses Macs gerade herunter. Bitte in einer Minute noch einmal speichern.")
             zeilen, ops, ids = [], [], []
             for a in aenderungen:
                 k, aktion = a.get("k"), a.get("a")

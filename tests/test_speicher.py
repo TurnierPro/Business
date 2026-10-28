@@ -105,3 +105,28 @@ def test_geraete_melden_sich(ordner):
     b.melde_geraet("MacBook Felix", "m2")
     namen = {g["name"]: g["dieser"] for g in a.geraete()}
     assert namen == {"MacBook Max": True, "MacBook Felix": False}
+
+
+def test_ausgelagerte_eigene_datei_kein_datenverlust(ordner):
+    """iCloud lagert die eigene Datei aus, die App startet neu: nichts darf verloren gehen."""
+    a = Speicher(ordner, "a")
+    a.schreibe([{"k": "vereine", "a": "set", "w": {"name": "SV Alt"}}])
+    j = ordner / "journal"
+    (j / "a.jsonl").rename(j / ".a.jsonl.icloud")  # so sieht eine ausgelagerte Datei aus
+    neu = Speicher(ordner, "a")
+    with pytest.raises(SpeicherFehler):
+        neu.schreibe([{"k": "vereine", "a": "set", "w": {"name": "SV Neu"}}])
+    # iCloud lädt die Datei wieder, danach geht Schreiben normal
+    (j / ".a.jsonl.icloud").rename(j / "a.jsonl")
+    neu.aktualisieren()
+    neu.schreibe([{"k": "vereine", "a": "set", "w": {"name": "SV Neu"}}])
+    assert sorted(v["name"] for v in Speicher(ordner, "c").liste("vereine")) == ["SV Alt", "SV Neu"]
+
+
+def test_gleiche_nummer_mit_anderer_zeit_bleibt_erhalten(ordner):
+    j = ordner / "journal"
+    j.mkdir(parents=True)
+    zeile = lambda z, name: json.dumps({"z": z, "g": "a", "n": 1, "k": "vereine", "a": "set", "id": name, "w": {"name": name}})  # noqa: E731
+    (j / "a.jsonl").write_text(zeile(1, "eins") + "\n")
+    (j / "a 2.jsonl").write_text(zeile(2, "zwei") + "\n")
+    assert len(Speicher(ordner, "b").liste("vereine")) == 2

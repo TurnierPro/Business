@@ -1,6 +1,6 @@
 // TurnierPro · Start der Oberfläche: Navigation, Seitenaufbau, Ereignisse, Suche, erster Start.
 import {
-  S, X, $, esc, ikon, api, ladeDaten, starteAbgleich, beiAenderung, schreibe, neu, melde, fehler,
+  S, X, $, $$, esc, ikon, api, ladeDaten, starteAbgleich, beiAenderung, schreibe, neu, melde, fehler,
   blatt, schliesse, menue, schliesseMenue, vorZeit, ichMitglied, avatar, teamSortiert, num,
   aktionen, absenden, aenderungen, eingaben,
 } from "./kern.js";
@@ -53,8 +53,10 @@ function zeichneSync() {
 }
 
 /* ── Hauptbereich ────────────────────────────────────────────────────── */
-function neuZeichnen() { zeichne(); }
-function zeichne() {
+// Neuzeichnen nach Filter, Nachladen oder Änderungen vom anderen Mac: Eingaben behalten.
+function neuZeichnen() { zeichne({ erhalten: true }); }
+let letzteRoute = "";
+function zeichne({ erhalten = false } = {}) {
   zeichneNav();
   if (!S.bereit) return;
   if (!ichMitglied() && !S.start?.ich) { willkommen(); return; }
@@ -64,9 +66,14 @@ function zeichne() {
   let v;
   try { v = modul.ansicht(unter, neuZeichnen); }
   catch (e) { console.error(e); v = { titel: b.text, html: `<div class="banner fehler">${ikon("warn")}<span>Diese Ansicht konnte nicht angezeigt werden: ${esc(e.message)}</span></div>` }; }
-  // Fokus und Eingabe merken, damit ein Neuaufbau beim Tippen nicht stört
-  const akt = document.activeElement, aid = akt && akt.id && $("#ansicht").contains(akt) ? akt.id : null;
-  const wert = aid ? akt.value : null, sel = aid && akt.selectionStart != null ? [akt.selectionStart, akt.selectionEnd] : null;
+  // Fokus und (bei erhalten) alle Eingaben merken, damit ein Neuaufbau beim Tippen nicht stört.
+  // Nach dem eigenen Speichern (erhalten = false) werden die Felder bewusst neu befüllt bzw. geleert.
+  const route = S.route.bereich + "/" + unter, gleich = route === letzteRoute;
+  letzteRoute = route;
+  const akt = document.activeElement, aid = gleich && akt && akt.id && $("#ansicht").contains(akt) ? akt.id : null;
+  const sel = aid && erhalten && akt.selectionStart != null ? [akt.selectionStart, akt.selectionEnd] : null;
+  const felder = {};
+  if (erhalten && gleich) $$("#ansicht input[id], #ansicht select[id], #ansicht textarea[id]").forEach((e) => { if (e.type !== "file") felder[e.id] = e.type === "checkbox" ? e.checked : e.value; });
   $("#titel").textContent = v.titel;
   $("#kopf-aktionen").innerHTML = v.aktionen || "";
   $("#reiter").innerHTML = reiter.map(([id, text, n]) => `<a href="#/${S.route.bereich}/${id}"${id === unter ? ' aria-current="page"' : ""}>${esc(text)}${n ? `<span class="pille rot ohne-punkt">${n}</span>` : ""}</a>`).join("");
@@ -74,7 +81,8 @@ function zeichne() {
   $("#kopf").hidden = !!v.ohneKopf;
   $("#ansicht").innerHTML = (S.icloud.length ? `<div class="banner warn">${ikon("sync")}<span class="wachsen">iCloud lädt gerade Daten vom anderen Mac. Sie erscheinen automatisch.</span></div>` : "") + v.html;
   document.title = v.titel === "Start" ? "TurnierPro" : `${v.titel} · TurnierPro`;
-  if (aid) { const n = document.getElementById(aid); if (n) { if (wert != null && n.value !== wert && n.type !== "file") n.value = wert; n.focus(); if (sel && n.setSelectionRange) try { n.setSelectionRange(sel[0], sel[1]); } catch (e) { /* egal */ } } }
+  for (const [id, w] of Object.entries(felder)) { const n = document.getElementById(id); if (n) { if (n.type === "checkbox") n.checked = w; else if (n.value !== w) n.value = w; } }
+  if (aid) { const n = document.getElementById(aid); if (n) { n.focus(); if (sel && n.setSelectionRange) try { n.setSelectionRange(sel[0], sel[1]); } catch (e) { /* egal */ } } }
   vertrieb.erneuere();
   projekte.erneuere();
 }
@@ -204,7 +212,7 @@ document.addEventListener("keydown", (e) => {
 });
 
 /* ── Start ───────────────────────────────────────────────────────────── */
-beiAenderung((art) => { if (art === "leise") zeichneSync(); else zeichne(); });
+beiAenderung((art) => { if (art === "leise") zeichneSync(); else zeichne({ erhalten: art === "fern" }); });
 (async function startApp() {
   leseRoute();
   zeichneNav();

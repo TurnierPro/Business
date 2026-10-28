@@ -387,7 +387,8 @@ def api_abschluss_jetzt():
         jahr = int(d.get("jahr") or vj)
         monat = int(d.get("monat") or vm)
         erg = auto_service.monatsabschluss(jahr, monat)
-        geteilt.merke_abschluss(jahr, monat)
+        if erg.get("email_an"):
+            geteilt.merke_abschluss(jahr, monat)
         return jsonify({"ok": True, **erg})
     except Exception as exc:  # pragma: no cover
         return jsonify({"ok": False, "fehler": f"Monatsabschluss fehlgeschlagen: {exc}"}), 500

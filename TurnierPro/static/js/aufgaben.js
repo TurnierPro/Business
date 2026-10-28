@@ -135,8 +135,9 @@ Object.assign(aktionen, {
 });
 Object.assign(absenden, {
   "aufgabe-neu": async () => {
-    const d = A.entwurf, w = d.wer === null ? S.start?.ich || "" : d.wer;
-    if (await anlegen(gv("an-titel"), w, gv("an-faellig"), gv("an-wdh"))) { A.entwurf = { titel: "", wer: w, faellig: "", wdh: "", prio: "" }; }
+    const d = A.entwurf, w = d.wer === null ? S.start?.ich || "" : d.wer, alt = { ...d };
+    A.entwurf = { titel: "", wer: w, faellig: "", wdh: "", prio: "" };  // vor dem Speichern leeren, sonst bleibt der Text stehen
+    if (!(await anlegen(gv("an-titel"), w, gv("an-faellig"), gv("an-wdh")))) A.entwurf = alt;
   },
   "aufgabe-schnell": async () => { if (await anlegen(gv("as-titel"), S.start?.ich || "", gv("as-faellig"), "")) { /* Liste lädt neu */ } },
   "aufgabe-form": async (form) => {

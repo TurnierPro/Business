@@ -133,3 +133,11 @@ def test_export_und_sicherung_rundreise(sp, tmp_path):
     erg = import_service.importiere(neu, "sicherung", "s.json", export_service.sicherung(sp), ausfuehren=True)
     assert erg["geschrieben"] == len(sp.liste("vereine")) + len(sp.liste("aktivitaeten")) + len(sp.liste("team"))
     assert {v["id"] for v in neu.liste("vereine")} == {v["id"] for v in sp.liste("vereine")}
+
+
+def test_excel_export_ohne_formeln(sp):
+    sp.schreibe([{"k": "aufgaben", "a": "set", "w": {"titel": "=> Rückruf Kassenwart", "notizen": '=HYPERLINK("http://x")'}}])
+    wb = openpyxl.load_workbook(io.BytesIO(export_service.excel(sp, "aufgaben")))
+    werte = [c.value for row in wb["Aufgaben"].iter_rows() for c in row if c.value]
+    assert "=> Rückruf Kassenwart" in werte
+    assert all(c.data_type != "f" for row in wb["Aufgaben"].iter_rows() for c in row)

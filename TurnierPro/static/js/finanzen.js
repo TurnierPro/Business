@@ -222,7 +222,7 @@ function abschlussAnsicht(neuZeichnen) {
   h += `<div class="abstand"></div><section class="karte"><div class="karte-kopf"><h2>Beleg ablegen</h2><span class="unter">Wird im passenden Monatsordner gespeichert</span></div>
     <form id="beleg-form" class="upload"><div class="segment" role="group" aria-label="Art"><button type="button" data-a="belegTyp" data-v="ausgaben" aria-pressed="${(F.belegTyp || "ausgaben") === "ausgaben"}">Ausgabe</button><button type="button" data-a="belegTyp" data-v="einnahmen" aria-pressed="${F.belegTyp === "einnahmen"}">Einnahme</button></div>
       <select id="beleg-monat" aria-label="Monat">${MONATE.map((m, i) => `<option value="${i + 1}"${i + 1 === (F.modus === "monat" ? F.monat : MONAT) ? " selected" : ""}>${m} ${F.abschlussJahr}</option>`).join("")}</select>
-      <label class="datei-knopf" id="beleg-label">${ikon("upload")}<span id="beleg-text">PDF oder Foto wählen</span><input type="file" id="beleg-datei" accept=".pdf,.png,.jpg,.jpeg,.webp,.heic,.txt" hidden></label>
+      <label class="datei-knopf${F.belegDatei ? " gewaehlt" : ""}" id="beleg-label">${ikon("upload")}<span id="beleg-text">${F.belegDatei ? esc(F.belegDatei.name) : "PDF oder Foto wählen"}</span><input type="file" id="beleg-datei" accept=".pdf,.png,.jpg,.jpeg,.webp,.heic,.txt" hidden></label>
       <button class="knopf" type="submit">${ikon("plus")}Ablegen</button></form></section>`;
   return { titel: "Finanzen", aktionen: kopf, html: h };
 }
@@ -317,16 +317,16 @@ Object.assign(absenden, {
     try { await schreibe([{ k: "einstellungen", a: zielDoc(jahr) ? "upd" : "set", id: "ziel-" + jahr, w }]); schliesse(); melde("Umsatzziel gespeichert"); } catch (e) { fehler(e); }
   },
   "beleg-form": async () => {
-    const datei = $("#beleg-datei").files?.[0];
+    const datei = F.belegDatei;
     if (!datei) return melde("Bitte zuerst einen Beleg auswählen.", "fehler");
     const fd = new FormData();
     fd.append("datei", datei); fd.append("jahr", F.abschlussJahr); fd.append("typ", F.belegTyp || "ausgaben"); fd.append("monat", gv("beleg-monat"));
-    try { const r = await api("/api/beleg-upload", { method: "POST", body: fd }); melde(`Beleg „${r.datei}“ abgelegt`); $("#beleg-datei").value = ""; $("#beleg-text").textContent = "PDF oder Foto wählen"; $("#beleg-label").classList.remove("gewaehlt"); }
+    try { const r = await api("/api/beleg-upload", { method: "POST", body: fd }); melde(`Beleg „${r.datei}“ abgelegt`); F.belegDatei = null; $("#beleg-datei").value = ""; $("#beleg-text").textContent = "PDF oder Foto wählen"; $("#beleg-label").classList.remove("gewaehlt"); }
     catch (e) { fehler(e); }
   },
 });
 Object.assign(aenderungen, {
   "fin-jahr": (el, neuZeichnen) => { F.jahr = Number(el.value); merk.set("f_jahr", F.jahr); F.zeitraum = { a: 1, b: 12 }; ladeFinanzen(F.jahr).then(neuZeichnen); },
   "ab-jahr": (el, neuZeichnen) => { F.abschlussJahr = Number(el.value); ladeStatus(neuZeichnen); },
-  "beleg-datei": (el) => { const f = el.files?.[0]; $("#beleg-text").textContent = f ? f.name : "PDF oder Foto wählen"; $("#beleg-label").classList.toggle("gewaehlt", !!f); },
+  "beleg-datei": (el) => { const f = el.files?.[0]; F.belegDatei = f || null; $("#beleg-text").textContent = f ? f.name : "PDF oder Foto wählen"; $("#beleg-label").classList.toggle("gewaehlt", !!f); },
 });

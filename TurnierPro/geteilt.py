@@ -63,19 +63,32 @@ def darf_automatik_laufen(warten: float = 120.0) -> bool:
         return b.get("geraet") == config.geraet_id()
     if not (config.get_stripe_key() or config.get_imap_email() or config.get_qonto_login()):
         return False
+    if speicher().icloud_wartet():
+        return False  # erst warten, bis iCloud alles geladen hat (vielleicht gibt es schon einen Automatik-Mac)
     automatik_uebernehmen()
     time.sleep(warten)
     return ist_automatik_mac()
 
 
 def letzter_abschluss() -> str:
-    doc = speicher().hole("einstellungen", "automatik") or {}
-    return doc.get("letzterAbschluss") or config.lade_einstellungen().get("letzter_monatsabschluss") or ""
+    """Letzter erfolgreich versendeter Monatsabschluss, z. B. "2026-09".
+
+    Liegt in einem eigenen Dokument, damit ein Wechsel des Automatik-Macs das
+    Datum nicht überschreibt. Der größte bekannte Wert gewinnt.
+    """
+    sp = speicher()
+    werte = [(sp.hole("einstellungen", "abschluss") or {}).get("letzter") or "",
+             (sp.hole("einstellungen", "automatik") or {}).get("letzterAbschluss") or "",
+             config.lade_einstellungen().get("letzter_monatsabschluss") or ""]
+    return max(werte)
 
 
 def merke_abschluss(jahr: int, monat: int) -> None:
+    """Merkt einen erfolgreichen Abschluss. Das Datum läuft nur vorwärts."""
     wert = f"{jahr}-{monat:02d}"
+    if wert <= letzter_abschluss():
+        return
     config.speichere_einstellungen({"letzter_monatsabschluss": wert})
     sp = speicher()
-    aktion = "upd" if sp.hole("einstellungen", "automatik") else "set"
-    sp.schreibe([{"k": "einstellungen", "a": aktion, "id": "automatik", "w": {"letzterAbschluss": wert}}], von=ich())
+    aktion = "upd" if sp.hole("einstellungen", "abschluss") else "set"
+    sp.schreibe([{"k": "einstellungen", "a": aktion, "id": "abschluss", "w": {"letzter": wert}}], von=ich())

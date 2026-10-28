@@ -102,9 +102,10 @@ Object.assign(absenden, {
   "projekt-neu": async () => {
     const titel = gv("pn-titel");
     if (!titel) return melde("Bitte zuerst einen Titel eintragen", "fehler");
-    const wer = gv("pn-wer");
-    try { await neu("projekte", { titel, notizen: "", status: gv("pn-status") || "Idee", prio: gv("pn-prio") || "normal", verantwortlich: wer ? [wer] : [] }); P.entwurf = { titel: "", status: gv("pn-status") || "Idee", prio: "normal" }; melde("Hinzugefügt"); }
-    catch (x) { fehler(x); }
+    const wer = gv("pn-wer"), status = gv("pn-status") || "Idee", prio = gv("pn-prio") || "normal";
+    P.entwurf = { titel: "", status, prio: "normal" };
+    try { await neu("projekte", { titel, notizen: "", status, prio, verantwortlich: wer ? [wer] : [] }); melde("Hinzugefügt"); }
+    catch (x) { P.entwurf.titel = titel; fehler(x); }
   },
   "projekt-form": async (form) => {
     const titel = gv("pe-titel");

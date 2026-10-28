@@ -142,6 +142,8 @@ def excel(sp: Speicher, bereich: str) -> bytes:
             for i, zeile in enumerate(zeilen):
                 for j, w in enumerate(zeile, 1):
                     c = ws.cell(r, j, w)
+                    if isinstance(w, str) and w[:1] in ("=", "+", "-", "@"):
+                        c.data_type = "s"  # Text wie „=> Rückruf“ nie als Formel speichern
                     c.alignment = Alignment(vertical="top", wrap_text=isinstance(w, str) and len(w) > 50)
                     if isinstance(w, float):
                         c.number_format = '#,##0.00 "€"'

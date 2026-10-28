@@ -85,7 +85,8 @@ export async function api(pfad, opts = {}) {
 const beobachter = [];
 export const beiAenderung = (fn) => beobachter.push(fn);
 
-export async function ladeDaten() {
+/** art "fern": Änderung kam vom anderen Mac → Eingaben auf dem Bildschirm behalten */
+export async function ladeDaten(art = "") {
   const r = await api("/api/daten");
   S.d = { ...S.d, ...r.daten };
   S.stand = r.stand;
@@ -94,7 +95,7 @@ export async function ladeDaten() {
   S.bereit = true;
   S.fehler = "";
   baueIndex();
-  beobachter.forEach((fn) => fn());
+  beobachter.forEach((fn) => fn(art));
 }
 
 /** Änderungen schreiben. Beispiel: schreibe([{k:"aufgaben", a:"set", w:{titel:"…"}}]) */
@@ -117,7 +118,7 @@ export function starteAbgleich() {
       const r = await api("/api/daten/stand");
       S.icloud = r.icloud_wartet || [];
       S.fehler = "";
-      if (r.stand !== S.stand) await ladeDaten();
+      if (r.stand !== S.stand) await ladeDaten("fern");
       else beobachter.forEach((fn) => fn("leise"));
     } catch (e) {
       S.fehler = e.message;

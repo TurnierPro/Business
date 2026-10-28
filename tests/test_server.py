@@ -58,3 +58,13 @@ def test_download_ohne_pfad_tricks(client):
 def test_automatik_uebernehmen(client):
     r = client.post("/api/automatik/uebernehmen", json={}, headers=KOPF).get_json()
     assert r["dieser"] is True and r["besitzer"]["geraet"]
+
+
+def test_abschluss_datum_nur_vorwaerts_und_bleibt_bei_besitzerwechsel(client):
+    import geteilt
+
+    geteilt.merke_abschluss(2026, 9)
+    geteilt.merke_abschluss(2026, 7)  # älterer Monat darf nichts zurückdrehen
+    assert geteilt.letzter_abschluss() == "2026-09"
+    geteilt.automatik_uebernehmen()   # Besitzerwechsel überschreibt das Datum nicht
+    assert geteilt.letzter_abschluss() == "2026-09"

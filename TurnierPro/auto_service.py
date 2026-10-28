@@ -251,20 +251,29 @@ def _abschluss_loop():
     # Prüft jede Minute; läuft der Rechner um 0:15 nicht, wird der Abschluss
     # beim nächsten App-Start nachgeholt (kein Monat geht verloren).
     time.sleep(45)
+    naechster_versuch = 0.0
     while True:
+        if time.time() < naechster_versuch:
+            time.sleep(60)
+            continue
         try:
             faellig = _abschluss_faellig()
         except Exception:  # pragma: no cover  (z. B. iCloud-Ordner kurz nicht erreichbar)
             faellig = None
         if faellig:
+            erg = {}
             try:
-                monatsabschluss(*faellig)
+                erg = monatsabschluss(*faellig)
             except Exception:  # pragma: no cover
                 pass
-            try:
-                geteilt.merke_abschluss(*faellig)
-            except Exception:  # pragma: no cover
-                pass
+            if erg.get("email_an"):
+                try:
+                    geteilt.merke_abschluss(*faellig)
+                except Exception:  # pragma: no cover
+                    pass
+            else:
+                # Mail ging nicht raus (z. B. noch kein Netz): in einer Stunde erneut
+                naechster_versuch = time.time() + 3600
         time.sleep(60)
 
 
