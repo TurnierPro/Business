@@ -13,7 +13,9 @@
 # ═══════════════════════════════════════════════════════════════════════════
 
 set -u
-APP_DIR="$(cd "$(dirname "$0")" && pwd)"
+BASIS="$(cd "$(dirname "$0")" && pwd)"
+APP_DIR="$BASIS/Programm"   # der eigentliche Programmcode liegt im Unterordner
+[ -f "$APP_DIR/app.py" ] || { echo "Der Ordner \"Programm\" fehlt neben diesem Installer."; read -r; exit 1; }
 VENV="$HOME/Library/Application Support/TurnierPro/venv"
 ZIEL_APP="/Applications/TurnierPro.app"
 DIENST="de.turnierpro.app"
@@ -22,8 +24,8 @@ LOG="$HOME/Library/Logs/TurnierPro.log"
 ALT_DIENST="de.turnierpro.finanzen"
 
 echo "── TurnierPro · Installation ──────────────────────────────────"
-echo "Programmordner: $APP_DIR"
-echo "Daten (geteilt): $(dirname "$APP_DIR")/TurnierPro Daten"
+echo "Programmordner: $BASIS"
+echo "Daten (geteilt): neben dem Programmordner (Ordner mit „Daten“ im Namen)"
 echo ""
 
 abbruch() { echo ""; echo "❌ $1"; echo ""; echo "Fenster kann geschlossen werden."; read -r; exit 1; }

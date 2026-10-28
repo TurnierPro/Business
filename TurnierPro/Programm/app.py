@@ -11,6 +11,11 @@ Finanzübersicht_JAHR.xlsx.
 
 from __future__ import annotations
 
+import sys
+
+# Keine __pycache__-Ordner im geteilten iCloud-Ordner anlegen
+sys.dont_write_bytecode = True
+
 import io
 import os
 import socket

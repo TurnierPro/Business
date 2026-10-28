@@ -14,7 +14,7 @@
   </array>
   <key>WorkingDirectory</key><string>__APP_DIR__</string>
   <key>EnvironmentVariables</key>
-  <dict><key>TP_KEIN_BROWSER</key><string>1</string></dict>
+  <dict><key>TP_KEIN_BROWSER</key><string>1</string><key>PYTHONDONTWRITEBYTECODE</key><string>1</string></dict>
   <key>RunAtLoad</key><true/>
   <key>KeepAlive</key><true/>
   <key>ThrottleInterval</key><integer>20</integer>

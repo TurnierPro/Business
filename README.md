@@ -14,24 +14,26 @@ Daten.
 | **Monatsabschluss** | Belege aus Postfach, Stripe und Qonto holen, KI-Prüfung, Bericht + Belegpaket + Mail-Entwurf für den Steuerberater | Finanz-App |
 | **Einstellungen** | Ich/Team, Datenordner, Zugänge, Automatik, Import aus dem Artefakt, Export (PDF, Excel, Sicherung) | neu |
 
-Einrichtung auf den Macs: siehe [`TurnierPro/ANLEITUNG.txt`](TurnierPro/ANLEITUNG.txt).
+Einrichtung auf den Macs: siehe [`TurnierPro/Programm/ANLEITUNG.txt`](TurnierPro/Programm/ANLEITUNG.txt).
 
 ## Wie zwei Macs zusammenarbeiten
 
 ```
-05_TurnierPro/  (geteilter iCloud-Ordner)
-├── TurnierPro/          Programm (gleiche Version für beide)
-├── TurnierPro Daten/
+02_Finanzen/  (geteilter iCloud-Ordner)
+├── 03_TurnierPro App/   sichtbar nur „TurnierPro installieren.command“,
+│   └── Programm/        der Code (gleiche Version für beide)
+├── 04_TurnierPro App - Daten/   (Name frei, muss „Daten“ enthalten)
 │   ├── journal/<mac>.jsonl   jede Änderung als Zeile, je Mac eine eigene Datei
 │   ├── geraete/<mac>.json    welcher Mac zuletzt aktiv war
 │   └── cache/                KI-Prüfungen (geteilt, damit nichts doppelt kostet)
-└── 02_Finanzen/         Rechnungen, Kontoauszüge, Finanzübersicht_JAHR.xlsx
+├── 01_Rechnungen/, 02_Kontoauszüge/
+└── Finanzübersicht_JAHR.xlsx
 ```
 
 * Jeder Mac schreibt nur in **seine eigene** Journaldatei. iCloud muss nie zwei
   Versionen derselben Datei zusammenführen, darum gibt es keine Konfliktkopien.
 * Beim Lesen werden die Zeilen aller Macs nach Zeit sortiert und angewendet
-  (`TurnierPro/speicher.py`). Ändern zwei Leute verschiedene Felder desselben
+  (`TurnierPro/Programm/speicher.py`). Ändern zwei Leute verschiedene Felder desselben
   Vereins, bleiben beide Änderungen erhalten. Beim selben Feld gewinnt die
   spätere.
 * Die Oberfläche fragt alle 4 Sekunden nach, ob sich etwas geändert hat. Was der
@@ -44,6 +46,8 @@ Einrichtung auf den Macs: siehe [`TurnierPro/ANLEITUNG.txt`](TurnierPro/ANLEITUN
 
 ```
 TurnierPro/
+├── TurnierPro installieren.command   einziger sichtbarer Eintrag für Max und Felix
+└── Programm/
 ├── app.py               Flask-Server (localhost:8000), alle Schnittstellen
 ├── speicher.py          geteilter Speicher (Journal pro Mac)
 ├── geteilt.py           Zugriff auf den Speicher, Automatik-Mac
@@ -64,7 +68,7 @@ tests/                   pytest: Speicher, Import/Export, Server
 ## Entwickeln und testen
 
 ```bash
-cd TurnierPro
+cd TurnierPro/Programm
 python3 -m venv .venv && .venv/bin/pip install -r requirements.txt pytest
 ```
 
@@ -73,7 +77,7 @@ TP_DATEN_DIR=/tmp/tp-daten TP_LOKAL_DIR=/tmp/tp-lokal TP_KEINE_AUTOMATIK=1 .venv
 ```
 
 ```bash
-cd .. && TurnierPro/.venv/bin/python -m pytest -q tests
+cd ../.. && TurnierPro/Programm/.venv/bin/python -m pytest -q tests
 ```
 
 Umgebungsvariablen für Tests und Entwicklung: `TP_DATEN_DIR` (geteilter

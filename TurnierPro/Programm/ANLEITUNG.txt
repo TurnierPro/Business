@@ -18,18 +18,23 @@ Es sind KEINE Zugangsdaten enthalten. Die trägt jeder auf seinem Mac selbst ein
 
 2. Ordner ablegen (nur einmal, von einem von euch)
 --------------------------------------------------
-Den Ordner "TurnierPro" in den geteilten iCloud-Ordner legen, zum Beispiel so:
+Den Programmordner in den geteilten Finanzen-Ordner legen, zum Beispiel so:
 
-  05_TurnierPro/                 ← geteilter iCloud-Ordner
-  ├── 02_Finanzen/               ← wie bisher (Rechnungen, Kontoauszüge, Excel)
-  ├── TurnierPro/                ← dieser Programmordner
-  └── TurnierPro Daten/          ← legt die App beim ersten Start selbst an
+  02_Finanzen/                        ← geteilter iCloud-Ordner
+  ├── 01_Rechnungen/, 02_Kontoauszüge/, Finanzübersicht_2026.xlsx
+  ├── 03_TurnierPro App/              ← Programmordner
+  │   ├── TurnierPro installieren.command   ← das Einzige zum Klicken
+  │   └── Programm/                   ← der Code, nicht anfassen
+  └── 04_TurnierPro App - Daten/      ← eure Daten (legt die App selbst an)
 
-In "TurnierPro Daten" liegen Vertrieb, Aufgaben, Projekte und Team. Jeder Mac
+Der Datenordner darf beliebig heißen, solange "Daten" im Namen vorkommt.
+Er muss neben dem Programmordner liegen, nie darin.
+
+Im Datenordner liegen Vertrieb, Aufgaben, Projekte und Team. Jeder Mac
 schreibt dort nur in seine eigene Datei. Darum gibt es keine iCloud-
 Konfliktkopien, auch wenn ihr gleichzeitig arbeitet.
 
-Wichtig: In iCloud für den Ordner "TurnierPro Daten" am besten "Immer auf
+Wichtig: In iCloud für den Datenordner am besten "Immer auf
 diesem Gerät behalten" einstellen (Rechtsklick im Finder). Die App holt
 ausgelagerte Dateien zwar selbst nach, so geht es aber schneller.
 

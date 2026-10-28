@@ -3,7 +3,7 @@
 - Max lernt programmieren. Erkläre jeden Schritt kurz und in einfachen Worten, auf Deutsch.
 - Code, Kommentare und Oberfläche auf Deutsch (Bezeichner wie `verein`, `aufgabe`, `speichere`).
 - Name immer „TurnierPro“ (zusammen, großes T und P). Du-Form in allen Texten.
-- Aufbau: Flask-Server in `TurnierPro/app.py`, Oberfläche ohne Build-Schritt in `TurnierPro/static/js/*.js` (ES-Module) und `static/css/app.css`.
+- Aufbau: Flask-Server in `TurnierPro/Programm/app.py`, Oberfläche ohne Build-Schritt in `TurnierPro/Programm/static/js/*.js` (ES-Module) und `static/css/app.css`. Im Ordner `TurnierPro/` liegt sichtbar nur der Installer, alles andere gehört in `Programm/`.
 - Geteilte Daten (Vertrieb, Aufgaben, Projekte, Team …) nur über `speicher.py`/`geteilt.py` schreiben. Neue Bereiche in `SAMMLUNGEN` eintragen. Nie eine gemeinsame Datei von beiden Macs beschreiben lassen: jeder Mac schreibt nur in seine eigene Journaldatei.
 - Zugangsdaten (API-Schlüssel, Passwörter) nur lokal über `config.speichere_einstellungen` (pro Mac), nie in den geteilten Ordner und nie ins Repository.
 - Automatik (Belege ablegen, Monatsabschluss, alles mit Mailversand) nur ausführen, wenn `geteilt.ist_automatik_mac()` bzw. `darf_automatik_laufen()` zustimmt.

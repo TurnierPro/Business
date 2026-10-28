@@ -25,6 +25,8 @@ from dotenv import load_dotenv
 
 # ── Verzeichnisse (Entwicklung vs. gebündelte .app) ─────────────────────
 APP_DIR = Path(__file__).resolve().parent
+# Sichtbarer Programmordner (z. B. „03_TurnierPro App“): der Code liegt darin im Unterordner „Programm“
+BASIS_DIR = APP_DIR.parent if APP_DIR.name == "Programm" else APP_DIR
 IST_GEPACKT = getattr(sys, "frozen", False)
 RESSOURCEN_DIR = Path(getattr(sys, "_MEIPASS", APP_DIR)) if IST_GEPACKT else APP_DIR
 
@@ -216,7 +218,7 @@ def get_daten_dir() -> Path:
         # daher direkt im iCloud Drive einen gemeinsamen Ordner verwenden.
         ordner = Path.home() / "Library" / "Mobile Documents" / "com~apple~CloudDocs" / "TurnierPro Daten"
     else:
-        ordner = _finde_datenordner(APP_DIR.parent)
+        ordner = _finde_datenordner(BASIS_DIR.parent)
     ordner.mkdir(parents=True, exist_ok=True)
     return ordner
 
@@ -279,11 +281,11 @@ def get_finanzen_root() -> Path:
         if p.is_dir() or IST_GEPACKT:
             return p
     # Liegt der Programmordner neben „02_Finanzen“, ist das der Finanzordner.
-    for kandidat in (APP_DIR.parent / "02_Finanzen", APP_DIR.parent):
+    for kandidat in (BASIS_DIR.parent / "02_Finanzen", BASIS_DIR.parent):
         if (kandidat / "02_Kontoauszüge").is_dir() or list(kandidat.glob("Finanz*bersicht_*.xlsx")):
             return kandidat
     # In der gebündelten App gibt es keinen sinnvollen Default → Nutzer setzt ihn.
-    return LOKAL_DIR if IST_GEPACKT else APP_DIR.parent
+    return LOKAL_DIR if IST_GEPACKT else BASIS_DIR.parent
 
 
 def lade_defaults() -> dict:
