@@ -73,7 +73,7 @@ def konten() -> list[dict]:
     """Liste der Qonto-Bankkonten (id, iban, name, saldo)."""
     if not konfiguriert():
         raise RuntimeError(
-            "Qonto nicht konfiguriert. Bitte API-Login und Secret links unter "
+            "Qonto nicht konfiguriert. Bitte API-Login und Secret unter "
             "Einstellungen › Zugänge eintragen (aus developers.qonto.com)."
         )
     org = _get("/organization").get("organization", {})
@@ -122,7 +122,7 @@ def kontoauszug_ablegen(jahr: int, monat: int, konto_id: str | None = None) -> d
     """
     if not konfiguriert():
         raise RuntimeError(
-            "Qonto nicht konfiguriert. Bitte API-Login und Secret links unter "
+            "Qonto nicht konfiguriert. Bitte API-Login und Secret unter "
             "Einstellungen › Zugänge eintragen (aus developers.qonto.com)."
         )
     ks = konten()
@@ -212,7 +212,7 @@ def rechnungen_ablegen(jahr: int, monat: int, konto_id: str | None = None) -> di
     """
     if not konfiguriert():
         raise RuntimeError(
-            "Qonto nicht konfiguriert. Bitte API-Login und Secret links unter "
+            "Qonto nicht konfiguriert. Bitte API-Login und Secret unter "
             "Einstellungen › Zugänge eintragen."
         )
     ziel_ordner = config.eingangsrechnungen_ordner(jahr, monat, anlegen=True)
