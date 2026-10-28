@@ -29,6 +29,10 @@ _RELEVANT_RE = _re.compile(
     r"|billing|subscription|abonnement|verl(?:ä|ae)ngert|renew|bestellbest(?:ä|ae)tigung|order\s+confirmation",
     _re.I)
 # Absender, die fast immer Rechnungen schicken (z. B. billing@zoom.us)
+# Ein Betrag im Mail-Text (z. B. „15,99 EUR“, „€ 25.00“, „Betrag: 30,00“)
+_BETRAG_RE = _re.compile(r"\d+[.,]\d{2}\s*(?:EUR|€)|(?:EUR|€)\s*\d+[.,]\d{2}|(?:betrag|amount|total|summe)\D{0,20}\d+[.,]\d{2}", _re.I)
+# Anhang, der nach echter Rechnung aussieht (dann reicht der Anhang)
+_RECHNUNGS_ANHANG_RE = _re.compile(r"rechnung|invoice|receipt|beleg|quittung|faktura|\bRE[-_]?\d", _re.I)
 _RECHNUNGS_ABSENDER_RE = _re.compile(r"billing|invoice|rechnung|receipt|accounting|buchhaltung|payments?@", _re.I)
 # Betreff deutet auf eigene Ausgangsseite (Servicegebühr/Auszahlung) hin
 _AUSGANG_RE = _re.compile(r"auszahlung|servicegeb|payout", _re.I)
@@ -326,7 +330,7 @@ def _vormonat(jahr: int, monat: int) -> tuple[int, int]:
 
 def _verarbeite_ordner(imap, ordner: str, typ: str, verarbeitet: set[str],
                        jahr: int | None = None, monate: list[int] | None = None,
-                       nur_relevante: bool = False) -> dict:
+                       nur_relevante: bool = False, neu_pruefen: bool = False) -> dict:
     ergebnis = {"ordner": ordner, "typ": typ, "abgelegt": [], "uebersprungen": 0, "fehler": [],
                 "nicht_uebernommen": []}
 
@@ -361,7 +365,7 @@ def _verarbeite_ordner(imap, ordner: str, typ: str, verarbeitet: set[str],
             continue
         msg = email.message_from_bytes(roh[0][1])
         mid = msg.get("Message-ID", "").strip() or f"{ordner}:{num.decode()}"
-        if mid in verarbeitet:
+        if mid in verarbeitet and not neu_pruefen:
             ergebnis["uebersprungen"] += 1
             continue
 
@@ -396,6 +400,7 @@ def _verarbeite_ordner(imap, ordner: str, typ: str, verarbeitet: set[str],
             mail_typ = "einnahmen" if _AUSGANG_RE.search(betreff_roh or "") else "ausgaben"
 
         anhang_abgelegt = False
+        anhang_ist_rechnung = False
         for part in msg.walk():
             if part.get_content_maintype() == "multipart":
                 continue
@@ -410,14 +415,19 @@ def _verarbeite_ordner(imap, ordner: str, typ: str, verarbeitet: set[str],
             daten_bytes = part.get_payload(decode=True) or b""
             if len(daten_bytes) < MIN_GROESSE:
                 continue
+            if _RECHNUNGS_ANHANG_RE.search(dateiname):
+                anhang_ist_rechnung = True
             # Sprechende Benennung: Datum_Anbieter_Originalname (schnelle Zuordnung)
             dateiname = _sprechender_name(dt, _anbieter(msg), dateiname)
             try:
                 res = beleg_service.speichere_beleg(mail_jahr, mail_typ, mail_monat, dateiname, daten_bytes)
-                ergebnis["abgelegt"].append(
-                    {"datei": res["datei"], "monat": mail_monat, "jahr": mail_jahr,
-                     "betreff": _dekodiere(msg.get("Subject"))[:80]}
-                )
+                if res.get("neu", True):
+                    ergebnis["abgelegt"].append(
+                        {"datei": res["datei"], "monat": mail_monat, "jahr": mail_jahr,
+                         "betreff": _dekodiere(msg.get("Subject"))[:80]}
+                    )
+                else:
+                    ergebnis["uebersprungen"] += 1  # lag schon im Ordner
                 anhang_abgelegt = True
             except Exception as exc:  # pragma: no cover
                 ergebnis["fehler"].append(f"{dateiname}: {exc}")
@@ -434,14 +444,22 @@ def _verarbeite_ordner(imap, ordner: str, typ: str, verarbeitet: set[str],
                         "Die Rechnung kommt meist separat oder liegt im Kundenkonto des Anbieters.")
             continue
         relevant = _RELEVANT_RE.search(betreff or "") or _RECHNUNGS_ABSENDER_RE.search(absender)
+        # Zahlungsdaten stehen im Mail-Text, der Anhang ist nur Beiwerk (z. B. Zoom:
+        # Anhang = Bestellung/Abo-Bedingungen, Betrag steht in der Mail) → Mail zusätzlich ablegen
+        mail_zusaetzlich = False
+        if anhang_abgelegt and not anhang_ist_rechnung and relevant:
+            koerper, _html = _email_koerper(msg)
+            mail_zusaetzlich = bool(_BETRAG_RE.search(_re.sub(r"<[^>]+>", " ", koerper)))
         if not anhang_abgelegt and not relevant:
             # Im Rechnungsordner, aber weder Anhang noch Rechnungs-Hinweis
             merke_grund(msg, betreff, dt, "Kein PDF-Anhang und kein Hinweis auf eine Rechnung im Betreff.")
-        if not anhang_abgelegt and relevant:
+        if (not anhang_abgelegt or mail_zusaetzlich) and relevant:
             ordner_ziel = (config.eingangsrechnungen_ordner(mail_jahr, mail_monat, anlegen=True)
                            if mail_typ == "ausgaben"
                            else config.ausgangsrechnungen_ordner(mail_jahr, mail_monat, anlegen=True))
             dateiname = _sprechender_name(dt, _anbieter(msg), f"{_sicher(betreff)}.pdf")
+            if mail_zusaetzlich:
+                dateiname = dateiname[:-4] + "_Mail.pdf"
             ziel = ordner_ziel / dateiname
             if ziel.exists():
                 ergebnis["uebersprungen"] += 1
@@ -483,7 +501,9 @@ def liste_ordner() -> list[str]:
             pass
 
 
-def importiere(jahr: int | None = None, monate: list[int] | None = None) -> dict:
+def importiere(jahr: int | None = None, monate: list[int] | None = None, neu_pruefen: bool = False) -> dict:
+    """neu_pruefen: auch schon früher abgearbeitete Mails des Zeitraums erneut ansehen
+    (doppelte Dateien entstehen nicht: gleiche Inhalte und vorhandene Mail-PDFs werden erkannt)."""
     if not config.get_imap_email() or not config.get_imap_passwort():
         raise RuntimeError(_NICHT_KONFIGURIERT)
 
@@ -500,11 +520,11 @@ def importiere(jahr: int | None = None, monate: list[int] | None = None) -> dict
         for ordner, typ in ordner_liste:
             if not ordner:
                 continue
-            berichte.append(_verarbeite_ordner(imap, ordner, typ, verarbeitet, jahr, monate))
+            berichte.append(_verarbeite_ordner(imap, ordner, typ, verarbeitet, jahr, monate, neu_pruefen=neu_pruefen))
         # Zusätzlich den Posteingang scannen: Rechnungs-/Beleg-Mails, die (noch)
         # nicht einsortiert wurden (z. B. IONOS direkt in der INBOX).
         berichte.append(_verarbeite_ordner(
-            imap, "INBOX", "auto", verarbeitet, jahr, monate, nur_relevante=True))
+            imap, "INBOX", "auto", verarbeitet, jahr, monate, nur_relevante=True, neu_pruefen=neu_pruefen))
     except imaplib.IMAP4.error as exc:
         raise RuntimeError(
             "Anmeldung bei iCloud Mail fehlgeschlagen. Stimmt die Adresse und das "

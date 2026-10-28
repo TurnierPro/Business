@@ -73,3 +73,27 @@ def test_anderer_monat_wird_nicht_angefasst(finanzen):
     imap = FakeImap([mail("Ihre Zoom-Rechnung", "Zoom <billing@zoom.us>", pdf=True)])
     erg = m._verarbeite_ordner(imap, "Rechnungen Eingang", "ausgaben", set(), 2026, [10])
     assert not erg["abgelegt"] and not erg["nicht_uebernommen"]
+
+
+def test_zoom_zahlung_verarbeitet_mail_wird_zusaetzlich_abgelegt(finanzen):
+    """Wie im echten Fall: Anhang = Bestellung/Abo-Bedingungen, Betrag steht nur im Mail-Text."""
+    zoom = mail("Zahlung verarbeitet für 5161264879", "Zoom Communications <billing@zoom.us>", pdf=True,
+                text="Vielen Dank für Ihre Zahlung. Datum der Zahlung: 23.09.2026 Betrag: 15,99 EUR")
+    for teil in zoom.walk():  # Anhang heißt wie bei Zoom nicht „Rechnung“
+        if teil.get_content_type() == "application/pdf":
+            teil.replace_header("Content-Disposition", 'attachment; filename="Bestellung_Abonnement.pdf"')
+    verarbeitet = set()
+    erg = m._verarbeite_ordner(FakeImap([zoom]), "Rechnungen", "ausgaben", verarbeitet, 2026, [9])
+    namen = sorted(p.name for p in finanzen.rglob("*.pdf"))
+    assert len(erg["abgelegt"]) == 2 and any(n.endswith("_Mail.pdf") for n in namen)
+    # Schon abgearbeitet: normal übersprungen, „neu prüfen“ legt nichts doppelt ab
+    assert not m._verarbeite_ordner(FakeImap([zoom]), "Rechnungen", "ausgaben", verarbeitet, 2026, [9])["abgelegt"]
+    erneut = m._verarbeite_ordner(FakeImap([zoom]), "Rechnungen", "ausgaben", verarbeitet, 2026, [9], neu_pruefen=True)
+    assert not erneut["abgelegt"] and len(list(finanzen.rglob("*.pdf"))) == 2
+
+
+def test_echte_rechnung_im_anhang_ohne_zusaetzliche_mail(finanzen):
+    ionos = mail("Ihre IONOS Rechnung 100194789970", "Rechnungsstelle IONOS <rechnung@ionos.de>", pdf=True,
+                 text="Rechnungsbetrag 19,00 EUR")
+    erg = m._verarbeite_ordner(FakeImap([ionos]), "Rechnungen", "ausgaben", set(), 2026, [9])
+    assert len(erg["abgelegt"]) == 1

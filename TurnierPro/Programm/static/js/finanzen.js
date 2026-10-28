@@ -215,10 +215,11 @@ function abschlussAnsicht(neuZeichnen) {
   </section><div class="abstand"></div>`;
   if (F.mailBericht) {
     const b = F.mailBericht;
-    h += `<section class="karte" style="margin-bottom:16px"><div class="karte-kopf"><h2>Mail-Abruf</h2><span class="pille gruen">${b.abgelegt.length} übernommen</span>${b.nicht.length ? `<span class="pille amber">${b.nicht.length} nicht übernommen</span>` : ""}</div>
+    h += `<section class="karte" style="margin-bottom:16px"><div class="karte-kopf"><h2>Mail-Abruf</h2><span class="pille gruen">${b.abgelegt.length} übernommen</span>${b.nicht.length ? `<span class="pille amber">${b.nicht.length} nicht übernommen</span>` : ""}
+      <button class="knopf klein" data-a="mailImport" data-v="neu" title="Auch Mails ansehen, die schon früher abgearbeitet wurden">${ikon("wdh")}Monat neu prüfen</button></div>
       ${b.abgelegt.length ? `<ul class="ergebnis-liste">${b.abgelegt.map((x) => `<li>${esc(x.datei)}</li>`).join("")}</ul>` : ""}
       ${b.nicht.length ? `<div class="gruppe-kopf">Nicht übernommen</div><table><thead><tr><th>Datum</th><th>Von</th><th>Betreff</th><th>Grund</th></tr></thead><tbody>${b.nicht.map((x) => `<tr><td class="num">${esc(x.datum)}</td><td>${esc(x.von)}</td><td>${esc(x.betreff)}<div class="unter">Ordner: ${esc(x.ordner)}</div></td><td class="notiz-zelle">${esc(x.grund)}</td></tr>`).join("")}</tbody></table>` : ""}
-      ${!b.abgelegt.length && !b.nicht.length ? '<p class="leise">Im gewählten Zeitraum lagen keine neuen Rechnungs-Mails in den Ordnern. Schon früher übernommene Mails werden nicht noch einmal geholt.</p>' : ""}</section>`;
+      ${!b.abgelegt.length && !b.nicht.length ? '<p class="leise">Keine neuen Rechnungs-Mails in diesem Zeitraum. Schon früher abgearbeitete Mails holt „Monat neu prüfen“ noch einmal (ohne doppelte Dateien).</p>' : ""}</section>`;
   }
   h += `<div class="raster raster-2"><section class="karte"><div class="karte-kopf"><h2>Checkliste Steuerberater</h2></div>${checkliste()}</section>
     <section class="karte"><div class="karte-kopf"><h2>Prüfergebnis</h2></div>${pruefErgebnis()}</section></div>`;
@@ -287,8 +288,8 @@ Object.assign(aktionen, {
   zielBearbeiten: (el) => zielBearbeiten(Number(el.dataset.v) || JAHR),
   abschlussZeitraum: (el, neuZeichnen) => { const [m, w] = el.dataset.v.split("-"); F.modus = m; if (m === "monat") F.monat = Number(w); else F.quartal = Number(w); F.mailBericht = null; ladeStatus(neuZeichnen); },
   belegTyp: (el) => { F.belegTyp = el.dataset.v; el.parentElement.querySelectorAll("button").forEach((b) => b.setAttribute("aria-pressed", String(b === el))); },
-  mailImport: (el, neuZeichnen) => lauf("Rechnungen aus dem Postfach holen …", `Anhänge für ${zeitraumText()} werden geladen.`, async () => {
-    const d = await api("/api/mail-import", { json: zeitraumJson() });
+  mailImport: (el, neuZeichnen) => lauf("Rechnungen aus dem Postfach holen …", `Mails aus ${zeitraumText()} werden geprüft.`, async () => {
+    const d = await api("/api/mail-import", { json: { ...zeitraumJson(), neu_pruefen: el.dataset.v === "neu" } });
     F.mailBericht = { abgelegt: (d.ordner || []).flatMap((o) => o.abgelegt || []), nicht: (d.ordner || []).flatMap((o) => o.nicht_uebernommen || []) };
     melde(d.abgelegt_gesamt ? `${d.abgelegt_gesamt} Rechnung(en) aus der Mail abgelegt.` : "Keine neuen Rechnungen in den Mail-Ordnern.");
     (d.ordner || []).forEach((o) => o.fehler?.length && melde(o.fehler[0], "fehler"));

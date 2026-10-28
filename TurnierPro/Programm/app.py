@@ -413,7 +413,7 @@ def api_mail_import():
         import mail_import_service
 
         return jsonify({"ok": True, **mail_import_service.importiere(
-            jahr=int(jahr) if jahr else None, monate=monate)})
+            jahr=int(jahr) if jahr else None, monate=monate, neu_pruefen=bool(d.get("neu_pruefen")))})
     except (RuntimeError, FileNotFoundError) as exc:
         return jsonify({"ok": False, "fehler": str(exc)}), 400
     except Exception as exc:  # pragma: no cover
