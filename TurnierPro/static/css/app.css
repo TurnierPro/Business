@@ -192,7 +192,7 @@ button.kpi:hover, a.kpi:hover { border-color: var(--gruen-200); box-shadow: var(
 .kpi .v.schlecht { color: var(--rot); }
 .kpi .s { font-size: 12.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .kpi .s b { color: var(--text-2); font-weight: 600; }
-.kpi-zeile { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(168px, 1fr)); }
+.kpi-zeile { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
 .abschnitt-titel { font: 700 11.5px/1 var(--f-titel); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin: 24px 0 10px; }
 .abschnitt-titel:first-child { margin-top: 0; }
 
@@ -233,6 +233,7 @@ input[type=checkbox] { width: 16px; height: 16px; accent-color: var(--gruen); ma
 input::placeholder, textarea::placeholder { color: var(--muted-2); }
 .f { display: flex; flex-direction: column; gap: 5px; font: 600 12px/1.2 var(--f-titel); color: var(--text-2); min-width: 0; }
 .f.ganz, .ganz { grid-column: 1 / -1; }
+.f input, .f select, .f textarea { font: 400 13.5px/1.4 var(--f-text); color: var(--ink); }
 .f .hinweis { font: 400 12px/1.4 var(--f-text); color: var(--muted); }
 .fg { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 16px; }
 .fg.drei { grid-template-columns: repeat(3, minmax(0, 1fr)); }
@@ -358,7 +359,7 @@ button.balken-zeile:hover { background: var(--gruen-50); }
 .ziel-zahlen { display: flex; flex-direction: column; gap: 2px; }
 .ziel-zahlen > div { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 5px 0; border-bottom: 1px solid var(--line); }
 .ziel-zahlen > div:last-child { border-bottom: 0; }
-.ziel-zahlen .k { font: 600 11px/1.2 var(--f-titel); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.ziel-zahlen .k { white-space: nowrap; font: 600 11px/1.2 var(--f-titel); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
 .ziel-zahlen .v { font: 700 16px/1.3 var(--f-titel); color: var(--ink); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .ziel-fuss { display: flex; justify-content: space-between; gap: 10px; margin-top: 14px; font-size: 12px; color: var(--muted); }
 .abschluss-schritte { display: flex; flex-direction: column; gap: 2px; }
@@ -378,6 +379,7 @@ button.balken-zeile:hover { background: var(--gruen-50); }
 .kal-t.aus { background: var(--surface-2); color: var(--muted-2); }
 .kal-t .n { font: 600 12px/1 var(--f-titel); margin-bottom: 4px; display: inline-flex; width: 22px; height: 22px; align-items: center; justify-content: center; border-radius: 50%; }
 .kal-t.heute .n { background: var(--gruen); color: #fff; }
+a.ev:hover { text-decoration: none; filter: brightness(.97); }
 .ev { display: block; padding: 2px 6px; border-radius: 4px; margin-top: 2px; background: var(--gruen-100); color: var(--wald); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 11px; cursor: pointer; border: 0; width: 100%; text-align: left; }
 .ev.camp { background: #FBF0DD; color: #7A4A0A; }
 .ev.verein { background: var(--blau-50); color: var(--blau); }
@@ -386,7 +388,7 @@ button.balken-zeile:hover { background: var(--gruen-50); }
 .kal-legende i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
 
 /* Projekte: Tafel */
-.tafel { display: grid; grid-template-columns: repeat(4, minmax(240px, 1fr)); gap: 14px; overflow-x: auto; align-items: start; }
+.tafel { display: grid; grid-template-columns: repeat(4, minmax(200px, 1fr)); gap: 14px; overflow-x: auto; align-items: start; }
 .spalte { background: var(--mint); border-radius: var(--r); padding: 12px; min-height: 180px; transition: background .12s, box-shadow .12s; }
 .spalte.ziel-aktiv { background: var(--gruen-100); box-shadow: inset 0 0 0 2px var(--gruen-200); }
 .spalte-kopf { display: flex; align-items: center; gap: 8px; padding: 2px 4px 10px; }

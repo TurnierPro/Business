@@ -30,7 +30,7 @@ import report
 import scanner
 import geteilt
 from geteilt import ich, speicher
-from speicher import SpeicherFehler
+from speicher import Speicher, SpeicherFehler
 
 VERSION = "2.0.0"
 
@@ -111,7 +111,7 @@ def api_start():
     return jsonify({
         "ok": True, "version": VERSION, "firmenname": config.FIRMENNAME,
         "geraet": {"id": config.geraet_id(), "name": config.geraet_name()},
-        "ich": ich(), "daten_ordner": str(sp.ordner),
+        "ich": ich(), "daten_ordner": str(sp.ordner), "daten_hinweis": config.daten_hinweis(sp.ordner),
         "finanzen_root": str(config.get_finanzen_root()),
         "heute": time.strftime("%Y-%m-%d"),
     })

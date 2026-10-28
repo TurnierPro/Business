@@ -27,7 +27,7 @@ function allgemein() {
       `<div class="fg"><label class="f">Ich bin<select id="e-ich">${optionen(teamSortiert().map((t) => [t.id, t.name]), st.ich || "", "Bitte wählen")}</select></label>
        <label class="f">Name dieses Macs<input id="e-geraet" type="text" value="${esc(st.geraet?.name || "")}" placeholder="z. B. MacBook Max"></label></div>`)
     + block("Gemeinsamer Datenordner", "Vertrieb, Aufgaben, Projekte und Team liegen hier. Auf beiden Macs muss derselbe iCloud-Ordner eingestellt sein. Jeder Mac schreibt nur in seine eigene Datei, so gibt es keine Konflikte.",
-      `<div class="pfad">${esc(st.daten_ordner || "")}</div>
+      `${st.daten_hinweis ? `<div class="banner warn">${ikon("warn")}<span>${esc(st.daten_hinweis)}</span></div>` : ""}<div class="pfad">${esc(st.daten_ordner || "")}</div>
        <div class="filterleiste" style="margin-top:10px"><input id="e-ordner" type="text" placeholder="Anderen Ordner: /Users/…/Library/Mobile Documents/com~apple~CloudDocs/…" style="flex:1"><button class="knopf" data-a="ordnerSpeichern">Ordner ändern</button></div>
        ${S.icloud.length ? `<div class="banner warn">${ikon("sync")}<span>iCloud lädt noch ${S.icloud.length} ${S.icloud.length === 1 ? "Datei" : "Dateien"} vom anderen Mac herunter. Die Daten erscheinen gleich.</span></div>` : ""}`)
     + block("Verbundene Macs", "Alle Macs, die diesen Datenordner nutzen. Grün heißt: in den letzten Minuten aktiv.", `<div class="status-liste">${geraete || '<p class="leise">Noch kein Mac gemeldet.</p>'}</div>`)
@@ -80,17 +80,17 @@ function automatik(neuZeichnen) {
   const besitzer = a.besitzer ? `<b>${esc(a.besitzer.name)}</b>${a.dieser ? ' <span class="pille gruen">dieser Mac</span>' : ""}` : '<span class="leise">noch keiner</span>';
   return block("Welcher Mac erledigt die Automatik?", "Belege ablegen und Monatsabschluss laufen nur auf einem Mac, sonst käme alles doppelt. Diese Einstellung ist geteilt.",
       `<div class="status-zeile"><span class="punkt ${a.dieser ? "ok" : ""}"></span><div class="wachsen">${besitzer}<div class="unter">${a.dieser ? "Dieser Mac führt die Automatik aus." : a.besitzer ? "Dieser Mac wartet. Er übernimmt nur, wenn du es hier festlegst." : "Lege fest, welcher Mac das übernimmt."}</div></div>
-       ${a.dieser ? "" : '<button class="knopf klein haupt" data-a="automatikUebernehmen">Diesen Mac festlegen</button>'}</div>`)
+       ${a.dieser ? "" : '<button class="knopf klein" data-a="automatikUebernehmen">Diesen Mac festlegen</button>'}</div>`)
     + `<form id="automatik-form">` + block("Belege automatisch ablegen", "Holt Rechnungen aus Stripe (aktueller und Vormonat) und aus dem Postfach und legt sie in die Monatsordner.",
       `<label class="check"><input type="checkbox" id="au-aktiv"${a.aktiv !== false ? " checked" : ""}> Automatisch ablegen</label>
        <label class="f" style="margin-top:12px;max-width:260px">Wie oft<select id="au-intervall">${optionen([["2", "alle 2 Stunden"], ["6", "alle 6 Stunden"], ["12", "alle 12 Stunden"], ["24", "einmal täglich"]], String(a.intervall || 6))}</select></label>
        <p class="leise klein" style="margin-top:10px">${l.zeit ? `Zuletzt ${esc(l.zeit)}: ${l.stripe || 0} aus Stripe, ${l.mail || 0} aus der Mail${l.fehler?.length ? " · Fehler: " + esc(l.fehler[0]) : ""}` : "Noch kein automatischer Lauf auf diesem Mac."}</p>
-       <button type="button" class="knopf klein" data-a="autoJetzt">${ikon("fach")}Jetzt ablegen</button>`)
+       <button type="button" class="knopf klein" style="margin-top:8px" data-a="autoJetzt">${ikon("fach")}Jetzt ablegen</button>`)
     + block("Monatsabschluss", "Am 3. jedes Monats um 0:15 Uhr: Qonto-Kontoauszug ablegen, KI-Prüfung, Bericht und Belegpaket per Mail an die Buchhaltung. Läuft der Mac dann nicht, wird es beim nächsten Start nachgeholt.",
       `<label class="check"><input type="checkbox" id="au-abschluss"${a.abschluss_aktiv !== false ? " checked" : ""}> Monatsabschluss automatisch</label>
        <label class="f" style="margin-top:12px;max-width:360px">Abschluss-Mail an<input id="au-mail" type="email" value="${esc(a.abschluss_email || "")}" placeholder="buchhaltung@turnierpro.de"></label>
        <p class="leise klein" style="margin-top:10px">Letzter Abschluss: ${esc(a.letzter_abschluss || "noch keiner")}</p>
-       <button type="button" class="knopf klein" data-a="abschlussJetzt">${ikon("mail")}Abschluss für den Vormonat jetzt ausführen</button>`)
+       <button type="button" class="knopf klein" style="margin-top:8px" data-a="abschlussJetzt">${ikon("mail")}Abschluss für den Vormonat jetzt ausführen</button>`)
     + `<div style="display:flex;justify-content:flex-end;padding-top:18px"><button class="knopf haupt" type="submit">${ikon("haken")}Speichern</button></div></form>`;
 }
 

@@ -87,6 +87,7 @@ function willkommen() {
     <p>Wer arbeitet an diesem Mac? Das wählst du nur einmal. Deine Kontakte, Aufgaben und Kommentare werden dir zugeordnet.</p>
     <div class="karte">${team.length ? `<div class="wahl">${team.map((t) => `<button data-a="binIch" data-id="${esc(t.id)}">${avatar(t.id, true)}${esc(t.name)}</button>`).join("")}</div><div class="abschnitt-titel" style="margin-top:20px">Oder neu anlegen</div>` : ""}
       <form id="ich-neu" class="filterleiste" style="margin:0"><input id="in-name" type="text" placeholder="Dein Name, z. B. Max Steiner" style="flex:1" autofocus><button class="knopf haupt" type="submit">Weiter</button></form></div>
+    ${S.start?.daten_hinweis ? `<div class="banner warn" style="margin-top:18px;text-align:left">${ikon("warn")}<span>${esc(S.start.daten_hinweis)}</span></div>` : ""}
     <p class="leise klein" style="margin-top:18px">Gemeinsamer Datenordner: ${esc(S.start?.daten_ordner || "")}</p></div>`;
 }
 async function setzeIch(id) {

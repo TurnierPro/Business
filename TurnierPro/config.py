@@ -177,9 +177,27 @@ def get_daten_dir() -> Path:
     liegen die Daten damit automatisch auch dort und beide Macs sehen sie.
     """
     gesetzt = (lade_einstellungen().get("daten_ordner") or os.getenv("TP_DATEN_DIR", "")).strip()
-    ordner = Path(gesetzt).expanduser() if gesetzt else APP_DIR.parent / "TurnierPro Daten"
+    if gesetzt:
+        ordner = Path(gesetzt).expanduser()
+    elif IST_GEPACKT:
+        # Gebündelte .app (DMG): der Programmordner liegt nicht in iCloud,
+        # daher direkt im iCloud Drive einen gemeinsamen Ordner verwenden.
+        ordner = Path.home() / "Library" / "Mobile Documents" / "com~apple~CloudDocs" / "TurnierPro Daten"
+    else:
+        ordner = APP_DIR.parent / "TurnierPro Daten"
     ordner.mkdir(parents=True, exist_ok=True)
     return ordner
+
+
+def daten_hinweis(ordner: Path) -> str:
+    """Warnt, wenn der Datenordner offensichtlich nicht geteilt ist (nur auf dem Mac)."""
+    if sys.platform != "darwin":
+        return ""
+    pfad = str(ordner)
+    if any(t in pfad for t in ("Mobile Documents", "CloudDocs", "CloudStorage", "Dropbox")):
+        return ""
+    return ("Der Datenordner liegt nicht in iCloud. Der andere Mac sieht diese Daten nicht. "
+            "Bitte den Programmordner in den geteilten iCloud-Ordner legen oder hier einen iCloud-Ordner eintragen.")
 
 
 def geteilter_cache_dir() -> Path:

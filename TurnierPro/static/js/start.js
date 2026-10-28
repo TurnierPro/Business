@@ -76,7 +76,11 @@ function kalender() {
   const iso = (y, mo, d) => { const x = new Date(Date.UTC(y, mo, d)); return `${x.getUTCFullYear()}-${pad(x.getUTCMonth() + 1)}-${pad(x.getUTCDate())}`; };
   const zellen = Math.ceil((vor + tage) / 7) * 7, von = iso(j, m, 1 - vor), bis = iso(j, m, zellen - vor);
   const ev = termine(von, bis), imMonat = termine(iso(j, m, 1), iso(j, m, tage));
-  const chip = (e) => `<button class="ev ${e.art === "camp" ? "camp" : e.art === "verein" ? "verein" : ""}" ${e.quelle === "verein" ? `data-a="verein" data-id="${esc(e.id)}"` : e.url ? `data-a="oeffneLink" data-v="${esc(e.url)}"` : ""} title="${esc(e.titel + (e.ort ? " · " + e.ort : "") + (e.verein ? " · " + e.verein : ""))}">${esc(e.titel)}</button>`;
+  const chip = (e) => {
+    const kl = `ev ${e.art === "camp" ? "camp" : e.art === "verein" ? "verein" : ""}`, titel = esc(e.titel + (e.ort ? " · " + e.ort : "") + (e.verein ? " · " + e.verein : ""));
+    if (e.url) return `<a class="${kl}" href="${esc(e.url)}" target="_blank" rel="noopener" title="${titel}">${esc(e.titel)}</a>`;
+    return `<button class="${kl}" ${e.quelle === "verein" ? `data-a="verein" data-id="${esc(e.id)}"` : ""} title="${titel}">${esc(e.titel)}</button>`;
+  };
   let g = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"].map((w) => `<div class="kal-w">${w}</div>`).join("");
   for (let i = 0; i < zellen; i++) {
     const d = iso(j, m, 1 - vor + i), drin = +d.slice(5, 7) - 1 === m, l = ev.filter((e) => e.a <= d && e.b >= d);
@@ -127,5 +131,4 @@ Object.assign(aktionen, {
     else { let m = ST.kal.m + v, j = ST.kal.j; if (m < 0) { m = 11; j--; } if (m > 11) { m = 0; j++; } ST.kal = { j, m }; }
     neuZeichnen();
   },
-  oeffneLink: (el) => window.open(el.dataset.v, "_blank", "noopener"),
 });

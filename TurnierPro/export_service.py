@@ -48,7 +48,7 @@ def _modell(sp: Speicher, bereich: str) -> dict:
                ("Gewonnenes Volumen", _eur(sum(float(v.get("potenzial") or 0) for v in gew))),
                ("Wiedervorlagen fällig", len(faellig)), ("Aktivitäten", len(d["aktivitaeten"]))]
         pipeline = [[s, sum(1 for v in vereine if v.get("status") == s),
-                     _eur(sum(float(v.get("potenzial") or 0) for v in vereine if v.get("status") == s))] for s in STATUS]
+                     float(sum(float(v.get("potenzial") or 0) for v in vereine if v.get("status") == s))] for s in STATUS]
         termin = lambda v: "offen" if v.get("terminOffen") and not v.get("terminVon") else _de(v.get("terminVon", "")) + (f" – {_de(v['terminBis'])}" if v.get("terminBis") and v["terminBis"] != v.get("terminVon") else "")  # noqa: E731
         wv = sorted([v for v in offen if v.get("wiedervorlage")], key=lambda v: v["wiedervorlage"])
         akts = sorted(d["aktivitaeten"], key=lambda a: (a.get("datum") or "", a.get("angelegt") or 0), reverse=True)
@@ -174,7 +174,9 @@ def pdf(sp: Speicher, bereich: str, logo_pfad=None) -> bytes:
     st_sub = ParagraphStyle("s", fontName="Helvetica", fontSize=9, textColor=grau)
     st_h2 = ParagraphStyle("h", fontName="Helvetica-Bold", fontSize=11.5, textColor=gruen, spaceBefore=10, spaceAfter=5)
     st_z = ParagraphStyle("z", fontName="Helvetica", fontSize=7.8, leading=9.6)
+    st_zr = ParagraphStyle("zr", parent=st_z, alignment=2)
     st_k = ParagraphStyle("k", fontName="Helvetica-Bold", fontSize=7.8, leading=9.6, textColor=colors.white)
+    st_kr = ParagraphStyle("kr", parent=st_k, alignment=2)
     seite = landscape(A4)
     puffer = io.BytesIO()
     doc = SimpleDocTemplate(puffer, pagesize=seite, leftMargin=14 * mm, rightMargin=14 * mm, topMargin=12 * mm, bottomMargin=14 * mm,
@@ -208,9 +210,12 @@ def pdf(sp: Speicher, bereich: str, logo_pfad=None) -> bytes:
             if not zeilen:
                 teile.append(Paragraph("Keine Einträge.", st_sub))
                 continue
-            daten = [[Paragraph(str(kopf[j]), st_k) for j in spalten]]
+            # Spalten mit Beträgen oder Anzahlen rechtsbündig
+            rechts = {j for j in spalten if any(isinstance(z[j], (int, float)) and not isinstance(z[j], bool) for z in zeilen)}
+            daten = [[Paragraph(str(kopf[j]), st_kr if j in rechts else st_k) for j in spalten]]
             for z in zeilen:
-                daten.append([Paragraph(_eur(z[j]) if isinstance(z[j], float) else str(z[j]).replace("&", "&amp;").replace("<", "&lt;"), st_z) for j in spalten])
+                daten.append([Paragraph(_eur(z[j]) if isinstance(z[j], float) else str(z[j]).replace("&", "&amp;").replace("<", "&lt;"),
+                                        st_zr if j in rechts else st_z) for j in spalten])
             t = Table(daten, repeatRows=1, colWidths=[breite / len(spalten)] * len(spalten))
             t.setStyle(TableStyle([("BACKGROUND", (0, 0), (-1, 0), gruen), ("VALIGN", (0, 0), (-1, -1), "TOP"),
                                    ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#F7FAF8")]),
