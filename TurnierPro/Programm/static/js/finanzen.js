@@ -213,6 +213,13 @@ function abschlussAnsicht(neuZeichnen) {
     </div>
     ${F.downloads ? `<div class="downloads"><a class="knopf" href="${esc(F.downloads.bericht_url)}" download>${ikon("doc")}${esc(F.downloads.bericht)}</a><a class="knopf" href="${esc(F.downloads.paket_url)}" download>${ikon("ordner")}${esc(F.downloads.paket)}</a><a class="knopf" href="${esc(F.downloads.mail_url)}" download>${ikon("mail")}E-Mail an Steuerberater</a><span class="leise klein">Mail-Entwurf mit PDF und ZIP im Anhang. Öffnen, prüfen, senden. Empfänger: ${esc(F.downloads.empfaenger)}</span></div>` : ""}
   </section><div class="abstand"></div>`;
+  if (F.mailBericht) {
+    const b = F.mailBericht;
+    h += `<section class="karte" style="margin-bottom:16px"><div class="karte-kopf"><h2>Mail-Abruf</h2><span class="pille gruen">${b.abgelegt.length} übernommen</span>${b.nicht.length ? `<span class="pille amber">${b.nicht.length} nicht übernommen</span>` : ""}</div>
+      ${b.abgelegt.length ? `<ul class="ergebnis-liste">${b.abgelegt.map((x) => `<li>${esc(x.datei)}</li>`).join("")}</ul>` : ""}
+      ${b.nicht.length ? `<div class="gruppe-kopf">Nicht übernommen</div><table><thead><tr><th>Datum</th><th>Von</th><th>Betreff</th><th>Grund</th></tr></thead><tbody>${b.nicht.map((x) => `<tr><td class="num">${esc(x.datum)}</td><td>${esc(x.von)}</td><td>${esc(x.betreff)}<div class="unter">Ordner: ${esc(x.ordner)}</div></td><td class="notiz-zelle">${esc(x.grund)}</td></tr>`).join("")}</tbody></table>` : ""}
+      ${!b.abgelegt.length && !b.nicht.length ? '<p class="leise">Im gewählten Zeitraum lagen keine neuen Rechnungs-Mails in den Ordnern. Schon früher übernommene Mails werden nicht noch einmal geholt.</p>' : ""}</section>`;
+  }
   h += `<div class="raster raster-2"><section class="karte"><div class="karte-kopf"><h2>Checkliste Steuerberater</h2></div>${checkliste()}</section>
     <section class="karte"><div class="karte-kopf"><h2>Prüfergebnis</h2></div>${pruefErgebnis()}</section></div>`;
   if (F.stripe || F.umsatz) {
@@ -278,10 +285,11 @@ Object.assign(aktionen, {
   finZeitraum: (el, neuZeichnen) => { const [a, b] = el.dataset.v.split("-").map(Number); F.zeitraum = { a, b }; neuZeichnen(); },
   finNeuLaden: async (el, neuZeichnen) => { await ladeFinanzen(F.jahr, true); neuZeichnen(); melde("Finanzübersicht neu geladen"); },
   zielBearbeiten: (el) => zielBearbeiten(Number(el.dataset.v) || JAHR),
-  abschlussZeitraum: (el, neuZeichnen) => { const [m, w] = el.dataset.v.split("-"); F.modus = m; if (m === "monat") F.monat = Number(w); else F.quartal = Number(w); ladeStatus(neuZeichnen); },
+  abschlussZeitraum: (el, neuZeichnen) => { const [m, w] = el.dataset.v.split("-"); F.modus = m; if (m === "monat") F.monat = Number(w); else F.quartal = Number(w); F.mailBericht = null; ladeStatus(neuZeichnen); },
   belegTyp: (el) => { F.belegTyp = el.dataset.v; el.parentElement.querySelectorAll("button").forEach((b) => b.setAttribute("aria-pressed", String(b === el))); },
   mailImport: (el, neuZeichnen) => lauf("Rechnungen aus dem Postfach holen …", `Anhänge für ${zeitraumText()} werden geladen.`, async () => {
     const d = await api("/api/mail-import", { json: zeitraumJson() });
+    F.mailBericht = { abgelegt: (d.ordner || []).flatMap((o) => o.abgelegt || []), nicht: (d.ordner || []).flatMap((o) => o.nicht_uebernommen || []) };
     melde(d.abgelegt_gesamt ? `${d.abgelegt_gesamt} Rechnung(en) aus der Mail abgelegt.` : "Keine neuen Rechnungen in den Mail-Ordnern.");
     (d.ordner || []).forEach((o) => o.fehler?.length && melde(o.fehler[0], "fehler"));
     await ladeStatus(() => {});
@@ -337,6 +345,6 @@ Object.assign(absenden, {
 });
 Object.assign(aenderungen, {
   "fin-jahr": (el, neuZeichnen) => { F.jahr = Number(el.value); merk.set("f_jahr", F.jahr); F.zeitraum = { a: 1, b: 12 }; ladeFinanzen(F.jahr).then(neuZeichnen); },
-  "ab-jahr": (el, neuZeichnen) => { F.abschlussJahr = Number(el.value); ladeStatus(neuZeichnen); },
+  "ab-jahr": (el, neuZeichnen) => { F.abschlussJahr = Number(el.value); F.mailBericht = null; ladeStatus(neuZeichnen); },
   "beleg-datei": (el) => { const f = el.files?.[0]; F.belegDatei = f || null; $("#beleg-text").textContent = f ? f.name : "PDF oder Foto wählen"; $("#beleg-label").classList.toggle("gewaehlt", !!f); },
 });

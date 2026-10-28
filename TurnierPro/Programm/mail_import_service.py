@@ -25,8 +25,11 @@ MIN_GROESSE = 3000  # Bytes — kleinere Anhänge (Logos/Signaturen) überspring
 import re as _re
 # E-Mails ohne Anhang, deren Betreff das enthält, werden selbst als PDF abgelegt.
 _RELEVANT_RE = _re.compile(
-    r"auszahlung|rechnung|servicegeb|beleg|zahlung|gutschrift|quittung|invoice|payout|receipt",
+    r"auszahlung|rechnung|servicegeb|beleg|zahlung|gutschrift|quittung|invoice|payout|receipt"
+    r"|billing|subscription|abonnement|verl(?:ä|ae)ngert|renew|bestellbest(?:ä|ae)tigung|order\s+confirmation",
     _re.I)
+# Absender, die fast immer Rechnungen schicken (z. B. billing@zoom.us)
+_RECHNUNGS_ABSENDER_RE = _re.compile(r"billing|invoice|rechnung|receipt|accounting|buchhaltung|payments?@", _re.I)
 # Betreff deutet auf eigene Ausgangsseite (Servicegebühr/Auszahlung) hin
 _AUSGANG_RE = _re.compile(r"auszahlung|servicegeb|payout", _re.I)
 
@@ -195,6 +198,36 @@ def _email_als_pdf(msg, betreff: str, ziel: Path) -> bool:
     return False
 
 
+def _email_als_text_pdf(msg, betreff: str, ziel: Path) -> bool:
+    """Rückfall ohne Chrome: Mail-Text schlicht als PDF (reportlab) speichern."""
+    import html as _htmlmod
+    import re
+
+    inhalt, ist_html = _email_koerper(msg)
+    if ist_html:
+        inhalt = re.sub(r"(?is)<(script|style).*?</\1>", " ", inhalt)
+        inhalt = re.sub(r"(?i)<br\s*/?>|</p>|</tr>|</div>", "\n", inhalt)
+        inhalt = _htmlmod.unescape(re.sub(r"<[^>]+>", " ", inhalt))
+    zeilen = [z.strip() for z in inhalt.splitlines()]
+    text = "\n".join(z for z in zeilen if z)
+    if not text.strip():
+        return False
+    try:
+        from reportlab.lib.pagesizes import A4
+        from reportlab.lib.styles import getSampleStyleSheet
+        from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer
+
+        st = getSampleStyleSheet()
+        teile = [Paragraph(_htmlmod.escape(betreff), st["Heading2"]),
+                 Paragraph(_htmlmod.escape(f"Von: {_dekodiere(msg.get('From'))} · {_dekodiere(msg.get('Date'))}"), st["Normal"]),
+                 Spacer(1, 10)]
+        teile += [Paragraph(_htmlmod.escape(z), st["Normal"]) for z in text.splitlines()[:400]]
+        SimpleDocTemplate(str(ziel), pagesize=A4).build(teile)
+        return ziel.is_file()
+    except Exception:
+        return False
+
+
 def _dekodiere(wert: str | None) -> str:
     if not wert:
         return ""
@@ -294,7 +327,14 @@ def _vormonat(jahr: int, monat: int) -> tuple[int, int]:
 def _verarbeite_ordner(imap, ordner: str, typ: str, verarbeitet: set[str],
                        jahr: int | None = None, monate: list[int] | None = None,
                        nur_relevante: bool = False) -> dict:
-    ergebnis = {"ordner": ordner, "typ": typ, "abgelegt": [], "uebersprungen": 0, "fehler": []}
+    ergebnis = {"ordner": ordner, "typ": typ, "abgelegt": [], "uebersprungen": 0, "fehler": [],
+                "nicht_uebernommen": []}
+
+    def merke_grund(msg, betreff: str, dt, grund: str) -> None:
+        """Merkt eine Mail, die nicht übernommen wurde, samt Grund (für die Anzeige)."""
+        ergebnis["nicht_uebernommen"].append({
+            "ordner": ordner, "betreff": (betreff or "(ohne Betreff)")[:90],
+            "von": _anbieter(msg), "datum": f"{dt:%d.%m.%Y}", "grund": grund})
     # Erst wie eingegeben versuchen, dann UTF-7-kodiert (Umlaute in Ordnernamen)
     status = "NO"
     for kandidat in (ordner, _utf7_encode(ordner)):
@@ -347,7 +387,8 @@ def _verarbeite_ordner(imap, ordner: str, typ: str, verarbeitet: set[str],
         betreff_roh = _dekodiere(msg.get("Subject"))
         # Posteingang-Scan: nur Rechnungs-/Beleg-Mails berücksichtigen
         # (Newsletter u. Ä. bleiben unangetastet)
-        if nur_relevante and not _RELEVANT_RE.search(betreff_roh or ""):
+        absender = _dekodiere(msg.get("From")) or ""
+        if nur_relevante and not (_RELEVANT_RE.search(betreff_roh or "") or _RECHNUNGS_ABSENDER_RE.search(absender)):
             continue
         # typ "auto": Auszahlungen/Servicegebühren → Einnahmen, sonst Ausgaben
         mail_typ = typ
@@ -358,9 +399,10 @@ def _verarbeite_ordner(imap, ordner: str, typ: str, verarbeitet: set[str],
         for part in msg.walk():
             if part.get_content_maintype() == "multipart":
                 continue
-            if part.get("Content-Disposition") is None:
+            ist_pdf = part.get_content_type() == "application/pdf"
+            if part.get("Content-Disposition") is None and not ist_pdf:
                 continue  # kein echter Anhang (z. B. Inline-Logo)
-            dateiname = _dekodiere(part.get_filename())
+            dateiname = _dekodiere(part.get_filename()) or ("Rechnung.pdf" if ist_pdf else "")
             if not dateiname:
                 continue
             if Path(dateiname).suffix.lower() not in beleg_service.ERLAUBTE_ENDUNGEN:
@@ -388,8 +430,14 @@ def _verarbeite_ordner(imap, ordner: str, typ: str, verarbeitet: set[str],
             # erledigt merken, damit sie nicht bei jedem Lauf erneut auftaucht.
             verarbeitet.add(mid)
             ergebnis["uebersprungen"] += 1
+            merke_grund(msg, betreff, dt, "Nur Zahlungsbestätigung ohne Rechnung im Anhang. "
+                        "Die Rechnung kommt meist separat oder liegt im Kundenkonto des Anbieters.")
             continue
-        if not anhang_abgelegt and _RELEVANT_RE.search(betreff or ""):
+        relevant = _RELEVANT_RE.search(betreff or "") or _RECHNUNGS_ABSENDER_RE.search(absender)
+        if not anhang_abgelegt and not relevant:
+            # Im Rechnungsordner, aber weder Anhang noch Rechnungs-Hinweis
+            merke_grund(msg, betreff, dt, "Kein PDF-Anhang und kein Hinweis auf eine Rechnung im Betreff.")
+        if not anhang_abgelegt and relevant:
             ordner_ziel = (config.eingangsrechnungen_ordner(mail_jahr, mail_monat, anlegen=True)
                            if mail_typ == "ausgaben"
                            else config.ausgangsrechnungen_ordner(mail_jahr, mail_monat, anlegen=True))
@@ -398,10 +446,12 @@ def _verarbeite_ordner(imap, ordner: str, typ: str, verarbeitet: set[str],
             if ziel.exists():
                 ergebnis["uebersprungen"] += 1
                 anhang_abgelegt = True
-            elif _email_als_pdf(msg, betreff, ziel):
+            elif _email_als_pdf(msg, betreff, ziel) or _email_als_text_pdf(msg, betreff, ziel):
                 ergebnis["abgelegt"].append(
                     {"datei": ziel.name, "monat": mail_monat, "jahr": mail_jahr, "betreff": betreff[:80]})
                 anhang_abgelegt = True
+            else:
+                merke_grund(msg, betreff, dt, "Kein Anhang; die Mail konnte nicht als PDF gespeichert werden.")
 
         if anhang_abgelegt:
             verarbeitet.add(mid)
