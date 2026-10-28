@@ -182,7 +182,7 @@ def analysiere_monat(jahr: int, monat: int, *, force: bool = False) -> dict:
 
     if not config.get_anthropic_key():
         raise RuntimeError(
-            "Kein Claude-API-Key gesetzt. Bitte links unter 'Konto & E-Mail' eintragen."
+            "Kein Claude-API-Key gesetzt. Bitte unter Einstellungen › Zugänge eintragen."
         )
 
     aktueller_hash = _dateien_hash(alle_pdfs)

@@ -488,6 +488,32 @@ def ausgangsrechnungen_ordner(jahr: int, monat: int, *, anlegen: bool = False) -
     return _monatsordner("02_gestellte", jahr, monat, anlegen=anlegen)
 
 
+def ersetze_datei(neu: Path, ziel: Path, versuche: int = 4) -> None:
+    """Fertig erzeugte Datei an ihren Platz im iCloud-Ordner bringen.
+
+    Direktes Überschreiben scheitert in iCloud manchmal mit „Resource deadlock
+    avoided“ (Fehler 11): Die alte Datei ist ausgelagert oder wird gerade
+    abgeglichen. Darum wird die neue Datei daneben fertig geschrieben und dann
+    in einem Schritt ausgetauscht; klappt das nicht, wird die alte Datei
+    gelöscht und kurz darauf erneut versucht.
+    """
+    import errno
+    import time as _t
+
+    for versuch in range(versuche):
+        try:
+            os.replace(neu, ziel)
+            return
+        except OSError as exc:
+            if exc.errno not in (errno.EDEADLK, errno.EBUSY, errno.EAGAIN) or versuch == versuche - 1:
+                raise
+            try:
+                ziel.unlink()
+            except OSError:
+                pass
+            _t.sleep(1.5 * (versuch + 1))
+
+
 def pdfs_im_ordner(ordner: Path | None) -> list[Path]:
     if ordner is None or not ordner.is_dir():
         return []

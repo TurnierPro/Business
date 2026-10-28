@@ -215,8 +215,17 @@ function abschlussAnsicht(neuZeichnen) {
   </section><div class="abstand"></div>`;
   h += `<div class="raster raster-2"><section class="karte"><div class="karte-kopf"><h2>Checkliste Steuerberater</h2></div>${checkliste()}</section>
     <section class="karte"><div class="karte-kopf"><h2>Prüfergebnis</h2></div>${pruefErgebnis()}</section></div>`;
-  if (F.stripe) h += `<div class="abstand"></div><section class="karte"><div class="karte-kopf"><h2>Stripe-Report</h2><span class="pille gruen">${MONATE[F.stripe.monat - 1]} ${F.stripe.jahr}</span></div><div class="kpi-zeile">
-    ${[["Bruttoumsatz", F.stripe.bruttoumsatz], ["Gebühren", -num(F.stripe.gebuehren)], ["Erstattungen", -num(F.stripe.erstattungen)], ["Netto-Einnahmen", F.stripe.netto], ["Auszahlungen (Bank)", F.stripe.auszahlungen]].map(([t, v]) => k(t, eur(v), "")).join("")}${k("Zahlungen", F.stripe.anzahl_zahlungen, "")}</div></section>`;
+  if (F.stripe || F.umsatz) {
+    const s = F.stripe, u = F.umsatz, m = s || u;
+    h += `<div class="abstand"></div><section class="karte"><div class="karte-kopf"><h2>Stripe-Report</h2><span class="pille gruen">${MONATE[m.monat - 1]} ${m.jahr}</span></div>`;
+    if (s) h += `<div class="kpi-zeile">${k("Bruttoumsatz", eur(s.bruttoumsatz), `${s.anzahl_zahlungen} Zahlungen`)}${k("Gebühren", eur(-num(s.gebuehren)), "an Stripe")}
+      ${k("Erstattungen", eur(num(s.erstattungen)), "zurückgezahlt")}${k("Netto", eur(s.netto), "nach Gebühren")}${k("Auszahlungen", eur(Math.abs(num(s.auszahlungen))), "aufs Bankkonto")}</div>`;
+    if (u) h += `<div class="abschnitt-titel" style="margin-top:18px">Davon TurnierPro-Umsatz</div><div class="kpi-zeile">
+      ${k("Umsatz gesamt", eur(u.gesamt_umsatz), `darin ${eur(u.umsatzsteuer_gesamt)} USt`, "gut")}${k("Abos", eur(u.abo_umsatz), `${u.n_abo} Zahlungen`)}
+      ${k("Provision Camps", eur(u.camp_provision), `${u.n_camp} Zahlungen · ${Math.round(u.camp_satz * 100)} %`)}${k("Provision Turniere", eur(u.turnier_provision), `${u.n_turnier} Zahlungen · ${Math.round(u.turnier_satz * 100)} %`)}
+      ${k("Durchlaufend", eur(u.durchlauf), "an Veranstalter, kein Umsatz")}</div>`;
+    h += `</section>`;
+  }
   if (pr?.belege?.length) h += `<div class="abstand"></div><section class="karte flach"><div class="karte-kopf"><h2>Belegübersicht</h2><span class="unter">${pr.belege.length} Belege</span></div><div class="tabelle-wrap ohne-rand" style="margin-top:10px"><table><thead><tr><th>Datum</th><th>Typ</th><th>Aussteller</th><th class="r">Brutto</th><th class="r">USt</th></tr></thead><tbody>
     ${pr.belege.map((b) => `<tr><td>${esc(b.datum || "–")}</td><td>${esc(b.typ || "–")}</td><td>${esc(b.aussteller || "–")}</td><td class="r num">${eur2(b.betrag_brutto)}</td><td class="r num">${b.umsatzsteuer != null ? eur2(b.umsatzsteuer) : "–"}</td></tr>`).join("")}</tbody></table></div></section>`;
   h += `<div class="abstand"></div><section class="karte"><div class="karte-kopf"><h2>Beleg ablegen</h2><span class="unter">Wird im passenden Monatsordner gespeichert</span></div>
@@ -281,7 +290,8 @@ Object.assign(aktionen, {
     const d = await api("/api/stripe/sync", { json: zeitraumJson() });
     melde(`${d.abgelegt.length} neu abgelegt, ${d.uebersprungen.length} bereits vorhanden.`);
     if (d.fehler.length) melde(d.fehler[0], "fehler");
-    await ladeStatus(() => {}); F.stripe = d.report;
+    await ladeStatus(() => {}); F.stripe = d.report; F.umsatz = d.umsatz;
+    d.fehler.slice(1).forEach((f) => melde(f, "fehler"));
   }, neuZeichnen),
   qontoAuszug: (el, neuZeichnen) => nurMonat() && lauf("Kontoauszug wird abgerufen …", "Der Qonto-Kontoauszug wird geladen und abgelegt.", async () => {
     const d = await api("/api/qonto/kontoauszug", { json: zeitraumJson() });

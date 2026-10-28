@@ -410,7 +410,7 @@ def _verarbeite_ordner(imap, ordner: str, typ: str, verarbeitet: set[str],
 
 _NICHT_KONFIGURIERT = (
     "iCloud-Mail nicht konfiguriert. Bitte iCloud-Adresse und app-spezifisches "
-    "Passwort links unter 'Konto & E-Mail' eintragen (Passwort von appleid.apple.com)."
+    "Passwort unter Einstellungen › Zugänge eintragen (Passwort von appleid.apple.com)."
 )
 
 

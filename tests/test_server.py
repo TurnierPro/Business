@@ -68,3 +68,26 @@ def test_abschluss_datum_nur_vorwaerts_und_bleibt_bei_besitzerwechsel(client):
     assert geteilt.letzter_abschluss() == "2026-09"
     geteilt.automatik_uebernehmen()   # Besitzerwechsel überschreibt das Datum nicht
     assert geteilt.letzter_abschluss() == "2026-09"
+
+
+def test_ersetze_datei_bei_icloud_sperre(tmp_path, monkeypatch):
+    """iCloud meldet „Resource deadlock avoided“: alte Datei weg, neuer Versuch, Datei liegt danach richtig."""
+    import errno
+    import os
+
+    import config
+
+    ziel, neu = tmp_path / "Uebersicht.pdf", tmp_path / ".Uebersicht.pdf.neu"
+    ziel.write_text("alt"); neu.write_text("neu")
+    echt, aufrufe = os.replace, []
+
+    def replace(a, b):
+        aufrufe.append(1)
+        if len(aufrufe) == 1:
+            raise OSError(errno.EDEADLK, "Resource deadlock avoided")
+        return echt(a, b)
+
+    monkeypatch.setattr(os, "replace", replace)
+    monkeypatch.setattr("time.sleep", lambda s: None)
+    config.ersetze_datei(neu, ziel)
+    assert ziel.read_text() == "neu" and not neu.exists() and len(aufrufe) == 2

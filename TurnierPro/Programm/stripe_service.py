@@ -174,7 +174,7 @@ def monatsreport(jahr: int, monat: int) -> dict:
     """
     if not config.get_stripe_key():
         raise RuntimeError(
-            "Kein Stripe-Key gesetzt. Bitte links unter 'Konto & E-Mail' eintragen "
+            "Kein Stripe-Key gesetzt. Bitte unter Einstellungen › Zugänge eintragen "
             "(Stripe-Dashboard → Entwickler → API-Schlüssel)."
         )
 
@@ -233,7 +233,7 @@ def umsatz_aufschluesselung(jahr: int, monat: int) -> dict:
     """
     if not config.get_stripe_key():
         raise RuntimeError(
-            "Kein Stripe-Key gesetzt. Bitte links unter 'Konto & E-Mail' eintragen."
+            "Kein Stripe-Key gesetzt. Bitte unter Einstellungen › Zugänge eintragen."
         )
 
     import stripe
@@ -329,7 +329,7 @@ def sync_monat(jahr: int, monat: int) -> dict:
     """
     if not config.get_stripe_key():
         raise RuntimeError(
-            "Kein Stripe-Key gesetzt. Bitte links unter 'Konto & E-Mail' eintragen "
+            "Kein Stripe-Key gesetzt. Bitte unter Einstellungen › Zugänge eintragen "
             "(Stripe-Dashboard → Entwickler → API-Schlüssel)."
         )
 
@@ -418,7 +418,9 @@ def sync_monat(jahr: int, monat: int) -> dict:
             import provision_beleg
 
             ziel = zielordner / f"Stripe_Zahlungsuebersicht_{jahr}-{monat:02d}.pdf"
-            provision_beleg.erstelle_zahlungsbelege(jahr, monat, zahlungen, ziel)
+            neu = zielordner / f".{ziel.name}.neu"  # erst daneben schreiben, dann austauschen (iCloud)
+            provision_beleg.erstelle_zahlungsbelege(jahr, monat, zahlungen, neu)
+            config.ersetze_datei(neu, ziel)
             if ziel.name not in abgelegt:
                 abgelegt.append(ziel.name)
     except Exception as exc:  # pragma: no cover
@@ -447,7 +449,9 @@ def sync_monat(jahr: int, monat: int) -> dict:
             import provision_beleg
 
             ziel = zielordner / f"Provisions-Aufstellung_{jahr}-{monat:02d}.pdf"
-            provision_beleg.erstelle_provisionsbeleg(jahr, monat, pos, ziel)
+            neu = zielordner / f".{ziel.name}.neu"
+            provision_beleg.erstelle_provisionsbeleg(jahr, monat, pos, neu)
+            config.ersetze_datei(neu, ziel)
             if ziel.name not in abgelegt:
                 abgelegt.append(ziel.name)
     except Exception as exc:  # pragma: no cover

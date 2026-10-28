@@ -483,8 +483,16 @@ def api_stripe_sync():
         import stripe_service
 
         ergebnis = stripe_service.sync_monat(jahr, monat)
-        report = stripe_service.umsatz_aufschluesselung(jahr, monat)  # nur Report, Excel bleibt unberührt
-        return jsonify({"ok": True, "report": report, **ergebnis})
+        report = umsatz = None
+        try:
+            report = stripe_service.monatsreport(jahr, monat)          # Zahlungen, Gebühren, Auszahlungen
+        except Exception as exc:  # pragma: no cover  (z. B. fehlendes Recht „Balance“)
+            ergebnis["fehler"].append(f"Stripe-Report: {exc}")
+        try:
+            umsatz = stripe_service.umsatz_aufschluesselung(jahr, monat)  # Abos, Provisionen, durchlaufend
+        except Exception as exc:  # pragma: no cover
+            ergebnis["fehler"].append(f"Umsatz-Aufschlüsselung: {exc}")
+        return jsonify({"ok": True, "report": report, "umsatz": umsatz, **ergebnis})
     except RuntimeError as exc:
         return jsonify({"ok": False, "fehler": str(exc)}), 400
     except Exception as exc:  # pragma: no cover
