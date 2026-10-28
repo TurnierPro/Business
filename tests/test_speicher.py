@@ -145,3 +145,17 @@ def test_kopierte_einstellungen_bekommen_eigene_kennung(monkeypatch):
     felix_id = config.geraet_id()
     e = config.lade_einstellungen()
     assert felix_id != max_id and e["ich"] == "" and e["stripe_api_key"] == "rk_test"
+
+
+def test_umbenannter_datenordner_wird_gefunden(tmp_path):
+    import config
+
+    alt = tmp_path / "04_TurnierPro App - Daten"
+    Speicher(alt, "a").schreibe([{"k": "team", "a": "set", "w": {"name": "Max"}}])
+    (tmp_path / "TurnierPro Daten" / "journal").mkdir(parents=True)  # leer neu angelegt
+    assert config._finde_datenordner(tmp_path) == alt
+    # Hat der Standardordner Daten, gewinnt er
+    Speicher(tmp_path / "TurnierPro Daten", "a").schreibe([{"k": "team", "a": "set", "w": {"name": "Felix"}}])
+    assert config._finde_datenordner(tmp_path) == tmp_path / "TurnierPro Daten"
+    # Ganz neu: Standardname
+    assert config._finde_datenordner(tmp_path / "leer") == tmp_path / "leer" / "TurnierPro Daten"

@@ -216,9 +216,35 @@ def get_daten_dir() -> Path:
         # daher direkt im iCloud Drive einen gemeinsamen Ordner verwenden.
         ordner = Path.home() / "Library" / "Mobile Documents" / "com~apple~CloudDocs" / "TurnierPro Daten"
     else:
-        ordner = APP_DIR.parent / "TurnierPro Daten"
+        ordner = _finde_datenordner(APP_DIR.parent)
     ordner.mkdir(parents=True, exist_ok=True)
     return ordner
+
+
+def _hat_daten(ordner: Path) -> bool:
+    """Enthält der Ordner schon Journaldateien (auch von iCloud ausgelagerte)?"""
+    j = ordner / "journal"
+    if not j.is_dir():
+        return False
+    return any(j.glob("*.jsonl")) or any(j.glob(".*.jsonl.icloud"))
+
+
+def _finde_datenordner(basis: Path) -> Path:
+    """Datenordner neben dem Programmordner finden.
+
+    Standardname ist „TurnierPro Daten“. Wurde er umbenannt (z. B. in
+    „04_TurnierPro App - Daten“), wird ein Nachbarordner mit „Daten“ im Namen
+    genommen, der schon Daten enthält. Ein leerer Ordner zählt nicht, damit ein
+    versehentlich neu angelegter, leerer „TurnierPro Daten“ nichts verdeckt.
+    """
+    standard = basis / "TurnierPro Daten"
+    if _hat_daten(standard):
+        return standard
+    try:
+        kandidaten = sorted(p for p in basis.iterdir() if p.is_dir() and "daten" in p.name.lower() and _hat_daten(p))
+    except OSError:
+        kandidaten = []
+    return kandidaten[0] if kandidaten else standard
 
 
 def daten_hinweis(ordner: Path) -> str:
