@@ -7,9 +7,9 @@ export const metadata = { title: "Lead anlegen" };
 export default function NeuerLead() {
   return (
     <>
-      <Link href="/leads" className="zurueck">← Betriebe</Link>
+      <Link href="/leads" className="zurueck">← Leads</Link>
       <div className="kopfzeile"><div><h1>Lead anlegen</h1><p>Zum Beispiel eine Empfehlung oder ein Betrieb, der selbst angefragt hat. Nur der Name ist Pflicht; den Rest kannst du später ergänzen.</p></div></div>
-      <form action={leadAnlegen} className="karte" style={{ maxWidth: 920 }}>
+      <form action={leadAnlegen} className="karte">
         <BetriebFelder />
         <div className="knopfreihe">
           <button className="knopf haupt">Lead anlegen</button>

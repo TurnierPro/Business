@@ -459,3 +459,27 @@ a.blick:hover, a.blick:focus-visible { border-color: var(--rahmen); }
 }
 button[disabled] { opacity: 0.6; cursor: wait; }
 .anzahl-pille { font-family: var(--mono); font-size: 12.5px; font-weight: 500; background: var(--grund); border: 1px solid var(--rand-weich); border-radius: 999px; padding: 1px 10px; color: var(--leise); vertical-align: middle; margin-left: 6px; }
+
+/* Volle Fensterbreite nutzen (Entscheidung Maximilian 21.11.2026) */
+main.inhalt { max-width: none; }
+@media (min-width: 1200px) { main.inhalt { padding-left: 40px; padding-right: 40px; } }
+
+/* Alle Eingabefelder gleich hoch und gleich gestaltet (Text, Datum, Auswahl) */
+input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="range"]), select { height: 46px; line-height: 1.2; }
+select { appearance: none; -webkit-appearance: none; padding-right: 38px; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%23A29D93' stroke-width='1.6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 14px center; }
+input[type="date"] { color-scheme: dark; }
+input[type="file"] { padding: 10px 12px; height: auto; }
+/* Feld bleibt oben ausgerichtet: Hinweise unter Nachbarfeldern verschieben nichts */
+.feld { align-content: start; }
+.feld > span { min-height: 20px; }
+.gruppen.zweispaltig { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: stretch; }
+@media (max-width: 1100px) { .gruppen.zweispaltig { grid-template-columns: 1fr; } }
+.gruppen.zweispaltig .gruppe.ganz { grid-column: 1 / -1; }
+
+/* Betrieb: Ablauf links, Auftrag/Unterlagen rechts, volle Breite */
+.akte-raster { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); gap: 16px; align-items: start; }
+@media (max-width: 1100px) { .akte-raster { grid-template-columns: 1fr; } }
+.geldzeile { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.geldzeile > div { background: var(--grund); border-radius: 14px; padding: 12px 14px; display: grid; gap: 2px; min-width: 0; }
+.geldzeile .etikett { font-family: var(--mono); font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--leise); }
+.geldzeile b { font-family: var(--mono); font-weight: 500; font-size: 17px; overflow-wrap: anywhere; }

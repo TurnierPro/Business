@@ -1,0 +1,1 @@
+ALTER TABLE "betriebe" ADD COLUMN "inhaber_geburtsdatum" text;

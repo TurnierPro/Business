@@ -55,6 +55,14 @@ export async function wochenlaufStarten() {
   await ausfuehren("/leads", "Wochenlauf läuft. Neue Leads erscheinen in wenigen Sekunden.", () => einreihen("wochenlauf"));
 }
 
+/** Geburtsdatum aus dem Formular: nur ein echtes Datum in der Vergangenheit, sonst leer. */
+function geburtsdatumAus(f: FormData): string | null {
+  const t = text(f, "geburtsdatum");
+  if (!t) return null;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(t) || Number.isNaN(Date.parse(t)) || new Date(t) > new Date() || t < "1900-01-01") throw new Error("Geburtsdatum ungültig");
+  return t;
+}
+
 export async function leadAnlegen(f: FormData) {
   await ausfuehren("/leads", "Lead angelegt", async (wer) => {
     const r = await akquise.legeBetriebAn(
@@ -79,13 +87,15 @@ export async function leadAnlegen(f: FormData) {
       wer,
     );
     if (!r.id) throw new Error(`Nicht angelegt: Betrieb ${r.grund}.`);
+    const geburtsdatum = geburtsdatumAus(f);
+    if (geburtsdatum) await (await getDb()).update(schema.betriebe).set({ inhaberGeburtsdatum: geburtsdatum }).where(eq(schema.betriebe.id, r.id));
     return { ziel: `/leads/${r.id}` };
   });
 }
 
 export async function betriebSpeichern(f: FormData) {
   const id = zahl(f, "id");
-  await ausfuehren(`/leads/${id}?tab=daten`, "Gespeichert", async (wer) => {
+  await ausfuehren(`/leads/${id}`, "Stammdaten gespeichert", async (wer) => {
     const db = await getDb();
     await db
       .update(schema.betriebe)
@@ -94,6 +104,7 @@ export async function betriebSpeichern(f: FormData) {
         gewerk: text(f, "gewerk"),
         anrede: text(f, "anrede"),
         inhaber: text(f, "inhaber") || null,
+        inhaberGeburtsdatum: geburtsdatumAus(f),
         strasse: text(f, "strasse") || null,
         plz: text(f, "plz") || null,
         ort: text(f, "ort") || null,

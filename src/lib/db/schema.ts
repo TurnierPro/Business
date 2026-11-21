@@ -40,6 +40,8 @@ export const betriebe = pgTable("betriebe", {
   gewerk: text("gewerk").notNull().default("SHK"),
   anrede: text("anrede").default("Herr"),
   inhaber: text("inhaber"),
+  // Geburtsdatum des Inhabers (JJJJ-MM-TT), freiwillig; Zweck und Löschung: recht.ts LOESCHFRISTEN
+  inhaberGeburtsdatum: text("inhaber_geburtsdatum"),
   strasse: text("strasse"),
   plz: text("plz"),
   ort: text("ort"),

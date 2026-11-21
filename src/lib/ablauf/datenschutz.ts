@@ -108,7 +108,7 @@ export async function allesLoeschen(betriebId: number, bestaetigung: string, wer
   // Stammdaten auf das für Rechnungen Nötige beschränken und sperren (Art. 18)
   await db
     .update(schema.betriebe)
-    .set({ status: "gesperrt", telefon: null, email: null, website: null, notizen: null, scoreGrund: null, inhaber: null, datenquelle: null, portalToken: null })
+    .set({ status: "gesperrt", telefon: null, email: null, website: null, notizen: null, scoreGrund: null, inhaber: null, inhaberGeburtsdatum: null, datenquelle: null, portalToken: null })
     .where(eq(schema.betriebe.id, betriebId));
   await protokolliere(wer, "Daten gelöscht, Rechnungen und Handelsbriefe bleiben (§ 147 AO, § 257 HGB)", betriebId);
   return `Gelöscht bis auf ${rechnungen.length} Rechnungen und die Vertragsunterlagen (Aufbewahrungspflicht)`;

@@ -141,6 +141,13 @@
       "when": 1795293834202,
       "tag": "0019_zeiten_baustein",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1795297345968,
+      "tag": "0020_inhaber_geburtsdatum",
+      "breakpoints": true
     }
   ]
 }

@@ -14,7 +14,7 @@ import { AufgabenListe } from "@/components/AufgabenListe";
 import { ARTEN } from "@/lib/ablauf/crm";
 import { ticketNummer } from "@/lib/ablauf/tickets";
 import { KANAELE } from "@/lib/ablauf/nachrichten";
-import { WEG, wegIndex, wegProzent, wegText } from "@/lib/weg";
+import { JETZT, WEG, wegIndex } from "@/lib/weg";
 
 const PROJEKT_TEXT: Record<string, string> = { inhalte: "wartet auf Inhalte", bau: "wird gebaut", pruefung: "Prüfung nicht bestanden", bereit: "Vorschau beim Kunden", live: "live, Betreuung läuft", beendet: "beendet" };
 const ANGEBOT_TEXT: Record<string, string> = { entwurf: "erstellt", versendet: "beim Kunden", unterschrieben: "unterschrieben", angezahlt: "erste Rate bezahlt", abgeschlossen: "abgeschlossen", abgelehnt: "abgelehnt" };
@@ -84,81 +84,23 @@ export default async function Lead({ params, searchParams }: { params: Promise<{
                       ? { was: "Angebot erstellen", unter: "Webauftritt und Module gemeinsam auswählen; der Preis rechnet sofort mit.", knopf: <Link className="knopf haupt" href={`/leads/${id}/angebot`}>Angebot erstellen</Link> }
                       : { was: "Kein nächster Schritt geplant", unter: "Unter „Aktivitäten“ eine Aufgabe anlegen." };
 
+  // Datum je Schritt (wie im Kundenportal), soweit bekannt
+  const brief = post.find((p) => p.zweck === "akquise_brief" && p.versendetAm);
+  const daten: (Date | null | undefined)[] = [b.erstelltAm, brief?.versendetAm, termine[0]?.datum, angebot?.erstelltAm, angebot?.unterschriebenAm, angebot?.angezahltAm, projekt?.inhalteAm, projekt?.abnahmeAm, projekt?.liveAm];
+  const anzahlungsRechnung = rechnungen.find((r) => r.art === "anzahlung");
+  const summe24 = angebot ? angebot.einmalig + angebot.monatlich * 24 : 0;
+
   return (
     <>
       {b.status === "kunde" ? <Link href="/projekte" className="zurueck">← Kunden</Link> : <Link href="/leads" className="zurueck">← Leads</Link>}
-      <div className="akte">
-        <div className="akte-kopf">
-          <div>
-            <h1>{b.name}</h1>
-            <div className="unter">{[b.gewerk, b.inhaber, [b.plz, b.ort].filter(Boolean).join(" "), b.mitarbeiter ? `${b.mitarbeiter} Mitarbeitende` : null].filter(Boolean).join(" · ")}</div>
-          </div>
-          <div className="knopfreihe">
-            <Status wert={b.status} />
-            {!gesperrt && b.status !== "neu" && b.status !== "nicht_interessant" && !(angebot && ["interessant", "termin"].includes(b.status)) ? <Link className="knopf klein" href={`/leads/${id}/angebot`}>{angebot ? "Neues Angebot" : "Angebot erstellen"}</Link> : null}
-          </div>
+      <div className="akte-kopf" style={{ marginBottom: 20 }}>
+        <div>
+          <h1>{b.name}</h1>
+          <div className="unter">{[b.gewerk, b.inhaber, [b.plz, b.ort].filter(Boolean).join(" "), b.mitarbeiter ? `${b.mitarbeiter} Mitarbeitende` : null].filter(Boolean).join(" · ")}</div>
         </div>
-
-        <section className="akte-held" aria-label="Stand">
-          <div className="portal-held" style={{ padding: 0, border: 0, background: "transparent" }}>
-            <div className="stand">
-              <div className="stand-zeile"><span>Wo wir stehen</span><b>{wegText(index)}</b></div>
-              <div className="portal-balken" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={wegProzent(index)} aria-label="Fortschritt"><span style={{ width: `${wegProzent(index)}%` }} /></div>
-            </div>
-          </div>
-          <ol className="schritte weg" aria-label="Weg des Betriebs">
-            {WEG.map((s, i) => <li key={s} className={i < index ? "erledigt" : i === index ? "aktuell" : ""} aria-current={i === index ? "step" : undefined}>{i < index ? <span className="sr-only">erledigt: </span> : null}{s}</li>)}
-          </ol>
-          <div className="portal-naechstes">
-            <div style={{ minWidth: 0, flex: "1 1 320px" }}>
-              <div className="etikett">Als Nächstes</div>
-              <div className="was">{naechstes.was}</div>
-              {naechstes.unter ? <div className="leise klein" style={{ marginTop: 4 }}>{naechstes.unter}</div> : null}
-            </div>
-            {naechstes.knopf ?? null}
-          </div>
-        </section>
-
-        <div className="auf-einen-blick" aria-label="Auf einen Blick">
-          <Link className="blick" href={angebot ? (doks.find((d) => d.art === "angebot") ? `/dokument/${doks.find((d) => d.art === "angebot")!.id}` : `/leads/${id}?tab=dokumente`) : `/leads/${id}/angebot`} target={angebot && doks.some((d) => d.art === "angebot") ? "_blank" : undefined}>
-            <span className="etikett">Angebot</span>
-            <span className="wert">{angebot ? (PAKETE[angebot.paket as PaketKey]?.name ?? angebot.paket) : "noch keins"}</span>
-            <span className="unter">{angebot ? `${euro(angebot.einmalig)} + ${euro(angebot.monatlich)}/Monat · ${ANGEBOT_TEXT[angebot.status] ?? angebot.status}` : "Nach dem Gespräch erstellen"}</span>
-          </Link>
-          <Link className="blick" href={`/leads/${id}?tab=dokumente`}>
-            <span className="etikett">Unterlagen</span>
-            <span className="wert">{doks.length + demos.length} {doks.length + demos.length === 1 ? "Dokument" : "Dokumente"}</span>
-            <span className="unter">{doks[0] ? `zuletzt: ${DOKART[doks[0].art] ?? doks[0].art}` : "noch keine"} · {verschickt} verschickt</span>
-          </Link>
-          <Link className="blick" href={`/leads/${id}?tab=dokumente`}>
-            <span className="etikett">Rechnungen</span>
-            <span className="wert">{rechnungen.length ? (offeneRechnungen.length ? `${offeneRechnungen.length} offen` : "alle bezahlt") : "keine"}</span>
-            <span className="unter">{rechnungen.length ? `${euro(offeneRechnungen.reduce((s, r) => s + r.netto, 0))} netto offen · ${rechnungen.length} insgesamt` : "Erste Rate nach der Unterschrift"}</span>
-          </Link>
-          <Link className="blick" href={offenePost[0] ? `/freigaben/${offenePost[0].id}` : `/leads/${id}?tab=dokumente`}>
-            <span className="etikett">Freigaben</span>
-            <span className="wert">{offenePost.length ? `${offenePost.length} warten` : "nichts offen"}</span>
-            <span className="unter">{offenePost[0] ? (ZWECK[offenePost[0].zweck] ?? offenePost[0].zweck) : "Alles an den Kunden ist durch"}</span>
-          </Link>
-          {projekt ? (
-            <Link className="blick" href={`/projekte/${projekt.id}`}>
-              <span className="etikett">Projekt</span>
-              <span className="wert">{PROJEKT_TEXT[projekt.status] ?? projekt.status}</span>
-              <span className="unter">{projekt.liveAm ? `live seit ${datum(projekt.liveAm)}` : projekt.abnahmeStatus ? `Abnahme: ${projekt.abnahmeStatus}` : PAKETE[projekt.paket as PaketKey]?.name ?? projekt.paket}</span>
-            </Link>
-          ) : null}
-          <Link className="blick" href={`/leads/${id}?tab=ueberblick#kontakte`}>
-            <span className="etikett">Ansprechpartner</span>
-            <span className="wert">{hauptkontakt?.name ?? b.inhaber ?? "noch keiner"}</span>
-            <span className="unter">{hauptkontakt?.telefon ?? b.telefon ?? hauptkontakt?.email ?? b.email ?? "Telefon und E-Mail fehlen"}</span>
-          </Link>
-          {b.portalToken ? (
-            <a className="blick" href={`${basisUrl()}/portal/k/${b.portalToken}`} target="_blank" rel="noopener noreferrer">
-              <span className="etikett">Kundenportal</span>
-              <span className="wert">So sieht es der Kunde</span>
-              <span className="unter">öffnet in neuem Fenster</span>
-            </a>
-          ) : null}
+        <div className="knopfreihe">
+          <Status wert={b.status} />
+          {b.portalToken ? <a className="knopf klein" href={`${basisUrl()}/portal/k/${b.portalToken}`} target="_blank" rel="noopener noreferrer">Kundenportal ansehen ↗</a> : <span className="leise klein">Kundenportal ab dem ersten Angebot</span>}
         </div>
       </div>
 
@@ -168,11 +110,94 @@ export default async function Lead({ params, searchParams }: { params: Promise<{
 
       {tab === "ueberblick" ? (
         <>
-          <div className="raster zwei" style={{ alignItems: "start" }}>
-            <div className="raster">
-              {offenePost.length > 1 ? (
-                <section className="karte">
-                  <h2>Wartet auf Freigabe</h2>
+          <div className="akte-raster">
+            <section className="karte" aria-labelledby="ablauf">
+              <div className="kopfzeile" style={{ marginBottom: 12 }}>
+                <h2 id="ablauf" style={{ margin: 0 }}>Ablauf</h2>
+                <span className="leise klein">{index >= WEG.length ? "alle 9 Schritte erledigt" : `Schritt ${index + 1} von ${WEG.length}`}</span>
+              </div>
+              <div className="portal-naechstes" style={{ marginBottom: 12 }}>
+                <div style={{ minWidth: 0, flex: "1 1 280px" }}>
+                  <div className="etikett">Jetzt dran</div>
+                  <div className="was">{naechstes.was}</div>
+                  {naechstes.unter ? <div className="leise klein" style={{ marginTop: 4 }}>{naechstes.unter}</div> : null}
+                </div>
+                {naechstes.knopf ?? null}
+              </div>
+              <ol className="fortschritt">
+                {WEG.map((titel, i) => (
+                  <li key={titel} className={i < index ? "erledigt" : i === index ? "aktuell" : ""}>
+                    <span className="punkt" aria-hidden="true">{i < index ? "✓" : i + 1}</span>
+                    <div>
+                      <div className="titel">{titel}{i < index ? <span className="sr-only"> (erledigt)</span> : i === index ? <span className="leise klein"> · jetzt</span> : null}</div>
+                      <div className="unter">{i < index ? (daten[i] ? datum(daten[i]) : "erledigt") : i === index ? JETZT[i] : ""}</div>
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            </section>
+
+            <div className="raster" style={{ gap: 16, alignContent: "start" }}>
+              <section className="karte" aria-labelledby="auftrag">
+                <div className="kopfzeile" style={{ marginBottom: 12 }}>
+                  <h2 id="auftrag" style={{ margin: 0 }}>Auftrag und Geld</h2>
+                  {angebot ? <span className="status">{ANGEBOT_TEXT[angebot.status] ?? angebot.status}</span> : null}
+                </div>
+                {angebot ? (
+                  <>
+                    <p style={{ fontWeight: 600, marginBottom: 10 }}>{PAKETE[angebot.paket as PaketKey]?.name ?? angebot.paket}{(angebot.module ?? []).length ? ` + ${(angebot.module ?? []).length} Modul${(angebot.module ?? []).length > 1 ? "e" : ""}` : ""}</p>
+                    <div className="geldzeile">
+                      <div><span className="etikett">einmalig</span><b>{euro(angebot.einmalig)}</b></div>
+                      <div><span className="etikett">monatlich</span><b>{euro(angebot.monatlich)}</b></div>
+                      <div><span className="etikett">24 Monate</span><b>{euro(summe24)}</b></div>
+                    </div>
+                    <p className="leise klein" style={{ margin: "8px 0 0" }}>netto · 50 % bei Unterschrift, 50 % beim Livegang, Monatsbeitrag per Lastschrift ab Livegang</p>
+                    <h3 style={{ margin: "18px 0 6px" }}>Rechnungen</h3>
+                    {rechnungen.length ? (
+                      <ul className="liste">
+                        {rechnungen.map((r) => {
+                          const dok = doks.find((d) => d.art === "rechnung" && (d.daten as { nummer?: string }).nummer === r.nummer);
+                          return (
+                            <li key={r.id}>
+                              <div><div className="titel">{r.art === "anzahlung" ? "Erste Rate" : r.art === "schluss" ? "Schlussrechnung" : "Monatsbeitrag"} · {r.nummer}</div><div className="unter">{euro(Math.round(r.netto * 1.19))} brutto{r.faelligAm ? ` · fällig ${datum(r.faelligAm)}` : ""}</div></div>
+                              <div className="knopfreihe" style={{ gap: 8 }}><Status wert={r.status} />{dok ? <a className="knopf klein" href={`/dokument/${dok.id}`} target="_blank">PDF</a> : null}</div>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    ) : <p className="leise klein">{anzahlungsRechnung ? "" : "Die erste Rate entsteht mit der Unterschrift."}</p>}
+                  </>
+                ) : (
+                  <div className="leer" style={{ padding: "16px 0" }}><strong>Noch kein Angebot.</strong>{!gesperrt && b.status !== "neu" && b.status !== "nicht_interessant" ? <Link className="knopf klein" href={`/leads/${id}/angebot`} style={{ marginTop: 10 }}>Angebot erstellen</Link> : "Erst einstufen."}</div>
+                )}
+              </section>
+
+              <section className="karte" aria-labelledby="unterlagen">
+                <div className="kopfzeile" style={{ marginBottom: 12 }}>
+                  <h2 id="unterlagen" style={{ margin: 0 }}>Unterlagen</h2>
+                  {doks.length + demos.length > 6 ? <Link className="knopf klein" href={`/leads/${id}?tab=dokumente`}>Alle {doks.length + demos.length}</Link> : null}
+                </div>
+                {doks.length || demos.length ? (
+                  <div className="portal-kacheln">
+                    {demos.map((d) => (
+                      <a key={d.slug} className="portal-kachel" href={`/vorschau/${d.slug}?code=${d.zugangscode}`} target="_blank">
+                        <span className="symbol" aria-hidden="true">◱</span>
+                        <span><span className="titel">Demo-Website</span><br /><span className="unter">löscht sich am {datum(d.loeschenAm)}</span></span>
+                      </a>
+                    ))}
+                    {doks.filter((d) => d.art !== "rechnung").slice(0, 6 - demos.length).map((d) => (
+                      <a key={d.id} className="portal-kachel" href={`/dokument/${d.id}`} target="_blank">
+                        <span className="symbol" aria-hidden="true">▤</span>
+                        <span><span className="titel">{DOKART[d.art] ?? d.art}</span><br /><span className="unter">{datum(d.erstelltAm)}</span></span>
+                      </a>
+                    ))}
+                  </div>
+                ) : <p className="leise klein">Noch keine. Sie entstehen nach „Interessant“ und nach dem Gespräch.</p>}
+              </section>
+
+              {offenePost.length ? (
+                <section className="karte" aria-labelledby="freigaben">
+                  <h2 id="freigaben">Wartet auf Freigabe</h2>
                   <ul className="liste">
                     {offenePost.map((p) => (
                       <li key={p.id}>
@@ -183,37 +208,6 @@ export default async function Lead({ params, searchParams }: { params: Promise<{
                   </ul>
                 </section>
               ) : null}
-              <section className="karte">
-                <h2>Offene Aufgaben</h2>
-                {offeneAufgaben.length ? <AufgabenListe eintraege={offeneAufgaben.map((a) => ({ a, betrieb: null }))} zurueck={`/leads/${id}`} mitBetrieb={false} /> : <p className="leise klein">Keine. Neue Aufgabe unter „Aktivitäten“.</p>}
-              </section>
-              {!gesperrt && ["interessant", "angeschrieben", "termin"].includes(b.status) ? (
-                <details className="karte" open={b.status === "termin"}>
-                  <summary style={{ cursor: "pointer", fontWeight: 600 }}>Gespräch vor Ort aufnehmen</summary>
-                  <p className="leise" style={{ marginTop: 12 }}>Aus der Aufnahme entstehen Protokoll, Maßnahmenplan, Angebot und Begleit-Mail. Alles geht vorher durch die Freigabe. Die Aufnahme wird nach dem Versand gelöscht.</p>
-                  <form action={terminHochladen}>
-                    <input type="hidden" name="id" value={id} />
-                    <label className="haken" style={{ marginBottom: 16 }}>
-                      <input type="checkbox" name="einwilligung" value="ja" required />
-                      <span><b>Einwilligung liegt vor.</b> {b.inhaber ?? "Der Inhaber"} ist mit der Aufnahme einverstanden. Ohne Haken wird nichts gespeichert.</span>
-                    </label>
-                    <Aufnahme />
-                    <button className="knopf">Aufnahme speichern</button>
-                  </form>
-                </details>
-              ) : null}
-              {termine.length ? (
-                <section className="karte">
-                  <h2>Gespräche</h2>
-                  <ul className="liste">
-                    {termine.map((t) => (
-                      <li key={t.id}><div><div className="titel">Termin {datumZeit(t.datum)}</div><div className="unter">Einwilligung von {t.einwilligungVon} · {t.audioGeloeschtAm ? `Aufnahme gelöscht am ${datum(t.audioGeloeschtAm)}` : "Aufnahme gespeichert"}</div></div><Status wert={t.status} /></li>
-                    ))}
-                  </ul>
-                </section>
-              ) : null}
-            </div>
-
             <section className="karte" id="kontakte">
               <h2>Ansprechpartner</h2>
               {kontakte.length ? (
@@ -241,6 +235,24 @@ export default async function Lead({ params, searchParams }: { params: Promise<{
                 </form>
               </details>
             </section>
+              <section className="karte">
+                <h2>Offene Aufgaben</h2>
+                {offeneAufgaben.length ? <AufgabenListe eintraege={offeneAufgaben.map((a) => ({ a, betrieb: null }))} zurueck={`/leads/${id}`} mitBetrieb={false} /> : <p className="leise klein">Keine. Neue Aufgabe unter „Aktivitäten“.</p>}
+              </section>
+            </div>
+          </div>
+
+          <div className="abstand">
+            <form action={betriebSpeichern} className="karte" aria-labelledby="stammdaten">
+              <div className="kopfzeile" style={{ marginBottom: 12 }}>
+                <h2 id="stammdaten" style={{ margin: 0 }}>Stammdaten</h2>
+                <button className="knopf klein">Speichern</button>
+              </div>
+              <input type="hidden" name="id" value={id} />
+              <BetriebFelder b={b} />
+              <button className="knopf">Stammdaten speichern</button>
+            </form>
+
           </div>
         </>
       ) : null}
@@ -360,14 +372,6 @@ export default async function Lead({ params, searchParams }: { params: Promise<{
           ) : <p className="leise">Noch nichts.</p>}
         </section>
           </div>
-      <details className="karte abstand">
-        <summary style={{ cursor: "pointer", fontWeight: 600 }}>Stammdaten bearbeiten</summary>
-        <form action={betriebSpeichern} style={{ marginTop: 16 }}>
-          <input type="hidden" name="id" value={id} />
-          <BetriebFelder b={b} />
-          <button className="knopf">Speichern</button>
-        </form>
-      </details>
 
       {!gesperrt ? (
         <details className="karte abstand">

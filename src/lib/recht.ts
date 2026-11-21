@@ -82,6 +82,7 @@ export const LOESCHFRISTEN: { was: string; tage: number | null; grund: string; a
   { was: "Sicherung alter Kunden-Websites (Umzug)", tage: 180, grund: "Nur für Weiterleitungen und Rückfragen nötig", automatisch: true },
   { was: "Nachrichten ohne Zuordnung", tage: 90, grund: "Kein Betrieb erkennbar, Zweck entfallen", automatisch: true },
   { was: "Nachrichten an Betriebe (Mail, WhatsApp, Telefon)", tage: null, grund: "Gehören zum Betrieb und werden mit ihm gelöscht; geschäftliche Korrespondenz 6 Jahre (§ 257 HGB)", automatisch: false },
+  { was: "Geburtsdatum des Inhabers (freiwillig)", tage: null, grund: "Nur mit Angabe des Inhabers; mit dem Betrieb bzw. auf Wunsch sofort gelöscht. Zweck vor Nutzung festlegen (Datenminimierung, Art. 5 DSGVO)", automatisch: false },
   { was: "Messbögen von Besuchen vor Ort", tage: null, grund: "Gehören zum Betrieb und werden mit ihm gelöscht (Leads ohne Reaktion nach 6 Monaten)", automatisch: false },
   { was: "Zugriffsprotokoll der Schnittstelle", tage: 90, grund: "Nachweis und Fehlersuche", automatisch: true },
   { was: "Simulator-Postfach", tage: 90, grund: "Nur zum Testen", automatisch: true },
