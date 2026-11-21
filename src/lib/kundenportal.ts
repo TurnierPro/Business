@@ -6,6 +6,11 @@ import { basisUrl } from "./ablauf/gemeinsam";
 // Kundenportal: Jeder Kunde sieht über seinen geheimen Link den Stand seines Projekts,
 // seine Unterlagen und Rechnungen. Grundregel: Sichtbar ist nur, was wir freigegeben und verschickt haben.
 
+/** Adresse des Kundenportals: eigene Adresse (PORTAL_URL), sonst dieselbe wie Levarex OS (lokal). */
+export function portalBasis(): string {
+  return (process.env.PORTAL_URL ?? basisUrl()).replace(/\/$/, "");
+}
+
 export async function portalLink(betriebId: number): Promise<string> {
   const db = await getDb();
   const [b] = await db.select({ token: schema.betriebe.portalToken }).from(schema.betriebe).where(eq(schema.betriebe.id, betriebId));
@@ -14,14 +19,59 @@ export async function portalLink(betriebId: number): Promise<string> {
     token = crypto.randomBytes(24).toString("base64url");
     await db.update(schema.betriebe).set({ portalToken: token }).where(eq(schema.betriebe.id, betriebId));
   }
-  return `${basisUrl()}/portal/k/${token}`;
+  return `${portalBasis()}/portal/k/${token}`;
 }
 
+/** Betrieb zum Link: Hauptlink des Betriebs oder persönlicher Zugang einer Person (nicht gesperrt). */
 export async function betriebPerPortal(token: string) {
+  return (await zugangPerPortal(token))?.betrieb ?? null;
+}
+
+export async function zugangPerPortal(token: string) {
   if (!token || token.length < 20) return null;
   const db = await getDb();
   const [b] = await db.select().from(schema.betriebe).where(eq(schema.betriebe.portalToken, token));
-  return b && b.status !== "gesperrt" ? b : null;
+  if (b) return b.status !== "gesperrt" ? { betrieb: b, person: b.inhaber ?? null } : null;
+  const [z] = await db.select().from(schema.portalZugaenge).where(eq(schema.portalZugaenge.token, token));
+  if (!z || z.gesperrtAm) return null;
+  const [zb] = await db.select().from(schema.betriebe).where(eq(schema.betriebe.id, z.betriebId));
+  if (!zb || zb.status === "gesperrt") return null;
+  await db.update(schema.portalZugaenge).set({ zuletztAm: new Date() }).where(eq(schema.portalZugaenge.id, z.id));
+  return { betrieb: zb, person: z.name };
+}
+
+/** Persönlichen Zugang für eine weitere Person anlegen. Der Link geht per Mail über die Freigabe raus. */
+export async function zugangAnlegen(o: { betriebId: number; name: string; email: string; kontaktId?: number | null }, wer: string): Promise<number> {
+  const name = o.name.trim();
+  const email = o.email.trim().toLowerCase();
+  if (name.length < 2) throw new Error("Name fehlt.");
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error("Keine gültige E-Mail-Adresse.");
+  const db = await getDb();
+  const doppelt = (await db.select().from(schema.portalZugaenge).where(eq(schema.portalZugaenge.betriebId, o.betriebId))).find((z) => z.email === email && !z.gesperrtAm);
+  if (doppelt) throw new Error("Diese Person hat schon einen Zugang.");
+  const token = crypto.randomBytes(24).toString("base64url");
+  const [z] = await db.insert(schema.portalZugaenge).values({ betriebId: o.betriebId, kontaktId: o.kontaktId ?? null, name, email, token, erstelltVon: wer }).returning();
+  const { inPostausgang } = await import("./ablauf/postausgang");
+  await inPostausgang({
+    betriebId: o.betriebId,
+    kanal: "mail",
+    zweck: "portal_zugang",
+    empfaenger: email,
+    betreff: "Ihr Zugang zum Kundenportal Mein Levarex",
+    text: `Guten Tag ${name},\n\nSie haben jetzt einen eigenen Zugang zum Kundenportal Ihres Betriebs. Dort sehen Sie den Stand des Projekts und alle Unterlagen:\n${portalBasis()}/portal/k/${token}\n\nDer Link ist nur für Sie. Bitte nicht weitergeben.\n\nMit freundlichen Grüßen\nIhr Team von Levarex Consulting`,
+    meta: { zugangId: z.id },
+  });
+  const { protokolliere } = await import("./protokoll");
+  await protokolliere(wer, `Portal-Zugang angelegt für ${name}`, o.betriebId);
+  return z.id;
+}
+
+export async function zugangSperren(id: number, wer: string): Promise<void> {
+  const db = await getDb();
+  const [z] = await db.update(schema.portalZugaenge).set({ gesperrtAm: new Date() }).where(eq(schema.portalZugaenge.id, id)).returning();
+  if (!z) throw new Error("Zugang nicht gefunden");
+  const { protokolliere } = await import("./protokoll");
+  await protokolliere(wer, `Portal-Zugang gesperrt: ${z.name}`, z.betriebId);
 }
 
 const FUER_KUNDEN = ["angebot", "protokoll", "rechnung", "auftragsbestaetigung", "rahmenvertrag", "leistungsschein_erstellung", "leistungsschein_betrieb", "abnahmeprotokoll", "monatsreport", "umzugsanleitung"];

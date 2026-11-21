@@ -504,3 +504,22 @@ export const unterschriften = pgTable("unterschriften", {
   erfasstVon: text("erfasst_von").notNull(),
   am: timestamp("am", { withTimezone: true }).defaultNow().notNull(),
 });
+
+// Persönliche Zugänge zum Kundenportal: jede Person im Betrieb mit eigenem Link, einzeln sperrbar.
+// Der Hauptlink des Betriebs (betriebe.portalToken) bleibt für den Inhaber.
+export const portalZugaenge = pgTable(
+  "portal_zugaenge",
+  {
+    id: serial("id").primaryKey(),
+    betriebId: integer("betrieb_id").notNull().references(() => betriebe.id, { onDelete: "cascade" }),
+    kontaktId: integer("kontakt_id"),
+    name: text("name").notNull(),
+    email: text("email").notNull(),
+    token: text("token").notNull(),
+    erstelltVon: text("erstellt_von").notNull(),
+    erstelltAm: timestamp("erstellt_am", { withTimezone: true }).defaultNow().notNull(),
+    zuletztAm: timestamp("zuletzt_am", { withTimezone: true }),
+    gesperrtAm: timestamp("gesperrt_am", { withTimezone: true }),
+  },
+  (t) => [uniqueIndex("portal_zugang_token").on(t.token)],
+);

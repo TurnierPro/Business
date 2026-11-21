@@ -1,11 +1,10 @@
 import { notFound, redirect } from "next/navigation";
-import { betriebPerPortal, portalDaten } from "@/lib/kundenportal";
+import { betriebPerPortal, portalDaten, zugangPerPortal } from "@/lib/kundenportal";
 import { PAKETE, PaketKey, euro, UST } from "@/lib/pakete";
 import { marke } from "@/lib/marke";
 import { DOKART } from "@/lib/format";
 import { abnahmeErklaeren } from "@/lib/ablauf/vertrag";
-import { erlaubt, GRENZEN, versuchMerken } from "@/lib/sicherheit";
-import { kontingent, ticketAnlegen, ticketNummer, TICKET_STATUS } from "@/lib/ablauf/tickets";
+import { kontingent, ticketNummer, TICKET_STATUS } from "@/lib/ablauf/tickets";
 
 export const metadata = { title: "Ihr Kundenportal", robots: { index: false } };
 
@@ -27,27 +26,14 @@ async function abnehmen(f: FormData) {
   redirect(`/portal/k/${token}?abnahme=${ergebnis}`);
 }
 
-async function aenderungWuenschen(f: FormData) {
-  "use server";
-  const token = String(f.get("token"));
-  const b = await betriebPerPortal(token);
-  if (!b) notFound();
-  if (!(await erlaubt("formular", `portal:${b.id}`, GRENZEN.formularJeIp))) redirect(`/portal/k/${token}?ticketfehler=1#wunsch`);
-  await versuchMerken("formular", `portal:${b.id}`);
-  try {
-    await ticketAnlegen({ betriebId: b.id, betreff: String(f.get("betreff") ?? ""), beschreibung: String(f.get("beschreibung") ?? ""), kategorie: String(f.get("kategorie") ?? "aenderung"), prioritaet: f.get("dringend") === "ja" ? "dringend" : "normal", quelle: "portal" }, `Kunde (Portal)`);
-  } catch {
-    redirect(`/portal/k/${token}?ticketfehler=1#wunsch`);
-  }
-  redirect(`/portal/k/${token}?ticket=1#wunsch`);
-}
 
 export default async function Kundenportal({ params, searchParams }: { params: Promise<{ token: string }>; searchParams: Promise<{ fehler?: string; danke?: string; bezahlt?: string; abgebrochen?: string; abnahme?: string; abnahmefehler?: string; ticket?: string; ticketfehler?: string }> }) {
   const { token } = await params;
-  const b = await betriebPerPortal(token);
-  if (!b) notFound();
+  const zugang = await zugangPerPortal(token);
+  if (!zugang) notFound();
+  const b = zugang.betrieb;
   const d = await portalDaten(b.id);
-  const { danke, bezahlt, abgebrochen, abnahme, abnahmefehler, ticket, ticketfehler } = await searchParams;
+  const { danke, bezahlt, abgebrochen, abnahme, abnahmefehler } = await searchParams;
   const mitBetreuung = d.projekt && ["live", "bereit", "bau", "pruefung"].includes(d.projekt.status);
   const k = mitBetreuung ? await kontingent(b.id) : null;
   const naechster = d.schritte.findIndex((s) => !s.erledigt);
@@ -71,7 +57,7 @@ export default async function Kundenportal({ params, searchParams }: { params: P
     <>
       <section className="portal-held" aria-labelledby="betrieb-name">
         <div>
-          <p className="gruss">{gruss}</p>
+          <p className="gruss">{gruss}{zugang.person ? `, ${zugang.person}` : ""}</p>
           <h1 id="betrieb-name">{b.name}</h1>
         </div>
         <div className="stand">
@@ -167,19 +153,8 @@ export default async function Kundenportal({ params, searchParams }: { params: P
       {mitBetreuung ? (
         <section id="wunsch" className="karte">
           <h2>Änderung oder Frage</h2>
-          {ticket ? <div className="hinweis ok" role="status">Danke, ist angekommen. Wir melden uns, sobald es erledigt ist.</div> : null}
-          {ticketfehler ? <div className="hinweis fehler" role="alert">Bitte Betreff und eine kurze Beschreibung eintragen.</div> : null}
-          {k && k.enthalten ? <p className="leise klein">In Ihrer Betreuung sind {k.enthalten} Minuten Änderungen im Monat enthalten. Diesen Monat genutzt: {k.verbraucht} Minuten.</p> : null}
-          <form action={aenderungWuenschen}>
-            <input type="hidden" name="token" value={token} />
-            <div className="raster zwei">
-              <label className="feld"><span>Worum geht es?</span><input name="betreff" required placeholder="z. B. Neue Öffnungszeiten" /></label>
-              <label className="feld"><span>Art</span><select name="kategorie" defaultValue="aenderung"><option value="aenderung">Änderung an der Website</option><option value="fehler">Etwas funktioniert nicht</option><option value="frage">Frage</option><option value="wunsch">Neuer Wunsch</option></select></label>
-            </div>
-            <label className="feld"><span>Beschreibung</span><textarea name="beschreibung" rows={3} required placeholder="Was soll sich ändern? Auf welcher Seite?" /></label>
-            <label className="haken" style={{ marginBottom: 12 }}><input type="checkbox" name="dringend" value="ja" /><span>Dringend (z. B. Seite nicht erreichbar)</span></label>
-            <button className="knopf">Absenden</button>
-          </form>
+          <p>Schreiben Sie uns einfach eine E-Mail an <a href={`mailto:${marke.absender.email}`}>{marke.absender.email}</a> oder rufen Sie an: <a href={`tel:${marke.absender.telefon.replace(/\s/g, "")}`}>{marke.absender.telefon}</a>. Wir melden uns und tragen den Stand hier ein.</p>
+          {k && k.enthalten ? <p className="leise klein">In Ihrem Monatsbeitrag sind {k.enthalten} Minuten Änderungen im Monat enthalten. Diesen Monat genutzt: {k.verbraucht} Minuten.</p> : null}
           {d.tickets.length ? (
             <ul className="liste" style={{ marginTop: 12 }}>
               {d.tickets.map((t) => <li key={t.id}><div><div className="titel">{ticketNummer(t.id)} {t.betreff}</div><div className="unter">{tag(t.erstelltAm)}{t.erledigtAm ? ` · erledigt ${tag(t.erledigtAm)}` : ""}</div></div><span className={`status ${t.status === "erledigt" ? "ok" : "warten"}`}>{TICKET_STATUS[t.status]}</span></li>)}

@@ -9,7 +9,7 @@ import { datum, datumZeit, DOKART, ZWECK } from "@/lib/format";
 import { PAKETE, PaketKey, euro } from "@/lib/pakete";
 import { istEcht } from "@/lib/adapters/dienste";
 import { basisUrl } from "@/lib/ablauf/gemeinsam";
-import { aktivitaetAnlegen, antwortEntwerfen, nachrichtErledigt, portalLinkErneuern, betriebSpeichern, betriebZuweisen, datenLoeschen, einstufen, kontaktLoeschen, kontaktSpeichern, terminHochladen, widerspruch, zahlungSimulieren } from "../../aktionen";
+import { aktivitaetAnlegen, antwortEntwerfen, nachrichtErledigt, portalLinkErneuern, portalZugangAnlegen, portalZugangSperren, betriebSpeichern, betriebZuweisen, datenLoeschen, einstufen, kontaktLoeschen, kontaktSpeichern, terminHochladen, widerspruch, zahlungSimulieren } from "../../aktionen";
 import { AufgabenListe } from "@/components/AufgabenListe";
 import { ARTEN } from "@/lib/ablauf/crm";
 import { ticketNummer } from "@/lib/ablauf/tickets";
@@ -33,12 +33,13 @@ export default async function Lead({ params, searchParams }: { params: Promise<{
   const db = await getDb();
   const [b] = await db.select().from(schema.betriebe).where(eq(schema.betriebe.id, id));
   if (!b) notFound();
-  const [kontakte, aktivitaeten, tickets, benutzer, nachrichten] = await Promise.all([
+  const [kontakte, aktivitaeten, tickets, benutzer, nachrichten, zugaenge] = await Promise.all([
     db.select().from(schema.kontakte).where(eq(schema.kontakte.betriebId, id)).orderBy(desc(schema.kontakte.haupt), schema.kontakte.name),
     db.select().from(schema.aktivitaeten).where(eq(schema.aktivitaeten.betriebId, id)).orderBy(desc(schema.aktivitaeten.erstelltAm)),
     db.select().from(schema.tickets).where(eq(schema.tickets.betriebId, id)).orderBy(desc(schema.tickets.erstelltAm)),
     db.select({ name: schema.benutzer.name }).from(schema.benutzer),
     db.select().from(schema.nachrichten).where(eq(schema.nachrichten.betriebId, id)).orderBy(desc(schema.nachrichten.zeit)).limit(50),
+    db.select().from(schema.portalZugaenge).where(eq(schema.portalZugaenge.betriebId, id)).orderBy(desc(schema.portalZugaenge.erstelltAm)),
   ]);
   const offeneAufgaben = aktivitaeten.filter((a) => !a.erledigtAm && a.faelligAm).sort((x, y) => x.faelligAm!.getTime() - y.faelligAm!.getTime());
   const chronik = aktivitaeten.filter((a) => a.erledigtAm || !a.faelligAm);
@@ -338,6 +339,24 @@ export default async function Lead({ params, searchParams }: { params: Promise<{
           <summary style={{ cursor: "pointer", fontWeight: 600 }}>Kundenportal: Zugang</summary>
           <p className="leise" style={{ marginTop: 12 }}>Der Kunde kommt über seinen persönlichen Link ins Portal (steht in jeder Mail). Hat er ihn verloren, fordert er ihn unter <span className="mono">/portal</span> per E-Mail neu an. Wurde der Link weitergeleitet oder ist ein Mitarbeiter gegangen: hier erneuern. Der alte Link ist sofort gesperrt, die Mail mit dem neuen liegt danach in den Freigaben.</p>
           <form action={portalLinkErneuern}><input type="hidden" name="id" value={id} /><button className="knopf">Link erneuern und alten sperren</button></form>
+          <h3>Weitere Personen im Betrieb</h3>
+          <p className="leise klein">Jede Person bekommt einen eigenen Link, den ihr einzeln sperren könnt. Die Mail mit dem Link geht über die Freigaben raus.</p>
+          {zugaenge.length ? (
+            <ul className="liste">
+              {zugaenge.map((z) => (
+                <li key={z.id}>
+                  <div><div className="titel">{z.name}</div><div className="unter">{z.email} · {z.zuletztAm ? `zuletzt ${datumZeit(z.zuletztAm)}` : "noch nicht genutzt"}</div></div>
+                  {z.gesperrtAm ? <span className="status">gesperrt</span> : <form action={portalZugangSperren}><input type="hidden" name="id" value={z.id} /><input type="hidden" name="betriebId" value={id} /><button className="knopf klein gefahr">Sperren</button></form>}
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          <form action={portalZugangAnlegen} className="raster drei" style={{ alignItems: "end", marginTop: 12 }}>
+            <input type="hidden" name="betriebId" value={id} />
+            <label className="feld"><span>Name</span><input name="name" required placeholder="z. B. Petra Büro" /></label>
+            <label className="feld"><span>E-Mail</span><input name="email" type="email" required /></label>
+            <div className="feld"><button className="knopf">Zugang anlegen</button></div>
+          </form>
         </details>
       ) : null}
 

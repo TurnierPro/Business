@@ -85,6 +85,7 @@ export const LOESCHFRISTEN: { was: string; tage: number | null; grund: string; a
   { was: "Backups", tage: 30, grund: "Wiederherstellung; gelöschte Daten verschwinden spätestens dann auch aus Backups", automatisch: true },
   { was: "Rechnungen, Buchungsbelege", tage: 8 * 365, grund: "§ 147 AO (8 Jahre ab Jahresende)", automatisch: false },
   { was: "Angebote, Auftragsbestätigungen, Abnahmeprotokolle von Kunden", tage: 6 * 365, grund: "§ 257 HGB (Handelsbriefe, 6 Jahre ab Jahresende)", automatisch: false },
+  { was: "Zugänge zum Kundenportal (Name, E-Mail, letzte Nutzung)", tage: null, grund: "Mit dem Betrieb; bei Löschung oder Vertragsende sofort", automatisch: false },
   { was: "Unterschriften unter Verträgen (Bild, Name, Zeitpunkt)", tage: 6 * 365, grund: "Gehören zu Rahmenvertrag und Leistungsscheinen (§ 257 HGB, 6 Jahre ab Jahresende)", automatisch: false },
   { was: "Kundendaten nach Vertragsende", tage: null, grund: "Sperren statt löschen, solange Aufbewahrungspflichten laufen; danach löschen", automatisch: false },
 ];

@@ -587,6 +587,16 @@ export async function antwortEntwerfen(f: FormData) {
   });
 }
 
+export async function portalZugangAnlegen(f: FormData) {
+  const id = zahl(f, "betriebId");
+  await ausfuehren(`/leads/${id}?tab=daten`, "Zugang angelegt. Die Mail mit dem Link liegt in den Freigaben.", async (wer) => (await import("@/lib/kundenportal")).zugangAnlegen({ betriebId: id, name: text(f, "name"), email: text(f, "email") }, wer));
+}
+
+export async function portalZugangSperren(f: FormData) {
+  const id = zahl(f, "betriebId");
+  await ausfuehren(`/leads/${id}?tab=daten`, "Zugang gesperrt. Der Link funktioniert ab sofort nicht mehr.", async (wer) => (await import("@/lib/kundenportal")).zugangSperren(zahl(f, "id"), wer));
+}
+
 export async function portalLinkErneuern(f: FormData) {
   const id = zahl(f, "id");
   await ausfuehren(`/leads/${id}?tab=daten`, "Neuer Portal-Link erzeugt. Der alte ist gesperrt; die Mail mit dem neuen Link liegt in den Freigaben.", async (wer) => {

@@ -17,13 +17,14 @@ const AUFBEWAHREN = ["rechnung", "angebot", "auftragsbestaetigung", "abnahmeprot
 export async function datenauskunft(betriebId: number, wer: string) {
   const db = await getDb();
   const b = await betrieb(betriebId);
-  const [kontakte, aktivitaeten, tickets, zeiten, nachrichten, unterschriften] = await Promise.all([
+  const [kontakte, aktivitaeten, tickets, zeiten, nachrichten, unterschriften, portalZugaenge] = await Promise.all([
     db.select().from(schema.kontakte).where(eq(schema.kontakte.betriebId, betriebId)),
     db.select().from(schema.aktivitaeten).where(eq(schema.aktivitaeten.betriebId, betriebId)),
     db.select().from(schema.tickets).where(eq(schema.tickets.betriebId, betriebId)),
     db.select().from(schema.zeiten).where(eq(schema.zeiten.betriebId, betriebId)),
     db.select().from(schema.nachrichten).where(eq(schema.nachrichten.betriebId, betriebId)),
     db.select({ name: schema.unterschriften.name, funktion: schema.unterschriften.funktion, rolle: schema.unterschriften.rolle, dokumentId: schema.unterschriften.dokumentId, am: schema.unterschriften.am, pruefsumme: schema.unterschriften.pruefsumme }).from(schema.unterschriften).where(eq(schema.unterschriften.betriebId, betriebId)),
+    db.select({ name: schema.portalZugaenge.name, email: schema.portalZugaenge.email, erstelltAm: schema.portalZugaenge.erstelltAm, zuletztAm: schema.portalZugaenge.zuletztAm, gesperrtAm: schema.portalZugaenge.gesperrtAm }).from(schema.portalZugaenge).where(eq(schema.portalZugaenge.betriebId, betriebId)),
   ]);
   const [termine, angebote, projekte, rechnungen, dokumente, post, anfragen, verlauf] = await Promise.all([
     db.select().from(schema.termine).where(eq(schema.termine.betriebId, betriebId)),
@@ -48,6 +49,7 @@ export async function datenauskunft(betriebId: number, wer: string) {
     nachrichten,
     // Bild der Unterschrift steht in den Vertrags-PDFs; hier nur die Angaben dazu
     unterschriften,
+    portalZugaenge,
     termine: termine.map(({ audioPfad, ...t }) => ({ ...t, aufnahmeGespeichert: !!audioPfad })),
     angebote,
     projekte: projekte.map(({ portalToken: _t, ...p }) => p),
@@ -92,6 +94,7 @@ export async function allesLoeschen(betriebId: number, bestaetigung: string, wer
   await db.delete(schema.kontakte).where(eq(schema.kontakte.betriebId, betriebId));
   await db.delete(schema.aktivitaeten).where(eq(schema.aktivitaeten.betriebId, betriebId));
   await db.delete(schema.tickets).where(eq(schema.tickets.betriebId, betriebId));
+  await db.delete(schema.portalZugaenge).where(eq(schema.portalZugaenge.betriebId, betriebId));
   // Von Nachrichten bleiben nur unsere versendeten Mails (Handelsbriefe), der Rest geht
   await db.delete(schema.nachrichten).where(and(eq(schema.nachrichten.betriebId, betriebId), or(ne(schema.nachrichten.richtung, "aus"), ne(schema.nachrichten.kanal, "mail"))));
   await db.delete(schema.anfragen).where(eq(schema.anfragen.betriebId, betriebId));

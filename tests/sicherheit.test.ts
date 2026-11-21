@@ -200,3 +200,53 @@ test("Unterschrift auf dem Tablet: nur echte PNG-Bilder, kein eingeschleustes HT
   assert.equal(unterschriftsbildOk(`data:image/png;base64,${"A".repeat(500_000)}`), false, "zu groß");
   assert.equal(unterschriftsbildOk(""), false);
 });
+
+test("Kundenportal: Betrieb A sieht nie Unterlagen von Betrieb B (Trennung ohne Row-Level Security)", async () => {
+  const kp = await import("../src/lib/kundenportal");
+  const route = await import("../src/app/portal/k/[token]/dokument/[id]/route");
+  const neuerBetrieb = async (name: string) => {
+    const [b] = await db.insert(schema.betriebe).values({ name, gewerk: "SHK", email: `${name.toLowerCase()}@trennung.example` }).returning();
+    await kp.portalLink(b.id);
+    const [mitToken] = await db.select().from(schema.betriebe).where(eq(schema.betriebe.id, b.id));
+    const [dok] = await db.insert(schema.dokumente).values({ betriebId: b.id, art: "angebot", titel: `Angebot ${name}`, daten: { nummer: "A-1" } }).returning();
+    // Verschickt (nur Verschicktes ist im Portal sichtbar)
+    await db.insert(schema.postausgang).values({ betriebId: b.id, kanal: "mail", zweck: "angebot", empfaenger: "x@y.de", betreff: "x", text: "x", anhaenge: [dok.id], status: "versendet", versendetAm: new Date() });
+    return { id: b.id, token: mitToken.portalToken!, dok: dok.id };
+  };
+  const a = await neuerBetrieb("Alpha");
+  const b = await neuerBetrieb("Beta");
+  assert.equal(await kp.darfDokumentSehen(a.id, a.dok), true);
+  assert.equal(await kp.darfDokumentSehen(a.id, b.dok), false, "fremdes Dokument");
+  assert.equal(await kp.darfDokumentSehen(b.id, a.dok), false);
+  const abruf = (token: string, id: number) => route.GET(new Request("https://x"), { params: Promise.resolve({ token, id: String(id) }) });
+  assert.equal((await abruf(a.token, b.dok)).status, 404, "Link von A, Dokument von B");
+  assert.equal((await abruf("x".repeat(32), a.dok)).status, 404, "erfundener Link");
+  const sichtA = await kp.portalDaten(a.id);
+  assert.ok(sichtA.dokumente.every((d) => d.betriebId === a.id));
+  // Persönlicher Zugang: funktioniert, nach dem Sperren nicht mehr, und nur für den eigenen Betrieb
+  const zid = await kp.zugangAnlegen({ betriebId: a.id, name: "Petra Büro", email: "petra@alpha.example" }, "Test");
+  const [z] = await db.select().from(schema.portalZugaenge).where(eq(schema.portalZugaenge.id, zid));
+  assert.equal((await kp.zugangPerPortal(z.token))?.betrieb.id, a.id);
+  assert.equal((await kp.zugangPerPortal(z.token))?.person, "Petra Büro");
+  assert.equal((await abruf(z.token, b.dok)).status, 404);
+  await kp.zugangSperren(zid, "Test");
+  assert.equal(await kp.zugangPerPortal(z.token), null, "gesperrt");
+});
+
+test("Getrennte Adressen: unter der Portal-Adresse nur das Portal, unter der OS-Adresse kein Portal", async () => {
+  process.env.BASE_URL = "https://os.levarex.example";
+  process.env.PORTAL_URL = "https://portal.levarex.example";
+  try {
+    const { NextRequest } = await import("next/server");
+    const { middleware } = await import("../src/middleware");
+    const anfrage = (url: string, cookie?: string) => middleware(new NextRequest(url, { headers: { host: new URL(url).host, ...(cookie ? { cookie } : {}) } }));
+    assert.equal(anfrage("https://portal.levarex.example/leads", "lvx_os=abc").status, 404, "kein OS unter der Portal-Adresse, auch nicht mit OS-Cookie");
+    assert.equal(anfrage("https://portal.levarex.example/api/v1/betriebe").status, 404);
+    assert.match(anfrage("https://portal.levarex.example/").headers.get("location") ?? "", /\/portal$/);
+    assert.notEqual(anfrage("https://portal.levarex.example/portal/k/abcdefghijklmnopqrstuvwxyz").status, 404);
+    assert.equal(anfrage("https://os.levarex.example/portal/k/abc").headers.get("location"), "https://portal.levarex.example/portal/k/abc", "Portal nur unter eigener Adresse");
+    assert.match(anfrage("https://os.levarex.example/leads").headers.get("location") ?? "", /\/login$/, "OS braucht Anmeldung");
+  } finally {
+    delete process.env.PORTAL_URL;
+  }
+});

@@ -4,9 +4,13 @@ import { NextResponse, type NextRequest } from "next/server";
 // Die echte Prüfung der Signatur passiert serverseitig in jeder geschützten Seite.
 const OFFEN = ["/login", "/vorschau", "/portal", "/api/gesundheit", "/api/tls-erlaubt", "/api/v1", "/api/whatsapp", "/kalender", "/_next", "/favicon", "/marke"];
 
+const hostVon = (url?: string) => (url ?? "").trim().replace(/^https?:\/\//, "").split("/")[0].split(":")[0].toLowerCase();
+// Eigene Adresse des Kundenportals (z. B. portal.levarex-consulting.de). Dort gibt es nur das Portal.
+const PORTAL_PFADE = ["/portal", "/marke", "/_next", "/favicon", "/icon", "/api/gesundheit"];
+
 // Hosts von Levarex OS selbst. Jeder andere Host ist eine Kunden-Domain und bekommt die Kunden-Website.
 function eigenerHost(host: string): boolean {
-  const eigene = [process.env.BASE_URL, ...(process.env.LEVAREX_HOSTS ?? "").split(",")]
+  const eigene = [process.env.BASE_URL, process.env.PORTAL_URL, ...(process.env.LEVAREX_HOSTS ?? "").split(",")]
     .map((x) => (x ?? "").trim().replace(/^https?:\/\//, "").split("/")[0].split(":")[0].toLowerCase())
     .filter(Boolean);
   return !host || host === "localhost" || /^[\d.]+$/.test(host) || eigene.includes(host);
@@ -58,6 +62,14 @@ function pruefe(req: NextRequest): NextResponse {
   const { pathname } = req.nextUrl;
   const roh = (req.headers.get("host") ?? "").toLowerCase();
   const host = roh.startsWith("[") ? "" : roh.split(":")[0]; // IPv6-Adresse: immer Levarex OS
+  // Strikte Trennung: Unter der Portal-Adresse nur das Portal, unter der OS-Adresse kein Portal
+  const portalHost = hostVon(process.env.PORTAL_URL);
+  if (portalHost && host === portalHost) {
+    if (pathname === "/") return NextResponse.redirect(new URL("/portal", req.url));
+    if (!PORTAL_PFADE.some((p) => pathname === p || pathname.startsWith(`${p}/`) || (p !== "/portal" && pathname.startsWith(p)))) return new NextResponse("Nicht gefunden", { status: 404 });
+  } else if (portalHost && (pathname === "/portal" || pathname.startsWith("/portal/"))) {
+    return NextResponse.redirect(new URL(`${pathname}${req.nextUrl.search}`, process.env.PORTAL_URL));
+  }
   if (!eigenerHost(host) && !pathname.startsWith("/_next")) {
     const r = NextResponse.rewrite(new URL(`/kunde-seite/${encodeURIComponent(host)}${pathname === "/" ? "" : pathname}${req.nextUrl.search}`, req.url));
     r.headers.set("Content-Security-Policy", CSP_KUNDENSEITE);
