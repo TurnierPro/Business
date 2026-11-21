@@ -125,9 +125,9 @@ export async function schritte(betriebId: number): Promise<Schritt[]> {
     { titel: "Angebot angenommen", text: "Danke für Ihr Vertrauen.", erledigt: !!a?.unterschriebenAm, datum: a?.unterschriebenAm ?? null },
     { titel: "Anzahlung eingegangen", text: "Damit starten wir Ihr Projekt.", erledigt: !!a?.angezahltAm, datum: a?.angezahltAm ?? null },
     { titel: "Inhalte geliefert", text: "Texte und Fotos von Ihnen sind da.", erledigt: !!p?.inhalteAm, datum: p?.inhalteAm ?? null },
-    { titel: "Website gebaut und geprüft", text: "Ladezeit, Barrierefreiheit, Formulare und Rechtstexte geprüft.", erledigt: !!nachBau, datum: null },
+    { titel: "Website gebaut und geprüft", text: "Ladezeit, Barrierefreiheit, Formulare und Rechtstexte geprüft. Sie sehen die Seite als Vorschau.", erledigt: !!nachBau, datum: null },
+    { titel: "Website abgenommen", text: "Sie haben die Vorschau geprüft und abgenommen.", erledigt: ["abgenommen", "vorbehalt", "fiktion"].includes(p?.abnahmeStatus ?? ""), datum: p?.abnahmeAm ?? null },
     { titel: "Website live", text: "Ihre Seite ist unter Ihrer Domain erreichbar.", erledigt: !!p?.liveAm, datum: p?.liveAm ?? null },
-    { titel: "Website abgenommen", text: "Sie haben die fertige Seite geprüft und abgenommen.", erledigt: ["abgenommen", "vorbehalt", "fiktion"].includes(p?.abnahmeStatus ?? ""), datum: p?.abnahmeAm ?? null },
     { titel: "Betreuung läuft", text: "Wir kümmern uns um Technik, Sicherheit und Änderungen.", erledigt: !!p?.aboAb, datum: p?.aboAb ?? null },
   ];
 }

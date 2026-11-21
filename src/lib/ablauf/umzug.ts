@@ -236,10 +236,6 @@ export async function umstellungPruefen(jetzt = new Date()): Promise<string> {
       text: `Guten Tag,\n\ndie Umstellung hat geklappt: Unter ${u.domain} erscheint jetzt Ihre neue Website. Alte Adressen leiten wir automatisch auf die passenden neuen Seiten weiter, damit Google-Treffer und Lesezeichen weiter funktionieren.\n\nIhr altes Webhosting können Sie jetzt kündigen. Wichtig: Kündigen Sie nur das Webhosting, nicht die Domain${u.stand?.mailAnbieter && !/Microsoft|Google/.test(u.stand.mailAnbieter) ? ` und nicht Ihre E-Mail-Postfächer bei ${u.stand.mailAnbieter}` : ""}. Einen Mustertext finden Sie unten. Wenn Sie unsicher sind, rufen Sie uns vor der Kündigung an.\n\nMustertext:\n„Hiermit kündige ich das Webhosting zur Domain ${u.domain} zum nächstmöglichen Zeitpunkt. Die Domain${u.weg === "selbst" ? " und alle E-Mail-Postfächer" : ""} sind ausdrücklich nicht von der Kündigung erfasst. Bitte bestätigen Sie mir das Vertragsende.“\n\nMit freundlichen Grüßen\nMaximilian Steiner\nLevarex Consulting\n\nIhr Kundenportal: ${await portalLink(b.id)}`,
       meta: { projektId: p.id },
     });
-    if (!p.abnahmeStatus) {
-      const { abnahmeAnfordern } = await import("./vertrag");
-      await abnahmeAnfordern(p.id, SYSTEM);
-    }
     fertig++;
   }
   return `${fertig} Domains umgestellt`;

@@ -107,6 +107,9 @@ export default async function Eintrag({ params }: { params: Promise<{ id: string
               ) : (
                 <form action={freigeben}>
                   <input type="hidden" name="id" value={e.id} />
+                  {e.kanal === "livegang" ? (
+                    <label className="feld"><span>Code aus der Authenticator-App</span><input name="code" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" required /></label>
+                  ) : null}
                   <button className="knopf haupt" style={{ width: "100%" }}>{e.kanal === "livegang" ? "Livegang freigeben" : e.kanal === "lastschrift" ? "Lastschrift freigeben" : e.kanal === "brief" ? "Brief freigeben und versenden" : e.kanal === "whatsapp" ? "WhatsApp freigeben und senden" : "Freigeben und senden"}</button>
                 </form>
               )}

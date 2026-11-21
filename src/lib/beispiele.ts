@@ -1,3 +1,4 @@
+import { TECHNIK } from "./ablauf/crm";
 import fs from "node:fs";
 import path from "node:path";
 import { and, eq, inArray, ne, sql } from "drizzle-orm";
@@ -207,7 +208,7 @@ export async function beispieleLaden(): Promise<string> {
   }
   // Projekt wartet auf Inhalte vom Kunden
   await bisProjekt(BETRIEBE.inhalte);
-  // Projekt gebaut, Livegang wartet auf Freigabe
+  // Projekt gebaut, Bitte um Abnahme (Vorschau) wartet auf Freigabe
   {
     const { projektId } = await bisProjekt(BETRIEBE.bereit);
     await inhalteSenden(projektId, BETRIEBE.bereit);
@@ -219,8 +220,8 @@ export async function beispieleLaden(): Promise<string> {
     const [p] = await db.select().from(schema.projekte).where(eq(schema.projekte.id, projektId));
     const datei = path.join(datenOrdner("sites"), p.seitenSlug!, "index.html");
     fs.writeFileSync(datei, fs.readFileSync(datei, "utf8").replace("<h2>Über uns</h2>", '<img src="{{BASIS}}/bild/werkstatt.jpg{{Q}}"><h2>Über uns</h2>'));
-    const livegang = await offen(id, "livegang");
-    await post.ablehnen(livegang.id, "Prüfung nachträglich nicht bestanden (Beispiel)", MAX);
+    const aufforderung = await offen(id, "abnahme_aufforderung");
+    await post.ablehnen(aufforderung.id, "Prüfung nachträglich nicht bestanden (Beispiel)", MAX);
     await db.update(schema.projekte).set({ status: "pruefung", pruefung: pruefeSeite(p.seitenSlug!) }).where(eq(schema.projekte.id, projektId));
   }
   // Projekt live und abgenommen: Schlussrechnung und Lastschrift über Qonto (alles nach Freigabe),
@@ -228,7 +229,12 @@ export async function beispieleLaden(): Promise<string> {
   {
     const { id, projektId } = await bisProjekt(BETRIEBE.live);
     await inhalteSenden(projektId, BETRIEBE.live);
-    await freigeben(id, "livegang", MAX);
+    // Erst Vorschau und Abnahme, dann Livegang
+    await freigeben(id, "abnahme_aufforderung", MAX);
+    await vertrag.abnahmeErklaeren(projektId, { ergebnis: "abgenommen", name: BETRIEBE.live.inhaber ?? BETRIEBE.live.name, maengel: "" });
+    await warte();
+    await freigeben(id, "abnahme_bestaetigung", MAX);
+    await freigeben(id, "livegang", TECHNIK); // Livegang gibt nur Maximilian frei
     // Bestehende Domain: Anleitung raus, Kunde stellt um, der Umzugs-Agent merkt es (Simulator)
     await freigeben(id, "umzug_anleitung", MAX);
     process.env.DNS_SIMULATOR_UMGESTELLT = "ja";
@@ -238,10 +244,6 @@ export async function beispieleLaden(): Promise<string> {
       delete process.env.DNS_SIMULATOR_UMGESTELLT;
     }
     await freigeben(id, "umzug_fertig", MAX);
-    await freigeben(id, "abnahme_aufforderung", MAX);
-    await vertrag.abnahmeErklaeren(projektId, { ergebnis: "abgenommen", name: BETRIEBE.live.inhaber ?? BETRIEBE.live.name, maengel: "" });
-    await warte();
-    await freigeben(id, "abnahme_bestaetigung", MAX);
     await freigeben(id, "schlussrechnung", MAX);
     await freigeben(id, "lastschrift_start", MAX);
     const vor = (tage: number) => new Date(Date.now() - tage * 864e5);

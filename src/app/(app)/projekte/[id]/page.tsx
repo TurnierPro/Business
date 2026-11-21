@@ -17,9 +17,9 @@ const SCHRITTE = [
   { key: "inhalte", text: "Inhalte vom Kunden" },
   { key: "bau", text: "Bau" },
   { key: "pruefung", text: "Prüfung" },
-  { key: "bereit", text: "Freigabe Livegang" },
-  { key: "live", text: "Live" },
+  { key: "bereit", text: "Vorschau beim Kunden" },
   { key: "abnahme", text: "Abnahme" },
+  { key: "live", text: "Live" },
 ];
 
 const ABNAHME: Record<string, string> = { offen: "wartet auf Abnahme", abgenommen: "abgenommen", vorbehalt: "abgenommen mit Mängeln", verweigert: "Abnahme verweigert", fiktion: "abgenommen (Frist abgelaufen)" };
@@ -33,7 +33,8 @@ export default async function Projekt({ params }: { params: Promise<{ id: string
   const [seite] = p.seitenSlug ? await db.select().from(schema.seiten).where(eq(schema.seiten.slug, p.seitenSlug)) : [];
   const livegang = (await db.select().from(schema.postausgang).where(eq(schema.postausgang.projektId, id))).find((e) => e.zweck === "livegang" && e.status === "zur_freigabe");
   const abgenommen = ["abgenommen", "vorbehalt", "fiktion"].includes(p.abnahmeStatus ?? "");
-  const index = abgenommen ? SCHRITTE.length : p.status === "live" ? 5 : SCHRITTE.findIndex((s) => s.key === p.status);
+  // Reihenfolge: Bau → Prüfung → Vorschau → Abnahme → Livegang (nur Maximilian mit Code)
+  const index = p.status === "live" || p.status === "beendet" ? SCHRITTE.length : abgenommen ? 5 : SCHRITTE.findIndex((s) => s.key === p.status);
   const bfsg = bfsgHinweis(p.onboarding);
   const umzug = umzugVon(p);
   const [punkte, zeit] = await Promise.all([checkliste(id), zeitenVonProjekt(id)]);
@@ -181,7 +182,7 @@ export default async function Projekt({ params }: { params: Promise<{ id: string
           <summary style={{ cursor: "pointer", fontWeight: 600 }}>Kündigung der Betreuung erfassen</summary>
           <form action={kuendigungErfassen} style={{ marginTop: 12 }}>
             <input type="hidden" name="id" value={id} />
-            <p className="leise">Levarex OS berechnet das Ende (12 Monate Mindestlaufzeit, danach zum Ende des Folgemonats; in den AGB prüfen), legt die Bestätigung in den Postausgang und beendet ein Stripe-Abo nach Freigabe.</p>
+            <p className="leise">Levarex OS berechnet das Ende (24 Monate ab Livegang, danach je 12 Monate; Kündigung bis 3 Monate vor Ende), legt die Bestätigung in den Postausgang und beendet die Qonto-Lastschrift nach Freigabe.</p>
             <label className="feld"><span>Kündigung eingegangen am</span><input type="date" name="eingang" required defaultValue={new Date().toISOString().slice(0, 10)} style={{ maxWidth: 220 }} /></label>
             <button className="knopf">Kündigung erfassen</button>
           </form>

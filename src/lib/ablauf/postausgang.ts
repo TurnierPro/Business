@@ -1,3 +1,4 @@
+import { TECHNIK } from "./crm";
 import { and, eq, inArray } from "drizzle-orm";
 import { getDb, schema } from "../db";
 import { einreihen } from "../jobs/warteschlange";
@@ -173,6 +174,8 @@ export async function freigeben(id: number, wer: string): Promise<"freigegeben" 
     throw new Error("Keine gültige E-Mail-Adresse beim Empfänger. Bitte unter „Text ändern“ eintragen.");
   }
   if (e.kanal === "whatsapp" && !telefonNormal(e.empfaenger)) throw new Error("Keine gültige Handynummer beim Empfänger.");
+  // Livegang: Festlegung "nur durch Maximilian mit zweitem Faktor" (Code prüft die Aktion vorher)
+  if (e.kanal === "livegang" && wer !== TECHNIK) throw new Error(`Den Livegang gibt nur ${TECHNIK} frei.`);
   if (e.qkStatus === "ausstehend") throw new Error("Die Qualitätskontrolle läuft noch. In ein paar Sekunden neu laden.");
   if (e.qkStatus === "blockiert") throw new Error("Die Qualitätskontrolle hat Fehler gefunden. Erst beheben, dann freigeben.");
   const freigaben = [...e.freigaben, { name: wer, am: new Date().toISOString() }];

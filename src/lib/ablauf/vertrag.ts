@@ -8,7 +8,7 @@ import { PAKETE, PaketKey, euro, UST } from "../pakete";
 import { ABNAHME_FRIST_TAGE, KUENDIGUNG_MONATE_VOR_ENDE, LAUFZEIT_MONATE, VERLAENGERUNG_MONATE, VERTRAGSWERK_VERSION } from "../recht";
 import { inPostausgang } from "./postausgang";
 import { hakeAb } from "./checkliste";
-import { anschrift, betrieb, neuesDokument, SYSTEM } from "./gemeinsam";
+import { basisUrl, anschrift, betrieb, neuesDokument, SYSTEM } from "./gemeinsam";
 import { erstelleRechnung } from "./verkauf";
 
 // Vertrag nach dem Livegang: Abnahme (§ 640 BGB), Schlusszahlung erst nach Abnahme, Kündigung und Vertragsende.
@@ -22,16 +22,21 @@ async function projekt(id: number): Promise<Projekt> {
   return p;
 }
 
-/** Bittet den Kunden im Kundenportal um Abnahme. Die Frist beginnt, sobald die Mail freigegeben und verschickt ist. */
-export async function abnahmeAnfordern(projektId: number, wer: string): Promise<number> {
+/**
+ * Fertigstellungsanzeige: Seite als Vorschau bereitstellen (nicht in Google, mit Zugangscode) und um Abnahme bitten.
+ * Online geht die Seite erst nach der Abnahme. Die Frist beginnt, sobald die Mail freigegeben und verschickt ist.
+ */
+export async function abnahmeAnfordern(projektId: number, wer: string, hinweise: string[] = []): Promise<number> {
   const p = await projekt(projektId);
-  if (p.status !== "live") throw new Error("Abnahme gibt es erst, wenn die Seite live ist.");
+  if (p.status !== "bereit" || !p.seitenSlug) throw new Error("Abnahme gibt es erst, wenn die Seite gebaut ist und alle Prüfungen bestanden hat.");
   if (p.abnahmeStatus === "offen") throw new Error("Die Abnahme ist schon angefordert.");
   if (p.abnahmeStatus && p.abnahmeStatus !== "verweigert") throw new Error("Das Projekt ist schon abgenommen.");
   const db = await getDb();
   await db.update(schema.projekte).set({ abnahmeStatus: "offen", abnahmeFrist: null, abnahmeMaengel: p.abnahmeStatus === "verweigert" ? p.abnahmeMaengel : null }).where(eq(schema.projekte.id, projektId));
   const b = await betrieb(p.betriebId);
   const erneut = p.abnahmeStatus === "verweigert";
+  const [seite] = await db.select().from(schema.seiten).where(eq(schema.seiten.slug, p.seitenSlug));
+  const vorschau = `${basisUrl()}/vorschau/${p.seitenSlug}${seite?.zugangscode ? `?code=${seite.zugangscode}` : ""}`;
   const id = await inPostausgang({
     betriebId: b.id,
     projektId,
@@ -39,8 +44,9 @@ export async function abnahmeAnfordern(projektId: number, wer: string): Promise<
     zweck: "abnahme_aufforderung",
     empfaenger: b.email ?? "(E-Mail-Adresse fehlt)",
     betreff: erneut ? "Mängel behoben: Bitte nehmen Sie Ihre Website ab" : "Ihre Website ist fertig: Bitte nehmen Sie sie ab",
-    text: `Guten Tag,\n\n${erneut ? "die genannten Mängel sind behoben." : "Ihre Website ist fertig und online."}${p.domain ? ` Sie finden sie unter ${p.domain}.` : ""} Bitte sehen Sie sich alles in Ruhe an und erklären Sie die Abnahme in Ihrem Kundenportal:\n${await portalLink(b.id)}\n\nDort können Sie abnehmen, unter Vorbehalt mit Mängeln abnehmen oder mit Begründung verweigern. Bitte melden Sie sich innerhalb von ${ABNAHME_FRIST_TAGE} Tagen. Nennen Sie in dieser Frist keinen Mangel, gilt die Website als abgenommen (§ 640 Abs. 2 BGB).\n\nMit freundlichen Grüßen\nMaximilian Steiner\nLevarex Consulting`,
+    text: `Guten Tag,\n\n${erneut ? "die genannten Mängel sind behoben." : "Ihre Website ist fertig."} Sie ist noch nicht öffentlich: Sehen Sie sich die Vorschau in Ruhe an, am Handy und am Computer:\n${vorschau}\n\nErklären Sie die Abnahme bitte in Ihrem Kundenportal:\n${await portalLink(b.id)}\n\nDort können Sie abnehmen, unter Vorbehalt mit Mängeln abnehmen oder mit Begründung verweigern. Bitte melden Sie sich innerhalb von ${ABNAHME_FRIST_TAGE} Kalendertagen. Nennen Sie in dieser Frist keinen Mangel, gilt die Website als abgenommen (§ 640 Abs. 2 BGB). Online geht sie erst nach der Abnahme${p.domain ? ` unter ${p.domain}` : ""}.\n\nMit freundlichen Grüßen\nMaximilian Steiner\nLevarex Consulting`,
     erlaubteZahlen: [String(ABNAHME_FRIST_TAGE)],
+    hinweise,
     meta: { projektId },
   });
   await protokolliere(wer, erneut ? "Abnahme erneut angefordert" : "Abnahme angefordert", b.id);
@@ -91,7 +97,7 @@ export async function abnahmefiktion(jetzt = new Date()): Promise<string> {
   return `${faellig.length} Abnahmen nach Fristablauf`;
 }
 
-/** Abnahmeprotokoll an den Kunden und Schlusszahlung vorbereiten. Beides geht durch Qualitätskontrolle und Freigabe. */
+/** Abnahmeprotokoll an den Kunden und Livegang vorbereiten. Beides geht durch Qualitätskontrolle und Freigabe. */
 async function nachAbnahme(projektId: number): Promise<void> {
   const p = await projekt(projektId);
   await (await import("../webhooks")).ereignis("abnahme.erklaert", { projektId, betriebId: p.betriebId, ergebnis: p.abnahmeStatus });
@@ -119,13 +125,33 @@ async function nachAbnahme(projektId: number): Promise<void> {
     anhaenge: [protokollId],
     meta: { projektId },
   });
+  // Erst jetzt der Livegang: Freigabe nur durch Maximilian mit zweitem Faktor
+  if (p.status === "bereit") {
+    await inPostausgang({
+      betriebId: b.id,
+      projektId,
+      kanal: "livegang",
+      zweck: "livegang",
+      empfaenger: p.domain || "(Domain fehlt)",
+      betreff: `Livegang ${b.name} (${name})`,
+      text: `Abnahme ${ergebnis === "fiktion" ? "durch Fristablauf" : "erklärt"} am ${am}. Die Seite hat alle ${(p.pruefung ?? []).length} Prüfungen bestanden. Vorschau ansehen, dann freigeben.\n\nNach der Freigabe: Seite geht online, die Domain wird umgestellt, die Schlussrechnung (50 %) und die Lastschrift für den Monatsbeitrag liegen zur Freigabe.`,
+      meta: { projektId, slug: p.seitenSlug },
+    });
+  }
+}
+
+/** Zweite Rate beim Livegang nach der Abnahme: Gesamtleistung minus erste Rate und darauf entfallende Steuer (§ 14 Abs. 5 UStG). */
+export async function schlussrechnungStellen(projektId: number): Promise<void> {
+  const p = await projekt(projektId);
   if (!p.angebotId) return;
+  const db = await getDb();
   const [a] = await db.select().from(schema.angebote).where(eq(schema.angebote.id, p.angebotId));
-  if (!a) return;
+  if (!a || a.status === "abgeschlossen") return;
   await db.update(schema.angebote).set({ status: "abgeschlossen" }).where(eq(schema.angebote.id, a.id));
+  const b = await betrieb(p.betriebId);
+  const name = PAKETE[p.paket as PaketKey]?.name ?? p.paket;
+  const am = datumDe(p.abnahmeAm ?? new Date());
   const anzahlung = Math.round(a.einmalig / 2);
-  const rest = a.einmalig - anzahlung;
-  // Schlussrechnung: Gesamtleistung minus Anzahlung und darauf entfallende Steuer (§ 14 Abs. 5 UStG)
   const [anz] = await db.select().from(schema.rechnungen).where(and(eq(schema.rechnungen.angebotId, a.id), eq(schema.rechnungen.art, "anzahlung")));
   const anzNetto = anz?.netto ?? anzahlung;
   await erstelleRechnung({
@@ -137,9 +163,9 @@ async function nachAbnahme(projektId: number): Promise<void> {
     positionstext: `Schlussrechnung ${name}`,
     positionen: [
       { text: `${name}, Gesamtleistung laut Angebot A-${a.erstelltAm.getFullYear()}-${String(a.id).padStart(4, "0")}`, netto: a.einmalig },
-      { text: `abzüglich Anzahlung${anz ? `, Rechnung ${anz.nummer} vom ${datumDe(anz.erstelltAm)}` : ""} (darauf entfallende USt ${euro(Math.round(anzNetto * UST))})`, netto: -anzNetto },
+      { text: `abzüglich erste Rate${anz ? `, Rechnung ${anz.nummer} vom ${datumDe(anz.erstelltAm)}` : ""} (darauf entfallende USt ${euro(Math.round(anzNetto * UST))})`, netto: -anzNetto },
     ],
-    leistung: `Abnahme am ${am}`,
+    leistung: `Abnahme am ${am}, Livegang am ${datumDe()}`,
   });
 }
 

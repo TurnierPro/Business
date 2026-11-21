@@ -120,9 +120,20 @@ export async function widerspruch(f: FormData) {
   await ausfuehren(`/leads/${id}`, "Auf Sperrliste gesetzt. Offene Post gestoppt, Demo gelöscht.", (wer) => akquise.widerspruch(id, wer, text(f, "grund") || "Widerspruch"));
 }
 
+/** Zweiter Faktor für besonders heikle Freigaben: frischer Code aus der Authenticator-App, jeder Code nur einmal. */
+async function zweiterFaktor(wer: string, code: string): Promise<void> {
+  const db = await getDb();
+  const [b] = await db.select().from(schema.benutzer).where(eq(schema.benutzer.name, wer));
+  if (!b?.totpAktiv || !b.totpGeheim) throw new Error("Für diese Freigabe brauchst du die Anmeldung mit Authenticator-App (Einstellungen).");
+  const schritt = (await import("@/lib/totp")).pruefeMitSchritt(entschluessele(b.totpGeheim), code);
+  if (schritt === null || (b.totpLetzterSchritt !== null && schritt <= b.totpLetzterSchritt)) throw new Error("Code falsch oder schon benutzt. Bitte den nächsten Code eingeben.");
+  await db.update(schema.benutzer).set({ totpLetzterSchritt: schritt }).where(eq(schema.benutzer.id, b.id));
+}
+
 export async function freigeben(f: FormData) {
   const id = zahl(f, "id");
   await ausfuehren("/freigaben", "Freigegeben. Versand läuft.", async (wer) => {
+    if ((await post.eintrag(id)).kanal === "livegang") await zweiterFaktor(wer, text(f, "code"));
     if ((await post.freigeben(id, wer)) === "weitere_freigabe_noetig") return { ok: "Deine Freigabe ist gespeichert. Es fehlt noch die zweite Person (Rechnung über 10.000 €)." };
   });
 }

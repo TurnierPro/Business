@@ -118,32 +118,40 @@ test("Kompletter Ablauf von Lead bis Livegang", async () => {
   const [gebaut] = await db.select().from(schema.projekte).where(eq(schema.projekte.id, projektId));
   assert.equal(gebaut.status, "bereit", JSON.stringify(gebaut.pruefung));
 
-  // Livegang freigeben → live; Lastschrift (Qonto) wartet auf Freigabe, Kunde wird um Abnahme gebeten
-  const live = await offeneFreigabe("livegang");
-  await post.freigeben(live.id, "Maximilian Steiner");
-  await abarbeiten();
-  const [fertig] = await db.select().from(schema.projekte).where(eq(schema.projekte.id, projektId));
-  assert.equal(fertig.status, "live");
-  assert.equal(fertig.abnahmeStatus, "offen");
-  assert.equal(fertig.abnahmeFrist, null, "Frist läuft erst nach Versand der Aufforderung");
-  assert.equal((await db.select().from(schema.postausgang).where(eq(schema.postausgang.zweck, "schlussrechnung"))).length, 0, "keine Schlussrechnung vor der Abnahme");
-  const lastschrift = await offeneFreigabe("lastschrift_start");
-  assert.equal(lastschrift.kanal, "lastschrift");
+  // Erst Vorschau und Abnahme, dann Livegang (Festlegung Leistungskatalog)
+  assert.equal((await db.select().from(schema.postausgang).where(eq(schema.postausgang.zweck, "livegang"))).length, 0, "kein Livegang vor der Abnahme");
   const aufforderung = await offeneFreigabe("abnahme_aufforderung");
+  assert.match(aufforderung.text, /\/vorschau\/.+\?code=/, "Vorschau-Link mit Zugangscode");
+  assert.match(aufforderung.text, /Online geht sie erst nach der Abnahme/);
+  const [vorAufforderung] = await db.select().from(schema.projekte).where(eq(schema.projekte.id, projektId));
+  assert.equal(vorAufforderung.abnahmeFrist, null, "Frist läuft erst nach Versand der Aufforderung");
   await post.freigeben(aufforderung.id, "Maximilian Steiner");
   await abarbeiten();
   const [mitFrist] = await db.select().from(schema.projekte).where(eq(schema.projekte.id, projektId));
   assert.ok(mitFrist.abnahmeFrist && mitFrist.abnahmeFrist > new Date(Date.now() + 13 * 864e5));
+  assert.equal(mitFrist.status, "bereit");
 
-  // Abnahme im Portal mit Mängeln → Abnahmeprotokoll und Schlussrechnung zur Freigabe
+  // Abnahme im Portal mit Mängeln → Abnahmeprotokoll und Livegang zur Freigabe, noch keine Schlussrechnung
   const vertrag = await import("../src/lib/ablauf/vertrag");
   await assert.rejects(() => vertrag.abnahmeErklaeren(projektId, { ergebnis: "vorbehalt", name: "Thomas Muster", maengel: "" }), /Mängel/);
   await vertrag.abnahmeErklaeren(projektId, { ergebnis: "vorbehalt", name: "Thomas Muster", maengel: "Telefonnummer im Kopf fehlt" });
   await abarbeiten();
   const protokollMail = await offeneFreigabe("abnahme_bestaetigung");
   await post.freigeben(protokollMail.id, "Maximilian Steiner");
+  assert.equal((await db.select().from(schema.postausgang).where(eq(schema.postausgang.zweck, "schlussrechnung"))).length, 0, "Schlussrechnung erst beim Livegang");
+
+  // Livegang: nur Maximilian (zweiter Faktor prüft die Aktion), dann Schlussrechnung und Lastschrift
+  const live = await offeneFreigabe("livegang");
+  await assert.rejects(() => post.freigeben(live.id, "Daniel Lück"), /nur Maximilian Steiner/);
+  await post.freigeben(live.id, "Maximilian Steiner");
+  await abarbeiten();
+  const [fertig] = await db.select().from(schema.projekte).where(eq(schema.projekte.id, projektId));
+  assert.equal(fertig.status, "live");
   const schlussrechnung = await offeneFreigabe("schlussrechnung");
+  assert.match(schlussrechnung.text + JSON.stringify(schlussrechnung.meta), /./);
   await post.freigeben(schlussrechnung.id, "Maximilian Steiner");
+  const lastschrift = await offeneFreigabe("lastschrift_start");
+  assert.equal(lastschrift.kanal, "lastschrift");
   await post.freigeben(lastschrift.id, "Maximilian Steiner");
   const bestaetigung = await offeneFreigabe("auftragsbestaetigung");
   await post.freigeben(bestaetigung.id, "Daniel Lück");
@@ -251,10 +259,14 @@ test("Abnahme durch Fristablauf, Schlussrechnung zieht die erste Rate ab", async
     const { id } = await akquise.legeBetriebAn({ name: "Frist GmbH", gewerk: "SHK", score: 60, scoreGrund: "Test", website: "frist.example", email: "chef@frist.example" }, "Test", "Test");
     const [a] = await db.insert(schema.angebote).values({ betriebId: id!, paket: "KOMPAKT", einmalig: 149000, monatlich: 6000, status: "angezahlt" }).returning();
     await db.insert(schema.rechnungen).values({ nummer: "2026-9001", lfdNr: 9001, jahr: 2026, betriebId: id!, angebotId: a.id, art: "anzahlung", netto: 74500, status: "bezahlt" });
-    const [p] = await db.insert(schema.projekte).values({ betriebId: id!, angebotId: a.id, paket: "KOMPAKT", portalToken: "frist-token-1234567890", status: "live", liveAm: new Date(), abnahmeStatus: "offen", abnahmeFrist: new Date(Date.now() - 864e5) }).returning();
+    const [p] = await db.insert(schema.projekte).values({ betriebId: id!, angebotId: a.id, paket: "KOMPAKT", portalToken: "frist-token-1234567890", status: "bereit", abnahmeStatus: "offen", abnahmeFrist: new Date(Date.now() - 864e5) }).returning();
     assert.match(await vertrag.abnahmefiktion(), /^1 /);
     const [nach] = await db.select().from(schema.projekte).where(eq(schema.projekte.id, p.id));
     assert.equal(nach.abnahmeStatus, "fiktion");
+    assert.ok((await db.select().from(schema.postausgang).where(eq(schema.postausgang.projektId, p.id))).some((e) => e.zweck === "livegang" && e.kanal === "livegang"), "Livegang liegt zur Freigabe");
+    await vertrag.schlussrechnungStellen(p.id); // passiert beim Livegang
+    await vertrag.schlussrechnungStellen(p.id); // doppelt aufgerufen: keine zweite Rechnung
+    assert.equal((await db.select().from(schema.rechnungen).where(eq(schema.rechnungen.betriebId, id!))).filter((x) => x.art === "schluss").length, 1);
     const [schluss] = (await db.select().from(schema.rechnungen).where(eq(schema.rechnungen.betriebId, id!))).filter((x) => x.art === "schluss");
     assert.equal(schluss.netto, 149000 - 74500);
     const [dok] = (await db.select().from(schema.dokumente).where(eq(schema.dokumente.betriebId, id!))).filter((d) => d.art === "rechnung");
@@ -268,7 +280,7 @@ test("Abnahme durch Fristablauf, Schlussrechnung zieht die erste Rate ab", async
     assert.match(await vertrag.abnahmefiktion(), /^0 /, "nicht doppelt");
 
     // Kündigung: 24 Monate ab Livegang, dann je 12 Monate; Kündigung bis 3 Monate vor Ende
-    await db.update(schema.projekte).set({ liveAm: new Date("2027-02-10T10:00:00Z"), aboAb: new Date("2027-02-10T10:00:00Z") }).where(eq(schema.projekte.id, p.id));
+    await db.update(schema.projekte).set({ status: "live", liveAm: new Date("2027-02-10T10:00:00Z"), aboAb: new Date("2027-02-10T10:00:00Z") }).where(eq(schema.projekte.id, p.id));
     const ende = await vertrag.kuendigungErfassen(p.id, "Test", new Date("2027-05-03T10:00:00Z"));
     assert.equal(ende.toISOString().slice(0, 10), "2029-02-09");
     // Zu spät gekündigt (weniger als 3 Monate vor Ende): verlängert sich um 12 Monate
@@ -325,13 +337,19 @@ test("Domain-Umzug: Auftrag, Bestandsaufnahme, Anleitung, Umstellung, Auslieferu
   assert.deepEqual(u.alteSeiten?.find((x) => x.pfad === "/kontakt.html")?.ziel, "kontakt");
   assert.equal(stand.status, "bereit", JSON.stringify(stand.pruefung));
 
-  // Livegang: statt Abnahme kommt zuerst die Anleitung
+  // Erst Abnahme der Vorschau, dann Livegang mit Anleitung zur Umstellung
+  const zwecke = async () => (await db.select().from(schema.postausgang).where(eq(schema.postausgang.projektId, p.id))).map((e) => e.zweck);
+  await abarbeiten();
+  const aufforderung = (await db.select().from(schema.postausgang).where(eq(schema.postausgang.projektId, p.id))).find((e) => e.zweck === "abnahme_aufforderung")!;
+  await post.freigeben(aufforderung.id, "Maximilian Steiner");
+  await abarbeiten();
+  const vertrag = await import("../src/lib/ablauf/vertrag");
+  await vertrag.abnahmeErklaeren(p.id, { ergebnis: "abgenommen", name: "Herr Müller", maengel: "" });
+  await abarbeiten();
   const live = (await db.select().from(schema.postausgang).where(eq(schema.postausgang.projektId, p.id))).find((e) => e.zweck === "livegang")!;
   await post.freigeben(live.id, "Maximilian Steiner");
   await abarbeiten();
-  const zwecke = async () => (await db.select().from(schema.postausgang).where(eq(schema.postausgang.projektId, p.id))).map((e) => e.zweck);
   assert.ok((await zwecke()).includes("umzug_anleitung"));
-  assert.ok(!(await zwecke()).includes("abnahme_aufforderung"), "Abnahme erst nach der Umstellung");
   [stand] = await db.select().from(schema.projekte).where(eq(schema.projekte.id, p.id));
   assert.equal(umzug.umzugVon(stand)?.status, "wartet_dns");
 
@@ -349,7 +367,7 @@ test("Domain-Umzug: Auftrag, Bestandsaufnahme, Anleitung, Umstellung, Auslieferu
   assert.equal((await tls.GET(new Request("http://x/api/tls-erlaubt?domain=www.mueller-haustechnik.example"))).status, 200);
   assert.equal((await tls.GET(new Request("http://x/api/tls-erlaubt?domain=boese.example"))).status, 404);
 
-  // Kunde stellt um → Agent merkt es, Kündigungshinweis und Abnahme
+  // Kunde stellt um → Agent merkt es, Kündigungshinweis
   assert.match(await umzug.umstellungPruefen(), /^0 /);
   process.env.DNS_SIMULATOR_UMGESTELLT = "ja";
   try {
@@ -358,7 +376,7 @@ test("Domain-Umzug: Auftrag, Bestandsaufnahme, Anleitung, Umstellung, Auslieferu
     delete process.env.DNS_SIMULATOR_UMGESTELLT;
   }
   assert.ok((await zwecke()).includes("umzug_fertig"));
-  assert.ok((await zwecke()).includes("abnahme_aufforderung"));
+  assert.equal((await zwecke()).filter((z) => z === "abnahme_aufforderung").length, 1, "keine zweite Abnahme nach der Umstellung");
   const fertig = (await db.select().from(schema.postausgang).where(eq(schema.postausgang.projektId, p.id))).find((e) => e.zweck === "umzug_fertig")!;
   assert.match(fertig.text, /nur das Webhosting, nicht die Domain/);
 });

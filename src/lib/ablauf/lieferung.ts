@@ -128,20 +128,12 @@ export async function bau(projektId: number): Promise<string> {
 
   if (allesOk) await hakeAb(projektId, "gebaut");
   if (allesOk) {
+    // Festlegung: Fertigstellung anzeigen und als Vorschau bereitstellen, Abnahme, erst dann Livegang
     const bfsg = bfsgHinweis(p.onboarding);
-    await inPostausgang({
-      betriebId: b.id,
-      projektId,
-      kanal: "livegang",
-      zweck: "livegang",
-      empfaenger: p.domain || roh.domain || "(Domain fehlt)",
-      betreff: `Livegang ${b.name} (${PAKETE[p.paket as PaketKey].name})`,
-      hinweise: bfsg ? [bfsg] : [],
-      text: `Die Seite ist gebaut und hat alle ${pruefung.length} Prüfungen bestanden. Vorschau ansehen, dann freigeben.\n\nNach der Freigabe: Seite geht live, Betreuung startet, der Kunde wird um Abnahme gebeten. Die Schlusszahlung kommt nach der Abnahme.`,
-      meta: { projektId, slug },
-    });
+    const { abnahmeAnfordern } = await import("./vertrag");
+    await abnahmeAnfordern(projektId, SYSTEM, bfsg ? [bfsg] : []);
   }
-  return allesOk ? "Bereit zum Livegang" : "Prüfung nicht bestanden";
+  return allesOk ? "Bereitgestellt, Bitte um Abnahme liegt zur Freigabe" : "Prüfung nicht bestanden";
 }
 
 /**
@@ -165,16 +157,14 @@ export async function livegangDurchfuehren(projektId: number): Promise<void> {
   await protokolliere(SYSTEM, "Livegang durchgeführt, Betreuung läuft", p.betriebId, p.domain ?? p.seitenSlug);
   await (await import("../webhooks")).ereignis("projekt.live", { projektId, betriebId: p.betriebId, domain: p.domain });
   await hakeAb(projektId, "livegang");
-  // Bestehende Domain: erst umstellen, dann Abnahme. Sonst Abnahme sofort.
-  // Schlusszahlung erst nach Abnahme (§ 641 BGB).
+  // Bestehende Domain: jetzt umstellen (Anleitung an den Kunden). Sonst ist die Domain schon richtig.
   const { umzugVon, umstellungStarten } = await import("./umzug");
   const u = umzugVon(p);
   if (u && u.status !== "umgestellt") await umstellungStarten(projektId);
-  else {
-    await hakeAb(projektId, "domain");
-    const { abnahmeAnfordern } = await import("./vertrag");
-    await abnahmeAnfordern(projektId, SYSTEM);
-  }
+  else await hakeAb(projektId, "domain");
+  // Zweite Rate (50 %) beim Livegang nach der Abnahme
+  const { schlussrechnungStellen } = await import("./vertrag");
+  await schlussrechnungStellen(projektId);
   if (!p.angebotId) return;
   const [a] = await db.select().from(schema.angebote).where(eq(schema.angebote.id, p.angebotId));
   if (!a || a.monatlich <= 0) return;
