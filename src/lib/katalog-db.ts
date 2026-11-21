@@ -74,7 +74,7 @@ export async function paketSpeichern(key: string, f: Record<string, unknown>, we
     einmalig: cent(f.einmalig, "Einmalig"),
     monatlich: cent(f.monatlich, "Monatlich"),
     wochen: ganz(f.wochen, "Wochen bis Livegang", 52),
-    inklusiveModule: ganz(f.inklusiveModule, "Enthaltene Module", 10),
+    problem: kurz(f.problem, "Das Problem", 300),
     inhalt: zeilenListe(f.inhalt),
     nichtEnthalten: zeilenListe(f.nichtEnthalten),
     aenderungsMinuten: ganz(f.aenderungsMinuten, "Änderungsminuten", 600),
@@ -92,12 +92,14 @@ export async function modulSpeichern(key: string | null, f: Record<string, unkno
     nr,
     name: kurz(f.name, "Name", 80),
     text: kurz(f.text, "Beschreibung", 300),
+    problem: String(f.problem ?? "").trim() || undefined,
+    punkte: zeilenListe(f.punkte),
     einmalig: cent(f.einmalig, "Einmalig", true),
     monatlich: cent(f.monatlich, "Monatlich") ?? 0,
     stufe: f.stufe === "2" ? 2 : 1,
     hinweis: String(f.hinweis ?? "").trim() || undefined,
     nurFuer: String(f.nurFuer ?? "").trim() || undefined,
-    ...(vorhanden?.kombi ? { kombi: vorhanden.kombi } : {}),
+    ...(vorhanden?.pilot ? { pilot: vorhanden.pilot } : {}),
     aktiv: f.aktiv === "ja",
   }, wer);
   return k;
@@ -107,7 +109,7 @@ export async function zusatzSpeichern(key: string | null, f: Record<string, unkn
   const vorhanden = ZUSAETZE.find((z) => z.key === key);
   const name = kurz(f.name, "Name", 80);
   const k = vorhanden?.key ?? `z_${Date.now().toString(36)}`;
-  await schreiben("zusatz", k, { key: k, name, einmalig: cent(f.einmalig, "Einmalig") ?? 0, monatlich: cent(f.monatlich, "Monatlich") ?? 0, aktiv: f.aktiv === "ja" }, wer);
+  await schreiben("zusatz", k, { key: k, name, text: String(f.text ?? "").trim() || undefined, einmalig: cent(f.einmalig, "Einmalig") ?? 0, monatlich: cent(f.monatlich, "Monatlich") ?? 0, ...(vorhanden?.individuell ? { individuell: true } : {}), aktiv: f.aktiv === "ja" }, wer);
   return k;
 }
 

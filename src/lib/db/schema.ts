@@ -131,10 +131,13 @@ export const termine = pgTable("termine", {
 export const angebote = pgTable("angebote", {
   id: serial("id").primaryKey(),
   betriebId: integer("betrieb_id").notNull().references(() => betriebe.id, { onDelete: "cascade" }),
-  paket: text("paket").notNull(),
+  paket: text("paket").notNull(), // Webauftritt: KOMPAKT | PROFESSIONAL
   einmalig: integer("einmalig").notNull(),
   monatlich: integer("monatlich").notNull(),
   positionen: jsonb("positionen").$type<{ text: string; einmalig: number; monatlich: number; hinweis?: string }[]>().notNull().default([]),
+  // Gebuchte Module des Baukastens (personal | marketing | kundenmanagement) und Zusatzmodule
+  module: jsonb("module").$type<string[]>().notNull().default([]),
+  zusaetze: jsonb("zusaetze").$type<string[]>().notNull().default([]),
   status: text("status").notNull().default("entwurf"), // entwurf | versendet | unterschrieben | angezahlt | abgeschlossen
   unterschriebenAm: timestamp("unterschrieben_am", { withTimezone: true }),
   // Nachweis der Annahme im Kundenportal: wer, wann, welche AGB, Unternehmer bestätigt
@@ -441,7 +444,7 @@ export const betroffenenanfragen = pgTable("betroffenenanfragen", {
   erfasstVon: text("erfasst_von").notNull(),
 });
 
-// Stammdaten: Pakete, KI-Module, Zusatzleistungen. Leer = Werkseinstellung aus dem Code (pakete.ts, katalog.ts).
+// Stammdaten: Webauftritt, Module, Zusatzmodule (Baukasten). Leer = Werkseinstellung aus dem Code (pakete.ts, katalog.ts).
 // Geänderte Preise gelten nur für neue Angebote; verschickte Angebote behalten ihre Positionen.
 export const katalogEintraege = pgTable("katalog_eintraege", {
   key: text("key").primaryKey(),

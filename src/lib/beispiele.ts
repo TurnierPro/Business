@@ -199,7 +199,7 @@ export async function beispieleLaden(): Promise<string> {
     const id = await bisBesuch(BETRIEBE.gross);
     await verkauf.erstelleAngebot({
       betriebId: id,
-      auswahl: { paket: "L", module: ["m1", "m2", "m5", "m7"], zusaetze: ["foto"] },
+      auswahl: { paket: "PROFESSIONAL", module: ["personal", "marketing"], zusaetze: ["foto"] },
       einleitung: "vielen Dank für das gute Gespräch heute bei Ihnen in Stuttgart. Wie besprochen erhalten Sie unser Angebot mit den Bausteinen, die wir gemeinsam ausgewählt haben.",
       wer: DANIEL,
     });

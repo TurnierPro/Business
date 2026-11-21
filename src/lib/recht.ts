@@ -20,6 +20,17 @@ export const VERZUGSPAUSCHALE = 4000;
 /** Frist zur Abnahme nach Livegang. Danach gilt das Werk als abgenommen, wenn kein Mangel genannt wurde (§ 640 Abs. 2 BGB). */
 export const ABNAHME_FRIST_TAGE = 14;
 
+/** Konditionen laut Baukasten (Skill levarex-baukasten): Laufzeit ab Livegang, Verlängerung, Kündigung in Textform. */
+export const LAUFZEIT_MONATE = 24;
+export const VERLAENGERUNG_MONATE = 12;
+export const KUENDIGUNG_MONATE_VOR_ENDE = 3;
+/** Änderungen vor Abnahme und über das Kontingent, je Stunde netto in Cent, nach Freigabe in Textform. */
+export const AENDERUNG_STUNDENSATZ = 9500;
+/** Fälligkeit der ersten Rate (50 %) nach Vertragsschluss, nicht vor Arbeitsbeginn. */
+export const ERSTE_RATE_FAELLIG_TAGE = 7;
+/** Prozess-Check wird angerechnet, wenn der Auftrag innerhalb dieser Frist kommt. */
+export const PROZESS_CHECK_ANRECHNUNG_TAGE = 60;
+
 /** Angebote ohne Auftrag werden nach dieser Zeit gelöscht (Löschkonzept). */
 export const ANGEBOT_LOESCHEN_TAGE = 365;
 

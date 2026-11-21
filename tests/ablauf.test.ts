@@ -92,6 +92,8 @@ test("Kompletter Ablauf von Lead bis Livegang", async () => {
 
   // Annahme im Portal → Anzahlung über Stripe (Simulator): keine eigene Rechnung, Stripe-Rechnung bezahlt
   const angebotId = Number(angebotMail.meta.angebotId);
+  // Daniel hat beim Termin zusätzlich das Modul Personal & Bewerbung vereinbart
+  await db.update(schema.angebote).set({ module: ["personal"] }).where(eq(schema.angebote.id, angebotId));
   await verkauf.unterschriftEingegangen(angebotId, "Simulator");
   await abarbeiten();
   assert.equal((await db.select().from(schema.postausgang).where(eq(schema.postausgang.zweck, "rechnung"))).length, 0, "keine doppelte Rechnung neben Stripe");
@@ -154,13 +156,13 @@ test("Kompletter Ablauf von Lead bis Livegang", async () => {
   const { checkliste } = await import("../src/lib/ablauf/checkliste");
   const punkte = await checkliste(projektId);
   for (const k of ["anzahlung", "kickoff", "inhalte", "gebaut", "livegang", "domain", "abnahme"]) assert.ok(punkte.find((x) => x.schluessel === k)?.erledigtAm, `Checkliste: ${k} abgehakt`);
-  assert.ok(punkte.some((x) => x.titel.startsWith("Karriereseite")), "Paket M hat Karriere-Schritte");
+  assert.ok(punkte.some((x) => x.titel.startsWith("Karriereseite")), "Modul Personal & Bewerbung bringt Karriere-Schritte");
   const [angenommen] = await db.select().from(schema.angebote).where(eq(schema.angebote.id, angebotId));
   assert.equal(angenommen.status, "abgeschlossen");
   assert.ok(angenommen.annahme?.agbVersion, "Annahme-Nachweis gespeichert");
 
   // Nachtrag für Bestandskunden: Status bleibt „Kunde“
-  await verkauf.erstelleAngebot({ betriebId: lead.id, auswahl: { paket: "S", module: ["m1"], zusaetze: [] }, wer: "Daniel Lück" });
+  await verkauf.erstelleAngebot({ betriebId: lead.id, auswahl: { paket: "KOMPAKT", module: ["personal"], zusaetze: [] }, wer: "Daniel Lück" });
   const [nachNachtrag] = await db.select().from(schema.betriebe).where(eq(schema.betriebe.id, lead.id));
   assert.equal(nachNachtrag.status, "kunde");
 
@@ -214,7 +216,7 @@ test("Finanz-Agenten: Mahnstufen und Betreuungsrechnung", async () => {
   // Weg ohne Stripe: eigene Rechnung, die offen bleibt
   process.env.ZAHLUNGSWEG = "ueberweisung";
   const { id } = await akquise.legeBetriebAn({ name: "Überweiser GmbH", gewerk: "Maler", score: 60, scoreGrund: "Test", website: "ueberweiser.example", email: "chef@ueberweiser.example" }, "Test", "Test");
-  const [a] = await db.insert(schema.angebote).values({ betriebId: id!, paket: "S", einmalig: 349000, monatlich: 14900, status: "versendet" }).returning();
+  const [a] = await db.insert(schema.angebote).values({ betriebId: id!, paket: "KOMPAKT", einmalig: 149000, monatlich: 6000, status: "versendet" }).returning();
   await verkauf.unterschriftEingegangen(a.id, "Test");
   delete process.env.ZAHLUNGSWEG;
   const [r] = await db.select().from(schema.rechnungen).where(eq(schema.rechnungen.betriebId, id!));
@@ -247,17 +249,17 @@ test("Ohne Stripe: Abnahme durch Fristablauf, Schlussrechnung zieht Anzahlung ab
   try {
     const vertrag = await import("../src/lib/ablauf/vertrag");
     const { id } = await akquise.legeBetriebAn({ name: "Frist GmbH", gewerk: "SHK", score: 60, scoreGrund: "Test", website: "frist.example", email: "chef@frist.example" }, "Test", "Test");
-    const [a] = await db.insert(schema.angebote).values({ betriebId: id!, paket: "S", einmalig: 349000, monatlich: 14900, status: "angezahlt" }).returning();
-    await db.insert(schema.rechnungen).values({ nummer: "2026-9001", lfdNr: 9001, jahr: 2026, betriebId: id!, angebotId: a.id, art: "anzahlung", netto: 174500, status: "bezahlt" });
-    const [p] = await db.insert(schema.projekte).values({ betriebId: id!, angebotId: a.id, paket: "S", portalToken: "frist-token-1234567890", status: "live", liveAm: new Date(), abnahmeStatus: "offen", abnahmeFrist: new Date(Date.now() - 864e5) }).returning();
+    const [a] = await db.insert(schema.angebote).values({ betriebId: id!, paket: "KOMPAKT", einmalig: 149000, monatlich: 6000, status: "angezahlt" }).returning();
+    await db.insert(schema.rechnungen).values({ nummer: "2026-9001", lfdNr: 9001, jahr: 2026, betriebId: id!, angebotId: a.id, art: "anzahlung", netto: 74500, status: "bezahlt" });
+    const [p] = await db.insert(schema.projekte).values({ betriebId: id!, angebotId: a.id, paket: "KOMPAKT", portalToken: "frist-token-1234567890", status: "live", liveAm: new Date(), abnahmeStatus: "offen", abnahmeFrist: new Date(Date.now() - 864e5) }).returning();
     assert.match(await vertrag.abnahmefiktion(), /^1 /);
     const [nach] = await db.select().from(schema.projekte).where(eq(schema.projekte.id, p.id));
     assert.equal(nach.abnahmeStatus, "fiktion");
     const [schluss] = (await db.select().from(schema.rechnungen).where(eq(schema.rechnungen.betriebId, id!))).filter((x) => x.art === "schluss");
-    assert.equal(schluss.netto, 349000 - 174500);
+    assert.equal(schluss.netto, 149000 - 74500);
     const [dok] = (await db.select().from(schema.dokumente).where(eq(schema.dokumente.betriebId, id!))).filter((d) => d.art === "rechnung");
     const daten = dok.daten as { positionen: { netto: number; text: string }[]; zahlbarBis: string; leistung: string };
-    assert.deepEqual(daten.positionen.map((x) => x.netto), [349000, -174500]);
+    assert.deepEqual(daten.positionen.map((x) => x.netto), [149000, -74500]);
     assert.match(daten.positionen[1].text, /2026-9001/);
     assert.match(daten.zahlbarBis, /^\d\d\.\d\d\.\d{4}$/);
     assert.match(daten.leistung, /Abnahme/);
@@ -296,7 +298,7 @@ test("Anfragen über die Kunden-Website landen im Portal, Demos speichern nichts
 
 test("Domain-Umzug: Auftrag, Bestandsaufnahme, Anleitung, Umstellung, Auslieferung unter der Domain", async () => {
   const { id } = await akquise.legeBetriebAn({ name: "Müller Haustechnik", gewerk: "SHK", score: 70, scoreGrund: "Test", website: "mueller-haustechnik.example", email: "info@mueller-haustechnik.example" }, "Test", "Test");
-  const [p] = await db.insert(schema.projekte).values({ betriebId: id!, paket: "S", portalToken: "umzug-token-1234567890" }).returning();
+  const [p] = await db.insert(schema.projekte).values({ betriebId: id!, paket: "KOMPAKT", portalToken: "umzug-token-1234567890" }).returning();
   const form = (vollmacht: boolean) => {
     const f = new FormData();
     f.set("claim", "Heizung und Bad aus Karlsruhe.");
@@ -399,12 +401,12 @@ test("CRM: Zwei-Faktor, Schnittstelle, Import, Kalender, Tickets, Pipeline, Kenn
 
   // Ticket: Zeit zählt gegen das Kontingent, Antwort geht in den Postausgang
   const tickets = await import("../src/lib/ablauf/tickets");
-  const [kp] = await db.insert(schema.projekte).values({ betriebId: pinsel.id, paket: "S", portalToken: "ticket-token-1234567890", status: "live" }).returning();
+  const [kp] = await db.insert(schema.projekte).values({ betriebId: pinsel.id, paket: "KOMPAKT", portalToken: "ticket-token-1234567890", status: "live" }).returning();
   const tid = await tickets.ticketAnlegen({ betriebId: pinsel.id, betreff: "Neue Öffnungszeiten", beschreibung: "Ab November Mo–Fr 7–16 Uhr", quelle: "portal" }, "Kunde (Portal)");
   await tickets.ticketZeit(tid, 20, "Öffnungszeiten geändert", "Maximilian Steiner");
   await tickets.ticketZeit(tid, 20, "Handy-Ansicht geprüft", "Maximilian Steiner");
   const k = await tickets.kontingent(pinsel.id);
-  assert.deepEqual([k.enthalten, k.verbraucht, k.ueber], [30, 40, 10]);
+  assert.deepEqual([k.enthalten, k.verbraucht, k.ueber], [15, 40, 25], "Kompakt: 15 Minuten Änderungen im Monat");
   await tickets.ticketAntworten(tid, "Die neuen Öffnungszeiten stehen jetzt auf Ihrer Website.", true, "Maximilian Steiner");
   const [t] = await db.select().from(schema.tickets).where(eq(schema.tickets.id, tid));
   assert.equal(t.status, "erledigt");
@@ -429,29 +431,29 @@ test("Stammdaten: Katalog ändern wirkt auf neue Angebote, verschickte bleiben; 
   const kdb = await import("../src/lib/katalog-db");
   const { berechne } = await import("../src/lib/katalog");
   const { PAKETE } = await import("../src/lib/pakete");
-  const vorher = PAKETE.S.einmalig;
+  const vorher = PAKETE.KOMPAKT.einmalig;
   const { id } = await akquise.legeBetriebAn({ name: "Katalog GmbH", gewerk: "SHK", score: 60, scoreGrund: "Test", website: "katalog.example", email: "a@katalog.example" }, "Test", "Test");
-  const alt = await verkauf.erstelleAngebot({ betriebId: id!, auswahl: { paket: "S", module: [], zusaetze: [] }, wer: "Test" });
-  await kdb.paketSpeichern("S", { name: "S – Anfragen Plus", einmalig: "3.990,00", monatlich: "159,00", wochen: "4", inklusiveModule: "0", inhalt: "Website\nGoogle-Profil", nichtEnthalten: "Shop", aenderungsMinuten: "45", zielStunden: "10", aktiv: "ja" }, "Maximilian Steiner");
-  assert.equal(PAKETE.S.einmalig, 399000);
-  assert.equal(berechne({ paket: "S", module: [], zusaetze: [] }).einmalig, 399000);
-  await assert.rejects(() => kdb.paketSpeichern("S", { name: "", einmalig: "1", monatlich: "1" }, "Maximilian"), /Name/);
-  await assert.rejects(() => kdb.paketSpeichern("S", { name: "X", einmalig: "-5", monatlich: "1" }, "Maximilian"), /Betrag/);
-  // Neues Modul und Kombi-Regel aus den Daten
-  const neu = await kdb.modulSpeichern(null, { name: "Bewertungs-Erinnerung", text: "Bittet zufriedene Kunden um eine Bewertung", einmalig: "290", monatlich: "19", stufe: "1", aktiv: "ja" }, "Maximilian Steiner");
-  const r = berechne({ paket: "M", module: ["m1", "m2", neu], zusaetze: [] });
+  const alt = await verkauf.erstelleAngebot({ betriebId: id!, auswahl: { paket: "KOMPAKT", module: [], zusaetze: [] }, wer: "Test" });
+  await kdb.paketSpeichern("KOMPAKT", { name: "Webauftritt Kompakt Plus", einmalig: "1.590,00", monatlich: "70,00", wochen: "3", problem: "Niemand findet den Betrieb.", inhalt: "Website\nGoogle-Profil", nichtEnthalten: "Shop", aenderungsMinuten: "20", zielStunden: "4", aktiv: "ja" }, "Maximilian Steiner");
+  assert.equal(PAKETE.KOMPAKT.einmalig, 159000);
+  assert.equal(berechne({ paket: "KOMPAKT", module: [], zusaetze: [] }).einmalig, 159000);
+  await assert.rejects(() => kdb.paketSpeichern("KOMPAKT", { name: "", einmalig: "1", monatlich: "1", problem: "x" }, "Maximilian"), /Name/);
+  await assert.rejects(() => kdb.paketSpeichern("KOMPAKT", { name: "X", einmalig: "-5", monatlich: "1", problem: "x" }, "Maximilian"), /Betrag/);
+  // Neues Modul aus den Stammdaten
+  const neu = await kdb.modulSpeichern(null, { name: "Bewertungs-Erinnerung", text: "Bittet zufriedene Kunden um eine Bewertung", punkte: "a\nb\nc\nd\ne", einmalig: "290", monatlich: "19", stufe: "1", aktiv: "ja" }, "Maximilian Steiner");
+  const r = berechne({ paket: "PROFESSIONAL", module: ["personal", neu], zusaetze: [] });
   assert.ok(r.positionen.some((x) => x.text.includes("Bewertungs-Erinnerung") && x.einmalig === 29000));
-  assert.ok(r.positionen.some((x) => x.text.includes("Modul 2") && x.einmalig === 49000), "Kombi-Preis Modul 2 mit Modul 1");
+  assert.equal(r.einmalig, 299000 + 149000 + 29000);
   // Neues Angebot hat neuen Inhalt, altes behält den eingefrorenen
-  const n = await verkauf.erstelleAngebot({ betriebId: id!, auswahl: { paket: "S", module: [], zusaetze: [] }, wer: "Test" });
+  const n = await verkauf.erstelleAngebot({ betriebId: id!, auswahl: { paket: "KOMPAKT", module: [], zusaetze: [] }, wer: "Test" });
   const doks = await db.select().from(schema.dokumente).where(eq(schema.dokumente.betriebId, id!));
   const daten = (nr: string) => doks.find((d) => (d.daten as { nummer?: string }).nummer === nr)!.daten as { einmalig: number; paketName: string; paketInhalt: string[] };
-  assert.equal(daten(n.nummer).paketName, "S – Anfragen Plus");
+  assert.equal(daten(n.nummer).paketName, "Webauftritt Kompakt Plus");
   assert.equal(daten(alt.nummer).einmalig, vorher);
-  assert.notEqual(daten(alt.nummer).paketName, "S – Anfragen Plus");
-  await kdb.zuruecksetzen("paket", "S", "Maximilian Steiner");
+  assert.notEqual(daten(alt.nummer).paketName, "Webauftritt Kompakt Plus");
+  await kdb.zuruecksetzen("paket", "KOMPAKT", "Maximilian Steiner");
   await kdb.zuruecksetzen("modul", neu, "Maximilian Steiner");
-  assert.equal(PAKETE.S.einmalig, vorher, "Werkseinstellung wiederhergestellt");
+  assert.equal(PAKETE.KOMPAKT.einmalig, vorher, "Werkseinstellung wiederhergestellt");
 
   const soll = await import("../src/lib/soll");
   const werte = await soll.sollwerte();
@@ -518,24 +520,47 @@ test("Unterlagen-Register: Status speichern, nur bekannte Werte", async () => {
   await assert.rejects(() => u.speichern("gibt-es-nicht", { status: "offen", notiz: "", datei: null }, "Maximilian Steiner"), /Unbekannte/);
 });
 
-test("Angebot vor Ort: Paket L mit Modulen und Zusatzleistung", async () => {
-  const { berechne } = await import("../src/lib/katalog");
-  const r = berechne({ paket: "L", module: ["m1", "m2", "m3", "m7"], zusaetze: ["foto", "prozesscheck"] });
-  // L 8.900 + 3 Module inklusive + Modul 7 (490) + Foto (790); Prozess-Check ist in L enthalten
-  assert.equal(r.einmalig, 890000 + 49000 + 79000);
-  assert.equal(r.monatlich, 59000 + 2900);
-  const s = berechne({ paket: "S", module: ["m1", "m2", "m5"], zusaetze: [] });
-  assert.equal(s.einmalig, 349000 + 99000 + 49000 + 99000, "Modul 2 günstiger mit Modul 1");
-  assert.ok(s.hinweise.some((h) => h.includes("Prozess-Check")));
+test("Baukasten: Ausbaustufen, Pilotpreis, Prozess-Check, Individuelle Module", async () => {
+  const { berechne, laufzeitSumme, AUSBAUSTUFEN } = await import("../src/lib/katalog");
+  // Die sechs Ausbaustufen genau wie im Baukasten (einmalig, monatlich, Gesamt 24 Monate, Ø)
+  const soll: [number, number, number, number][] = [[149000, 6000, 293000, 12208], [398000, 36000, 1262000, 52583], [448000, 23000, 1000000, 41667], [698000, 40000, 1658000, 69083], [1096000, 78000, 2968000, 123667], [1295000, 78000, 3167000, 131958]];
+  AUSBAUSTUFEN.forEach((st, i) => {
+    const r = berechne({ ...st.auswahl, prozessCheckAnrechnen: st.auswahl.module.includes("kundenmanagement") });
+    const einmalig = r.einmalig + (st.auswahl.module.includes("kundenmanagement") ? 69000 : 0); // Anrechnung herausrechnen
+    assert.equal(einmalig, soll[i][0], `Stufe ${st.nr} einmalig`);
+    assert.equal(r.monatlich, soll[i][1], `Stufe ${st.nr} monatlich`);
+    const l = laufzeitSumme(einmalig, r.monatlich);
+    assert.equal(l.gesamt, soll[i][2], `Stufe ${st.nr} Gesamt 24 Monate`);
+    assert.equal(l.schnitt, soll[i][3], `Stufe ${st.nr} Durchschnitt`);
+  });
+  // Kundenmanagement braucht einen Prozess-Check, Pilotpreis nur auf Wunsch
+  const km = berechne({ paket: "PROFESSIONAL", module: ["kundenmanagement"], zusaetze: [] });
+  assert.ok(km.hinweise.some((h) => h.includes("Prozess-Check")));
+  const pilot = berechne({ paket: "PROFESSIONAL", module: ["kundenmanagement"], zusaetze: ["prozesscheck"], pilot: true, prozessCheckAnrechnen: true });
+  assert.equal(pilot.einmalig, 299000 + 199000);
+  assert.ok(!pilot.hinweise.length, pilot.hinweise.join(" | "));
+  // Individuelle Module: Festpreis eintragen
+  const ind = berechne({ paket: "KOMPAKT", module: [], zusaetze: ["individuell", "prozesscheck"], individuell: { einmalig: 170000, monatlich: 5000, text: "Anbindung Werkstattsoftware" } });
+  assert.equal(ind.einmalig, 149000 + 69000 + 170000);
+  assert.equal(ind.monatlich, 6000 + 5000);
+  assert.ok(berechne({ paket: "KOMPAKT", module: [], zusaetze: ["individuell"] }).hinweise.some((h) => h.includes("Festpreis")));
 
   const { id } = await akquise.legeBetriebAn({ name: "Vor Ort GmbH", gewerk: "SHK", score: 70, scoreGrund: "Test", website: "vorort.example", email: "chef@vorort.example", strasse: "Weg 1", plz: "76131", ort: "Karlsruhe" }, "Test", "Test");
-  const { eintragId } = await verkauf.erstelleAngebot({ betriebId: id!, auswahl: { paket: "M", module: ["m3"], zusaetze: ["foto"] }, wer: "Daniel Lück" });
+  const { eintragId } = await verkauf.erstelleAngebot({ betriebId: id!, auswahl: { paket: "PROFESSIONAL", module: ["personal"], zusaetze: ["foto"] }, wer: "Daniel Lück" });
   await abarbeiten();
   const [e] = await db.select().from(schema.postausgang).where(eq(schema.postausgang.id, eintragId));
   assert.notEqual(e.qkStatus, "blockiert", e.hinweise.join(" | "));
   const [a] = await db.select().from(schema.angebote).where(eq(schema.angebote.id, Number(e.meta.angebotId)));
-  assert.equal(a.einmalig, 490000 + 29000 + 79000);
+  assert.equal(a.einmalig, 299000 + 149000 + 129000);
+  assert.equal(a.monatlich, 15000 + 8000);
+  assert.deepEqual(a.module, ["personal"]);
   assert.equal(a.positionen.length, 3);
+  // Das Angebot friert Problem und fünf Punkte je Baustein ein
+  const [dok] = await db.select().from(schema.dokumente).where(eq(schema.dokumente.betriebId, id!));
+  const d = (await db.select().from(schema.dokumente).where(eq(schema.dokumente.betriebId, id!))).find((x) => x.art === "angebot")!.daten as { bausteine: { name: string; punkte: string[] }[]; paketProblem: string };
+  assert.ok(dok);
+  assert.equal(d.bausteine.find((b) => b.name === "Personal & Bewerbung")?.punkte.length, 5);
+  assert.ok(d.paketProblem.length > 10);
 });
 
 test("Stripe-Webhook: echte Signatur nötig, Zahlung wird verbucht", async () => {
@@ -544,7 +569,7 @@ test("Stripe-Webhook: echte Signatur nötig, Zahlung wird verbucht", async () =>
   process.env.STRIPE_WEBHOOK_SECRET = "whsec_test";
   try {
     const { id } = await akquise.legeBetriebAn({ name: "Webhook GmbH", gewerk: "SHK", score: 70, scoreGrund: "Test", website: "webhook.example", email: "chef@webhook.example" }, "Test", "Test");
-    const [a] = await db.insert(schema.angebote).values({ betriebId: id!, paket: "S", einmalig: 349000, monatlich: 14900, status: "unterschrieben" }).returning();
+    const [a] = await db.insert(schema.angebote).values({ betriebId: id!, paket: "KOMPAKT", einmalig: 149000, monatlich: 6000, status: "unterschrieben" }).returning();
     const zahlung = await import("../src/lib/ablauf/zahlung");
     const nutzlast = JSON.stringify({ id: "evt_1", object: "event", type: "checkout.session.completed", data: { object: { id: "cs_1", object: "checkout.session", payment_status: "paid", metadata: { angebotId: String(a.id) }, customer: "cus_1", payment_intent: null, invoice: null } } });
     await assert.rejects(() => zahlung.stripeEreignis(nutzlast, "t=1,v1=falsch"));
@@ -568,7 +593,7 @@ test("Rechnung über 10.000 € braucht zwei verschiedene Personen", async () =>
   process.env.ZAHLUNGSWEG = "ueberweisung";
   after(() => { delete process.env.ZAHLUNGSWEG; });
   const { id } = await akquise.legeBetriebAn({ name: "Groß GmbH", gewerk: "Elektro", score: 80, scoreGrund: "Test", website: "gross.example", email: "chef@gross.example" }, "Test", "Test");
-  const [a] = await db.insert(schema.angebote).values({ betriebId: id!, paket: "L", einmalig: 2_000_000, monatlich: 59000, status: "versendet" }).returning();
+  const [a] = await db.insert(schema.angebote).values({ betriebId: id!, paket: "PROFESSIONAL", einmalig: 2_000_000, monatlich: 59000, status: "versendet" }).returning();
   await verkauf.unterschriftEingegangen(a.id, "Test");
   await abarbeiten();
   const alle = await db.select().from(schema.postausgang).where(eq(schema.postausgang.betriebId, id!));

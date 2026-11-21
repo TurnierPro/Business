@@ -234,14 +234,18 @@ export async function angebotErstellen(f: FormData) {
     const db = await getDb();
     const email = text(f, "email");
     if (email) await db.update(schema.betriebe).set({ email }).where(eq(schema.betriebe.id, id));
-    const preis8 = text(f, "preisModul8");
+    const betrag = (k: string) => {
+      const t = text(f, k);
+      return t ? Math.round(Number(t.replace(/\./g, "").replace(",", ".")) * 100) : 0;
+    };
     const { eintragId } = await erstelleAngebot({
       betriebId: id,
       auswahl: {
         paket: text(f, "paket") as import("@/lib/pakete").PaketKey,
         module: f.getAll("module").map(String),
         zusaetze: f.getAll("zusaetze").map(String),
-        preisModul8: preis8 ? Math.round(Number(preis8.replace(/\./g, "").replace(",", ".")) * 100) : undefined,
+        pilot: f.get("pilot") === "ja",
+        individuell: { einmalig: betrag("individuellEinmalig"), monatlich: betrag("individuellMonatlich"), text: text(f, "individuellText") },
         prozessCheckAnrechnen: f.get("prozessCheckAnrechnen") === "ja",
       },
       einleitung: text(f, "einleitung") || undefined,

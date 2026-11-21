@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import { getDb, schema } from "@/lib/db";
 import { pruefeLinkSchluessel } from "@/lib/geheim";
 import { PAKETE, PaketKey, euro, UST } from "@/lib/pakete";
+import { laufzeitSumme } from "@/lib/katalog";
 import { unterschriftEingegangen } from "@/lib/ablauf/verkauf";
 
 export const metadata = { title: "Ihr Angebot", robots: { index: false } };
@@ -46,8 +47,9 @@ export default async function Angebot({ params, searchParams }: { params: Promis
         <ul>{p.inhalt.map((i) => <li key={i}>{i}</li>)}</ul>
         <dl className="daten abstand">
           <dt>Einmalig</dt><dd className="mono">{euro(a.einmalig)} netto ({euro(Math.round(a.einmalig * (1 + UST)))} brutto)</dd>
-          <dt>Betreuung</dt><dd className="mono">{euro(a.monatlich)} netto / Monat, 12 Monate Mindestlaufzeit</dd>
-          <dt>Zahlung</dt><dd>50 % bei Auftrag, 50 % beim Livegang</dd>
+          <dt>Monatsbeitrag</dt><dd className="mono">{euro(a.monatlich)} netto / Monat, Laufzeit 24 Monate ab Livegang</dd>
+          <dt>Gesamt 24 Monate</dt><dd className="mono">{euro(laufzeitSumme(a.einmalig, a.monatlich).gesamt)} netto, Ø {euro(laufzeitSumme(a.einmalig, a.monatlich).schnitt)} im Monat</dd>
+          <dt>Zahlung</dt><dd>50 % bei Unterschrift, 50 % beim Livegang nach der Abnahme</dd>
         </dl>
       </div>
       <form action={annehmen} className="karte">

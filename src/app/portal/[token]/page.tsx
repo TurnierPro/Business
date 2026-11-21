@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import { getDb, schema } from "@/lib/db";
 import { inhalteEinreichen, projektPerToken } from "@/lib/ablauf/lieferung";
 import { PAKETE, PaketKey } from "@/lib/pakete";
+import { gebuchteModule } from "@/lib/bausteine";
 
 export const metadata = { title: "Inhalte für Ihre Seite", robots: { index: false } };
 
@@ -25,7 +26,7 @@ export default async function Portal({ params, searchParams }: { params: Promise
   const db = await getDb();
   const [b] = await db.select().from(schema.betriebe).where(eq(schema.betriebe.id, p.betriebId));
   const { fehler } = await searchParams;
-  const mitKarriere = ["M", "L"].includes(p.paket);
+  const mitKarriere = (await gebuchteModule(p)).includes("personal");
 
   if (p.status !== "inhalte") {
     return (
@@ -38,7 +39,7 @@ export default async function Portal({ params, searchParams }: { params: Promise
   return (
     <>
       <h1>Inhalte für {b?.name}</h1>
-      <p className="leise" style={{ marginTop: 8 }}>Paket {PAKETE[p.paket as PaketKey].name}. Füllen Sie aus, was Sie haben. Leere Felder füllen wir mit Vorschlägen, die Sie vor dem Livegang sehen.</p>
+      <p className="leise" style={{ marginTop: 8 }}>{PAKETE[p.paket as PaketKey]?.name ?? "Ihr Webauftritt"}. Füllen Sie aus, was Sie haben. Leere Felder füllen wir mit Vorschlägen, die Sie vor dem Livegang sehen.</p>
       {fehler ? <div className="hinweis fehler abstand" role="alert">{fehler}</div> : null}
       <form action={senden} className="karte abstand" encType="multipart/form-data">
         <input type="hidden" name="token" value={token} />

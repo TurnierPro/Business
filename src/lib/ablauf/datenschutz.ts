@@ -6,6 +6,7 @@ import { protokolliere } from "../protokoll";
 import { datenOrdner } from "../pfade";
 import { loescheSeite } from "../sites/generator";
 import { PAKETE, PaketKey } from "../pakete";
+import { gebuchteModule } from "../bausteine";
 import { betrieb, sperrSchluessel } from "./gemeinsam";
 
 const AUFBEWAHREN = ["rechnung", "angebot", "auftragsbestaetigung", "abnahmeprotokoll"];
@@ -115,12 +116,15 @@ export async function verarbeitungen() {
   const unter = ["Hostinger (Server, Standort laut AV-Vertrag)"];
   if (process.env.RESEND_API_KEY) unter.push("Resend (E-Mail-Versand)");
   if (process.env.ANTHROPIC_API_KEY) unter.push("Anthropic (KI, nur für Entwürfe)");
+  const module = new Map<number, string[]>();
+  for (const { p } of zeilen) module.set(p.id, await gebuchteModule(p));
   return zeilen.map(({ p, name }) => {
     const paket = p.paket as PaketKey;
+    const m = module.get(p.id) ?? [];
     const taetigkeiten = ["Hosting und Wartung der Website (Server-Logs)", "Anfrageformular: Name, Telefon, E-Mail, Nachricht, Fotos"];
-    if (paket === "M" || paket === "L") taetigkeiten.push("Kurzbewerbungen: Name, Kontakt, Angaben zur Person (ohne KI-Rangfolge)");
-    if (paket === "S_WERKSTATT" || paket === "L") taetigkeiten.push("Online-Terminbuchung: Name, Kontakt, Termin, ggf. Fahrzeug");
-    if (paket === "L") taetigkeiten.push("Entlastungs-Bausteine nach Auswahl (siehe Angebot)");
+    if (m.includes("personal")) taetigkeiten.push("Kurzbewerbungen: Name, Kontakt, Angaben zur Person (gehen direkt an den Betrieb, bei Levarex wird nichts gespeichert)");
+    if (m.includes("marketing")) taetigkeiten.push("Beiträge auf Instagram und Facebook, Antwortentwürfe auf Google-Bewertungen");
+    if (m.includes("kundenmanagement")) taetigkeiten.push("Kundenmanagement: Kunden mit Fahrzeugen oder Anlagen, Fälligkeiten, Online-Terminbuchung, Erinnerungen, Anfragen aus Telefon, WhatsApp und Website");
     return { kunde: name, paket: PAKETE[paket]?.name ?? paket, seit: p.erstelltAm, taetigkeiten, betroffene: "Kunden, Interessenten und Bewerber des Betriebs", unterauftragnehmer: unter, loeschung: "Anfragen 12 Monate nach Eingang, Bewerbungen 6 Monate nach Abschluss, Logs 14 Tage (Annahme, im AVV festlegen)" };
   });
 }

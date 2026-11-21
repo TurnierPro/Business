@@ -138,7 +138,7 @@ export default async function Lead({ params, searchParams }: { params: Promise<{
           ) : null}
 
           {projekte.map((p) => (
-            <p key={p.id}>Projekt <Link href={`/projekte/${p.id}`}>Paket {p.paket}</Link> <Status wert={p.status} /></p>
+            <p key={p.id}>Projekt <Link href={`/projekte/${p.id}`}>{PAKETE[p.paket as PaketKey]?.name ?? p.paket}</Link> <Status wert={p.status} /></p>
           ))}
 
           {!inArbeit.length && !offenePost.length && b.status === "nicht_interessant" ? <p className="leise">Nicht interessant. Wird nach 6 Monaten ohne Aktivität automatisch gelöscht.</p> : null}

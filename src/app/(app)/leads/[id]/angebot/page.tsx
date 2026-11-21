@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { eq } from "drizzle-orm";
 import { getDb, schema } from "@/lib/db";
 import { AngebotKonfigurator } from "@/components/AngebotKonfigurator";
-import type { PaketKey } from "@/lib/pakete";
+import { paketVorschlag, type PaketKey } from "@/lib/pakete";
 import { angebotErstellen } from "../../../aktionen";
 import { katalogLaden } from "@/lib/katalog-db";
 
@@ -14,12 +14,12 @@ export default async function AngebotErstellen({ params }: { params: Promise<{ i
   const db = await getDb();
   const [b] = await db.select().from(schema.betriebe).where(eq(schema.betriebe.id, id));
   if (!b) notFound();
-  const start: PaketKey = b.gewerk === "Kfz" ? "S_WERKSTATT" : (b.mitarbeiter ?? 10) < 10 ? "S" : "M";
+  const start: PaketKey = paketVorschlag(b.mitarbeiter);
   const katalog = await katalogLaden();
   return (
     <>
       <Link href={`/leads/${id}`} className="zurueck">← {b.name}</Link>
-      <div className="kopfzeile"><div><h1>Angebot erstellen</h1><p>Gemeinsam mit {b.inhaber ?? "dem Kunden"} auswählen. Der Preis rechnet sofort mit.</p></div></div>
+      <div className="kopfzeile"><div><h1>Angebot erstellen</h1><p>Zwei Entscheidungen: welcher Webauftritt, welche Module. Gemeinsam mit {b.inhaber ?? "dem Kunden"} auswählen, der Preis rechnet sofort mit.</p></div></div>
       <form action={angebotErstellen}>
         <input type="hidden" name="id" value={id} />
         <section className="karte" style={{ marginBottom: 16 }}>

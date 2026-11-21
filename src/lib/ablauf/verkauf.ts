@@ -9,10 +9,10 @@ import { transkribiere } from "../adapters/transkription";
 import { schreibe, jsonAus } from "../adapters/ki";
 import { datenOrdner } from "../pfade";
 import { portalLink } from "../kundenportal";
-import { berechne, type Auswahl } from "../katalog";
+import { aktuellerKatalog, berechne, type Auswahl } from "../katalog";
 import { zahlungUeberStripe, type StripeRechnung } from "../adapters/stripe";
 import { datumDe } from "../docs/basis";
-import { NICHT_ENTHALTEN, PAKETE, PaketKey, euro, UST } from "../pakete";
+import { NICHT_ENTHALTEN, PAKETE, PaketKey, euro, paketVorschlag, UST } from "../pakete";
 import { katalogLaden } from "../katalog-db";
 import { AGB_VERSION, ZAHLUNGSZIEL_TAGE } from "../recht";
 import type { ProtokollDaten } from "../docs/vorlagen";
@@ -55,11 +55,11 @@ export async function transkription(terminId: number): Promise<string> {
 type Auswertung = Omit<ProtokollDaten, "an" | "datum"> & { einleitung: string };
 
 function ersatzAuswertung(b: { name: string; gewerk: string; mitarbeiter: number | null }): Auswertung {
-  const paket: PaketKey = b.gewerk === "Kfz" ? "S_WERKSTATT" : (b.mitarbeiter ?? 10) < 10 ? "S" : "M";
+  const paket: PaketKey = paketVorschlag(b.mitarbeiter);
   return {
     ziele: ["Zwei neue Gesellen und einen Azubi gewinnen", "Weniger Zettelwirtschaft im Büro", "Anfragen mit Fotos statt unnötiger Anfahrten"],
     probleme: ["Website von 2014, auf dem Handy schlecht lesbar", "Anfragen kommen über Telefon, Mail und WhatsApp durcheinander", "Stellenanzeige in der Zeitung bringt kaum Bewerbungen"],
-    empfehlung: { paket, begruendung: `Paket ${PAKETE[paket].name} bringt Anfragen mit Fotos an eine Stelle und, bei M, eine Karriereseite mit Kurzbewerbung per Handy. Das passt zu den beiden wichtigsten Zielen.` },
+    empfehlung: { paket, begruendung: `Der ${PAKETE[paket].name} bringt Anfragen mit Fotos an eine Stelle. Für die offenen Stellen passt danach das Modul Personal & Bewerbung.` },
     offeneFragen: ["Wer liefert die Fotos vom Team?", "Gibt es ein Logo als Datei?"],
     massnahmen: [
       { was: "Angebot prüfen und unterschreiben", wann: "diese Woche", wer: b.name },
@@ -81,7 +81,7 @@ export async function auswertung(terminId: number): Promise<string> {
     zweck: "termin_auswertung",
     modell: "text",
     betriebId: b.id,
-    aufgabe: `Werte dieses Gespräch aus. Antworte nur mit JSON: {"ziele": string[], "probleme": string[], "empfehlung": {"paket": "START"|"S"|"S_WERKSTATT"|"M"|"L", "begruendung": string}, "offeneFragen": string[], "massnahmen": [{"was": string, "wann": string, "wer": string}], "einleitung": string}. "einleitung" ist der erste Absatz eines Angebotsanschreibens (ohne Anrede, 2 Sätze). Verwende nur, was im Gespräch gesagt wurde. Pakete: ${Object.entries(PAKETE).map(([k, p]) => `${k} = ${p.name} (${euro(p.einmalig)} + ${euro(p.monatlich)}/Monat)`).join("; ")}.`,
+    aufgabe: `Werte dieses Gespräch aus. Antworte nur mit JSON: {"ziele": string[], "probleme": string[], "empfehlung": {"paket": "KOMPAKT"|"PROFESSIONAL", "begruendung": string}, "offeneFragen": string[], "massnahmen": [{"was": string, "wann": string, "wer": string}], "einleitung": string}. "einleitung" ist der erste Absatz eines Angebotsanschreibens (ohne Anrede, 2 Sätze). Verwende nur, was im Gespräch gesagt wurde. Webauftritt: ${Object.entries(PAKETE).map(([k, p]) => `${k} = ${p.name} (${euro(p.einmalig)} + ${euro(p.monatlich)}/Monat)`).join("; ")}. Module nur in der Begründung nennen, wenn der Betrieb danach gefragt hat.`,
     daten: { betrieb: b.name, gewerk: b.gewerk, mitarbeiter: b.mitarbeiter, gespraech: t.transkript },
     ersatz: JSON.stringify(ersatz),
   });
@@ -114,7 +114,12 @@ export async function erstelleAngebot(o: { betriebId: number; auswahl: Auswahl; 
   await katalogLaden(); // aktuelle Stammdaten
   const r = berechne(o.auswahl);
   const p = PAKETE[o.auswahl.paket];
-  const [angebot] = await db.insert(schema.angebote).values({ betriebId: b.id, paket: o.auswahl.paket, einmalig: r.einmalig, monatlich: r.monatlich, positionen: r.positionen }).returning();
+  const [angebot] = await db.insert(schema.angebote).values({ betriebId: b.id, paket: o.auswahl.paket, einmalig: r.einmalig, monatlich: r.monatlich, positionen: r.positionen, module: [...o.auswahl.module], zusaetze: [...o.auswahl.zusaetze] }).returning();
+  const katalog = aktuellerKatalog();
+  const bausteine = [
+    ...katalog.module.filter((m) => o.auswahl.module.includes(m.key)).map((m) => ({ name: m.name, problem: m.problem, punkte: m.punkte?.length ? [...m.punkte] : [m.text] })),
+    ...katalog.zusaetze.filter((z) => o.auswahl.zusaetze.includes(z.key) && z.key !== "prozesscheck").map((z) => ({ name: z.name, punkte: [z.individuell && o.auswahl.individuell?.text ? o.auswahl.individuell.text : z.text ?? z.name] })),
+  ];
   const nummer = `A-${new Date().getFullYear()}-${String(angebot.id).padStart(4, "0")}`;
   const einleitung = o.einleitung || `vielen Dank für das Gespräch bei ${b.name}. Wie besprochen erhalten Sie unser Angebot mit den Bausteinen, die wir gemeinsam ausgewählt haben.`;
   const angebotDokId = await neuesDokument({
@@ -123,7 +128,8 @@ export async function erstelleAngebot(o: { betriebId: number; auswahl: Auswahl; 
     titel: `Angebot ${nummer}`,
     daten: { an, nummer, datum: datumDe(), paket: o.auswahl.paket, einleitung, einmalig: r.einmalig, monatlich: r.monatlich, positionen: r.positionen, zahlweg: zahlungUeberStripe() ? "stripe" : "ueberweisung", agbVersion: AGB_VERSION,
       // Eingefroren: spätere Änderungen in den Stammdaten ändern kein verschicktes Angebot
-      paketName: p.name, paketInhalt: [...p.inhalt], nichtEnthalten: [...NICHT_ENTHALTEN[o.auswahl.paket]], wochen: p.wochen },
+      paketName: p.name, paketProblem: p.problem, paketInhalt: [...p.inhalt], nichtEnthalten: [...NICHT_ENTHALTEN[o.auswahl.paket]], wochen: p.wochen,
+      bausteine, mitKi: o.auswahl.module.some((m) => m === "marketing" || m === "kundenmanagement") },
   });
   const anrede = an.inhaber ? (an.anrede === "Frau" ? `Sehr geehrte Frau ${an.inhaber.split(" ").slice(-1)[0]},` : `Sehr geehrter Herr ${an.inhaber.split(" ").slice(-1)[0]},`) : "Guten Tag,";
   const zahlen = zahlungUeberStripe() ? " Nach der Annahme können Sie die Anzahlung direkt online bezahlen." : "";

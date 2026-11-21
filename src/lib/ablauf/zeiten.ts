@@ -1,7 +1,7 @@
 import { and, desc, eq, gte, lt, sql } from "drizzle-orm";
 import { getDb, schema } from "../db";
 
-// Zeiterfassung. Ziel aus dem Business Case: Paket „Anfragen“ ≤ 12 Stunden ab Sommer 2027, Betreuung ≤ 1 Stunde je Kunde und Monat.
+// Zeiterfassung. Ziele laut Baukasten: Kompakt 4 h, Professional 8 h je Webauftritt; Betreuung ≤ 1 Stunde je Kunde und Monat.
 
 export const TAETIGKEITEN: Record<string, string> = {
   vertrieb: "Vertrieb und Termin",
@@ -13,7 +13,9 @@ export const TAETIGKEITEN: Record<string, string> = {
   intern: "Intern",
 };
 
-export const ZIEL_STUNDEN: Record<string, number> = { START: 8, S: 12, S_WERKSTATT: 14, M: 16, L: 32 };
+// Ziel-Stunden je Baustein (Skill levarex-baukasten, Ziel nach Einarbeitung; Start: Kompakt 6, Professional 12)
+export const ZIEL_STUNDEN: Record<string, number> = { KOMPAKT: 4, PROFESSIONAL: 8 };
+export const ZIEL_STUNDEN_MODULE: Record<string, number> = { personal: 5, marketing: 6, kundenmanagement: 15 };
 
 export async function zeitErfassen(z: { betriebId?: number | null; projektId?: number | null; ticketId?: number | null; minuten: number; taetigkeit: string; notiz?: string; datum?: Date }, wer: string): Promise<void> {
   if (!(z.minuten > 0 && z.minuten <= 24 * 60)) throw new Error("Bitte Minuten zwischen 1 und 1440 angeben");

@@ -1,8 +1,9 @@
 import { and, asc, eq, isNull } from "drizzle-orm";
 import { getDb, schema } from "../db";
 import type { PaketKey } from "../pakete";
+import { gebuchteModule } from "../bausteine";
 
-// Lieferschritte je Paket. Punkte mit Schlüssel hakt Levarex OS selbst ab, sobald das Ereignis eintritt.
+// Lieferschritte je Webauftritt und gebuchtem Modul. Punkte mit Schlüssel hakt Levarex OS selbst ab, sobald das Ereignis eintritt.
 
 type Punkt = [phase: string, titel: string, schluessel?: string];
 
@@ -19,29 +20,33 @@ const BASIS: Punkt[] = [
   ["Livegang", "Livegang freigegeben", "livegang"],
   ["Livegang", "Domain zeigt auf Levarex, Zertifikat aktiv", "domain"],
   ["Nach Livegang", "Google-Unternehmensprofil und Search Console eingerichtet"],
-  ["Nach Livegang", "Bewertungs-QR-Karte übergeben"],
   ["Nach Livegang", "Abnahme erklärt", "abnahme"],
   ["Nach Livegang", "AV-Vertrag unterschrieben"],
 ];
-const KARRIERE: Punkt[] = [
-  ["Bau", "Karriereseite mit Stellen und Kurzbewerbung"],
-  ["Nach Livegang", "Stellen bei Google for Jobs, Arbeitsagentur und Indeed"],
+const PERSONAL: Punkt[] = [
+  ["Bau", "Karriereseite mit bis zu 5 Stellen, Azubi- und Praktikumsseite"],
+  ["Bau", "Benefits erfasst, Bewerben per Handy und WhatsApp getestet"],
+  ["Nach Livegang", "Stellenpflege eingerichtet (neue Stellen binnen 3 Werktagen)"],
 ];
-const ENTLASTET: Punkt[] = [
+const MARKETING: Punkt[] = [
+  ["Start", "Profile mit Partnerzugriff (Instagram, Facebook, Google)"],
+  ["Bau", "Google-Profil vollständig, strukturierte Daten, Frage-Antwort-Bereich auf der Website"],
+  ["Bau", "Redaktionsplan und erste 8 Beiträge zur Freigabe"],
+  ["Nach Livegang", "Antwortvorlagen für Bewertungen, GEO-Ausgangstest"],
+];
+const KUNDENMANAGEMENT: Punkt[] = [
   ["Start", "Prozess-Check vor Ort durchgeführt"],
-  ["Bau", "Online-Terminbuchung eingerichtet (BFSG prüfen)"],
-  ["Bau", "Entlastungs-Baustein 1 eingerichtet und getestet"],
-  ["Bau", "Entlastungs-Baustein 2 eingerichtet und getestet"],
-  ["Bau", "Entlastungs-Baustein 3 eingerichtet und getestet"],
-  ["Nach Livegang", "Schulung (bis 2 Stunden) durchgeführt"],
-  ["Nach Livegang", "Erstes Quartals-Review vor Ort geplant"],
+  ["Start", "AV-Vertrag für das Kundenmanagement unterschrieben"],
+  ["Bau", "Kunden, Fahrzeuge oder Anlagen und Fälligkeiten übernommen"],
+  ["Bau", "Online-Terminbuchung und Erinnerungen eingerichtet (BFSG prüfen)"],
+  ["Bau", "Jeder Ablauf eine Testwoche im Entwurfsmodus"],
+  ["Nach Livegang", "Nachfassen nach 7 und 14 Tagen und Bewertungsbitte aktiv"],
 ];
-const WERKSTATT: Punkt[] = [["Bau", "Online-Terminbuchung und HU/AU-Erinnerung eingerichtet"]];
 
 export const PHASEN = ["Start", "Inhalte", "Bau", "Livegang", "Nach Livegang"];
 
-export function vorlage(paket: PaketKey): Punkt[] {
-  const extra = paket === "M" ? KARRIERE : paket === "L" ? [...KARRIERE, ...ENTLASTET] : paket === "S_WERKSTATT" ? WERKSTATT : [];
+export function vorlage(_paket: PaketKey, module: string[] = []): Punkt[] {
+  const extra = [...(module.includes("personal") ? PERSONAL : []), ...(module.includes("marketing") ? MARKETING : []), ...(module.includes("kundenmanagement") ? KUNDENMANAGEMENT : [])];
   return [...BASIS, ...extra].sort((a, b) => PHASEN.indexOf(a[0]) - PHASEN.indexOf(b[0]));
 }
 
@@ -52,7 +57,7 @@ export async function checklisteSicherstellen(projektId: number): Promise<void> 
   if (schon) return;
   const [p] = await db.select().from(schema.projekte).where(eq(schema.projekte.id, projektId));
   if (!p) return;
-  await db.insert(schema.projektAufgaben).values(vorlage(p.paket as PaketKey).map(([phase, titel, schluessel], i) => ({ projektId, phase, titel, schluessel: schluessel ?? null, reihenfolge: i })));
+  await db.insert(schema.projektAufgaben).values(vorlage(p.paket as PaketKey, await gebuchteModule(p)).map(([phase, titel, schluessel], i) => ({ projektId, phase, titel, schluessel: schluessel ?? null, reihenfolge: i })));
   // Was schon passiert ist, gleich abhaken
   const fertig: string[] = ["anzahlung"];
   if (p.inhalteAm) fertig.push("inhalte");

@@ -13,7 +13,7 @@ import { neuesDokument, SYSTEM } from "./gemeinsam";
 
 const MONATE = ["Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober", "November", "Dezember"];
 
-/** Monatlich: Rechnung über die Betreuung für jede Live-Seite (Paket S: erste 3 Monate inklusive). */
+/** Monatlich: Rechnung über den Monatsbeitrag für jede Live-Seite. */
 export async function betreuungsrechnungen(jetzt = new Date()): Promise<string> {
   const db = await getDb();
   const live = await db.select().from(schema.projekte).where(eq(schema.projekte.status, "live"));
@@ -25,12 +25,11 @@ export async function betreuungsrechnungen(jetzt = new Date()): Promise<string> 
     const [a] = await db.select().from(schema.angebote).where(eq(schema.angebote.id, p.angebotId));
     if (!a) continue;
     const monateSeitStart = (jetzt.getFullYear() - p.aboAb.getFullYear()) * 12 + jetzt.getMonth() - p.aboAb.getMonth();
-    if (p.paket === "S" && monateSeitStart < 3) continue;
     const schon = (await db.select().from(schema.rechnungen).where(and(eq(schema.rechnungen.angebotId, a.id), eq(schema.rechnungen.art, "betreuung")))).some(
       (r) => r.erstelltAm.getMonth() === jetzt.getMonth() && r.erstelltAm.getFullYear() === jetzt.getFullYear(),
     );
     if (schon) continue;
-    await erstelleRechnung({ betriebId: p.betriebId, angebotId: a.id, projektId: p.id, art: "betreuung", netto: a.monatlich, positionstext: `Betreuung ${PAKETE[a.paket as PaketKey].name}, ${monat}`, leistung: monat });
+    await erstelleRechnung({ betriebId: p.betriebId, angebotId: a.id, projektId: p.id, art: "betreuung", netto: a.monatlich, positionstext: `Monatsbeitrag ${PAKETE[a.paket as PaketKey]?.name ?? a.paket}${a.module.length ? " mit Modulen" : ""}, ${monat}`, leistung: monat });
     neu++;
   }
   return `${neu} Betreuungsrechnungen vorbereitet`;

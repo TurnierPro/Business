@@ -18,7 +18,7 @@ export async function kennzahlen(): Promise<{ messgroessen: Kennzahl[]; trichter
   const fertig = projekte.filter((p) => p.liveAm);
   // 1. Stunden je Projekt (Lieferung ohne Betreuung) gegen das Paket-Ziel
   const jeProjekt = fertig.map((p) => ({ p, h: zeiten.filter((z) => z.projektId === p.id && z.taetigkeit !== "betreuung").reduce((s, z) => s + z.minuten, 0) / 60 })).filter((x) => x.h > 0);
-  const sProjekte = jeProjekt.filter((x) => x.p.paket === "S");
+  const sProjekte = jeProjekt.filter((x) => x.p.paket === "KOMPAKT");
   const schnittS = sProjekte.length ? sProjekte.reduce((s, x) => s + x.h, 0) / sProjekte.length : null;
   // 2. Betreuung je Kunde und Monat (letzte 30 Tage)
   const seit = Date.now() - 30 * 864e5;
@@ -39,7 +39,7 @@ export async function kennzahlen(): Promise<{ messgroessen: Kennzahl[]; trichter
   const z = BUSINESS_CASE.ziele;
   const f = (x: number) => x.toLocaleString("de-DE", { maximumFractionDigits: 1 });
   const messgroessen: Kennzahl[] = [
-    { name: "Stunden je Projekt „Anfragen“", wert: schnittS === null ? "noch keine Daten" : `${f(schnittS)} h`, ziel: `≤ ${z.stundenS} h ab Sommer 2027`, ok: schnittS === null ? null : schnittS <= z.stundenS, erklaerung: `Aus der Zeiterfassung (ohne Betreuung), ${sProjekte.length} Projekte. Ziele je Paket: ${Object.entries(ZIEL_STUNDEN).map(([k, v]) => `${k} ${v} h`).join(", ")}.` },
+    { name: "Stunden je Webauftritt Kompakt", wert: schnittS === null ? "noch keine Daten" : `${f(schnittS)} h`, ziel: `≤ ${ZIEL_STUNDEN.KOMPAKT} h (Start 6 h)`, ok: schnittS === null ? null : schnittS <= ZIEL_STUNDEN.KOMPAKT, erklaerung: `Aus der Zeiterfassung (ohne Betreuung), ${sProjekte.length} Projekte. Ziele: Kompakt ${ZIEL_STUNDEN.KOMPAKT} h, Professional ${ZIEL_STUNDEN.PROFESSIONAL} h, Module laut Baukasten.` },
     { name: "Betreuung je Kunde und Monat", wert: jeKunde === null ? "noch keine Daten" : `${f(jeKunde)} h`, ziel: `≤ ${z.betreuungStundenJeKunde} h`, ok: jeKunde === null ? null : jeKunde <= z.betreuungStundenJeKunde, erklaerung: `Letzte 30 Tage, ${live.length} Kunden mit Live-Seite.` },
     { name: "Termine, die zum Auftrag werden", wert: quote === null ? "noch keine Daten" : `${Math.round(quote * 100)} %`, ziel: `≥ ${Math.round(z.prozessCheckQuote * 100)} %`, ok: quote === null ? null : quote >= z.prozessCheckQuote, erklaerung: `${mitTermin.size} Betriebe mit Termin, davon ${[...mitTermin].filter((id) => auftraege.has(id)).length} mit Auftrag.` },
     { name: "Wochen bis Livegang", wert: wochen === null ? "noch keine Daten" : `${f(wochen)} Wochen`, ziel: `≤ ${z.wochenBisLivegang} Wochen`, ok: wochen === null ? null : wochen <= z.wochenBisLivegang, erklaerung: `Von der Anzahlung bis zum Livegang, ${dauer.length} Projekte.` },

@@ -149,7 +149,7 @@ export default async function Kundenportal({ params, searchParams }: { params: P
         <form id="angebot" action={annehmen} className="karte">
           <h2>Angebot annehmen</h2>
           {fehler ? <div className="hinweis fehler" role="alert">Bitte Ihren Namen eintragen und beide Häkchen setzen.</div> : null}
-          <p>{PAKETE[d.angebotOffen.paket as PaketKey].name}: {euro(d.angebotOffen.einmalig)} netto einmalig, {euro(d.angebotOffen.monatlich)} netto im Monat für die Betreuung (12 Monate Mindestlaufzeit). Alle Details stehen im Angebot unten bei Ihren Unterlagen.</p>
+          <p>{PAKETE[d.angebotOffen.paket as PaketKey]?.name ?? "Webauftritt"}{d.angebotOffen.module.length ? " mit Modulen" : ""}: {euro(d.angebotOffen.einmalig)} netto einmalig und {euro(d.angebotOffen.monatlich)} netto Monatsbeitrag, Laufzeit 24 Monate ab Livegang. Alle Details stehen im Angebot bei Ihren Unterlagen.</p>
           <input type="hidden" name="token" value={token} />
           <label className="feld"><span>Ihr vollständiger Name</span><input name="name" autoComplete="name" required /></label>
           <label className="haken" style={{ marginBottom: 12 }}>

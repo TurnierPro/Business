@@ -1,6 +1,7 @@
 import { marke } from "../marke";
 import { NICHT_ENTHALTEN, PAKETE, PaketKey, euro, UST } from "../pakete";
-import { ABNAHME_FRIST_TAGE, AGB_URL, AGB_VERSION } from "../recht";
+import { ABNAHME_FRIST_TAGE, AENDERUNG_STUNDENSATZ, AGB_URL, AGB_VERSION, ERSTE_RATE_FAELLIG_TAGE, KUENDIGUNG_MONATE_VOR_ENDE, LAUFZEIT_MONATE, VERLAENGERUNG_MONATE } from "../recht";
+import { laufzeitSumme } from "../katalog";
 import type { Pruefpunkt } from "../adapters/websitecheck";
 import {
   Anschrift,
@@ -35,6 +36,10 @@ export type AngebotDaten = {
   paketInhalt?: string[];
   nichtEnthalten?: string[];
   wochen?: number;
+  paketProblem?: string;
+  // Gebuchte Module und Zusatzmodule mit Problem und fünf Punkten, eingefroren
+  bausteine?: { name: string; problem?: string; punkte: string[] }[];
+  mitKi?: boolean;
 };
 export type CheckDaten = { an: Anschrift; website?: string | null; datum: string; punkte: Pruefpunkt[]; prioritaeten: string[]; ladezeitMs?: number };
 export type LeitfadenDaten = { an: Anschrift; datum: string; fragen: string[]; hinweise: string[] };
@@ -116,7 +121,7 @@ export function brief(d: BriefDaten): string {
 /** Paketdaten für ein Angebot: eingefroren, sonst aus dem aktuellen Katalog. */
 function paketFuer(d: AngebotDaten) {
   const k = PAKETE[d.paket];
-  return { name: d.paketName ?? k.name, inhalt: d.paketInhalt ?? k.inhalt, wochen: d.wochen ?? k.wochen, nicht: d.nichtEnthalten ?? NICHT_ENTHALTEN[d.paket] };
+  return { name: d.paketName ?? k?.name ?? d.paket, problem: d.paketProblem ?? k?.problem, inhalt: d.paketInhalt ?? k?.inhalt ?? [], wochen: d.wochen ?? k?.wochen ?? 6, nicht: d.nichtEnthalten ?? NICHT_ENTHALTEN[d.paket] ?? [] };
 }
 
 export function angebot(d: AngebotDaten): string {
@@ -127,8 +132,9 @@ export function angebot(d: AngebotDaten): string {
     extraCss: dinCss,
     inhalt: `<div class="seite din">${falzmarken}${kopf()}${anschriftfeld(d.an)}
 <div class="infoblock">Angebot<br><b class="mono">${esc(d.nummer)}</b><br><br>Datum<br><b class="mono">${esc(d.datum)}</b><br><br>Gültig bis<br><b class="mono">${esc(datumDe(new Date(Date.now() + 30 * 864e5)))}</b></div>
-<div class="briefkoerper"><h1>Angebot: ${esc(p.name)}</h1>${absaetze(d.einleitung)}
-<h2>Was Sie bekommen</h2><ul>${p.inhalt.map((i) => `<li>${esc(i)}</li>`).join("")}${(d.positionen ?? []).slice(1).map((x) => `<li>${esc(x.text)}</li>`).join("")}</ul>
+<div class="briefkoerper"><h1>Angebot: ${esc(p.name)}${d.bausteine?.length ? ` und ${d.bausteine.length === 1 ? "ein weiterer Baustein" : `${d.bausteine.length} weitere Bausteine`}` : ""}</h1>${absaetze(d.einleitung)}
+<div class="box"><b>Ihre zwei Zahlen</b><br>Einmalig <b class="mono">${euro(d.einmalig)}</b> netto · Monatsbeitrag <b class="mono">${euro(d.monatlich)}</b> netto<br><span class="leise">Gesamt über ${LAUFZEIT_MONATE} Monate ${euro(laufzeitSumme(d.einmalig, d.monatlich).gesamt)} netto, im Schnitt ${euro(laufzeitSumme(d.einmalig, d.monatlich).schnitt)} im Monat. Details auf der nächsten Seite.</span></div>
+<p>Die Leistungsbeschreibung mit allen Bausteinen finden Sie in Anlage 1.</p>
 </div>${fuss()}</div>
 <div class="seite">${kopf()}
 <h2 style="margin-top:0">Preise</h2>
@@ -139,18 +145,20 @@ ${(d.positionen?.length ? d.positionen : [{ text: p.name, einmalig: d.einmalig, 
 <tr><td><b>Summe netto</b></td><td class="zahl"><b>${euro(d.einmalig)}</b></td><td class="zahl"><b>${euro(d.monatlich)}</b></td></tr>
 <tr><td>Umsatzsteuer 19 %</td><td class="zahl">${euro(ust)}</td><td class="zahl">${euro(Math.round(d.monatlich * UST))}</td></tr>
 <tr><td><b>Summe brutto</b></td><td class="zahl"><b>${euro(d.einmalig + ust)}</b></td><td class="zahl"><b>${euro(d.monatlich + Math.round(d.monatlich * UST))}</b></td></tr>
+<tr><td>Gesamt über ${LAUFZEIT_MONATE} Monate, netto</td><td class="zahl" colspan="2">${euro(laufzeitSumme(d.einmalig, d.monatlich).gesamt)} · Ø ${euro(laufzeitSumme(d.einmalig, d.monatlich).schnitt)} im Monat</td></tr>
 </tbody></table>
-<p class="leise" style="font-size:8.5pt">Betreuung mit 12 Monaten Mindestlaufzeit.</p>
+<p class="leise" style="font-size:8.5pt">Der Monatsbeitrag bezahlt Hosting, Wartung, Sicherheit, Rechtstexte und Änderungen im vereinbarten Umfang. Laufzeit ${LAUFZEIT_MONATE} Monate ab Livegang, danach jeweils ${VERLAENGERUNG_MONATE} Monate; Kündigung ${KUENDIGUNG_MONATE_VOR_ENDE} Monate vor Ende in Textform. Später gebuchte Module laufen ${LAUFZEIT_MONATE} Monate ab ihrem Livegang.</p>
 ${d.anmerkungen?.trim() ? `<h2>Anmerkungen</h2>${absaetze(d.anmerkungen)}` : ""}
 <h2>So läuft es ab</h2>
 <ul>${
   d.zahlweg === "stripe"
     ? "<li>Zahlungsplan, individuell vereinbart: 50 % bei Auftrag, Sie zahlen direkt online nach der Annahme (Karte oder SEPA-Lastschrift über Stripe). Wir beginnen nach Zahlungseingang mit Konzept und Entwurf.</li><li>50 % nach Ihrer Abnahme der fertigen Website. Diesen Betrag und die monatliche Betreuung ziehen wir mit der hinterlegten Zahlungsart ein. Rechnungen erhalten Sie per E-Mail.</li>"
-    : "<li>Zahlungsplan, individuell vereinbart: 50 % bei Auftrag, 50 % nach Ihrer Abnahme der fertigen Website, per Überweisung. Wir beginnen nach Zahlungseingang mit Konzept und Entwurf.</li><li>Betreuung per SEPA-Lastschrift, monatlich.</li>"
+    : `<li>Zahlung: 50 % bei Unterschrift, fällig ${ERSTE_RATE_FAELLIG_TAGE} Tage nach Vertragsschluss und nicht vor Arbeitsbeginn; 50 % beim Livegang nach Ihrer Abnahme. Keine Ratenzahlung.</li><li>Monatsbeitrag per SEPA-Lastschrift mit Vorabankündigung 5 Kalendertage vor dem Einzug; bis der Einzug eingerichtet ist, per Überweisung.</li>`
 }
-<li>Livegang ${p.wochen <= 4 ? "30 Tage" : `${p.wochen} Wochen`} nach Erhalt Ihrer Inhalte. Klappt das nicht, ist ein Monat Betreuung kostenlos.</li>
+<li>Online ${p.wochen} Wochen nach Erhalt Ihrer vollständigen Inhalte. Klappt das nicht, ist ein Monatsbeitrag kostenlos.</li>
 <li>Beim Livegang: Lighthouse ≥ 95 und Barrierefreiheit nach WCAG 2.2 AA, sonst bessern wir kostenlos nach.</li>
-<li>Die Domain läuft auf Ihren Namen. Nach 12 Monaten gehören Ihnen Inhalte und Code.</li>
+<li>Änderungen vor der Abnahme und über das monatliche Kontingent hinaus: ${euro(AENDERUNG_STUNDENSATZ)} netto je Stunde, nur nach Ihrer Freigabe in Textform.</li>
+<li>Die Domain gehört Ihnen, den Auth-Code halten wir nie zurück. Texte und Fotos gehören Ihnen ab Zahlung, Code und Design nach ${LAUFZEIT_MONATE} Monaten.</li>
 <li>Wo Website, Formulare und Kundendaten liegen, steht in der Liste der Unterauftragsverarbeiter im AV-Vertrag.</li></ul>
 <div class="box"><b>Allgemeine Geschäftsbedingungen</b><br>Es gelten unsere AGB für Unternehmer, Version ${esc(d.agbVersion ?? AGB_VERSION)}, abrufbar unter <span class="mono">${esc(AGB_URL)}</span>. Dieses Angebot richtet sich nur an Unternehmer (§ 14 BGB). Mit der Annahme bestätigen Sie, dass Sie für Ihren Betrieb handeln und nicht als Verbraucher.</div>
 <div class="box"><b>Annehmen</b><br><span class="leise">Sie nehmen dieses Angebot in Ihrem Kundenportal an (Link in unserer E-Mail). ${d.zahlweg === "stripe" ? "Danach zahlen Sie die Anzahlung direkt online." : "Danach bekommen Sie die Rechnung über die Anzahlung."} Anlage: Leistungsbeschreibung.</span></div>
@@ -162,23 +170,27 @@ ${leistungsbeschreibung(d)}`,
 /** Anlage zum Angebot: was geschuldet ist, was nicht, wann abgenommen wird, was der Kunde beiträgt. */
 function leistungsbeschreibung(d: AngebotDaten): string {
   const p = paketFuer(d);
-  const extra = (d.positionen ?? []).slice(1).map((x) => x.text);
-  const mitKi = extra.some((t) => /modul|assistent|ki|angebotsentwurf|doku|chat/i.test(t)) || d.paket === "L";
+  const extra = d.bausteine ? [] : (d.positionen ?? []).slice(1).map((x) => x.text);
+  const mitKi = d.mitKi ?? extra.some((t) => /modul|assistent|ki|marketing|kundenmanagement/i.test(t));
+  const baustein = (name: string, problem: string | undefined, punkte: string[]) =>
+    `<h3>${esc(name)}</h3>${problem ? `<p><b>Das Problem:</b> ${esc(problem)}</p><p><b>Wir lösen das mit …</b></p>` : ""}<ul>${punkte.map((i) => `<li>${esc(i)}</li>`).join("")}</ul>`;
   return `<div class="seite">${kopf()}
 <p class="leise mono">ANLAGE 1 ZUM ANGEBOT ${esc(d.nummer)}</p>
 <h1>Leistungsbeschreibung</h1>
-<h2>Enthalten</h2><ul>${[...p.inhalt, ...extra].map((i) => `<li>${esc(i)}</li>`).join("")}</ul>
+<h2>Enthalten</h2>
+${baustein(p.name, p.problem, [...p.inhalt, ...extra])}
+${(d.bausteine ?? []).map((b) => baustein(b.name, b.problem, b.punkte)).join("")}
 <h2>Nicht enthalten</h2><p>${esc(p.nicht.join(", "))}. Größere Vorhaben bieten wir gern gesondert an.</p>
 <h2>Abnahme</h2>
-<p>Wenn die Website fertig ist, stellen wir sie Ihnen bereit und bitten im Kundenportal um Abnahme. Sie haben ${ABNAHME_FRIST_TAGE} Tage Zeit: abnehmen, unter Vorbehalt mit Mängeln abnehmen oder mit Begründung verweigern. Melden Sie sich in der Frist nicht und nennen keinen Mangel, gilt die Website als abgenommen (§ 640 Abs. 2 BGB). Mängel beheben wir in angemessener Frist.</p>
+<p>Wenn die Website fertig ist, zeigen wir Ihnen die Fertigstellung an, stellen sie Ihnen als Vorschau bereit und bitten um Abnahme. Online geht sie erst nach der Abnahme. Sie haben ${ABNAHME_FRIST_TAGE} Kalendertage Zeit: abnehmen, unter Vorbehalt mit Mängeln abnehmen oder mit Begründung verweigern. Melden Sie sich in der Frist nicht und nennen keinen Mangel, gilt die Website als abgenommen (§ 640 Abs. 2 BGB). Mängel beheben wir in angemessener Frist.</p>
 <p>Abnahmekriterien: Seiten und Funktionen wie oben, Formulare kommen an, Darstellung auf Handy und Computer, Lighthouse ≥ 95, technische Barrierefreiheit nach WCAG 2.2 AA, Rechtstexte eingebunden.</p>
 <h2>Ihre Mitwirkung</h2>
-<ul><li>Texte, Fotos und Logo laden Sie im Kundenportal hoch. Die 30-Tage-Zusage zum Livegang beginnt mit Erhalt der Inhalte.</li>
+<ul><li>Texte, Fotos und Logo schicken Sie uns nach unserer Mitwirkungsliste. Den Eingang der vollständigen Inhalte bestätigen wir binnen 2 Werktagen; damit beginnt die Lieferfrist von ${p.wochen} Wochen.</li>
 <li>Bestehende Domain: Sie bleiben Inhaber. Sie ändern nach unserer Anleitung zwei Einträge (oder geben uns den Auth-Code); E-Mail und andere Dienste bleiben unberührt. Das alte Webhosting kündigen Sie erst nach unserer Nachricht.</li>
 <li>Rechte an Texten, Fotos und Logo, auch an Inhalten der bisherigen Website.</li>
 <li>Barrierefreiheit: Wir schulden die technische Umsetzung. Für Inhalte, die Sie später selbst einstellen (z. B. Bildbeschreibungen), sind Sie verantwortlich.</li></ul>
 ${mitKi ? "<h2>Bausteine mit KI</h2><p>Geschuldet ist die vereinbarte Funktion des Ablaufs, nicht die inhaltliche Richtigkeit jeder einzelnen KI-Ausgabe. Was nach außen geht, prüft und gibt ein Mensch in Ihrem Betrieb frei.</p>" : ""}
-<h2>Datenschutz</h2><p>Für Hosting und Formulare verarbeiten wir personenbezogene Daten in Ihrem Auftrag. Dazu schließen wir vor dem Livegang einen Vertrag zur Auftragsverarbeitung (Art. 28 DSGVO). Server in Deutschland.</p>
+<h2>Datenschutz</h2><p>Für Hosting und Formulare verarbeiten wir personenbezogene Daten in Ihrem Auftrag. Dazu schließen wir vor dem Livegang einen Vertrag zur Auftragsverarbeitung (Art. 28 DSGVO). Wo die Daten liegen, steht in der Liste der Unterauftragsverarbeiter in diesem Vertrag.</p>
 ${fuss()}</div>`;
 }
 
@@ -274,7 +286,7 @@ ${d.positionen.map((x) => `<tr><td>${esc(x.text)}</td><td class="zahl">${x.einma
 <h2>Wie es weitergeht</h2><ul>
 <li>${d.zahlweg === "stripe" ? "Anzahlung 50 % online im Kundenportal." : "Rechnung über die Anzahlung von 50 % kommt per E-Mail."} Wir beginnen nach Zahlungseingang.</li>
 <li>Danach laden Sie Texte, Fotos und Logo im Kundenportal hoch.</li>
-<li>Die restlichen 50 % werden nach Ihrer Abnahme der fertigen Website fällig.</li></ul>
+<li>Die restlichen 50 % werden beim Livegang nach Ihrer Abnahme fällig.</li></ul>
 </div>${fuss()}</div>`,
   });
 }

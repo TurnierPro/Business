@@ -4,11 +4,11 @@ import { protokolliere } from "../protokoll";
 import { portalLink } from "../kundenportal";
 import { inPostausgang } from "./postausgang";
 import { anschrift, betrieb, neuesDokument, SYSTEM } from "./gemeinsam";
+import { gebuchteModule, mitMonatsbericht } from "../bausteine";
 
-// Monatsreport für jeden Kunden mit Betreuung (Paket S, S-Werkstatt, M, L): Anfragen und Erreichbarkeit des Vormonats.
+// Monatsbericht für Kunden mit Webauftritt Professional oder einem Modul: Anfragen und Erreichbarkeit des Vormonats.
 
 const MONATE = ["Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober", "November", "Dezember"];
-const MIT_REPORT = ["S", "S_WERKSTATT", "M", "L"];
 
 export async function monatsreports(jetzt = new Date()): Promise<string> {
   const db = await getDb();
@@ -20,7 +20,7 @@ export async function monatsreports(jetzt = new Date()): Promise<string> {
   const ausfaelle = await db.select().from(schema.meldungen).where(and(eq(schema.meldungen.art, "erreichbarkeit"), eq(schema.meldungen.ok, false), gte(schema.meldungen.am, von), lt(schema.meldungen.am, bis)));
   let neu = 0;
   for (const p of live) {
-    if (!MIT_REPORT.includes(p.paket) || !p.liveAm || p.liveAm >= bis) continue;
+    if (!mitMonatsbericht(p.paket, await gebuchteModule(p)) || !p.liveAm || p.liveAm >= bis) continue;
     const schon = await db.select().from(schema.dokumente).where(and(eq(schema.dokumente.projektId, p.id), eq(schema.dokumente.art, "monatsreport"), eq(schema.dokumente.titel, `Monatsreport ${monat}`)));
     if (schon.length) continue;
     const b = await betrieb(p.betriebId);

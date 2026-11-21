@@ -1,83 +1,149 @@
 import { PAKETE, PaketKey, type Paket } from "./pakete";
+import { LAUFZEIT_MONATE } from "./recht";
 
-// Preiskatalog für das Angebot vor Ort: Pakete, KI-Module, Zusatzleistungen (Business Case, Stand 18.10.2026).
-// Modul- und Zusatzpreise sind laut Business Case vorläufig. Keine Abhängigkeit von Server-Code: läuft auch im Browser.
+// Baukasten für das Angebot vor Ort (Skill levarex-baukasten, Stand 31.10.2026):
+// 1 Webauftritt (Basis) + Module + Zusatzmodule. Keine Rabatte, Ausnahme Pilotpreis Kundenmanagement.
+// Keine Abhängigkeit von Server-Code: läuft auch im Browser.
 
 export type Modul = {
   key: string;
   nr: number;
   name: string;
-  text: string;
+  text: string; // Kurzbeschreibung für den Konfigurator
+  problem?: string;
+  punkte?: string[]; // genau fünf Punkte für die Leistungsbeschreibung
   einmalig: number | null; // null = Preis individuell
   monatlich: number;
-  stufe: 1 | 2; // 2 = braucht einen Prozess-Check
+  stufe: 1 | 2; // 2 = Prozess-Check ist Pflicht
   hinweis?: string;
   nurFuer?: string;
-  // Kombi-Preis, wenn ein anderes Modul mitgebucht wird (z. B. Modul 2 mit Modul 1)
-  kombi?: { mit: string; einmalig: number; monatlich: number };
+  // Pilotpreis (nur Kundenmanagement, nur die ersten zwei Betriebe)
+  pilot?: { einmalig: number; hinweis: string };
   aktiv?: boolean;
 };
-export type Zusatz = { key: string; name: string; einmalig: number; monatlich: number; aktiv?: boolean };
+export type Zusatz = { key: string; name: string; text?: string; einmalig: number; monatlich: number; individuell?: boolean; aktiv?: boolean };
 export type Katalog = { pakete: Record<string, Paket>; module: Modul[]; zusaetze: Zusatz[] };
 
 export const MODULE: Modul[] = [
-  { key: "m1", nr: 1, name: "WhatsApp-Anfrage-Assistent", text: "Nimmt Anfragen per WhatsApp an, fragt fehlende Angaben und Fotos nach", einmalig: 99000, monatlich: 7900, stufe: 1, hinweis: "zzgl. WhatsApp-Gebühren" },
-  { key: "m2", nr: 2, name: "Website-Anfrage-Assistent", text: "Gleiche Logik als Fenster auf der Homepage", einmalig: 79000, monatlich: 5900, stufe: 1, hinweis: "mit Modul 1: 490 € + 39 €", kombi: { mit: "m1", einmalig: 49000, monatlich: 3900 } },
-  { key: "m3", nr: 3, name: "Verpasster Anruf → Rückmeldung", text: "Anrufer bekommt sofort SMS oder WhatsApp mit Link zum Anfrageformular", einmalig: 29000, monatlich: 2900, stufe: 1 },
-  { key: "m4", nr: 4, name: "Erinnerung und Wiederkehr", text: "HU/AU, Inspektion, Wartung, Heizungs-Check (nur mit Einwilligung)", einmalig: 49000, monatlich: 3900, stufe: 1, nurFuer: "Kfz, SHK" },
-  { key: "m5", nr: 5, name: "Postfach-Assistent", text: "Sortiert E-Mails, schreibt Antwortentwürfe, Mensch gibt frei", einmalig: 99000, monatlich: 7900, stufe: 2 },
-  { key: "m6", nr: 6, name: "Werkstatt-Kommunikation", text: "Fahrzeugannahme, Freigabe Kostenvoranschlag, Status per WhatsApp", einmalig: 99000, monatlich: 7900, stufe: 2, nurFuer: "Kfz" },
-  { key: "m7", nr: 7, name: "Beleg-Autopilot", text: "Rechnungen und Belege aus dem Postfach in die Buchhaltung", einmalig: 49000, monatlich: 2900, stufe: 2 },
-  { key: "m8", nr: 8, name: "Angebotsentwurf (Pilot)", text: "Entwurf aus Sprachnotiz, Fotos und Aufmaß", einmalig: null, monatlich: 0, stufe: 2, hinweis: "Preis individuell", nurFuer: "ohne Handwerkersoftware" },
+  {
+    key: "personal",
+    nr: 2,
+    name: "Personal & Bewerbung",
+    text: "Karriereseite, Bewerben per Handy oder WhatsApp in einer Minute, Stellenpflege",
+    problem: "Offene Stellen bleiben monatelang leer, weil Bewerben bei Ihnen zu umständlich ist und keiner sieht, was Sie als Arbeitgeber bieten.",
+    punkte: [
+      "Karriereseite mit bis zu 5 Stellen, Azubi- und Praktikumsseite",
+      "Ihre Mitarbeiter-Benefits auf einen Blick, mit Vorschlägen für Extras",
+      "Bewerben per Handy oder WhatsApp in einer Minute, ohne Lebenslauf",
+      "wir pflegen Ihre Stellen, neue Stellen binnen 3 Werktagen online",
+      "Monatsbericht: Aufrufe und Klicks auf „Bewerben“",
+    ],
+    einmalig: 149000,
+    monatlich: 8000,
+    stufe: 1,
+    hinweis: "setzt unseren Webauftritt voraus; Jobbörsen nicht enthalten",
+  },
+  {
+    key: "marketing",
+    nr: 3,
+    name: "Marketing & Sichtbarkeit",
+    text: "8 Beiträge im Monat, Antwortentwürfe auf Bewertungen, SEO und GEO, Monatsbericht",
+    problem: "Sie machen gute Arbeit, aber kaum jemand sieht sie, weder bei Google noch auf Instagram, und für Marketing bleibt keine Zeit.",
+    punkte: [
+      "8 Beiträge im Monat auf Instagram und Facebook aus Fotos, die Sie uns schicken; Sie geben jeden Beitrag frei",
+      "Antwortentwürfe auf Ihre Google-Bewertungen zur Freigabe",
+      "SEO: Website und Google-Profil laufend gepflegt",
+      "GEO: Ihr Betrieb so beschrieben, dass KI-Suchen ihn finden können; monatlicher Test",
+      "Monatsbericht: Reichweite, Bewertungen, Platzierung bei Google und in der KI-Suche",
+    ],
+    einmalig: 249000,
+    monatlich: 30000,
+    stufe: 1,
+    hinweis: "keine Platzierungsgarantie; Werbebudget zahlt der Betrieb direkt",
+  },
+  {
+    key: "kundenmanagement",
+    nr: 4,
+    name: "Kundenmanagement",
+    text: "Kunden und Fälligkeiten an einem Ort, Terminbuchung, Erinnerungen, Nachfassen, Bewertungsbitte",
+    problem: "Anrufe gehen verloren, Angebote bleiben liegen, und Stammkunden vergessen ihren nächsten Termin.",
+    punkte: [
+      "Ihre Kunden mit Fahrzeugen oder Anlagen und Fälligkeiten an einem Ort",
+      "Online-Terminbuchung und automatische Erinnerung an HU, Wartung und Inspektion",
+      "offene Angebote nach 7 und 14 Tagen nachgefasst",
+      "nach jedem Auftrag die Bitte um eine Bewertung",
+      "Anfrage- und KI-Telefonassistent sammeln Telefon, WhatsApp und Website an einem Ort",
+    ],
+    einmalig: 399000,
+    monatlich: 25000,
+    stufe: 2,
+    hinweis: "bis 100 SMS im Monat, darüber 0,10 € je SMS; Gebühren Dritter zum Selbstkostenpreis; AV-Vertrag Pflicht",
+    pilot: { einmalig: 199000, hinweis: "Pilotpreis nur für die ersten zwei Betriebe (Start Mai 2027), gegen Referenz und Messung; bei Kündigung in den ersten 6 Monaten ohne wichtigen Grund wird die Differenz anteilig nachgezahlt" },
+  },
 ];
 
 export const ZUSAETZE: Zusatz[] = [
-  { key: "karriere", name: "Karriereseite einzeln", einmalig: 189000, monatlich: 4900 },
-  { key: "seo", name: "Search Console und Local SEO (für Start)", einmalig: 39000, monatlich: 4900 },
-  { key: "termine", name: "Online-Terminbuchung", einmalig: 49000, monatlich: 3900 },
-  { key: "foto", name: "Foto-Shooting Halbtag (Partnerfotograf)", einmalig: 79000, monatlich: 0 },
-  { key: "fotovideo", name: "Foto und Kurzvideo (Partnerfotograf)", einmalig: 149000, monatlich: 0 },
-  { key: "social_start", name: "Social-Media-Start", einmalig: 39000, monatlich: 0 },
-  { key: "social_begleitung", name: "Social-Media-Begleitung (4 Beiträge)", einmalig: 0, monatlich: 14900 },
-  { key: "prozesscheck", name: "Prozess-Check vor Ort (halber Tag)", einmalig: 69000, monatlich: 0 },
+  { key: "prozesscheck", name: "Prozess-Check vor Ort", text: "halber Tag im Betrieb; Pflicht vor Kundenmanagement und Individuellen Modulen", einmalig: 69000, monatlich: 0 },
+  { key: "foto", name: "Fotoshooting", text: "Halbtag mit Fotograf in Ihrem Betrieb, mindestens 40 bearbeitete Fotos", einmalig: 129000, monatlich: 0 },
+  { key: "fotovideo", name: "Fotoshooting mit Kurzvideo", text: "Halbtag mit Fotograf, Clip 30–60 Sekunden und zwei Hochformat-Schnitte", einmalig: 199000, monatlich: 0 },
+  { key: "individuell", name: "Individuelle Module", text: "Sonderabläufe, Anbindungen, eigene Werkzeuge; Festpreis nach Prozess-Check", einmalig: 0, monatlich: 0, individuell: true },
 ];
 
-export type Auswahl = { paket: PaketKey; module: string[]; zusaetze: string[]; preisModul8?: number; prozessCheckAnrechnen?: boolean };
+export type Auswahl = {
+  paket: PaketKey;
+  module: string[];
+  zusaetze: string[];
+  pilot?: boolean; // Pilotpreis für Kundenmanagement
+  individuell?: { einmalig: number; monatlich: number; text?: string };
+  prozessCheckAnrechnen?: boolean;
+};
 export type Position = { text: string; einmalig: number; monatlich: number; hinweis?: string };
 
 /** Der aktuelle Katalog (Werkseinstellung plus Stammdaten). Im Browser kommt er als Eigenschaft vom Server. */
 export const aktuellerKatalog = (): Katalog => ({ pakete: PAKETE, module: MODULE, zusaetze: ZUSAETZE });
 
+/** Gesamt über die Laufzeit (24 Monate) und Durchschnitt pro Monat, wie auf dem Baukasten-Blatt. */
+export function laufzeitSumme(einmalig: number, monatlich: number): { gesamt: number; schnitt: number; monate: number } {
+  const gesamt = einmalig + LAUFZEIT_MONATE * monatlich;
+  return { gesamt, schnitt: Math.round(gesamt / LAUFZEIT_MONATE), monate: LAUFZEIT_MONATE };
+}
+
 export function berechne(a: Auswahl, k: Katalog = aktuellerKatalog()): { positionen: Position[]; einmalig: number; monatlich: number; hinweise: string[] } {
   const p = k.pakete[a.paket];
-  if (!p) throw new Error(`Unbekanntes Paket: ${a.paket}`);
-  const positionen: Position[] = [{ text: `Paket ${p.name}`, einmalig: p.einmalig, monatlich: p.monatlich }];
+  if (!p) throw new Error(`Unbekannter Webauftritt: ${a.paket}`);
+  const positionen: Position[] = [{ text: p.name, einmalig: p.einmalig, monatlich: p.monatlich }];
   const hinweise: string[] = [];
-  const inklusive = p.inklusiveModule ?? 0;
-  const gewaehlt = k.module.filter((m) => a.module.includes(m.key));
-  gewaehlt.forEach((m, i) => {
-    let einmalig = m.einmalig ?? a.preisModul8 ?? 0;
-    let monatlich = m.monatlich;
-    if (m.kombi && a.module.includes(m.kombi.mit)) {
-      einmalig = m.kombi.einmalig;
-      monatlich = m.kombi.monatlich;
-    }
-    if (i < inklusive) {
-      positionen.push({ text: `Modul ${m.nr}: ${m.name}`, einmalig: 0, monatlich: 0, hinweis: `im Paket ${p.name} enthalten` });
-    } else {
-      positionen.push({ text: `Modul ${m.nr}: ${m.name}`, einmalig, monatlich, hinweis: m.hinweis });
-    }
-    if (m.stufe === 2 && !inklusive && !a.zusaetze.includes("prozesscheck")) hinweise.push(`Modul ${m.nr} setzt einen Prozess-Check voraus.`);
-    if (m.einmalig === null && !a.preisModul8) hinweise.push(`Modul ${m.nr} braucht einen individuellen Preis.`);
-  });
-  if (inklusive && gewaehlt.length < inklusive) hinweise.push(`Paket ${p.name} enthält ${inklusive} Module, gewählt sind ${gewaehlt.length}.`);
-  const pc = k.zusaetze.find((x) => x.key === "prozesscheck");
+  const prozessCheck = a.zusaetze.includes("prozesscheck") || !!a.prozessCheckAnrechnen;
+  for (const m of k.module.filter((x) => a.module.includes(x.key))) {
+    const pilot = !!(a.pilot && m.pilot);
+    const einmalig = pilot ? m.pilot!.einmalig : (m.einmalig ?? 0);
+    positionen.push({ text: m.name + (pilot ? " (Pilotpreis)" : ""), einmalig, monatlich: m.monatlich, hinweis: pilot ? m.pilot!.hinweis : m.hinweis });
+    if (m.stufe === 2 && !prozessCheck) hinweise.push(`${m.name} setzt einen Prozess-Check voraus.`);
+    if (m.einmalig === null) hinweise.push(`${m.name} braucht einen individuellen Preis.`);
+  }
   for (const z of k.zusaetze.filter((x) => a.zusaetze.includes(x.key))) {
-    if (z.key === "prozesscheck" && inklusive) continue;
+    if (z.individuell) {
+      const i = a.individuell;
+      if (!i || (!i.einmalig && !i.monatlich)) hinweise.push(`${z.name}: Festpreis eintragen (nach Prozess-Check).`);
+      if (!prozessCheck) hinweise.push(`${z.name} setzen einen Prozess-Check voraus.`);
+      positionen.push({ text: i?.text?.trim() ? `${z.name}: ${i.text.trim()}` : z.name, einmalig: i?.einmalig ?? 0, monatlich: i?.monatlich ?? 0, hinweis: "Festpreis nach Prozess-Check" });
+      continue;
+    }
     positionen.push({ text: z.name, einmalig: z.einmalig, monatlich: z.monatlich });
   }
+  const pc = k.zusaetze.find((x) => x.key === "prozesscheck");
   if (a.prozessCheckAnrechnen && pc) positionen.push({ text: "Anrechnung Prozess-Check (Auftrag innerhalb von 60 Tagen)", einmalig: -pc.einmalig, monatlich: 0 });
   const einmalig = positionen.reduce((s, x) => s + x.einmalig, 0);
   const monatlich = positionen.reduce((s, x) => s + x.monatlich, 0);
   return { positionen, einmalig, monatlich, hinweise };
 }
+
+/** Die sechs Ausbaustufen des Baukastens als Vorlagen für den Konfigurator. */
+export const AUSBAUSTUFEN: { nr: number; name: string; auswahl: Pick<Auswahl, "paket" | "module" | "zusaetze"> }[] = [
+  { nr: 1, name: "Gering · Einstieg", auswahl: { paket: "KOMPAKT", module: [], zusaetze: [] } },
+  { nr: 2, name: "Gering · Einstieg + Kunden", auswahl: { paket: "KOMPAKT", module: ["marketing"], zusaetze: [] } },
+  { nr: 3, name: "Mittel · Personal", auswahl: { paket: "PROFESSIONAL", module: ["personal"], zusaetze: [] } },
+  { nr: 4, name: "Mittel · Büro", auswahl: { paket: "PROFESSIONAL", module: ["kundenmanagement"], zusaetze: [] } },
+  { nr: 5, name: "Voll · alle Module", auswahl: { paket: "PROFESSIONAL", module: ["personal", "marketing", "kundenmanagement"], zusaetze: [] } },
+  { nr: 6, name: "Voll · mit Zusatzmodul", auswahl: { paket: "PROFESSIONAL", module: ["personal", "marketing", "kundenmanagement"], zusaetze: ["fotovideo"] } },
+];

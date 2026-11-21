@@ -9,6 +9,7 @@ import { schreibeSeite, standardInhalt, SeitenInhalt } from "../sites/generator"
 import { pruefeSeite } from "../sites/qualitaet";
 import { schreibe, jsonAus } from "../adapters/ki";
 import { PAKETE, PaketKey, euro } from "../pakete";
+import { gebuchteModule } from "../bausteine";
 import { zahlungUeberStripe } from "../adapters/stripe";
 import { inPostausgang } from "./postausgang";
 import { systemAufgabeErledigt } from "./crm";
@@ -100,7 +101,7 @@ export async function bau(projektId: number): Promise<string> {
     ersatz: JSON.stringify({ claim: roh.claim || basis.claim, einleitung: roh.einleitung || basis.einleitung, ueberUns: roh.ueberUns || basis.ueberUns }),
   });
   const t = jsonAus<{ claim: string; einleitung: string; ueberUns: string }>(texte.text, { claim: basis.claim, einleitung: basis.einleitung, ueberUns: basis.ueberUns });
-  const mitKarriere = ["M", "L"].includes(p.paket);
+  const mitKarriere = (await gebuchteModule(p)).includes("personal");
   const inhalt: SeitenInhalt = {
     ...basis,
     ...t,
@@ -179,7 +180,7 @@ export async function livegangDurchfuehren(projektId: number): Promise<void> {
   if (!a) return;
   // Mit Stripe: Abo-Start nach Freigabe (Betreuung beginnt mit dem Livegang)
   const b = await betrieb(p.betriebId);
-  const startAb = p.paket === "S" ? new Date(Date.now() + 91 * 864e5) : new Date();
+  const startAb = new Date();
   await inPostausgang({
     betriebId: p.betriebId,
     projektId,
@@ -187,7 +188,7 @@ export async function livegangDurchfuehren(projektId: number): Promise<void> {
     zweck: "betreuung_start",
     empfaenger: `Stripe: ${b.name}`,
     betreff: `Betreuung starten: ${b.name}`,
-    text: `Monatliche Betreuung ${euro(a.monatlich)} netto per Stripe, erste Abbuchung ${startAb.toLocaleDateString("de-DE")}${p.paket === "S" ? " (erste 3 Monate inklusive)" : ""}.`,
+    text: `Monatliche Betreuung ${euro(a.monatlich)} netto per Stripe, erste Abbuchung ${startAb.toLocaleDateString("de-DE")}.`,
     meta: { projektId, monatlich: a.monatlich, startAb: startAb.toISOString() },
   });
 }
