@@ -46,3 +46,26 @@ export async function betriebZuweisen(id: number, zustaendig: string | null, tag
   const db = await getDb();
   await db.update(schema.betriebe).set({ zustaendig, tags: [...new Set(tags.map((t) => t.trim()).filter(Boolean))].slice(0, 20) }).where(eq(schema.betriebe.id, id));
 }
+
+/**
+ * Betrieb in der Pipeline auf eine andere Stufe ziehen. Regeln:
+ * „Gewonnen“ nur durch Unterschrift; „Interessant“ aus „Gefunden“ startet wie der Knopf Check, Demo und Brief;
+ * Kunden und gesperrte Betriebe bleiben, wo sie sind. Jede Änderung steht im Protokoll.
+ */
+export async function stufeWechseln(id: number, ziel: string, wer: string): Promise<void> {
+  const erlaubt = ["neu", "interessant", "angeschrieben", "termin", "angebot"];
+  if (ziel === "kunde") throw new Error("Zum Kunden wird ein Betrieb mit der Unterschrift, nicht durch Verschieben.");
+  if (!erlaubt.includes(ziel)) throw new Error("Unbekannte Stufe");
+  const db = await getDb();
+  const [b] = await db.select().from(schema.betriebe).where(eq(schema.betriebe.id, id));
+  if (!b) throw new Error("Betrieb nicht gefunden");
+  if (b.status === ziel) return;
+  if (b.status === "kunde") throw new Error("Kunden bleiben Kunden. Für Kündigung oder Ende bitte das Projekt öffnen.");
+  if (b.status === "gesperrt") throw new Error("Betrieb steht auf der Sperrliste.");
+  const { einstufen } = await import("./ablauf/akquise");
+  if (ziel === "interessant" && b.status === "neu") return einstufen(id, true, wer);
+  const { setzeStatus } = await import("./ablauf/gemeinsam");
+  const { protokolliere } = await import("./protokoll");
+  await setzeStatus(id, ziel);
+  await protokolliere(wer, `Pipeline: ${STUFEN.find((s) => s.key === b.status)?.name ?? b.status} → ${STUFEN.find((s) => s.key === ziel)?.name}`, id);
+}

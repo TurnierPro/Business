@@ -925,3 +925,20 @@ test("Stunden je Baustein: Zeiten mit Baustein, Durchschnitt gegen das Ziel", as
   assert.equal(pers.ziel, 5);
   assert.ok(pers.schnitt !== null && pers.schnitt >= 5);
 });
+
+test("Pipeline: Stufe per Ziehen ändern, Regeln für Kunde, Sperre und Interessant", async () => {
+  const pl = await import("../src/lib/pipeline");
+  const { id } = await akquise.legeBetriebAn({ name: "Zieh Test GmbH", gewerk: "SHK", score: 50, scoreGrund: "Test", website: "zieh-test.example" }, "Test", "Test");
+  await pl.stufeWechseln(id!, "termin", "Daniel Lück");
+  let [b] = await db.select().from(schema.betriebe).where(eq(schema.betriebe.id, id!));
+  assert.equal(b.status, "termin");
+  await assert.rejects(() => pl.stufeWechseln(id!, "kunde", "Daniel Lück"), /Unterschrift/);
+  await assert.rejects(() => pl.stufeWechseln(id!, "quatsch", "Daniel Lück"), /Unbekannte Stufe/);
+  await pl.stufeWechseln(id!, "neu", "Daniel Lück");
+  await pl.stufeWechseln(id!, "interessant", "Daniel Lück");
+  [b] = await db.select().from(schema.betriebe).where(eq(schema.betriebe.id, id!));
+  assert.equal(b.status, "interessant");
+  assert.ok((await db.select().from(schema.jobs)).some((j) => j.art === "vorbereitung" && Number(j.daten.betriebId) === id), "Interessant startet die Vorbereitung");
+  await db.update(schema.betriebe).set({ status: "kunde" }).where(eq(schema.betriebe.id, id!));
+  await assert.rejects(() => pl.stufeWechseln(id!, "angebot", "Daniel Lück"), /Kunden bleiben/);
+});

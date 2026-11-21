@@ -9,12 +9,13 @@ import { datum, datumZeit, DOKART, ZWECK } from "@/lib/format";
 import { PAKETE, PaketKey, euro } from "@/lib/pakete";
 import { istEcht } from "@/lib/adapters/dienste";
 import { basisUrl } from "@/lib/ablauf/gemeinsam";
-import { aktivitaetAnlegen, antwortEntwerfen, nachrichtErledigt, portalLinkErneuern, portalZugangAnlegen, portalZugangSperren, betriebSpeichern, betriebZuweisen, datenLoeschen, einstufen, kontaktLoeschen, kontaktSpeichern, terminHochladen, widerspruch, zahlungSimulieren } from "../../aktionen";
+import { besuchErfassen, aktivitaetAnlegen, antwortEntwerfen, nachrichtErledigt, portalLinkErneuern, portalZugangAnlegen, portalZugangSperren, betriebSpeichern, betriebZuweisen, datenLoeschen, einstufen, kontaktLoeschen, kontaktSpeichern, terminHochladen, widerspruch, zahlungSimulieren } from "../../aktionen";
 import { AufgabenListe } from "@/components/AufgabenListe";
 import { ARTEN } from "@/lib/ablauf/crm";
 import { ticketNummer } from "@/lib/ablauf/tickets";
 import { KANAELE } from "@/lib/ablauf/nachrichten";
 import { JETZT, WEG, wegIndex } from "@/lib/weg";
+import { ERGEBNISSE, KONTAKT } from "@/lib/ablauf/vertrieb";
 
 const PROJEKT_TEXT: Record<string, string> = { inhalte: "wartet auf Inhalte", bau: "wird gebaut", pruefung: "Prüfung nicht bestanden", bereit: "Vorschau beim Kunden", live: "live, Betreuung läuft", beendet: "beendet" };
 const ANGEBOT_TEXT: Record<string, string> = { entwurf: "erstellt", versendet: "beim Kunden", unterschrieben: "unterschrieben", angezahlt: "erste Rate bezahlt", abgeschlossen: "abgeschlossen", abgelehnt: "abgelehnt" };
@@ -49,6 +50,7 @@ export default async function Lead({ params, searchParams }: { params: Promise<{
     db.select().from(schema.jobs).where(and(inArray(schema.jobs.status, ["wartet", "laeuft"]), inArray(schema.jobs.art, ["vorbereitung", "transkription", "auswertung"]))),
     db.select().from(schema.protokoll).where(eq(schema.protokoll.betriebId, id)).orderBy(desc(schema.protokoll.am)).limit(20),
   ]);
+  const besuche = await db.select().from(schema.besuche).where(eq(schema.besuche.betriebId, id)).orderBy(desc(schema.besuche.am));
   const rechnungen = await db.select().from(schema.rechnungen).where(eq(schema.rechnungen.betriebId, id)).orderBy(desc(schema.rechnungen.erstelltAm));
   const inArbeit = laufend.filter((j) => Number(j.daten.betriebId) === id || termine.some((t) => t.id === Number(j.daten.terminId)));
   const angebot = angebote[0];
@@ -83,6 +85,17 @@ export default async function Lead({ params, searchParams }: { params: Promise<{
                     : ["interessant", "termin"].includes(b.status)
                       ? { was: "Angebot erstellen", unter: "Webauftritt und Module gemeinsam auswählen; der Preis rechnet sofort mit.", knopf: <Link className="knopf haupt" href={`/leads/${id}/angebot`}>Angebot erstellen</Link> }
                       : { was: "Kein nächster Schritt geplant", unter: "Unter „Aktivitäten“ eine Aufgabe anlegen." };
+
+  // Verlauf: Besuche, Gespräche mit Protokoll, Nachrichten und Notizen in einer Zeitleiste, neueste oben
+  type Eintrag = { key: string; am: Date; typ: string; etikett: string; titel: string; text?: string | null; wer?: string | null; extra?: React.ReactNode };
+  const protokolle = doks.filter((d) => d.art === "protokoll");
+  const zeitleiste: Eintrag[] = [
+    ...besuche.map((v) => ({ key: `b${v.id}`, am: v.am, typ: "besuch", etikett: "Besuch", titel: ERGEBNISSE[v.ergebnis] ?? v.ergebnis, wer: v.erstelltVon, text: [v.inhaberAngetroffen ? "Inhaber angetroffen" : "Inhaber nicht angetroffen", v.dauerMin ? `${v.dauerMin} Min.` : null, v.paket ? `Paket ${v.paket === "KOMPAKT" ? "Kompakt" : "Professional"}` : null, v.variante ? `Variante ${v.variante}` : null, v.einwand ? `Einwand: „${v.einwand}“` : null, v.art14Info ? "Art.-14-Info dagelassen" : "Art.-14-Info fehlt", v.einwilligungKontakt && v.einwilligungKontakt !== "keine" ? KONTAKT[v.einwilligungKontakt] : null].filter(Boolean).join(" · ") })),
+    ...termine.map((t) => ({ key: `t${t.id}`, am: t.datum, typ: "gespraech", etikett: "Gespräch", titel: "Gespräch vor Ort aufgenommen", wer: t.einwilligungVon ? `Einwilligung ${t.einwilligungVon}` : null, text: t.audioGeloeschtAm ? `Aufnahme gelöscht am ${datum(t.audioGeloeschtAm)}` : "Aufnahme gespeichert, wird nach dem Versand gelöscht", extra: protokolle.length ? <div className="knopfreihe" style={{ marginTop: 8 }}>{protokolle.map((d) => <a key={d.id} className="knopf klein" href={`/dokument/${d.id}`} target="_blank">Protokoll {datum(d.erstelltAm)}</a>)}</div> : null })),
+    ...nachrichten.map((n) => ({ key: `n${n.id}`, am: n.zeit, typ: n.richtung === "ein" ? "ein" : "aus", etikett: KANAELE[n.kanal] ?? n.kanal, titel: `${n.richtung === "ein" ? "Von" : "An"} ${n.richtung === "ein" ? n.absender : n.empfaenger}${n.betreff ? `: ${n.betreff}` : ""}`, text: n.richtung === "aus" ? (n.inhalt.length > 160 ? `${n.inhalt.replace(/\s+/g, " ").slice(0, 160)} …` : n.inhalt) : n.inhalt.length > 500 ? `${n.inhalt.slice(0, 500)} …` : n.inhalt, extra: n.richtung === "ein" && n.status === "neu" ? <div className="knopfreihe" style={{ marginTop: 8 }}>{n.kanal === "mail" || n.kanal === "whatsapp" ? <form action={antwortEntwerfen}><input type="hidden" name="id" value={n.id} /><input type="hidden" name="zurueck" value={`/leads/${id}?tab=aktivitaeten`} /><button className="knopf klein">Antwort entwerfen</button></form> : null}<form action={nachrichtErledigt}><input type="hidden" name="id" value={n.id} /><input type="hidden" name="zurueck" value={`/leads/${id}?tab=aktivitaeten`} /><button className="knopf klein">Erledigt</button></form></div> : null })),
+    ...chronik.map((a) => ({ key: `a${a.id}`, am: a.erledigtAm ?? a.erstelltAm, typ: "notiz", etikett: ARTEN[a.art] ?? a.art, titel: `${a.titel}${a.erledigtAm && a.faelligAm ? " (erledigt)" : ""}`, wer: a.erstelltVon, text: a.text })),
+    ...post.filter((p) => p.versendetAm && p.kanal !== "mail" && p.kanal !== "whatsapp").map((p) => ({ key: `p${p.id}`, am: p.versendetAm!, typ: "aus", etikett: "Versendet", titel: ZWECK[p.zweck] ?? p.zweck, text: p.betreff })),
+  ].sort((x, y) => y.am.getTime() - x.am.getTime()).slice(0, 60);
 
   // Datum je Schritt (wie im Kundenportal), soweit bekannt
   const brief = post.find((p) => p.zweck === "akquise_brief" && p.versendetAm);
@@ -258,50 +271,93 @@ export default async function Lead({ params, searchParams }: { params: Promise<{
       ) : null}
 
       {tab === "aktivitaeten" ? (
-        <section className="karte">
-          <h2>Aktivitäten</h2>
-          <form action={aktivitaetAnlegen} className="raster zwei" style={{ marginBottom: 12 }}>
-            <input type="hidden" name="betriebId" value={id} />
-            <input type="hidden" name="zurueck" value={`/leads/${id}?tab=aktivitaeten`} />
-            <label className="feld"><span>Art</span><select name="art" defaultValue="anruf">{Object.entries(ARTEN).map(([k, n]) => <option key={k} value={k}>{n}</option>)}</select></label>
-            <label className="feld"><span>Kurz</span><input name="titel" placeholder="z. B. Rückruf wegen Fotos" /></label>
-            <label className="feld" style={{ gridColumn: "1 / -1" }}><span>Notiz</span><textarea name="text" rows={2} placeholder="Was wurde besprochen? Bei Aufgabe oder Termin: Datum unten." /></label>
-            <label className="feld"><span>Datum (Aufgabe, Termin)</span><input type="date" name="faellig" defaultValue={morgen} /></label>
-            <label className="feld"><span>Für</span><select name="zustaendig" defaultValue={b.zustaendig ?? ""}><option value="">mich</option>{benutzer.map((x) => <option key={x.name}>{x.name}</option>)}</select></label>
-            <div><button className="knopf">Speichern</button></div>
-          </form>
-          {offeneAufgaben.length ? <><h3>Offen</h3><AufgabenListe eintraege={offeneAufgaben.map((a) => ({ a, betrieb: null }))} zurueck={`/leads/${id}`} mitBetrieb={false} /></> : <p className="leise klein">Kein nächster Schritt geplant.</p>}
-          {nachrichten.length ? (
-            <>
-              <h3>Nachrichten</h3>
-              <ul className="liste">
-                {nachrichten.map((n) => (
-                  <li key={n.id} style={{ flexWrap: "wrap" }}>
-                    <div style={{ flex: "1 1 280px" }}>
-                      <div className="titel">{n.richtung === "ein" ? "←" : "→"} {KANAELE[n.kanal]}{n.betreff ? `: ${n.betreff}` : ""}</div>
-                      <div className="unter">{datumZeit(n.zeit)} · {n.richtung === "ein" ? n.absender : `an ${n.empfaenger}`}{n.dauerSek ? ` · ${Math.round(n.dauerSek / 60)} Min.` : ""}</div>
-                      <div className="klein" style={{ whiteSpace: "pre-wrap", marginTop: 4 }}>{n.inhalt.length > 400 ? `${n.inhalt.slice(0, 400)} …` : n.inhalt}</div>
+        <div className="akte-raster" style={{ gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1.3fr)" }}>
+          <div className="raster" style={{ gap: 16, alignContent: "start" }}>
+            <section className="karte">
+              <h2>Eintragen</h2>
+              <form action={aktivitaetAnlegen}>
+                <input type="hidden" name="betriebId" value={id} />
+                <input type="hidden" name="zurueck" value={`/leads/${id}?tab=aktivitaeten`} />
+                <div className="raster" style={{ gridTemplateColumns: "minmax(0, 0.8fr) minmax(0, 1.6fr)", gap: 12 }}>
+                  <label className="feld"><span>Art</span><select name="art" defaultValue="anruf">{Object.entries(ARTEN).map(([k, n]) => <option key={k} value={k}>{n}</option>)}</select></label>
+                  <label className="feld"><span>Kurz</span><input name="titel" placeholder="z. B. Rückruf wegen Fotos" /></label>
+                </div>
+                <label className="feld"><span>Notiz</span><textarea name="text" rows={3} placeholder="Was wurde besprochen?" style={{ minHeight: 90 }} /></label>
+                <div className="raster zwei" style={{ gap: 12 }}>
+                  <label className="feld"><span>Datum <em>bei Aufgabe oder Termin</em></span><input type="date" name="faellig" defaultValue={morgen} /></label>
+                  <label className="feld"><span>Für</span><select name="zustaendig" defaultValue={b.zustaendig ?? ""}><option value="">mich</option>{benutzer.map((x) => <option key={x.name}>{x.name}</option>)}</select></label>
+                </div>
+                <button className="knopf">Eintragen</button>
+              </form>
+            </section>
+
+            {!gesperrt && b.status !== "kunde" ? (
+              <details className="karte" open={b.status === "angeschrieben"}>
+                <summary style={{ cursor: "pointer", fontWeight: 600, fontSize: 19 }}>Besuch vor Ort: Messbogen</summary>
+                <form action={besuchErfassen} className="messbogen" style={{ marginTop: 12, maxWidth: "none" }}>
+                  <input type="hidden" name="betriebId" value={id} />
+                  <input type="hidden" name="zurueck" value={`/leads/${id}?tab=aktivitaeten`} />
+                  <fieldset>
+                    <legend>Ergebnis</legend>
+                    <div className="raster zwei" style={{ gap: 6 }}>{Object.entries(ERGEBNISSE).map(([k, n]) => <label key={k} className="haken"><input type="radio" name="ergebnis" value={k} required /><span>{n}</span></label>)}</div>
+                  </fieldset>
+                  <label className="haken"><input type="checkbox" name="angetroffen" value="ja" /><span>Inhaber angetroffen</span></label>
+                  <div className="raster" style={{ gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 12 }}>
+                    <label className="feld"><span>Dauer (Min.)</span><input name="dauer" type="number" inputMode="numeric" min={0} max={240} /></label>
+                    <label className="feld"><span>Paket</span><select name="paket" defaultValue=""><option value="">keins</option><option value="KOMPAKT">Kompakt</option><option value="PROFESSIONAL">Professional</option></select></label>
+                    <label className="feld"><span>Variante</span><select name="variante" defaultValue=""><option value="">keine</option><option value="A">A · vor Ort</option><option value="B">B · Rücktrittsrecht</option></select></label>
+                  </div>
+                  <label className="feld"><span>Einwand wörtlich</span><input name="einwand" placeholder="z. B. Muss ich mit dem Büro besprechen" /></label>
+                  <div className="raster zwei" style={{ gap: 12 }}>
+                    <label className="feld"><span>Weiterer Kontakt</span><select name="kontakt" defaultValue="keine">{Object.entries(KONTAKT).map(([k, n]) => <option key={k} value={k}>{n}</option>)}</select></label>
+                    <label className="feld"><span>Preistest <em>erste 15 Gespräche</em></span><input name="preistest" placeholder="Reaktion auf den Preis" /></label>
+                  </div>
+                  <label className="haken"><input type="checkbox" name="art14" value="ja" /><span>Art.-14-Infoblatt dagelassen</span></label>
+                  <button className="knopf">Messbogen speichern</button>
+                </form>
+              </details>
+            ) : null}
+
+            {!gesperrt && ["interessant", "angeschrieben", "termin"].includes(b.status) ? (
+              <details className="karte" open={b.status === "termin"}>
+                <summary style={{ cursor: "pointer", fontWeight: 600, fontSize: 19 }}>Gespräch aufnehmen</summary>
+                <p className="leise" style={{ marginTop: 12 }}>Aus der Aufnahme entstehen Protokoll, Maßnahmenplan, Angebot und Begleit-Mail. Alles geht vorher durch die Freigabe. Die Aufnahme wird nach dem Versand gelöscht.</p>
+                <form action={terminHochladen}>
+                  <input type="hidden" name="id" value={id} />
+                  <label className="haken" style={{ marginBottom: 16 }}>
+                    <input type="checkbox" name="einwilligung" value="ja" required />
+                    <span><b>Einwilligung liegt vor.</b> {b.inhaber ?? "Der Inhaber"} ist mit der Aufnahme einverstanden. Ohne Haken wird nichts gespeichert.</span>
+                  </label>
+                  <Aufnahme />
+                  <button className="knopf">Aufnahme speichern</button>
+                </form>
+              </details>
+            ) : null}
+
+            <section className="karte">
+              <h2>Offene Aufgaben</h2>
+              {offeneAufgaben.length ? <AufgabenListe eintraege={offeneAufgaben.map((a) => ({ a, betrieb: null }))} zurueck={`/leads/${id}?tab=aktivitaeten`} mitBetrieb={false} /> : <p className="leise klein">Kein nächster Schritt geplant.</p>}
+            </section>
+          </div>
+
+          <section className="karte" aria-labelledby="verlauf">
+            <h2 id="verlauf">Verlauf</h2>
+            {zeitleiste.length ? (
+              <ol className="zeitleiste">
+                {zeitleiste.map((e) => (
+                  <li key={e.key}>
+                    <span className={`art art-${e.typ}`}>{e.etikett}</span>
+                    <div className="inhalt">
+                      <div className="kopf"><span className="titel">{e.titel}</span><span className="leise klein">{datumZeit(e.am)}{e.wer ? ` · ${e.wer}` : ""}</span></div>
+                      {e.text ? <div className="text">{e.text}</div> : null}
+                      {e.extra ?? null}
                     </div>
-                    {n.richtung === "ein" && n.status === "neu" ? (
-                      <div className="knopfreihe">
-                        {n.kanal === "mail" || n.kanal === "whatsapp" ? <form action={antwortEntwerfen}><input type="hidden" name="id" value={n.id} /><input type="hidden" name="zurueck" value={`/leads/${id}?tab=aktivitaeten`} /><button className="knopf klein">Antwort entwerfen</button></form> : null}
-                        <form action={nachrichtErledigt}><input type="hidden" name="id" value={n.id} /><input type="hidden" name="zurueck" value={`/leads/${id}?tab=aktivitaeten`} /><button className="knopf klein">Erledigt</button></form>
-                      </div>
-                    ) : <Status wert={n.richtung === "aus" ? "versendet" : n.status} />}
                   </li>
                 ))}
-              </ul>
-            </>
-          ) : null}
-          {chronik.length ? (
-            <>
-              <h3>Chronik</h3>
-              <ul className="liste">
-                {chronik.slice(0, 25).map((a) => <li key={a.id}><div><div className="titel">{ARTEN[a.art]}: {a.titel}</div><div className="unter">{datumZeit(a.erledigtAm ?? a.erstelltAm)} · {a.erstelltVon}{a.text ? ` · ${a.text}` : ""}</div></div></li>)}
-              </ul>
-            </>
-          ) : null}
-        </section>
+              </ol>
+            ) : <p className="leise">Noch nichts. Besuche, Gespräche, Nachrichten und Notizen erscheinen hier.</p>}
+          </section>
+        </div>
       ) : null}
 
       {tab === "dokumente" ? (

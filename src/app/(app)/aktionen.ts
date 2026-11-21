@@ -643,7 +643,7 @@ export async function portalLinkErneuern(f: FormData) {
 // ---------- Vertrieb: Messbogen nach dem Besuch ----------
 
 export async function besuchErfassen(f: FormData) {
-  await ausfuehren("/leads/besuche", "Besuch gespeichert", async (wer) => {
+  await ausfuehren(text(f, "zurueck") || "/leads/besuche", "Besuch gespeichert", async (wer) => {
     await (await import("@/lib/ablauf/vertrieb")).besuchErfassen(
       {
         betriebId: zahl(f, "betriebId"),
@@ -661,4 +661,18 @@ export async function besuchErfassen(f: FormData) {
       wer,
     );
   });
+}
+
+// ---------- Pipeline: Karte auf eine andere Stufe ziehen ----------
+
+export async function stufeVerschieben(id: number, ziel: string): Promise<{ fehler?: string }> {
+  const b = await brauchtBenutzer();
+  if (!darf(b, "aendern")) return { fehler: "Dein Konto darf nur lesen." };
+  try {
+    await (await import("@/lib/pipeline")).stufeWechseln(Number(id), String(ziel), b.name);
+    revalidatePath("/pipeline");
+    return {};
+  } catch (e) {
+    return { fehler: e instanceof Error ? e.message : "Verschieben fehlgeschlagen" };
+  }
 }

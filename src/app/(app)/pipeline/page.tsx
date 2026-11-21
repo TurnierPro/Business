@@ -1,4 +1,5 @@
-import Link from "next/link";
+import { PipelineBrett } from "@/components/PipelineBrett";
+import { stufeVerschieben } from "../aktionen";
 import { pipeline, prognose } from "@/lib/pipeline";
 import { euro } from "@/lib/pakete";
 
@@ -22,27 +23,8 @@ export default async function Pipeline({ searchParams }: { searchParams: Promise
         <div className="kennzahl" title="Summe der Angebote je Stufe mal Abschluss-Wahrscheinlichkeit der Stufe"><div className="wert">{euro(prognose(stufen))}</div><div className="name">erwarteter Umsatz (gewichtet, einmalig)</div></div>
         <div className="kennzahl"><div className="wert" style={liegen ? { color: "var(--fehler)" } : undefined}>{liegen}</div><div className="name">{liegen === 1 ? "liegt" : "liegen"} zu lange ohne Kontakt</div></div>
       </div>
-      <div className="pipeline abstand" role="list" aria-label="Pipeline-Stufen">
-        {stufen.map((s) => (
-          <section key={s.key} className="spalte" role="listitem" aria-label={s.name}>
-            <div className="spalte-kopf">
-              <h2>{s.name}</h2>
-              <span className="anzahl">{s.karten.length}</span>
-            </div>
-            {s.karten.length ? <div className="klein leise" title={`${Math.round(s.wahrscheinlichkeit * 100)} % Wahrscheinlichkeit → ${euro(s.gewichtet)}`}>{euro(s.summe)} {s.key === "kunde" ? "Auftragswert" : "möglich"}</div> : <div className="klein leise">leer</div>}
-            {s.karten.map((k) => (
-              <Link key={k.id} href={`/leads/${k.id}`} className={`karte-klein${k.liegt && s.key !== "kunde" ? " liegt" : ""}`}>
-                <div className="name">{k.name}</div>
-                <div className="klein leise">{[k.gewerk, k.ort].filter(Boolean).join(" · ")}</div>
-                <div className="klein" style={{ marginTop: 6 }}>{k.geschaetzt ? "ca. " : ""}{euro(k.wert)}</div>
-                {k.liegt && s.key !== "kunde" ? <div style={{ marginTop: 6 }}><span className="status fehler">seit {k.tageOhneAktivitaet} Tagen still</span></div> : null}
-                {k.naechsteAufgabe ? <div className="klein leise" style={{ marginTop: 6 }}>{k.naechsteAufgabe}</div> : null}
-                {k.zustaendig ? <div><span className="marke-klein">{k.zustaendig}</span></div> : null}
-              </Link>
-            ))}
-          </section>
-        ))}
-      </div>
+      <p className="leise klein abstand" style={{ marginBottom: 0 }}>Karte greifen und auf eine andere Stufe ziehen; ohne Maus über „Stufe ändern“ in der Karte. „Gewonnen“ wird ein Betrieb nur durch die Unterschrift.</p>
+      <PipelineBrett stufen={stufen.map((s) => ({ key: s.key, name: s.name, summe: s.summe, karten: s.karten.map((k) => ({ id: k.id, name: k.name, ort: k.ort, gewerk: k.gewerk, wert: k.wert, geschaetzt: k.geschaetzt, tageOhneAktivitaet: k.tageOhneAktivitaet, liegt: k.liegt, zustaendig: k.zustaendig, naechsteAufgabe: k.naechsteAufgabe })) }))} verschieben={stufeVerschieben} />
     </>
   );
 }
