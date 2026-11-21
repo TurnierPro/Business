@@ -12,6 +12,7 @@ import { checkliste, PHASEN } from "@/lib/ablauf/checkliste";
 import { stunden, TAETIGKEITEN, ZIEL_STUNDEN, zeitenVonProjekt } from "@/lib/ablauf/zeiten";
 import { checklistePunkt, zeitErfassen, zeitLoeschen } from "../../aktionen";
 import { bfsgHinweis } from "@/lib/ablauf/lieferung";
+import { bereitgestellt, lieferfristBis, mitwirkungsliste } from "@/lib/ablauf/lieferfrist";
 
 const SCHRITTE = [
   { key: "inhalte", text: "Inhalte vom Kunden" },
@@ -36,6 +37,9 @@ export default async function Projekt({ params }: { params: Promise<{ id: string
   // Reihenfolge: Bau → Prüfung → Vorschau → Abnahme → Livegang (nur Maximilian mit Code)
   const index = p.status === "live" || p.status === "beendet" ? SCHRITTE.length : abgenommen ? 5 : SCHRITTE.findIndex((s) => s.key === p.status);
   const bfsg = bfsgHinweis(p.onboarding);
+  const frist = lieferfristBis(p);
+  const fristTage = frist ? Math.ceil((frist.getTime() - Date.now()) / 864e5) : null;
+  const mitwirkung = mitwirkungsliste(p);
   const umzug = umzugVon(p);
   const [punkte, zeit] = await Promise.all([checkliste(id), zeitenVonProjekt(id)]);
   const ziel = (ZIEL_STUNDEN[p.paket] ?? 12) * 60;
@@ -60,7 +64,9 @@ export default async function Projekt({ params }: { params: Promise<{ id: string
           {p.status === "inhalte" ? <><p>Wir warten auf Texte und Fotos. Der Kunde hat den Link mit der Start-Mail bekommen.</p><p className="leise klein mono" style={{ wordBreak: "break-all" }}>{portal}</p></> : null}
           {p.status === "bau" ? <p>Die Seite wird gerade gebaut und geprüft. In einer Minute neu laden.</p> : null}
           {p.status === "pruefung" ? <><div className="hinweis fehler">Die Prüfung ist nicht bestanden. Der Livegang ist gesperrt, bis alles grün ist.</div><form action={neuBauen}><input type="hidden" name="id" value={id} /><button className="knopf">Neu bauen und prüfen</button></form></> : null}
-          {p.status === "bereit" && livegang ? <><p>Alle Prüfungen bestanden. Bitte die Vorschau ansehen und den Livegang freigeben.</p><Link className="knopf haupt" href={`/freigaben/${livegang.id}`}>Zur Freigabe</Link></> : null}
+          {p.status === "bereit" && !abgenommen ? <p>Alle Prüfungen bestanden. Die Vorschau liegt beim Kunden zur Abnahme{p.abnahmeFrist ? ` (Frist bis ${datum(p.abnahmeFrist)})` : ", die Bitte um Abnahme wartet auf Freigabe"}.</p> : null}
+          {p.status === "bereit" && livegang ? <><p>Abgenommen. Bitte die Vorschau noch einmal ansehen und den Livegang freigeben (nur Maximilian, mit Code aus der Authenticator-App).</p><Link className="knopf haupt" href={`/freigaben/${livegang.id}`}>Zur Freigabe</Link></> : null}
+          {frist && !bereitgestellt(p) ? <p className={fristTage !== null && fristTage <= 5 ? "hinweis" : "leise"}>Lieferfrist: Vorschau spätestens am {datum(frist)}{fristTage !== null ? (fristTage < 0 ? `, ${-fristTage} Tage überschritten` : `, noch ${fristTage} Tage`) : ""}.</p> : null}
           {p.status === "live" ? <p>Live seit {datum(p.liveAm)}. Betreuung läuft seit {datum(p.aboAb)}. Die Seite wird alle 10 Minuten geprüft.</p> : null}
           {p.abnahmeStatus ? (
             <div style={{ marginTop: 12 }}>
@@ -71,6 +77,14 @@ export default async function Projekt({ params }: { params: Promise<{ id: string
           ) : null}
           {p.gekuendigtAm ? <p className="hinweis" style={{ marginTop: 12 }}>Gekündigt am {datum(p.gekuendigtAm)}, Ende {datum(p.endeAm)}.</p> : null}
           {p.status === "beendet" ? <p>Vertrag beendet am {datum(p.endeAm)}.</p> : null}
+          {["inhalte", "bau", "pruefung"].includes(p.status) ? (
+            <details style={{ marginTop: 12 }} open={p.status === "inhalte"}>
+              <summary style={{ cursor: "pointer" }}>Mitwirkungsliste ({mitwirkung.filter((m) => m.erledigt).length} von {mitwirkung.length} da)</summary>
+              <ul className="liste-schlicht" style={{ marginTop: 8 }}>
+                {mitwirkung.map((m) => <li key={m.titel}><span className={`status ${m.erledigt ? "ok" : "warten"}`}>{m.erledigt ? "da" : "fehlt"}</span> {m.titel}{m.hinweis ? <span className="leise klein"> · {m.hinweis}</span> : null}</li>)}
+              </ul>
+            </details>
+          ) : null}
           {seite ? <p style={{ marginTop: 16 }}><a className="knopf klein" target="_blank" href={`/vorschau/${seite.slug}${seite.zugangscode ? `?code=${seite.zugangscode}` : ""}`}>Seite ansehen</a></p> : null}
         </section>
 

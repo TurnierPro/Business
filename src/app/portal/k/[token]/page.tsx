@@ -71,7 +71,18 @@ export default async function Kundenportal({ params, searchParams }: { params: P
           </div>
           {handlung ? <a className="knopf haupt" href={handlung.href}>{handlung.knopf}</a> : null}
         </div>
+        {d.lieferfrist ? <p className="leise klein" style={{ marginTop: 12 }}>Ihre Website ist spätestens am <b>{tag(d.lieferfrist)}</b> fertig zur Abnahme.</p> : null}
       </section>
+      {d.mitwirkung.length ? (
+        <section className="karte" aria-labelledby="mitwirkung">
+          <h2 id="mitwirkung">Was wir von Ihnen brauchen</h2>
+          <ul className="liste-schlicht">
+            {d.mitwirkung.map((m) => (
+              <li key={m.titel}><span className={`status ${m.erledigt ? "ok" : "warten"}`}>{m.erledigt ? "da" : "fehlt"}</span> {m.titel}{m.hinweis ? <span className="leise klein"> · {m.hinweis}</span> : null}</li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
       {danke ? <div className="hinweis ok" role="status">Vielen Dank. Ihr Angebot ist angenommen. Die Rechnung über die Anzahlung bekommen Sie in Kürze.</div> : null}
       {bezahlt ? <div className="hinweis ok" role="status">Vielen Dank für Ihre Zahlung. Die Rechnung kommt per E-Mail, und wir melden uns mit den nächsten Schritten.</div> : null}
       {abnahme ? <div className="hinweis ok" role="status">{abnahme === "verweigert" ? "Danke für Ihre Rückmeldung. Wir beheben die Mängel und melden uns." : "Vielen Dank für die Abnahme. Das Protokoll bekommen Sie per E-Mail."}</div> : null}
@@ -125,7 +136,8 @@ export default async function Kundenportal({ params, searchParams }: { params: P
         <form id="abnahme" action={abnehmen} className="karte">
           <h2>Website abnehmen</h2>
           {abnahmefehler ? <div className="hinweis fehler" role="alert">Bitte Ihren Namen eintragen und bei Mängeln kurz beschreiben, was nicht passt.</div> : null}
-          <p>Bitte prüfen Sie Ihre Website{d.projekt?.domain ? <> unter <b className="mono">{d.projekt.domain}</b></> : null} bis zum <b>{tag(d.abnahmeOffen.abnahmeFrist)}</b>. Erklären Sie bis dahin nichts und nennen keinen Mangel, gilt die Website als abgenommen (§ 640 Abs. 2 BGB).</p>
+          <p>Bitte prüfen Sie Ihre Website bis zum <b>{tag(d.abnahmeOffen.abnahmeFrist)}</b>, am Handy und am Computer. Erklären Sie bis dahin nichts und nennen keinen Mangel, gilt die Website als abgenommen (§ 640 Abs. 2 BGB). Online{d.projekt?.domain ? <> unter <b className="mono">{d.projekt.domain}</b></> : null} geht sie erst nach Ihrer Abnahme.</p>
+          {d.vorschau ? <p><a className="knopf" href={d.vorschau} target="_blank" rel="noopener noreferrer">Vorschau öffnen</a></p> : null}
           <input type="hidden" name="token" value={token} />
           <fieldset className="feld" style={{ border: 0, padding: 0 }}>
             <legend style={{ fontWeight: 600, marginBottom: 8 }}>Ihre Erklärung</legend>

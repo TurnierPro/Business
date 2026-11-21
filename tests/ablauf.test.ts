@@ -118,6 +118,20 @@ test("Kompletter Ablauf von Lead bis Livegang", async () => {
   const [gebaut] = await db.select().from(schema.projekte).where(eq(schema.projekte.id, projektId));
   assert.equal(gebaut.status, "bereit", JSON.stringify(gebaut.pruefung));
 
+  // Eingang der Inhalte bestätigen: Fertig-Datum laut Lieferfrist (Professional 6 Wochen), Mitwirkungsliste
+  const lf = await import("../src/lib/ablauf/lieferfrist");
+  const { PAKETE } = await import("../src/lib/pakete");
+  const { datumDe } = await import("../src/lib/docs/basis");
+  const eingang = await offeneFreigabe("inhalte_eingang");
+  const frist = lf.lieferfristBis(gebaut)!;
+  assert.equal(Math.round((frist.getTime() - gebaut.inhalteAm!.getTime()) / 864e5), (PAKETE[gebaut.paket as keyof typeof PAKETE].wochen) * 7);
+  assert.ok(eingang.text.includes(datumDe(frist)), eingang.text);
+  assert.equal(eingang.qkStatus === "blockiert", false);
+  assert.ok(lf.mitwirkungsliste(gebaut).some((m) => m.titel.startsWith("Echte Fotos") && !m.erledigt), "ohne Fotos: fehlt");
+  assert.equal(lf.plusWerktage(new Date("2026-11-20T10:00:00"), 2).getDate(), 24, "Freitag + 2 Werktage = Dienstag");
+  assert.match(await lf.lieferfristenPruefen(new Date(frist.getTime() + 864e5)), /^0 /, "bereitgestellt: keine Warnung");
+  await post.freigeben(eingang.id, "Maximilian Steiner");
+
   // Erst Vorschau und Abnahme, dann Livegang (Festlegung Leistungskatalog)
   assert.equal((await db.select().from(schema.postausgang).where(eq(schema.postausgang.zweck, "livegang"))).length, 0, "kein Livegang vor der Abnahme");
   const aufforderung = await offeneFreigabe("abnahme_aufforderung");

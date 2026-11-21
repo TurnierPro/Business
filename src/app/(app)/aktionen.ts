@@ -120,20 +120,10 @@ export async function widerspruch(f: FormData) {
   await ausfuehren(`/leads/${id}`, "Auf Sperrliste gesetzt. Offene Post gestoppt, Demo gelöscht.", (wer) => akquise.widerspruch(id, wer, text(f, "grund") || "Widerspruch"));
 }
 
-/** Zweiter Faktor für besonders heikle Freigaben: frischer Code aus der Authenticator-App, jeder Code nur einmal. */
-async function zweiterFaktor(wer: string, code: string): Promise<void> {
-  const db = await getDb();
-  const [b] = await db.select().from(schema.benutzer).where(eq(schema.benutzer.name, wer));
-  if (!b?.totpAktiv || !b.totpGeheim) throw new Error("Für diese Freigabe brauchst du die Anmeldung mit Authenticator-App (Einstellungen).");
-  const schritt = (await import("@/lib/totp")).pruefeMitSchritt(entschluessele(b.totpGeheim), code);
-  if (schritt === null || (b.totpLetzterSchritt !== null && schritt <= b.totpLetzterSchritt)) throw new Error("Code falsch oder schon benutzt. Bitte den nächsten Code eingeben.");
-  await db.update(schema.benutzer).set({ totpLetzterSchritt: schritt }).where(eq(schema.benutzer.id, b.id));
-}
-
 export async function freigeben(f: FormData) {
   const id = zahl(f, "id");
   await ausfuehren("/freigaben", "Freigegeben. Versand läuft.", async (wer) => {
-    if ((await post.eintrag(id)).kanal === "livegang") await zweiterFaktor(wer, text(f, "code"));
+    if ((await post.eintrag(id)).kanal === "livegang") await (await import("@/lib/zweiter-faktor")).technikMitCode(wer, text(f, "code"), `Livegang (Eintrag ${id})`);
     if ((await post.freigeben(id, wer)) === "weitere_freigabe_noetig") return { ok: "Deine Freigabe ist gespeichert. Es fehlt noch die zweite Person (Rechnung über 10.000 €)." };
   });
 }
@@ -441,6 +431,7 @@ export async function benutzerAnlegen(f: FormData) {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error("E-Mail ungültig");
     if (!["admin", "vertrieb", "technik", "lesen"].includes(rolle)) throw new Error("Rolle ungültig");
     if (text(f, "passwort").length < 10) throw new Error("Start-Passwort: mindestens 10 Zeichen");
+    await (await import("@/lib/zweiter-faktor")).technikMitCode(wer, text(f, "code"), `Benutzer anlegen: ${email}`);
     const db = await getDb();
     await db.insert(schema.benutzer).values({ email, name: text(f, "name"), rolle, passwortHash: hashPasswort(text(f, "passwort")) });
     await protokolliere(wer, `Benutzer angelegt: ${email} (${rolle})`);
@@ -456,6 +447,7 @@ export async function benutzerAendern(f: FormData) {
     const aktiv = f.get("aktiv") === "ja";
     if (id === ich.id && (!aktiv || rolle !== "admin")) throw new Error("Du kannst dich nicht selbst sperren oder herabstufen.");
     if (!["admin", "vertrieb", "technik", "lesen"].includes(rolle)) throw new Error("Rolle ungültig");
+    await (await import("@/lib/zweiter-faktor")).technikMitCode(wer, text(f, "code"), `Benutzer ${id} ändern`);
     await db.update(schema.benutzer).set({ rolle, aktiv, ...(f.get("zweiFaktorAus") === "ja" ? { totpAktiv: false, totpGeheim: null } : {}) }).where(eq(schema.benutzer.id, id));
     await protokolliere(wer, `Benutzer ${id}: ${rolle}${aktiv ? "" : ", gesperrt"}`);
   }, "verwalten");
@@ -485,6 +477,8 @@ export async function zweiFaktorBestaetigen(f: FormData) {
 export async function apiSchluesselErzeugen(f: FormData) {
   const b = await brauchtBenutzer();
   if (!darf(b, "verwalten")) redirect("/einstellungen?fehler=" + encodeURIComponent("Das darf nur ein Admin."));
+  const faktor = await (await import("@/lib/zweiter-faktor")).technikMitCode(b.name, text(f, "code"), `API-Schlüssel ${text(f, "name")}`).catch((e: Error) => e);
+  if (faktor instanceof Error) redirect("/einstellungen?fehler=" + encodeURIComponent(faktor.message) + "#api");
   const schluessel = await (await import("@/lib/api")).schluesselErzeugen(text(f, "name"), f.getAll("rechte").map(String), b.name).catch((e: Error) => e);
   if (schluessel instanceof Error) redirect("/einstellungen?fehler=" + encodeURIComponent(schluessel.message));
   // Der Schlüssel wird genau einmal angezeigt (nur in einem kurzlebigen Cookie, nicht in der Adresse)
@@ -495,6 +489,8 @@ export async function apiSchluesselErzeugen(f: FormData) {
 export async function webhookAnlegen(f: FormData) {
   const b = await brauchtBenutzer();
   if (!darf(b, "verwalten")) redirect("/einstellungen?fehler=" + encodeURIComponent("Das darf nur ein Admin."));
+  const faktor = await (await import("@/lib/zweiter-faktor")).technikMitCode(b.name, text(f, "code"), `Webhook ${text(f, "name")}`).catch((e: Error) => e);
+  if (faktor instanceof Error) redirect("/einstellungen?fehler=" + encodeURIComponent(faktor.message) + "#webhooks");
   const w = await (await import("@/lib/webhooks")).webhookAnlegen({ name: text(f, "name"), url: text(f, "url"), ereignisse: f.getAll("ereignisse").map(String) }, b.name).catch((e: Error) => e);
   if (w instanceof Error) redirect("/einstellungen?fehler=" + encodeURIComponent(w.message) + "#webhooks");
   // Geheimnis nur einmal zeigen (kurzlebiges Cookie, nicht in der Adresse)

@@ -296,3 +296,25 @@ test("Webhooks: nur https, signiert, nur IDs, keine internen Adressen (SSRF)", a
   const soll = `sha256=${crypto.createHmac("sha256", "g").update("123.{}").digest("hex")}`;
   assert.equal(wh.signatur("g", "123", "{}"), soll);
 });
+
+test("Heikle Schritte (Livegang, Rollen, Schlüssel): nur Technik-Leitung mit frischem Code, kein Wiederverwenden", async () => {
+  const totp = await import("../src/lib/totp");
+  const { verschluessele } = await import("../src/lib/geheim");
+  const { technikMitCode } = await import("../src/lib/zweiter-faktor");
+  const { TECHNIK, VERTRIEB } = await import("../src/lib/ablauf/crm");
+  const geheim = totp.neuesGeheimnis();
+  await db.delete(schema.benutzer).where(eq(schema.benutzer.name, TECHNIK));
+  await db.insert(schema.benutzer).values({ email: "technik@levarex.test", name: TECHNIK, rolle: "admin", passwortHash: "x", totpAktiv: false, totpGeheim: verschluessele(geheim) });
+  await assert.rejects(() => technikMitCode(TECHNIK, totp.code(geheim), "Test"), /Authenticator-App/, "ohne eingerichtete App nicht");
+  await db.update(schema.benutzer).set({ totpAktiv: true }).where(eq(schema.benutzer.name, TECHNIK));
+  await assert.rejects(() => technikMitCode(VERTRIEB, totp.code(geheim), "Test"), /nur/, "andere Person nicht, auch mit Code");
+  await assert.rejects(() => technikMitCode(TECHNIK, "000000", "Test"), /Code falsch/);
+  const code = totp.code(geheim);
+  await technikMitCode(TECHNIK, code, "Test");
+  await assert.rejects(() => technikMitCode(TECHNIK, code, "Test"), /schon benutzt/, "derselbe Code kein zweites Mal");
+  // Livegang im Postausgang: nur die Technik-Leitung
+  const post = await import("../src/lib/ablauf/postausgang");
+  const id = await post.inPostausgang({ kanal: "livegang", zweck: "livegang", empfaenger: "beispiel.example", betreff: "Livegang Test", text: "Test" });
+  await db.update(schema.postausgang).set({ qkStatus: "ok" }).where(eq(schema.postausgang.id, id));
+  await assert.rejects(() => post.freigeben(id, VERTRIEB), /Livegang gibt nur/);
+});

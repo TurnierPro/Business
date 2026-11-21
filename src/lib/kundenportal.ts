@@ -148,6 +148,10 @@ export async function portalDaten(betriebId: number) {
   const angebot = angebote[0];
   const projekt = projekte[0];
   const [seite] = projekt?.seitenSlug && projekt.status === "live" ? await db.select().from(schema.seiten).where(eq(schema.seiten.slug, projekt.seitenSlug)) : [];
+  // Vorschau zur Abnahme (noch nicht öffentlich, mit Zugangscode)
+  const [vorschauSeite] = projekt?.seitenSlug && projekt.status === "bereit" ? await db.select().from(schema.seiten).where(eq(schema.seiten.slug, projekt.seitenSlug)) : [];
+  const { lieferfristBis, bereitgestellt, mitwirkungsliste } = await import("./ablauf/lieferfrist");
+  const { basisUrl } = await import("./ablauf/gemeinsam");
   return {
     schritte: schr,
     dokumente: doks.filter((d) => d.art !== "rechnung"),
@@ -163,6 +167,9 @@ export async function portalDaten(betriebId: number) {
     anfragen,
     tickets,
     projekt,
+    vorschau: vorschauSeite ? `${basisUrl()}/vorschau/${vorschauSeite.slug}${vorschauSeite.zugangscode ? `?code=${vorschauSeite.zugangscode}` : ""}` : null,
+    lieferfrist: projekt && !bereitgestellt(projekt) ? lieferfristBis(projekt) : null,
+    mitwirkung: projekt && ["inhalte", "bau", "pruefung"].includes(projekt.status) ? mitwirkungsliste(projekt) : [],
     website: seite ? { url: projekt!.domain ? `https://${projekt!.domain}` : `/vorschau/${seite.slug}`, domain: projekt!.domain } : null,
   };
 }

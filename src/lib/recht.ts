@@ -19,6 +19,11 @@ export const VERZUGSPAUSCHALE = 4000;
 
 /** Frist zur Abnahme nach Livegang. Danach gilt das Werk als abgenommen, wenn kein Mangel genannt wurde (§ 640 Abs. 2 BGB). */
 export const ABNAHME_FRIST_TAGE = 14;
+// Lieferung (Leistungskatalog Dok. 20): Eingang der vollständigen Inhalte binnen 2 Werktagen bestätigen;
+// die Lieferfrist (3 bzw. 6 Wochen je Webauftritt, siehe pakete.ts) beginnt mit dem Eingang.
+// Wird sie verfehlt: ein Monat Betreuung ohne Berechnung (Leistungsversprechen).
+export const INHALTE_BESTAETIGUNG_WERKTAGE = 2;
+export const LIEFERFRIST_WARNUNG_TAGE = 5;
 
 /** Konditionen laut Baukasten (Skill levarex-baukasten): Laufzeit ab Livegang, Verlängerung, Kündigung in Textform. */
 export const LAUFZEIT_MONATE = 24;

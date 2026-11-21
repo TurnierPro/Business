@@ -71,6 +71,8 @@ export async function inhalteEinreichen(token: string, form: FormData): Promise<
   await protokolliere("Kunde (Portal)", "Inhalte eingereicht", p.betriebId, `${bilder.length} Fotos`);
   await systemAufgabeErledigt(p.betriebId, "Inhalte nachfassen");
   await hakeAb(p.id, "inhalte");
+  // Eingang bestätigen (Zusage: binnen 2 Werktagen), damit startet die Lieferfrist
+  await (await import("./lieferfrist")).inhalteBestaetigen(p.id);
   await einreihen("bau", { projektId: p.id });
 }
 

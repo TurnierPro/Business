@@ -310,3 +310,7 @@ dl.daten dd { margin: 0; }
 .unterschrift-kopf { display: flex; justify-content: space-between; align-items: center; gap: 12px; font-size: 14px; color: var(--leise); }
 .unterschrift-feld canvas { width: 100%; height: 160px; background: #f5f3ee; border-radius: 12px; touch-action: none; cursor: crosshair; border: 1px solid var(--rahmen); }
 .unterschrift-feld .knopf { justify-self: start; }
+
+/* Schlichte Liste mit Status-Wort vorne (z. B. Mitwirkungsliste) */
+.liste-schlicht { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.liste-schlicht li { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }

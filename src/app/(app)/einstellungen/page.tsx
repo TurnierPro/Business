@@ -72,6 +72,7 @@ export default async function Einstellungen() {
 
       <section className="karte abstand">
         <h2>Benutzer und Rollen</h2>
+        <p className="leise klein">Benutzer, Rollen, API-Schlüssel, Webhooks und den Livegang ändert nur die Technik-Leitung, jeweils mit einem frischen Code aus der Authenticator-App. Jede Änderung steht im Protokoll.</p>
         <p className="leise klein">Admin: alles. Vertrieb und Technik: arbeiten und freigeben. Nur lesen: sieht alles, ändert nichts (z. B. Steuerberater, Aushilfe).</p>
         <table className="tabelle">
           <thead><tr><th>Name</th><th className="weg-mobil">E-Mail</th><th>Rolle</th><th className="weg-mobil">Zwei-Faktor</th></tr></thead>
@@ -87,6 +88,7 @@ export default async function Einstellungen() {
                       <select name="rolle" defaultValue={b.rolle} aria-label={`Rolle ${b.name}`} style={{ width: "auto" }}>{Object.entries(ROLLEN).map(([k, n]) => <option key={k} value={k}>{n}</option>)}</select>
                       <label className="haken"><input type="checkbox" name="aktiv" value="ja" defaultChecked={b.aktiv} /><span>aktiv</span></label>
                       {b.totpAktiv ? <label className="haken"><input type="checkbox" name="zweiFaktorAus" value="ja" /><span>2FA zurücksetzen</span></label> : null}
+                      <input name="code" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" required placeholder="Code" aria-label="Code aus der Authenticator-App" style={{ width: 90 }} />
                       <button className="knopf klein">Speichern</button>
                     </form>
                   ) : null}
@@ -104,6 +106,7 @@ export default async function Einstellungen() {
               <label className="feld"><span>E-Mail</span><input name="email" type="email" required /></label>
               <label className="feld"><span>Rolle</span><select name="rolle" defaultValue="lesen">{Object.entries(ROLLEN).map(([k, n]) => <option key={k} value={k}>{n}</option>)}</select></label>
               <label className="feld"><span>Start-Passwort (mind. 10 Zeichen)</span><input name="passwort" type="text" minLength={10} required autoComplete="off" /></label>
+              <label className="feld"><span>Code aus der Authenticator-App</span><input name="code" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" required /></label>
               <div><button className="knopf">Anlegen</button></div>
             </form>
           </details>
@@ -133,6 +136,7 @@ export default async function Einstellungen() {
           <form action={apiSchluesselErzeugen} className="knopfreihe" style={{ marginTop: 12 }}>
             <input name="name" placeholder="Wofür? z. B. n8n" required aria-label="Name des Schlüssels" style={{ maxWidth: 220 }} />
             {Object.entries(RECHTE).map(([k, n]) => <label key={k} className="haken"><input type="checkbox" name="rechte" value={k} defaultChecked={k === "lesen"} /><span>{n}</span></label>)}
+            <input name="code" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" required placeholder="Code" aria-label="Code aus der Authenticator-App" style={{ width: 90 }} />
             <button className="knopf">Schlüssel erzeugen</button>
           </form>
         ) : null}
@@ -159,6 +163,7 @@ export default async function Einstellungen() {
               <label className="feld"><span>Adresse (https)</span><input name="url" type="url" required placeholder="https://n8n.levarex-consulting.de/webhook/…" /></label>
             </div>
             <div className="knopfreihe">{Object.entries(EREIGNISSE).map(([k, n]) => <label key={k} className="haken"><input type="checkbox" name="ereignisse" value={k} /><span>{n}</span></label>)}</div>
+            <label className="feld" style={{ maxWidth: 220, marginTop: 8 }}><span>Code aus der Authenticator-App</span><input name="code" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" required /></label>
             <button className="knopf" style={{ marginTop: 8 }}>Webhook anlegen</button>
           </form>
         ) : null}
