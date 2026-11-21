@@ -8,10 +8,14 @@ export default function NeuerLead() {
   return (
     <>
       <Link href="/leads" className="zurueck">← Betriebe</Link>
-      <div className="kopfzeile"><div><h1>Lead anlegen</h1><p>Zum Beispiel eine Empfehlung oder ein Betrieb, der selbst angefragt hat.</p></div></div>
-      <form action={leadAnlegen} className="karte">
+      <div className="kopfzeile"><div><h1>Lead anlegen</h1><p>Zum Beispiel eine Empfehlung oder ein Betrieb, der selbst angefragt hat. Nur der Name ist Pflicht; den Rest kannst du später ergänzen.</p></div></div>
+      <form action={leadAnlegen} className="karte" style={{ maxWidth: 920 }}>
         <BetriebFelder />
-        <button className="knopf haupt">Anlegen</button>
+        <div className="knopfreihe">
+          <button className="knopf haupt">Lead anlegen</button>
+          <Link className="knopf" href="/leads">Abbrechen</Link>
+          <span className="leise klein">Danach landet er unter „Einstufen“.</span>
+        </div>
       </form>
     </>
   );

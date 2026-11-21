@@ -346,3 +346,87 @@ p .mono, li .mono { overflow-wrap: anywhere; }
   .nav form[role="search"] { flex: none; }
   .nav .suche-feld { width: 140px; min-width: 140px; margin: 0; }
 }
+
+/* ---------- Levarex OS intern: gleiche weiche Formen wie im Kundenportal ----------
+   Entscheidung Maximilian 21.11.2026: auch intern runde Ecken (Abweichung von „Radius 0“ der Markenregel).
+   Ohne Schatten und Verläufe; ein Messing-Element je Bildschirmhöhe. */
+:root { --r-karte: 18px; --r-feld: 12px; --r-klein: 10px; --rand-weich: rgba(100, 107, 104, 0.35); }
+.karte { border-radius: var(--r-karte); border-color: var(--rand-weich); padding: 22px 26px; }
+.kennzahl { border-radius: 16px; border-color: var(--rand-weich); }
+.nav a { border-radius: var(--r-klein); }
+.nav a[aria-current="page"] { box-shadow: none; background: var(--flaeche); color: var(--text); }
+.nav .zahl { border-radius: 999px; padding: 0 8px; }
+.status { border-radius: 999px; padding: 3px 10px; font-family: var(--schrift); font-size: 13px; font-weight: 500; }
+.status.ok { background: rgba(125, 184, 150, 0.08); }
+.status.warten { background: rgba(201, 163, 92, 0.08); }
+.status.fehler { background: rgba(224, 138, 124, 0.08); }
+.knopf, button.knopf { border-radius: var(--r-feld); }
+.knopf.klein { border-radius: var(--r-klein); }
+input, textarea, select { border-radius: var(--r-feld); }
+.haken { border-radius: var(--r-feld); border-color: var(--rand-weich); }
+.hinweis { border-radius: 14px; border-color: var(--rand-weich); }
+.textblock, .vorschau { border-radius: 14px; }
+.mehr-menue { border-radius: 14px; }
+.tabelle th:first-child, .tabelle td:first-child { padding-left: 0; }
+.tabelle th:last-child, .tabelle td:last-child { padding-right: 0; }
+.karte > .tabelle-rahmen, .karte > table { margin-top: 4px; }
+.unternav { border-bottom-color: var(--rand-weich); }
+
+/* Fortschritt als weiche Stufenleiste (Betrieb, Projekt) */
+.schritte { border: 0; gap: 6px; background: transparent; }
+.schritte li { border: 0; border-radius: 999px; background: var(--flaeche); padding: 8px 14px; text-align: center; }
+.schritte li.erledigt { background: rgba(125, 184, 150, 0.1); color: var(--text); }
+.schritte li.aktuell { box-shadow: none; background: var(--text); color: var(--grund); }
+
+/* Kopfkarte „Akte“ für Betrieb und Projekt: wo stehen wir, was ist als Nächstes dran */
+.akte { display: grid; gap: 20px; margin-bottom: 20px; }
+.akte-kopf { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
+.akte-kopf h1 { font-size: clamp(26px, 3vw, 32px); }
+.akte-kopf .unter { color: var(--leise); margin-top: 6px; }
+.akte-held { border-radius: 22px; padding: 26px 28px; background: var(--flaeche); border: 1px solid var(--rand-weich); display: grid; gap: 18px; }
+.auf-einen-blick { display: grid; grid-template-columns: repeat(auto-fit, minmax(165px, 1fr)); gap: 12px; }
+.blick { display: grid; gap: 4px; padding: 16px; border-radius: 16px; background: var(--flaeche); border: 1px solid var(--rand-weich); color: inherit; text-decoration: none; min-width: 0; }
+a.blick:hover, a.blick:focus-visible { border-color: var(--rahmen); }
+.blick .etikett { font-family: var(--mono); font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--leise); }
+.blick .wert { font-weight: 600; font-size: 17px; overflow-wrap: anywhere; }
+.blick .unter { font-size: 13.5px; color: var(--leise); overflow-wrap: anywhere; }
+.reiter { display: flex; gap: 6px; flex-wrap: wrap; margin: 4px 0 16px; }
+.reiter a { padding: 8px 14px; border-radius: 999px; text-decoration: none; color: var(--leise); background: transparent; border: 1px solid var(--rand-weich); font-size: 14.5px; font-weight: 500; }
+.reiter a[aria-current="page"], .reiter a.aktiv { background: var(--flaeche); color: var(--text); border-color: var(--rahmen); }
+.schritte.weg { margin: 0; flex-wrap: wrap; }
+.schritte.weg li { flex: 0 0 auto; font-size: 13px; padding: 6px 12px; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+
+/* Formulare in klaren Gruppen (z. B. Lead anlegen) */
+.gruppen { display: grid; gap: 14px; margin-bottom: 18px; }
+.gruppe { border: 1px solid var(--rand-weich); border-radius: 16px; padding: 18px 20px 4px; margin: 0; background: var(--grund); min-width: 0; }
+.gruppe legend { font-weight: 600; padding: 0 8px; margin-left: -8px; display: flex; align-items: center; gap: 10px; }
+.gruppe legend em, .feld em { font-style: normal; font-weight: 400; color: var(--leise); font-size: 13px; }
+.feld em.pflicht { color: var(--akzent); }
+.gruppe .nr { width: 26px; height: 26px; border-radius: 50%; display: inline-grid; place-items: center; background: var(--flaeche); border: 1px solid var(--rand-weich); font-family: var(--mono); font-size: 13px; }
+@media (max-width: 760px) { .gruppe .raster { grid-template-columns: 1fr !important; } }
+
+/* Liste der Betriebe: eine weiche Zeile je Betrieb */
+.betriebsliste { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.betriebszeile { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1.2fr) 150px; gap: 20px; align-items: center; padding: 14px 20px; border-radius: 16px; background: var(--flaeche); border: 1px solid var(--rand-weich); color: inherit; text-decoration: none; }
+.betriebszeile:hover, .betriebszeile:focus-visible { border-color: var(--rahmen); }
+.betriebszeile .wer, .betriebszeile .stand { display: grid; gap: 6px; min-width: 0; }
+.betriebszeile .name { font-weight: 600; }
+.betriebszeile .naechst { color: var(--leise); }
+@media (max-width: 900px) {
+  .betriebszeile { grid-template-columns: minmax(0, 1fr) auto; gap: 10px; }
+  .betriebszeile .stand { grid-column: 1 / -1; grid-row: 2; }
+  .betriebszeile .naechst { display: none; }
+}
+.betriebszeile .rechts { justify-self: end; }
+
+/* Pipeline: alle Stufen nebeneinander, weiche Spalten */
+.pipeline { grid-auto-flow: initial; grid-template-columns: repeat(6, minmax(150px, 1fr)); gap: 10px; }
+.pipeline .spalte { border-radius: 18px; border-color: var(--rand-weich); padding: 14px 12px; min-height: 260px; min-width: 0; }
+.pipeline .spalte-kopf { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 2px; }
+.pipeline .spalte-kopf h2 { font-size: 15px; margin: 0; }
+.pipeline .anzahl { font-family: var(--mono); font-size: 12px; background: var(--grund); border-radius: 999px; padding: 1px 9px; color: var(--leise); }
+.pipeline .karte-klein { border-radius: 14px; border-color: var(--rand-weich); padding: 12px; margin-top: 10px; }
+.pipeline .karte-klein:hover { border-color: var(--rahmen); }
+.pipeline .karte-klein.liegt { border-left: 1px solid rgba(224, 138, 124, 0.5); border-color: rgba(224, 138, 124, 0.5); }
+.pipeline .karte-klein .name { font-weight: 600; font-size: 14.5px; line-height: 1.3; overflow-wrap: anywhere; }

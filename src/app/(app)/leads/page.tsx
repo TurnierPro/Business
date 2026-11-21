@@ -4,6 +4,7 @@ import { getDb, schema } from "@/lib/db";
 import { Status } from "@/components/Status";
 import { datum } from "@/lib/format";
 import { wochenlaufStarten } from "../aktionen";
+import { wegIndex, wegProzent, wegText } from "@/lib/weg";
 
 export const metadata = { title: "Betriebe" };
 
@@ -21,7 +22,7 @@ const NAECHSTER: Record<string, string> = {
   interessant: "Check, Demo und Brief werden vorbereitet",
   angeschrieben: "Besuch vor Ort",
   termin: "Angebot wird erstellt",
-  angebot: "Auf Annahme warten, nachfassen",
+  angebot: "Verträge unterschreiben lassen, nachfassen",
   kunde: "Projekt und Betreuung",
   nicht_interessant: "–",
   gesperrt: "Nicht mehr kontaktieren",
@@ -40,6 +41,13 @@ export default async function Leads({ searchParams }: { searchParams: Promise<{ 
   };
   const suche = q.trim() ? or(ilike(b.name, `%${q.trim().replace(/[%_]/g, "")}%`), ilike(b.ort, `%${q.trim().replace(/[%_]/g, "")}%`), ilike(b.inhaber, `%${q.trim().replace(/[%_]/g, "")}%`)) : undefined;
   const zeilen = await db.select().from(b).where(and(bedingung[status] ?? bedingung.aktiv, suche)).orderBy(desc(b.letzteAktivitaet));
+  const ids = zeilen.map((z) => z.id);
+  const [angebote, projekte] = ids.length
+    ? await Promise.all([
+        db.select().from(schema.angebote).where(inArray(schema.angebote.betriebId, ids)).orderBy(desc(schema.angebote.erstelltAm)),
+        db.select().from(schema.projekte).where(inArray(schema.projekte.betriebId, ids)).orderBy(desc(schema.projekte.erstelltAm)),
+      ])
+    : [[], []];
   const zahlen = Object.fromEntries(await Promise.all(FILTER.map(async (f) => [f.key, (await db.select({ n: sql<number>`count(*)::int` }).from(b).where(bedingung[f.key]))[0].n] as const)));
 
   return (
@@ -62,39 +70,45 @@ export default async function Leads({ searchParams }: { searchParams: Promise<{ 
         </div>
       </div>
       <div className="knopfreihe" style={{ marginBottom: 16, justifyContent: "space-between" }}>
-        <nav className="knopfreihe" aria-label="Filter">
+        <nav className="reiter" aria-label="Filter" style={{ margin: 0 }}>
           {FILTER.map((f) => (
-            <Link key={f.key} href={`/leads?status=${f.key}`} className="knopf klein" aria-current={f.key === status ? "page" : undefined} style={f.key === status ? { borderColor: "var(--akzent)", color: "var(--text)" } : { color: "var(--leise)" }}>
-              {f.text} <span className="mono">{zahlen[f.key]}</span>
+            <Link key={f.key} href={`/leads?status=${f.key}`} aria-current={f.key === status ? "page" : undefined}>
+              {f.text} <span className="mono leise">{zahlen[f.key]}</span>
             </Link>
           ))}
         </nav>
-        <form method="get" role="search" className="knopfreihe">
+        <form method="get" role="search">
           <input type="hidden" name="status" value={status} />
-          <input name="q" defaultValue={q} placeholder="Name, Ort, Inhaber" aria-label="In Leads suchen" style={{ width: 220 }} />
+          <input name="q" defaultValue={q} placeholder="Name, Ort, Inhaber" aria-label="In Leads suchen" style={{ width: 240 }} />
         </form>
       </div>
-      <div className="karte" style={{ padding: 0 }}>
-        {zeilen.length ? (
-          <table className="tabelle">
-            <thead>
-              <tr><th>Betrieb</th><th className="weg-mobil">Nächster Schritt</th><th>Status</th><th className="weg-mobil">Zuständig</th></tr>
-            </thead>
-            <tbody>
-              {zeilen.map((z) => (
-                <tr key={z.id}>
-                  <td><Link href={`/leads/${z.id}`}>{z.name}</Link><div className="leise klein">{[z.gewerk, z.ort].filter(Boolean).join(" · ")}</div></td>
-                  <td className="weg-mobil klein">{z.status === "angeschrieben" && z.besuchAb && z.besuchAb > new Date() ? `Besuch ab ${datum(z.besuchAb)}` : NAECHSTER[z.status] ?? ""}</td>
-                  <td><Status wert={z.status} /></td>
-                  <td className="weg-mobil klein leise">{z.zustaendig ?? "–"}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        ) : (
-          <div className="leer"><strong>Hier ist gerade niemand.</strong>{q ? "Anders suchen." : "Lead anlegen oder unter „Mehr“ den Wochenlauf starten."}</div>
-        )}
-      </div>
+      {zeilen.length ? (
+        <ul className="betriebsliste">
+          {zeilen.map((z) => {
+            const a = angebote.find((x) => x.betriebId === z.id);
+            const p = projekte.find((x) => x.betriebId === z.id);
+            const i = wegIndex(z, a, p);
+            return (
+              <li key={z.id}>
+                <Link href={`/leads/${z.id}`} className="betriebszeile">
+                  <span className="wer">
+                    <span className="name">{z.name}</span>
+                    <span className="leise klein">{[z.gewerk, z.ort].filter(Boolean).join(" · ")}{z.zustaendig ? ` · ${z.zustaendig}` : ""}</span>
+                  </span>
+                  <span className="stand">
+                    <span className="klein">{wegText(i)}</span>
+                    <span className="portal-balken" aria-hidden="true" style={{ height: 6 }}><span style={{ width: `${wegProzent(i)}%` }} /></span>
+                  </span>
+                  <span className="naechst klein">{z.status === "angeschrieben" && z.besuchAb && z.besuchAb > new Date() ? `Besuch ab ${datum(z.besuchAb)}` : p ? "Projekt läuft" : NAECHSTER[z.status] ?? ""}</span>
+                  <span className="rechts"><Status wert={z.status} /></span>
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      ) : (
+        <div className="karte leer"><strong>Hier ist gerade niemand.</strong>{q ? "Anders suchen." : "Lead anlegen oder unter „Mehr“ den Wochenlauf starten."}</div>
+      )}
     </>
   );
 }

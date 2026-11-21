@@ -14,15 +14,10 @@ import { AufgabenListe } from "@/components/AufgabenListe";
 import { ARTEN } from "@/lib/ablauf/crm";
 import { ticketNummer } from "@/lib/ablauf/tickets";
 import { KANAELE } from "@/lib/ablauf/nachrichten";
+import { WEG, wegIndex, wegProzent, wegText } from "@/lib/weg";
 
-const SCHRITTE = [
-  { key: "neu", text: "Gefunden" },
-  { key: "interessant", text: "Interessant" },
-  { key: "angeschrieben", text: "Angeschrieben" },
-  { key: "termin", text: "Termin" },
-  { key: "angebot", text: "Angebot" },
-  { key: "kunde", text: "Kunde" },
-];
+const PROJEKT_TEXT: Record<string, string> = { inhalte: "wartet auf Inhalte", bau: "wird gebaut", pruefung: "Prüfung nicht bestanden", bereit: "Vorschau beim Kunden", live: "live, Betreuung läuft", beendet: "beendet" };
+const ANGEBOT_TEXT: Record<string, string> = { entwurf: "erstellt", versendet: "beim Kunden", unterschrieben: "unterschrieben", angezahlt: "erste Rate bezahlt", abgeschlossen: "abgeschlossen", abgelehnt: "abgelehnt" };
 
 const REITER = [["ueberblick", "Überblick"], ["aktivitaeten", "Aktivitäten"], ["dokumente", "Unterlagen und Post"], ["daten", "Daten"]] as const;
 
@@ -54,147 +49,199 @@ export default async function Lead({ params, searchParams }: { params: Promise<{
     db.select().from(schema.jobs).where(and(inArray(schema.jobs.status, ["wartet", "laeuft"]), inArray(schema.jobs.art, ["vorbereitung", "transkription", "auswertung"]))),
     db.select().from(schema.protokoll).where(eq(schema.protokoll.betriebId, id)).orderBy(desc(schema.protokoll.am)).limit(20),
   ]);
+  const rechnungen = await db.select().from(schema.rechnungen).where(eq(schema.rechnungen.betriebId, id)).orderBy(desc(schema.rechnungen.erstelltAm));
   const inArbeit = laufend.filter((j) => Number(j.daten.betriebId) === id || termine.some((t) => t.id === Number(j.daten.terminId)));
-  const schrittIndex = SCHRITTE.findIndex((s) => s.key === b.status);
   const angebot = angebote[0];
+  const projekt = projekte[0];
   const offenePost = post.filter((p) => p.status === "zur_freigabe");
   const gesperrt = b.status === "gesperrt";
   const lexwareAktiv = istEcht("buchhaltung");
+  const index = wegIndex(b, angebot, projekt);
+  const hauptkontakt = kontakte.find((k) => k.haupt) ?? kontakte[0];
+  const offeneRechnungen = rechnungen.filter((r) => r.status !== "bezahlt" && r.status !== "storniert");
+  const verschickt = post.filter((p) => p.versendetAm).length;
+
+  // Genau ein nächster Schritt mit genau einem Messing-Knopf
+  const naechstes: { was: string; unter?: string; knopf?: React.ReactNode } = gesperrt
+    ? { was: "Gesperrt: Der Betrieb hat widersprochen", unter: "Er wird nie wieder angeschrieben." }
+    : inArbeit.length
+      ? { was: `Läuft gerade: ${inArbeit.map((j) => (j.art === "vorbereitung" ? "Online-Check, Demo und Brief" : j.art === "transkription" ? "Aufnahme abschreiben" : "Protokoll und Angebot")).join(", ")}`, unter: "In einer Minute neu laden." }
+      : offenePost.length
+        ? { was: `${ZWECK[offenePost[0].zweck] ?? offenePost[0].zweck} wartet auf deine Freigabe`, unter: offenePost.length > 1 ? `und ${offenePost.length - 1} weitere` : offenePost[0].betreff, knopf: <Link className="knopf haupt" href={`/freigaben/${offenePost[0].id}`}>Prüfen und freigeben</Link> }
+        : b.status === "neu"
+          ? { was: "Einstufen: interessant oder nicht?", unter: `${b.scoreGrund ?? "Kein Score-Grund"} · Score ${b.score ?? "–"}. „Interessant“ startet Online-Check, Demo und Brief zur Freigabe.`, knopf: <div className="knopfreihe"><form action={einstufen}><input type="hidden" name="id" value={id} /><input type="hidden" name="wahl" value="ja" /><button className="knopf haupt">Interessant</button></form><form action={einstufen}><input type="hidden" name="id" value={id} /><input type="hidden" name="wahl" value="nein" /><button className="knopf">Nicht interessant</button></form></div> }
+          : b.status === "nicht_interessant"
+            ? { was: "Nicht interessant", unter: "Wird nach 6 Monaten ohne Aktivität automatisch gelöscht." }
+            : projekt
+              ? { was: `Projekt: ${PROJEKT_TEXT[projekt.status] ?? projekt.status}`, unter: PAKETE[projekt.paket as PaketKey]?.name ?? projekt.paket, knopf: <Link className="knopf haupt" href={`/projekte/${projekt.id}`}>Projekt öffnen</Link> }
+              : angebot?.status === "unterschrieben"
+                ? { was: `Unterschrieben am ${datum(angebot.unterschriebenAm)}: wir warten auf die erste Rate`, unter: `${euro(Math.round(angebot.einmalig / 2))} netto. ${lexwareAktiv ? "Lexware meldet Zahlungen täglich von selbst." : "Buchen, sobald das Geld auf dem Konto ist."}`, knopf: <form action={zahlungSimulieren}><input type="hidden" name="betriebId" value={id} /><input type="hidden" name="angebotId" value={angebot.id} /><button className="knopf haupt">Zahlung eingegangen</button></form> }
+                : angebot && ["entwurf", "versendet"].includes(angebot.status)
+                  ? { was: "Verträge auf dem Tablet unterschreiben", unter: `Angebot ${PAKETE[angebot.paket as PaketKey]?.name ?? angebot.paket} ${angebot.status === "versendet" ? "ist beim Kunden" : "ist erstellt"}. Beim Termin: Rahmenvertrag und je Baustein ein Leistungsschein.`, knopf: <Link className="knopf haupt" href={`/unterschrift/${angebot.id}`}>Unterschreiben lassen</Link> }
+                  : b.status === "angeschrieben"
+                    ? { was: `Besuch vor Ort ab ${datum(b.besuchAb)}`, unter: "Demo zeigen, nach dem Gespräch den Messbogen ausfüllen oder die Aufnahme hochladen.", knopf: <Link className="knopf haupt" href="/leads/besuche">Zum Besuchsplan</Link> }
+                    : ["interessant", "termin"].includes(b.status)
+                      ? { was: "Angebot erstellen", unter: "Webauftritt und Module gemeinsam auswählen; der Preis rechnet sofort mit.", knopf: <Link className="knopf haupt" href={`/leads/${id}/angebot`}>Angebot erstellen</Link> }
+                      : { was: "Kein nächster Schritt geplant", unter: "Unter „Aktivitäten“ eine Aufgabe anlegen." };
 
   return (
     <>
       <Link href="/leads" className="zurueck">← Betriebe</Link>
-      <div className="kopfzeile">
-        <div>
-          <h1>{b.name}</h1>
-          <p>{[b.gewerk, b.inhaber, b.ort, b.mitarbeiter ? `${b.mitarbeiter} Mitarbeitende` : null].filter(Boolean).join(" · ")}</p>
+      <div className="akte">
+        <div className="akte-kopf">
+          <div>
+            <h1>{b.name}</h1>
+            <div className="unter">{[b.gewerk, b.inhaber, [b.plz, b.ort].filter(Boolean).join(" "), b.mitarbeiter ? `${b.mitarbeiter} Mitarbeitende` : null].filter(Boolean).join(" · ")}</div>
+          </div>
+          <div className="knopfreihe">
+            <Status wert={b.status} />
+            {!gesperrt && b.status !== "neu" && b.status !== "nicht_interessant" && !(angebot && ["interessant", "termin"].includes(b.status)) ? <Link className="knopf klein" href={`/leads/${id}/angebot`}>{angebot ? "Neues Angebot" : "Angebot erstellen"}</Link> : null}
+          </div>
         </div>
-        <div className="knopfreihe">
-          {!gesperrt && b.status !== "neu" && b.status !== "nicht_interessant" ? <Link className="knopf klein" href={`/leads/${id}/angebot`}>Angebot erstellen</Link> : null}
-          {b.portalToken ? <a className="knopf klein" href={`${basisUrl()}/portal/k/${b.portalToken}`} target="_blank">Kundenportal ansehen</a> : null}
-          <Status wert={b.status} />
+
+        <section className="akte-held" aria-label="Stand">
+          <div className="portal-held" style={{ padding: 0, border: 0, background: "transparent" }}>
+            <div className="stand">
+              <div className="stand-zeile"><span>Wo wir stehen</span><b>{wegText(index)}</b></div>
+              <div className="portal-balken" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={wegProzent(index)} aria-label="Fortschritt"><span style={{ width: `${wegProzent(index)}%` }} /></div>
+            </div>
+          </div>
+          <ol className="schritte weg" aria-label="Weg des Betriebs">
+            {WEG.map((s, i) => <li key={s} className={i < index ? "erledigt" : i === index ? "aktuell" : ""} aria-current={i === index ? "step" : undefined}>{i < index ? <span className="sr-only">erledigt: </span> : null}{s}</li>)}
+          </ol>
+          <div className="portal-naechstes">
+            <div style={{ minWidth: 0, flex: "1 1 320px" }}>
+              <div className="etikett">Als Nächstes</div>
+              <div className="was">{naechstes.was}</div>
+              {naechstes.unter ? <div className="leise klein" style={{ marginTop: 4 }}>{naechstes.unter}</div> : null}
+            </div>
+            {naechstes.knopf ?? null}
+          </div>
+        </section>
+
+        <div className="auf-einen-blick" aria-label="Auf einen Blick">
+          <Link className="blick" href={angebot ? (doks.find((d) => d.art === "angebot") ? `/dokument/${doks.find((d) => d.art === "angebot")!.id}` : `/leads/${id}?tab=dokumente`) : `/leads/${id}/angebot`} target={angebot && doks.some((d) => d.art === "angebot") ? "_blank" : undefined}>
+            <span className="etikett">Angebot</span>
+            <span className="wert">{angebot ? (PAKETE[angebot.paket as PaketKey]?.name ?? angebot.paket) : "noch keins"}</span>
+            <span className="unter">{angebot ? `${euro(angebot.einmalig)} + ${euro(angebot.monatlich)}/Monat · ${ANGEBOT_TEXT[angebot.status] ?? angebot.status}` : "Nach dem Gespräch erstellen"}</span>
+          </Link>
+          <Link className="blick" href={`/leads/${id}?tab=dokumente`}>
+            <span className="etikett">Unterlagen</span>
+            <span className="wert">{doks.length + demos.length} {doks.length + demos.length === 1 ? "Dokument" : "Dokumente"}</span>
+            <span className="unter">{doks[0] ? `zuletzt: ${DOKART[doks[0].art] ?? doks[0].art}` : "noch keine"} · {verschickt} verschickt</span>
+          </Link>
+          <Link className="blick" href={`/leads/${id}?tab=dokumente`}>
+            <span className="etikett">Rechnungen</span>
+            <span className="wert">{rechnungen.length ? (offeneRechnungen.length ? `${offeneRechnungen.length} offen` : "alle bezahlt") : "keine"}</span>
+            <span className="unter">{rechnungen.length ? `${euro(offeneRechnungen.reduce((s, r) => s + r.netto, 0))} netto offen · ${rechnungen.length} insgesamt` : "Erste Rate nach der Unterschrift"}</span>
+          </Link>
+          <Link className="blick" href={offenePost[0] ? `/freigaben/${offenePost[0].id}` : `/leads/${id}?tab=dokumente`}>
+            <span className="etikett">Freigaben</span>
+            <span className="wert">{offenePost.length ? `${offenePost.length} warten` : "nichts offen"}</span>
+            <span className="unter">{offenePost[0] ? (ZWECK[offenePost[0].zweck] ?? offenePost[0].zweck) : "Alles an den Kunden ist durch"}</span>
+          </Link>
+          {projekt ? (
+            <Link className="blick" href={`/projekte/${projekt.id}`}>
+              <span className="etikett">Projekt</span>
+              <span className="wert">{PROJEKT_TEXT[projekt.status] ?? projekt.status}</span>
+              <span className="unter">{projekt.liveAm ? `live seit ${datum(projekt.liveAm)}` : projekt.abnahmeStatus ? `Abnahme: ${projekt.abnahmeStatus}` : PAKETE[projekt.paket as PaketKey]?.name ?? projekt.paket}</span>
+            </Link>
+          ) : null}
+          <Link className="blick" href={`/leads/${id}?tab=ueberblick#kontakte`}>
+            <span className="etikett">Ansprechpartner</span>
+            <span className="wert">{hauptkontakt?.name ?? b.inhaber ?? "noch keiner"}</span>
+            <span className="unter">{hauptkontakt?.telefon ?? b.telefon ?? hauptkontakt?.email ?? b.email ?? "Telefon und E-Mail fehlen"}</span>
+          </Link>
+          {b.portalToken ? (
+            <a className="blick" href={`${basisUrl()}/portal/k/${b.portalToken}`} target="_blank" rel="noopener noreferrer">
+              <span className="etikett">Kundenportal</span>
+              <span className="wert">So sieht es der Kunde</span>
+              <span className="unter">öffnet in neuem Fenster</span>
+            </a>
+          ) : null}
         </div>
       </div>
 
-      {schrittIndex >= 0 ? (
-        <ol className="schritte" aria-label="Fortschritt">
-          {SCHRITTE.map((s, i) => (
-            <li key={s.key} className={i < schrittIndex ? "erledigt" : i === schrittIndex ? "aktuell" : ""} aria-current={i === schrittIndex ? "step" : undefined}>{s.text}</li>
-          ))}
-        </ol>
-      ) : null}
-
-      <nav className="knopfreihe" aria-label="Bereiche des Betriebs" style={{ margin: "8px 0 16px" }}>
-        {REITER.map(([k, n]) => <Link key={k} href={`/leads/${id}?tab=${k}`} className="knopf klein" aria-current={tab === k ? "page" : undefined} style={tab === k ? { borderColor: "var(--akzent)" } : { color: "var(--leise)" }}>{n}{k === "aktivitaeten" && offeneAufgaben.length ? ` · ${offeneAufgaben.length} offen` : ""}</Link>)}
+      <nav className="reiter" aria-label="Bereiche des Betriebs">
+        {REITER.map(([k, n]) => <Link key={k} href={`/leads/${id}?tab=${k}`} aria-current={tab === k ? "page" : undefined}>{n}{k === "aktivitaeten" && offeneAufgaben.length ? ` · ${offeneAufgaben.length} offen` : ""}</Link>)}
       </nav>
 
       {tab === "ueberblick" ? (
         <>
           <div className="raster zwei" style={{ alignItems: "start" }}>
-        <section className="karte">
-          <h2>Als Nächstes</h2>
-          {inArbeit.length ? <div className="hinweis">Läuft gerade: {inArbeit.map((j) => (j.art === "vorbereitung" ? "Online-Check, Demo und Brief" : j.art === "transkription" ? "Aufnahme abschreiben" : "Protokoll und Angebot")).join(", ")}. Seite in einer Minute neu laden.</div> : null}
-
-          {b.status === "neu" ? (
-            <>
-              <p>{b.scoreGrund ?? "Noch kein Score-Grund."} <span className="mono leise">Score {b.score ?? "–"}</span></p>
-              <p className="leise">„Interessant“ startet automatisch: Online-Check, Demo-Seite, Gesprächsleitfaden und Akquise-Brief zur Freigabe.</p>
-              <div className="knopfreihe">
-                <form action={einstufen}><input type="hidden" name="id" value={id} /><input type="hidden" name="wahl" value="ja" /><button className="knopf haupt">Interessant</button></form>
-                <form action={einstufen}><input type="hidden" name="id" value={id} /><input type="hidden" name="wahl" value="nein" /><button className="knopf">Nicht interessant</button></form>
-              </div>
-            </>
-          ) : null}
-
-          {offenePost.length ? (
-            <ul className="liste">
-              {offenePost.map((p) => (
-                <li key={p.id}>
-                  <div><div className="titel">{ZWECK[p.zweck] ?? p.zweck} wartet auf Freigabe</div><div className="unter">{p.betreff}</div></div>
-                  <Link className="knopf klein" href={`/freigaben/${p.id}`}>Prüfen</Link>
-                </li>
-              ))}
-            </ul>
-          ) : null}
-
-          {b.status === "angeschrieben" ? <p>Brief ist raus. Besuch ab <b>{datum(b.besuchAb)}</b>. Nach dem Gespräch die Aufnahme unten hochladen.</p> : null}
-
-          {angebot && ["entwurf", "versendet"].includes(angebot.status) ? (
-            <div className="karte" style={{ background: "var(--grund)" }}>
-              <p><b>Angebot {PAKETE[angebot.paket as PaketKey]?.name ?? angebot.paket}</b> {angebot.status === "versendet" ? "ist versendet." : "ist erstellt."} Unterschrieben wird beim Termin auf dem Tablet: Rahmenvertrag und je Baustein ein Leistungsschein.</p>
-              <Link className="knopf haupt" href={`/unterschrift/${angebot.id}`}>Verträge auf dem Tablet unterschreiben</Link>
+            <div className="raster">
+              {offenePost.length > 1 ? (
+                <section className="karte">
+                  <h2>Wartet auf Freigabe</h2>
+                  <ul className="liste">
+                    {offenePost.map((p) => (
+                      <li key={p.id}>
+                        <div><div className="titel">{ZWECK[p.zweck] ?? p.zweck}</div><div className="unter">{p.betreff}</div></div>
+                        <Link className="knopf klein" href={`/freigaben/${p.id}`}>Prüfen</Link>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              ) : null}
+              <section className="karte">
+                <h2>Offene Aufgaben</h2>
+                {offeneAufgaben.length ? <AufgabenListe eintraege={offeneAufgaben.map((a) => ({ a, betrieb: null }))} zurueck={`/leads/${id}`} mitBetrieb={false} /> : <p className="leise klein">Keine. Neue Aufgabe unter „Aktivitäten“.</p>}
+              </section>
+              {!gesperrt && ["interessant", "angeschrieben", "termin"].includes(b.status) ? (
+                <details className="karte" open={b.status === "termin"}>
+                  <summary style={{ cursor: "pointer", fontWeight: 600 }}>Gespräch vor Ort aufnehmen</summary>
+                  <p className="leise" style={{ marginTop: 12 }}>Aus der Aufnahme entstehen Protokoll, Maßnahmenplan, Angebot und Begleit-Mail. Alles geht vorher durch die Freigabe. Die Aufnahme wird nach dem Versand gelöscht.</p>
+                  <form action={terminHochladen}>
+                    <input type="hidden" name="id" value={id} />
+                    <label className="haken" style={{ marginBottom: 16 }}>
+                      <input type="checkbox" name="einwilligung" value="ja" required />
+                      <span><b>Einwilligung liegt vor.</b> {b.inhaber ?? "Der Inhaber"} ist mit der Aufnahme einverstanden. Ohne Haken wird nichts gespeichert.</span>
+                    </label>
+                    <Aufnahme />
+                    <button className="knopf">Aufnahme speichern</button>
+                  </form>
+                </details>
+              ) : null}
+              {termine.length ? (
+                <section className="karte">
+                  <h2>Gespräche</h2>
+                  <ul className="liste">
+                    {termine.map((t) => (
+                      <li key={t.id}><div><div className="titel">Termin {datumZeit(t.datum)}</div><div className="unter">Einwilligung von {t.einwilligungVon} · {t.audioGeloeschtAm ? `Aufnahme gelöscht am ${datum(t.audioGeloeschtAm)}` : "Aufnahme gespeichert"}</div></div><Status wert={t.status} /></li>
+                    ))}
+                  </ul>
+                </section>
+              ) : null}
             </div>
-          ) : null}
 
-          {angebot && angebot.status === "unterschrieben" ? (
-            <div className="karte" style={{ background: "var(--grund)" }}>
-              <p><b>Unterschrieben am {datum(angebot.unterschriebenAm)}.</b> Wir warten auf die erste Rate ({euro(Math.round(angebot.einmalig / 2))} netto).</p>
-              <form action={zahlungSimulieren}><input type="hidden" name="betriebId" value={id} /><input type="hidden" name="angebotId" value={angebot.id} /><button className="knopf">Zahlung eingegangen</button><p className="leise klein" style={{ marginTop: 8 }}>{lexwareAktiv ? "Lexware meldet Zahlungen täglich von selbst; der Knopf ist für Ausnahmen." : "Von Hand buchen, sobald das Geld auf dem Konto ist."}</p></form>
-            </div>
-          ) : null}
-
-          {projekte.map((p) => (
-            <p key={p.id}>Projekt <Link href={`/projekte/${p.id}`}>{PAKETE[p.paket as PaketKey]?.name ?? p.paket}</Link> <Status wert={p.status} /></p>
-          ))}
-
-          {!inArbeit.length && !offenePost.length && b.status === "nicht_interessant" ? <p className="leise">Nicht interessant. Wird nach 6 Monaten ohne Aktivität automatisch gelöscht.</p> : null}
-          {gesperrt ? <div className="hinweis fehler">Dieser Betrieb hat widersprochen. Er wird nie wieder angeschrieben.</div> : null}
-        </section>
-
-            <div>
-          <section className="karte">
-            <h2>Ansprechpartner</h2>
-            {kontakte.length ? (
-              <ul className="liste">
-                {kontakte.map((k) => (
-                  <li key={k.id}>
-                    <div style={{ flex: 1 }}><div className="titel">{k.name}{k.haupt ? <span className="marke-klein" style={{ marginLeft: 6 }}>Hauptkontakt</span> : null}</div><div className="unter">{[k.rolle, k.telefon ? <a key="t" href={`tel:${k.telefon.replace(/\s/g, "")}`}>{k.telefon}</a> : null, k.email ? <a key="m" href={`mailto:${k.email}`}>{k.email}</a> : null].filter(Boolean).map((x, i) => <span key={i}>{i ? " · " : ""}{x}</span>)}</div></div>
-                    <form action={kontaktLoeschen}><input type="hidden" name="id" value={k.id} /><input type="hidden" name="betriebId" value={id} /><button className="knopf klein" aria-label={`${k.name} löschen`}>Löschen</button></form>
-                  </li>
-                ))}
-              </ul>
-            ) : <p className="leise klein">Noch keine. {b.inhaber ? `Inhaber laut Stammdaten: ${b.inhaber}.` : ""}</p>}
-            <details style={{ marginTop: 8 }}>
-              <summary style={{ cursor: "pointer" }}>Ansprechpartner hinzufügen</summary>
-              <form action={kontaktSpeichern} style={{ marginTop: 8 }}>
-                <input type="hidden" name="betriebId" value={id} />
-                <div className="raster zwei">
-                  <label className="feld"><span>Name</span><input name="name" required /></label>
-                  <label className="feld"><span>Rolle</span><input name="rolle" placeholder="Büro, Meister, IT …" /></label>
-                  <label className="feld"><span>Telefon</span><input name="telefon" type="tel" /></label>
-                  <label className="feld"><span>E-Mail</span><input name="email" type="email" /></label>
-                </div>
-                <label className="haken" style={{ marginBottom: 12 }}><input type="checkbox" name="haupt" value="ja" /><span>Hauptkontakt</span></label>
-                <button className="knopf">Hinzufügen</button>
-              </form>
-            </details>
-          </section>
-              {offeneAufgaben.length ? <section className="karte abstand"><h2>Offene Aufgaben</h2><AufgabenListe eintraege={offeneAufgaben.map((a) => ({ a, betrieb: null }))} zurueck={`/leads/${id}`} mitBetrieb={false} /></section> : null}
-            </div>
+            <section className="karte" id="kontakte">
+              <h2>Ansprechpartner</h2>
+              {kontakte.length ? (
+                <ul className="liste">
+                  {kontakte.map((k) => (
+                    <li key={k.id}>
+                      <div style={{ flex: 1 }}><div className="titel">{k.name}{k.haupt ? <span className="status ok" style={{ marginLeft: 8 }}>Hauptkontakt</span> : null}</div><div className="unter">{[k.rolle, k.telefon ? <a key="t" href={`tel:${k.telefon.replace(/\s/g, "")}`}>{k.telefon}</a> : null, k.email ? <a key="m" href={`mailto:${k.email}`}>{k.email}</a> : null].filter(Boolean).map((x, i) => <span key={i}>{i ? " · " : ""}{x}</span>)}</div></div>
+                      <form action={kontaktLoeschen}><input type="hidden" name="id" value={k.id} /><input type="hidden" name="betriebId" value={id} /><button className="knopf klein" aria-label={`${k.name} löschen`}>Löschen</button></form>
+                    </li>
+                  ))}
+                </ul>
+              ) : <p className="leise klein">Noch keine. {b.inhaber ? `Inhaber laut Stammdaten: ${b.inhaber}.` : ""}</p>}
+              <details style={{ marginTop: 8 }}>
+                <summary style={{ cursor: "pointer" }}>Ansprechpartner hinzufügen</summary>
+                <form action={kontaktSpeichern} style={{ marginTop: 8 }}>
+                  <input type="hidden" name="betriebId" value={id} />
+                  <div className="raster zwei">
+                    <label className="feld"><span>Name</span><input name="name" required /></label>
+                    <label className="feld"><span>Rolle</span><input name="rolle" placeholder="Büro, Meister, IT …" /></label>
+                    <label className="feld"><span>Telefon</span><input name="telefon" type="tel" /></label>
+                    <label className="feld"><span>E-Mail</span><input name="email" type="email" /></label>
+                  </div>
+                  <label className="haken" style={{ marginBottom: 12 }}><input type="checkbox" name="haupt" value="ja" /><span>Hauptkontakt</span></label>
+                  <button className="knopf">Hinzufügen</button>
+                </form>
+              </details>
+            </section>
           </div>
-      {!gesperrt && ["interessant", "angeschrieben", "termin", "angebot"].includes(b.status) ? (
-        <section className="karte abstand">
-          <h2>Termin vor Ort aufnehmen</h2>
-          <p className="leise">Aus der Aufnahme entstehen Protokoll, Maßnahmenplan, Angebot und Begleit-Mail. Alles geht vorher durch die Freigabe. Die Aufnahme wird nach dem Versand gelöscht.</p>
-          <form action={terminHochladen}>
-            <input type="hidden" name="id" value={id} />
-            <label className="haken" style={{ marginBottom: 16 }}>
-              <input type="checkbox" name="einwilligung" value="ja" required />
-              <span><b>Einwilligung liegt vor.</b> {b.inhaber ?? "Der Inhaber"} ist mit der Aufnahme einverstanden. Ohne Haken wird nichts gespeichert.</span>
-            </label>
-            <Aufnahme />
-            <button className="knopf haupt">Aufnahme speichern</button>
-          </form>
-          {termine.length ? (
-            <ul className="liste abstand">
-              {termine.map((t) => (
-                <li key={t.id}><div><div className="titel">Termin {datumZeit(t.datum)}</div><div className="unter">Einwilligung von {t.einwilligungVon} · {t.audioGeloeschtAm ? `Aufnahme gelöscht am ${datum(t.audioGeloeschtAm)}` : "Aufnahme gespeichert"}</div></div><Status wert={t.status} /></li>
-              ))}
-            </ul>
-          ) : null}
-        </section>
-      ) : null}
-
         </>
       ) : null}
 
