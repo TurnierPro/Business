@@ -17,6 +17,7 @@ export const ZWECK: Record<string, string> = {
   lastschrift_start: "Lastschrift einrichten (Qonto)",
   auftragsbestaetigung: "Auftragsbestätigung",
   abnahme_aufforderung: "Bitte um Abnahme",
+  inhalte_eingang: "Eingang der Inhalte bestätigen",
   abnahme_bestaetigung: "Abnahmeprotokoll",
   mahnung1: "1. Mahnung",
   mahnung2: "Letzte Mahnung",

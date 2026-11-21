@@ -64,7 +64,9 @@ window.levarexUmbruch = function () {
   // Prüfung: Jede Seite beginnt genau eine A4-Höhe nach der vorigen (sonst verrutscht der Druck)
   var erste = alle()[0];
   var start = erste ? erste.getBoundingClientRect().top + window.scrollY : 0;
-  if (erste && start > 1) probleme.push("Seite 1 beginnt nicht oben (Abstand verrutscht)");
+  // In der Bildschirmvorschau stehen die Seiten mit Abstand auf grauem Grund; Lage und Abstand prüft nur das PDF
+  var vorschau = document.body.hasAttribute("data-vorschau");
+  if (erste && start > 1 && !vorschau) probleme.push("Seite 1 beginnt nicht oben (Abstand verrutscht)");
   // Kopf (Logo) auf allen Seiten an derselben Stelle, sonst „springt“ die oberste Zeile beim Blättern
   var kopfOben = null;
   alle().forEach(function (s, n) {
@@ -76,7 +78,7 @@ window.levarexUmbruch = function () {
   });
   alle().forEach(function (s, n) {
     var oben = s.getBoundingClientRect().top + window.scrollY;
-    if (Math.abs(oben - start - n * SEITE) > 2) probleme.push("Seite " + (n + 1) + " ist verrutscht");
+    if (!vorschau && Math.abs(oben - start - n * SEITE) > 2) probleme.push("Seite " + (n + 1) + " ist verrutscht");
     if (Math.abs(s.getBoundingClientRect().height - SEITE) > 2) probleme.push("Seite " + (n + 1) + " hat nicht A4-Höhe");
   });
   alle().forEach(function (s, n) {

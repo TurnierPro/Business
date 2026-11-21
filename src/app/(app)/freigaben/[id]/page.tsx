@@ -131,8 +131,9 @@ export default async function Eintrag({ params }: { params: Promise<{ id: string
           )}
 
           {offen && e.kanal !== "livegang" && e.kanal !== "lastschrift" ? (
-            <form action={eintragSpeichern} className="karte">
-              <h2>Text ändern</h2>
+            <details className="karte" open={e.qkStatus === "blockiert"}>
+              <summary style={{ cursor: "pointer", fontWeight: 600, fontSize: 19 }}>Text ändern</summary>
+            <form action={eintragSpeichern} style={{ marginTop: 12 }}>
               <input type="hidden" name="id" value={e.id} />
               <label className="feld"><span>Empfänger</span><input name="empfaenger" defaultValue={e.empfaenger} /></label>
               <label className="feld"><span>Betreff</span><input name="betreff" defaultValue={e.betreff} required /></label>
@@ -140,6 +141,7 @@ export default async function Eintrag({ params }: { params: Promise<{ id: string
               <button className="knopf">Änderung speichern</button>
               <p className="leise klein" style={{ marginTop: 8 }}>Nach einer Änderung muss neu freigegeben werden.</p>
             </form>
+            </details>
           ) : null}
         </section>
       </div>

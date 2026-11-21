@@ -500,3 +500,6 @@ input[type="file"] { padding: 10px 12px; height: auto; }
 .pipeline .karte-klein.zieht { opacity: 0.45; }
 .pipeline .karte-klein .name { display: block; text-decoration: none; }
 .pipeline .stufe-waehlen { margin-top: 10px; height: 34px !important; font-size: 13px; padding: 4px 30px 4px 10px; background-position: right 10px center; color: var(--leise); }
+.freigabezeile { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.6fr) 130px 230px; }
+@media (max-width: 900px) { .freigabezeile { grid-template-columns: minmax(0, 1fr) auto; } .freigabezeile > .klein:not(.naechst) { display: none; } }
+.vorschau { height: calc(100vh - 260px); min-height: 640px; }
