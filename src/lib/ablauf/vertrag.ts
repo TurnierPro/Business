@@ -6,7 +6,7 @@ import { zahlungUeberStripe } from "../adapters/stripe";
 import { portalLink } from "../kundenportal";
 import { datumDe } from "../docs/basis";
 import { PAKETE, PaketKey, euro, UST } from "../pakete";
-import { ABNAHME_FRIST_TAGE } from "../recht";
+import { ABNAHME_FRIST_TAGE, KUENDIGUNG_MONATE_VOR_ENDE, LAUFZEIT_MONATE, VERLAENGERUNG_MONATE, VERTRAGSWERK_VERSION } from "../recht";
 import { inPostausgang } from "./postausgang";
 import { hakeAb } from "./checkliste";
 import { anschrift, betrieb, neuesDokument, SYSTEM } from "./gemeinsam";
@@ -159,14 +159,24 @@ async function nachAbnahme(projektId: number): Promise<void> {
   });
 }
 
-/** Kündigung der Betreuung erfassen. Annahme: 12 Monate Mindestlaufzeit ab Betreuungsstart, danach zum Ende des Folgemonats (in den AGB prüfen). */
+/**
+ * Vertragsende nach Baukasten: Laufzeit 24 Monate ab Livegang, danach Verlängerung um je 12 Monate;
+ * Kündigung bis 3 Monate vor Ende in Textform. Die Kündigung wirkt zum Ende der laufenden Periode.
+ */
+export function laufzeitEnde(start: Date, eingang: Date): Date {
+  let monate = LAUFZEIT_MONATE;
+  const ende = (m: number) => new Date(start.getFullYear(), start.getMonth() + m, start.getDate() - 1, 23, 59);
+  const frist = (m: number) => new Date(start.getFullYear(), start.getMonth() + m - KUENDIGUNG_MONATE_VOR_ENDE, start.getDate() - 1, 23, 59);
+  while (eingang > frist(monate)) monate += VERLAENGERUNG_MONATE;
+  return ende(monate);
+}
+
+/** Kündigung des Monatsbeitrags erfassen (Ende nach laufzeitEnde). */
 export async function kuendigungErfassen(projektId: number, wer: string, eingang = new Date()): Promise<Date> {
   const p = await projekt(projektId);
   if (p.gekuendigtAm) throw new Error("Die Kündigung ist schon erfasst.");
-  const start = p.aboAb ?? p.liveAm ?? new Date();
-  const mindest = new Date(start.getFullYear(), start.getMonth() + 12, start.getDate());
-  const folgemonat = new Date(eingang.getFullYear(), eingang.getMonth() + 2, 0, 23, 59);
-  const ende = mindest > folgemonat ? new Date(mindest.getFullYear(), mindest.getMonth() + 1, 0, 23, 59) : folgemonat;
+  const start = p.liveAm ?? p.aboAb ?? new Date();
+  const ende = laufzeitEnde(start, eingang);
   const db = await getDb();
   await db.update(schema.projekte).set({ gekuendigtAm: eingang, endeAm: ende }).where(eq(schema.projekte.id, projektId));
   const b = await betrieb(p.betriebId);
@@ -178,8 +188,8 @@ export async function kuendigungErfassen(projektId: number, wer: string, eingang
     zweck: "kuendigung",
     empfaenger: b.email ?? "(E-Mail-Adresse fehlt)",
     betreff: "Bestätigung Ihrer Kündigung",
-    text: `Guten Tag,\n\nwir bestätigen Ihre Kündigung der Betreuung vom ${datumDe(eingang)}. Die Betreuung endet am ${datumDe(ende)}. Bis dahin kümmern wir uns wie gewohnt um Ihre Website.\n\nZum Ende übergeben wir Ihnen auf Wunsch alles, was Sie für einen Wechsel brauchen: Zugang zur Domain, die Inhalte und den Code Ihrer Seite. Sagen Sie uns einfach, wer Ihre Seite künftig betreut.\n\nSchade, dass Sie gehen. Wenn wir etwas besser machen können, freuen wir uns über ein kurzes Wort.\n\nMit freundlichen Grüßen\nMaximilian Steiner\nLevarex Consulting`,
-    hinweise: ["Kündigungsfrist und Mindestlaufzeit sind eine Annahme, bis die AGB final sind. Enddatum bitte prüfen."],
+    text: `Guten Tag,\n\nwir bestätigen Ihre Kündigung vom ${datumDe(eingang)}. Der Vertrag endet am ${datumDe(ende)}. Bis dahin kümmern wir uns wie gewohnt um Ihre Website.\n\nZum Ende übergeben wir Ihnen auf Wunsch alles, was Sie für einen Wechsel brauchen: Zugang zur Domain, die Inhalte und den Code Ihrer Seite. Sagen Sie uns einfach, wer Ihre Seite künftig betreut.\n\nSchade, dass Sie gehen. Wenn wir etwas besser machen können, freuen wir uns über ein kurzes Wort.\n\nMit freundlichen Grüßen\nMaximilian Steiner\nLevarex Consulting`,
+    hinweise: VERTRAGSWERK_VERSION.startsWith("Entwurf") ? ["Laufzeit und Kündigungsfrist nach Baukasten; das Vertragswerk ist noch ein Entwurf. Enddatum bitte prüfen."] : [],
     meta: { projektId },
   });
   if (p.stripeAboId) {

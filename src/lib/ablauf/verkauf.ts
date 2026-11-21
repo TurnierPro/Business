@@ -217,11 +217,12 @@ export async function erstelleRechnung(o: {
 export type Annahme = { name: string; am: string; agbVersion: string; unternehmer: boolean };
 
 /** Angebot ist angenommen: Nachweis speichern, Auftragsbestätigung vorbereiten, ohne Stripe auch die Anzahlungsrechnung. */
-export async function unterschriftEingegangen(angebotId: number, wer: string, annahme?: Annahme): Promise<void> {
+export async function unterschriftEingegangen(angebotId: number, wer: string, annahme?: Annahme, vertragsDokumente: number[] = []): Promise<void> {
   const db = await getDb();
   const [a] = await db.select().from(schema.angebote).where(eq(schema.angebote.id, angebotId));
   if (!a) throw new Error("Angebot nicht gefunden");
-  if (a.status !== "versendet") throw new Error(`Angebot hat Status „${a.status}“. Unterschrift ist erst nach Versand möglich.`);
+  // Unterschrift auf dem Tablet geht auch, bevor die Angebots-Mail raus ist (Termin vor Ort)
+  if (!["versendet", "entwurf"].includes(a.status)) throw new Error(`Angebot hat Status „${a.status}“ und kann nicht mehr angenommen werden.`);
   const nachweis = annahme ?? { name: wer, am: new Date().toISOString(), agbVersion: AGB_VERSION, unternehmer: false };
   await db.update(schema.angebote).set({ status: "unterschrieben", unterschriebenAm: new Date(), annahme: nachweis }).where(eq(schema.angebote.id, angebotId));
   await setzeStatus(a.betriebId, "kunde");
@@ -244,8 +245,8 @@ export async function unterschriftEingegangen(angebotId: number, wer: string, an
     zweck: "auftragsbestaetigung",
     empfaenger: b.email ?? "(E-Mail-Adresse fehlt)",
     betreff: `Auftragsbestätigung ${nummer}`,
-    text: `Guten Tag,\n\nvielen Dank für Ihren Auftrag. Im Anhang finden Sie die Auftragsbestätigung zu unserem Angebot ${angebotNummer}. Sie liegt auch in Ihrem Kundenportal:\n${await portalLink(b.id)}\n\n${zahlungUeberStripe() ? "Die Anzahlung können Sie dort direkt online bezahlen, falls noch nicht geschehen." : "Die Rechnung über die Anzahlung kommt in einer eigenen E-Mail."} Danach geht es los.\n\nMit freundlichen Grüßen\nDaniel Lück\nLevarex Consulting`,
-    anhaenge: [dokId],
+    text: `Guten Tag,\n\nvielen Dank für Ihren Auftrag. Im Anhang finden Sie die Auftragsbestätigung zu unserem Angebot ${angebotNummer}${vertragsDokumente.length ? " und die unterschriebenen Verträge (Rahmenvertrag und Leistungsscheine)" : ""}. Alles liegt auch in Ihrem Kundenportal:\n${await portalLink(b.id)}\n\n${zahlungUeberStripe() ? "Die Anzahlung können Sie dort direkt online bezahlen, falls noch nicht geschehen." : "Die Rechnung über die Anzahlung kommt in einer eigenen E-Mail."} Danach geht es los.\n\nMit freundlichen Grüßen\nDaniel Lück\nLevarex Consulting`,
+    anhaenge: [dokId, ...vertragsDokumente],
     erlaubteZahlen: [euro(a.einmalig), euro(a.monatlich), ...positionen.flatMap((x) => [euro(x.einmalig), euro(x.monatlich)])],
     hinweise: nachweis.unternehmer ? [] : ["Annahme ohne Unternehmer-Bestätigung (intern erfasst). Bitte mit dem Kunden klären."],
     meta: { angebotId },

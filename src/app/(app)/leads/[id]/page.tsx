@@ -9,7 +9,7 @@ import { datum, datumZeit, DOKART, ZWECK } from "@/lib/format";
 import { PAKETE, PaketKey, euro } from "@/lib/pakete";
 import { istEcht } from "@/lib/adapters/dienste";
 import { basisUrl } from "@/lib/ablauf/gemeinsam";
-import { aktivitaetAnlegen, antwortEntwerfen, nachrichtErledigt, portalLinkErneuern, betriebSpeichern, betriebZuweisen, datenLoeschen, einstufen, kontaktLoeschen, kontaktSpeichern, terminHochladen, unterschriftSimulieren, widerspruch, zahlungSimulieren } from "../../aktionen";
+import { aktivitaetAnlegen, antwortEntwerfen, nachrichtErledigt, portalLinkErneuern, betriebSpeichern, betriebZuweisen, datenLoeschen, einstufen, kontaktLoeschen, kontaktSpeichern, terminHochladen, widerspruch, zahlungSimulieren } from "../../aktionen";
 import { AufgabenListe } from "@/components/AufgabenListe";
 import { ARTEN } from "@/lib/ablauf/crm";
 import { ticketNummer } from "@/lib/ablauf/tickets";
@@ -58,7 +58,6 @@ export default async function Lead({ params, searchParams }: { params: Promise<{
   const angebot = angebote[0];
   const offenePost = post.filter((p) => p.status === "zur_freigabe");
   const gesperrt = b.status === "gesperrt";
-  const signaturSimuliert = !istEcht("signatur");
   const zahlungSimuliert = !istEcht("zahlung");
 
   return (
@@ -119,12 +118,10 @@ export default async function Lead({ params, searchParams }: { params: Promise<{
 
           {b.status === "angeschrieben" ? <p>Brief ist raus. Besuch ab <b>{datum(b.besuchAb)}</b>. Nach dem Gespräch die Aufnahme unten hochladen.</p> : null}
 
-          {angebot && angebot.status === "versendet" ? (
+          {angebot && ["entwurf", "versendet"].includes(angebot.status) ? (
             <div className="karte" style={{ background: "var(--grund)" }}>
-              <p><b>Angebot {PAKETE[angebot.paket as PaketKey].name}</b> ist versendet. Wir warten auf die Unterschrift.</p>
-              {signaturSimuliert ? (
-                <form action={unterschriftSimulieren}><input type="hidden" name="betriebId" value={id} /><input type="hidden" name="angebotId" value={angebot.id} /><button className="knopf">Unterschrift simulieren</button><p className="leise klein" style={{ marginTop: 8 }}>Simulator, bis Docuseal angebunden ist.</p></form>
-              ) : null}
+              <p><b>Angebot {PAKETE[angebot.paket as PaketKey]?.name ?? angebot.paket}</b> {angebot.status === "versendet" ? "ist versendet." : "ist erstellt."} Unterschrieben wird beim Termin auf dem Tablet: Rahmenvertrag und je Baustein ein Leistungsschein.</p>
+              <Link className="knopf haupt" href={`/unterschrift/${angebot.id}`}>Verträge auf dem Tablet unterschreiben</Link>
             </div>
           ) : null}
 

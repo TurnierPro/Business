@@ -29,6 +29,11 @@ export function dokumentHtml(d: Dok): string {
       return v.abnahmeprotokoll(d.daten as v.AbnahmeDaten);
     case "umzugsanleitung":
       return v.umzugsanleitung(d.daten as v.UmzugsanleitungDaten);
+    case "rahmenvertrag":
+      return v.rahmenvertrag(d.daten as v.RahmenvertragDaten);
+    case "leistungsschein_erstellung":
+    case "leistungsschein_betrieb":
+      return v.leistungsschein(d.daten as v.LeistungsscheinDaten);
     case "monatsreport":
       return v.monatsreport(d.daten as v.MonatsreportDaten);
     case "finanzbericht": {

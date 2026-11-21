@@ -149,9 +149,17 @@ export async function terminHochladen(f: FormData) {
   );
 }
 
-export async function unterschriftSimulieren(f: FormData) {
-  const id = zahl(f, "betriebId");
-  await ausfuehren(`/leads/${id}`, "Unterschrift eingetragen. Rechnung über die Anzahlung liegt zur Freigabe.", (wer) => verkauf.unterschriftEingegangen(zahl(f, "angebotId"), `${wer} (Simulator)`));
+export async function vertragUnterschreiben(f: FormData) {
+  const angebotId = zahl(f, "angebotId");
+  await ausfuehren(`/unterschrift/${angebotId}`, "Verträge unterschrieben. Die Auftragsbestätigung mit allen Unterlagen liegt in den Freigaben.", async (wer) => {
+    const { vertragUnterschreiben: unterschreiben } = await import("@/lib/ablauf/vertraege");
+    const bilder: Record<number, string> = {};
+    for (const [k, v] of f.entries()) if (k.startsWith("bild-")) bilder[Number(k.slice(5))] = String(v);
+    await unterschreiben({ angebotId, kunde: { name: text(f, "name"), funktion: text(f, "funktion"), unternehmer: f.get("unternehmer") === "ja" }, bilder, levarex: { name: text(f, "levarexName"), bild: text(f, "levarexBild") }, wer });
+    const db = await getDb();
+    const [a] = await db.select().from(schema.angebote).where(eq(schema.angebote.id, angebotId));
+    return { ziel: `/leads/${a.betriebId}` };
+  });
 }
 
 export async function zahlungSimulieren(f: FormData) {

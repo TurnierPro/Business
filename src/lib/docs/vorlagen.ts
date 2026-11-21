@@ -1,6 +1,6 @@
 import { marke } from "../marke";
 import { NICHT_ENTHALTEN, PAKETE, PaketKey, euro, UST } from "../pakete";
-import { ABNAHME_FRIST_TAGE, AENDERUNG_STUNDENSATZ, AGB_URL, AGB_VERSION, ERSTE_RATE_FAELLIG_TAGE, KUENDIGUNG_MONATE_VOR_ENDE, LAUFZEIT_MONATE, VERLAENGERUNG_MONATE } from "../recht";
+import { ABNAHME_FRIST_TAGE, AENDERUNG_STUNDENSATZ, AGB_URL, AGB_VERSION, ERSTE_RATE_FAELLIG_TAGE, HAFTUNG_JE_FALL, HAFTUNG_JE_JAHR, KUENDIGUNG_MONATE_VOR_ENDE, LAUFZEIT_MONATE, VERFUEGBARKEIT_PROZENT, VERLAENGERUNG_MONATE } from "../recht";
 import { laufzeitSumme } from "../katalog";
 import type { Pruefpunkt } from "../adapters/websitecheck";
 import {
@@ -353,5 +353,95 @@ export function umzugsanleitung(d: UmzugsanleitungDaten): string {
 <div class="box"><b>Altes Paket erst später kündigen</b><br>Bitte kündigen Sie Ihr bisheriges Webhosting erst nach unserer Nachricht und dann nur das Webhosting, nicht die Domain und nicht Ihre E-Mail-Postfächer.</div>
 <p>Lieber gemeinsam? Rufen Sie uns an: ${esc(marke.absender.telefon)}. Wir machen das in 10 Minuten am Telefon mit Ihnen.</p>
 ${fuss()}</div>`,
+  });
+}
+
+// ---------- Vertragswerk: Rahmenvertrag und Leistungsscheine (Unterschrift auf dem Tablet beim Termin) ----------
+
+export type VertragUnterschrift = { rolle: "kunde" | "levarex"; name: string; funktion?: string | null; bild: string; am: string };
+type VertragBasis = { an: Anschrift; nummer: string; angebotNummer: string; datum: string; vertragswerk: string; agbVersion: string; unterschriften?: VertragUnterschrift[] };
+export type RahmenvertragDaten = VertragBasis & {
+  positionen: { text: string; einmalig: number; monatlich: number }[];
+  einmalig: number;
+  monatlich: number;
+  scheine: { nummer: string; titel: string }[];
+};
+export type LeistungsscheinDaten = VertragBasis & {
+  rahmenNummer: string;
+  art: "erstellung" | "betrieb";
+  baustein: string;
+  problem?: string;
+  punkte: string[];
+  preis: number; // einmalig (Erstellung) bzw. monatlich (Betrieb), netto in Cent
+  wochen?: number;
+  aenderungsMinuten?: number;
+  // Interne Kalkulation (§ 648 BGB), erscheint nicht im PDF
+  kalkulation?: { stunden: number; stundensatz: number };
+};
+
+const BILD_OK = /^data:image\/png;base64,[A-Za-z0-9+/=]+$/;
+
+function unterschriftsblock(u: VertragUnterschrift[] | undefined): string {
+  const feld = (rolle: "kunde" | "levarex", titel: string) => {
+    const x = u?.find((y) => y.rolle === rolle);
+    const am = x ? new Date(x.am).toLocaleString("de-DE", { dateStyle: "medium", timeStyle: "short", timeZone: "Europe/Berlin" }) : "";
+    return `<div class="unterschrift"><div class="linie">${x && BILD_OK.test(x.bild) ? `<img src="${x.bild}" alt="Unterschrift ${esc(x.name)}">` : ""}</div><div>${esc(titel)}</div><div class="leise">${x ? `${esc(x.name)}${x.funktion ? `, ${esc(x.funktion)}` : ""} · ${esc(am)} Uhr` : "Name, Datum"}</div></div>`;
+  };
+  return `<div class="unterschriften">${feld("kunde", "Für den Auftraggeber")}${feld("levarex", `Für ${marke.absender.firma}`)}</div>`;
+}
+
+const vertragCss = `.unterschriften{display:grid;grid-template-columns:1fr 1fr;gap:12mm;margin-top:10mm;break-inside:avoid}
+.unterschrift{font-size:9pt}.unterschrift .linie{height:20mm;border-bottom:.3mm solid ${marke.hell.text};display:flex;align-items:flex-end}
+.unterschrift img{max-height:19mm;max-width:100%}
+.paragraf{break-inside:avoid}.paragraf h3{margin-top:4mm}`;
+
+function vertragsKopf(d: VertragBasis, art: string): string {
+  const a = marke.absender;
+  return `<p class="leise mono">${esc(art)} · ${esc(d.nummer)} · ZU ANGEBOT ${esc(d.angebotNummer)}</p>
+<p><b>Zwischen</b> ${esc(a.firma)}, Sitz ${esc(a.sitz)}, vertreten durch die Geschäftsführer ${esc(a.geschaeftsfuehrer)} („Levarex“),<br><b>und</b> ${esc(d.an.name)}, ${esc(d.an.strasse ?? "")}, ${esc(d.an.plz ?? "")} ${esc(d.an.ort ?? "")} („Auftraggeber“).</p>`;
+}
+
+export function rahmenvertrag(d: RahmenvertragDaten): string {
+  const p = (nr: number, titel: string, text: string) => `<div class="paragraf"><h3>§ ${nr} ${esc(titel)}</h3>${text}</div>`;
+  return druckSeite({
+    titel: `Rahmenvertrag ${d.nummer}`,
+    extraCss: vertragCss,
+    inhalt: `<div class="seite">${kopf()}<div class="fluss">
+<h1>Rahmenvertrag</h1>
+${vertragsKopf(d, "RAHMENVERTRAG")}
+${p(1, "Gegenstand", `<p>Dieser Rahmenvertrag regelt die Zusammenarbeit. Die einzelnen Leistungen stehen in den Leistungsscheinen; jeder trägt eine eigene Unterschrift:</p><ul>${d.scheine.map((s) => `<li>${esc(s.titel)} (<span class="mono">${esc(s.nummer)}</span>)</li>`).join("")}</ul><p>Bei Widersprüchen gilt der Leistungsschein vor diesem Rahmenvertrag und dieser vor den AGB.</p>`)}
+${p(2, "Vergütung", `<table><thead><tr><th>Leistung</th><th class="zahl">Einmalig netto</th><th class="zahl">Monatlich netto</th></tr></thead><tbody>${d.positionen.map((x) => `<tr><td>${esc(x.text)}</td><td class="zahl">${x.einmalig ? euro(x.einmalig) : "–"}</td><td class="zahl">${x.monatlich ? euro(x.monatlich) : "–"}</td></tr>`).join("")}<tr><td><b>Summe netto</b></td><td class="zahl"><b>${euro(d.einmalig)}</b></td><td class="zahl"><b>${euro(d.monatlich)}</b></td></tr></tbody></table>
+<p>Alle Preise zuzüglich Umsatzsteuer. Einmalige Preise: 50 % bei Unterschrift, fällig ${ERSTE_RATE_FAELLIG_TAGE} Tage nach Vertragsschluss und nicht vor Arbeitsbeginn; 50 % beim Livegang nach der Abnahme. Keine Ratenzahlung. Monatsbeiträge per SEPA-Lastschrift mit Vorabankündigung 5 Kalendertage vor dem Einzug; bis der Einzug eingerichtet ist, per Überweisung.</p>`)}
+${p(3, "Laufzeit und Kündigung", `<p>Leistungen mit Monatsbeitrag laufen ${LAUFZEIT_MONATE} Monate ab dem Livegang des jeweiligen Bausteins und verlängern sich danach um jeweils ${VERLAENGERUNG_MONATE} Monate, wenn nicht ${KUENDIGUNG_MONATE_VOR_ENDE} Monate vor Ende in Textform gekündigt wird. Später gebuchte Module laufen ${LAUFZEIT_MONATE} Monate ab ihrem Livegang. Personal & Bewerbung endet mit dem Webauftritt. Preisanpassungen nur zur Verlängerung nach dem Verbraucherpreisindex, höchstens 10 %, mit Mitteilung 4 Monate vorher und Sonderkündigungsrecht.</p>`)}
+${p(4, "Abnahme", `<p>Levarex zeigt die Fertigstellung an und stellt das Ergebnis als Vorschau bereit. Der Auftraggeber hat ${ABNAHME_FRIST_TAGE} Kalendertage Zeit, abzunehmen oder Mängel zu nennen. Nennt er in dieser Frist keinen Mangel, gilt die Leistung als abgenommen (§ 640 Abs. 2 BGB). Der Livegang erfolgt erst nach der Abnahme. Änderungen vor der Abnahme und über das monatliche Kontingent hinaus kosten ${euro(AENDERUNG_STUNDENSATZ)} netto je Stunde, nur nach Freigabe in Textform.</p>`)}
+${p(5, "Rechte", `<p>Die Domain gehört dem Auftraggeber; den Auth-Code hält Levarex nie zurück. Texte und Fotos gehören dem Auftraggeber ab Zahlung, Code und Design nach ${LAUFZEIT_MONATE} Monaten. Endet der Vertrag vorzeitig, kann der Auftraggeber Code und Design gegen 50 % der restlichen Webauftritt-Beiträge ablösen.</p>`)}
+${p(6, "Service-Level und Haftung", `<p>Verfügbarkeit ${VERFUEGBARKEIT_PROZENT.toLocaleString("de-DE")} % im Monat; bei Unterschreitung Gutschrift von 10 % bzw. 25 % des Monatsbeitrags nach Leistungsschein. Bei leichter Fahrlässigkeit haftet Levarex bis ${euro(HAFTUNG_JE_FALL)} je Fall und ${euro(HAFTUNG_JE_JAHR)} je Vertragsjahr; bei Vorsatz, grober Fahrlässigkeit und Verletzung von Leben, Körper oder Gesundheit unbeschränkt.</p>`)}
+${p(7, "Datenschutz", `<p>Soweit Levarex personenbezogene Daten im Auftrag verarbeitet, schließen die Parteien vor dem Livegang einen Vertrag zur Auftragsverarbeitung (Art. 28 DSGVO).</p>`)}
+${p(8, "Schlussbestimmungen", `<p>Es gelten die AGB für Unternehmer, Version ${esc(d.agbVersion)}, abrufbar unter <span class="mono">${esc(AGB_URL)}</span>. Der Auftraggeber handelt als Unternehmer (§ 14 BGB). Änderungen bedürfen der Textform.</p>`)}
+${unterschriftsblock(d.unterschriften)}
+<p class="leise" style="font-size:7.5pt;margin-top:6mm">Fassung: ${esc(d.vertragswerk)}</p>
+</div>${fuss()}</div>`,
+  });
+}
+
+export function leistungsschein(d: LeistungsscheinDaten): string {
+  const erstellung = d.art === "erstellung";
+  return druckSeite({
+    titel: `Leistungsschein ${d.nummer}`,
+    extraCss: vertragCss,
+    inhalt: `<div class="seite">${kopf()}<div class="fluss">
+<h1>Leistungsschein ${erstellung ? "Erstellung" : "Betrieb"}: ${esc(d.baustein)}</h1>
+${vertragsKopf(d, erstellung ? "LEISTUNGSSCHEIN ERSTELLUNG" : "LEISTUNGSSCHEIN BETRIEB")}
+<p>Zum Rahmenvertrag <span class="mono">${esc(d.rahmenNummer)}</span>. ${erstellung ? "Werkvertrag über die einmalige Erstellung (§ 631 BGB)." : "Laufende Leistungen nach dem Livegang gegen Monatsbeitrag."}</p>
+${d.problem ? `<h2>Das Problem</h2><p>${esc(d.problem)}</p>` : ""}
+<h2>${erstellung ? "Wir lösen das mit …" : "Laufende Leistungen"}</h2><ul>${d.punkte.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>
+<h2>Preis</h2>
+<p><b class="mono">${euro(d.preis)}</b> netto ${erstellung ? "einmalig, zahlbar je zur Hälfte bei Unterschrift und beim Livegang nach der Abnahme" : "im Monat (Monatsbeitrag), per SEPA-Lastschrift"}.</p>
+${erstellung
+    ? `<h2>Lieferung und Abnahme</h2><p>${d.wochen ? `Online ${d.wochen} Wochen nach Erhalt der vollständigen Inhalte; den Eingang bestätigt Levarex binnen 2 Werktagen. Klappt das nicht, ist ein Monatsbeitrag kostenlos. ` : ""}Abnahme nach § 4 des Rahmenvertrags (Abnahmefiktion nach ${ABNAHME_FRIST_TAGE} Kalendertagen).</p>`
+    : `<h2>Laufzeit</h2><p>${LAUFZEIT_MONATE} Monate ab Livegang, danach jeweils ${VERLAENGERUNG_MONATE} Monate; Kündigung ${KUENDIGUNG_MONATE_VOR_ENDE} Monate vor Ende in Textform.${d.aenderungsMinuten ? ` Enthalten sind ${d.aenderungsMinuten} Minuten Änderungen im Monat; darüber ${euro(AENDERUNG_STUNDENSATZ)} je Stunde nach Freigabe.` : ""} Service-Level nach § 6 des Rahmenvertrags.</p>`}
+${unterschriftsblock(d.unterschriften)}
+<p class="leise" style="font-size:7.5pt;margin-top:6mm">Fassung: ${esc(d.vertragswerk)}</p>
+</div>${fuss()}</div>`,
   });
 }

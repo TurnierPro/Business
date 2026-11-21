@@ -267,11 +267,14 @@ test("Ohne Stripe: Abnahme durch Fristablauf, Schlussrechnung zieht Anzahlung ab
     assert.match(dokumentHtml(dok), /zahlbar|bis zum/);
     assert.match(await vertrag.abnahmefiktion(), /^0 /, "nicht doppelt");
 
-    // Kündigung: 12 Monate Mindestlaufzeit ab Betreuungsstart
-    await db.update(schema.projekte).set({ aboAb: new Date("2027-02-10T10:00:00Z") }).where(eq(schema.projekte.id, p.id));
+    // Kündigung: 24 Monate ab Livegang, dann je 12 Monate; Kündigung bis 3 Monate vor Ende
+    await db.update(schema.projekte).set({ liveAm: new Date("2027-02-10T10:00:00Z"), aboAb: new Date("2027-02-10T10:00:00Z") }).where(eq(schema.projekte.id, p.id));
     const ende = await vertrag.kuendigungErfassen(p.id, "Test", new Date("2027-05-03T10:00:00Z"));
-    assert.equal(ende.toISOString().slice(0, 7), "2028-02");
-    assert.match(await vertrag.vertragsende(new Date("2028-03-01T10:00:00Z")), /^1 /);
+    assert.equal(ende.toISOString().slice(0, 10), "2029-02-09");
+    // Zu spät gekündigt (weniger als 3 Monate vor Ende): verlängert sich um 12 Monate
+    assert.equal(vertrag.laufzeitEnde(new Date("2027-02-10T10:00:00Z"), new Date("2028-12-01T10:00:00Z")).toISOString().slice(0, 10), "2030-02-09");
+    assert.match(await vertrag.vertragsende(new Date("2028-03-01T10:00:00Z")), /^0 /, "läuft noch");
+    assert.match(await vertrag.vertragsende(new Date("2029-03-01T10:00:00Z")), /^1 /);
   } finally {
     delete process.env.ZAHLUNGSWEG;
   }
@@ -740,3 +743,54 @@ test("Nachrichten: WhatsApp, Telefon, Mail landen beim Betrieb; Antwort nur als 
   assert.ok(auskunft.nachrichten.length >= 4);
   await assert.rejects(() => n.nachrichtEingang({ kanal: "fax", absender: "x", inhalt: "y" }, "Test"), /Unbekannter Kanal/);
 });
+
+test("Verträge: Rahmenvertrag und Leistungsscheine, Unterschrift auf dem Tablet, danach im Portal", async () => {
+  const fs = await import("node:fs");
+  const bild = `data:image/png;base64,${fs.readFileSync(new URL("./unterschrift-muster.b64", import.meta.url), "utf8").trim()}`;
+  const vt = await import("../src/lib/ablauf/vertraege");
+  const { id } = await akquise.legeBetriebAn({ name: "Tablet Elektro GmbH", gewerk: "Elektro", score: 70, scoreGrund: "Test", website: "tablet.example", email: "chef@tablet.example", strasse: "Weg 2", plz: "76297", ort: "Stutensee" }, "Test", "Test");
+  const { angebotId } = await verkauf.erstelleAngebot({ betriebId: id!, auswahl: { paket: "PROFESSIONAL", module: ["personal"], zusaetze: ["foto"] }, wer: "Daniel Lück" });
+  const doks = await vt.vertragsunterlagen(angebotId);
+  // Rahmenvertrag + Webauftritt (Erstellung, Betrieb) + Personal (Erstellung, Betrieb) + Fotoshooting (nur Erstellung)
+  assert.deepEqual(doks.map((d) => d.art), ["rahmenvertrag", "leistungsschein_erstellung", "leistungsschein_betrieb", "leistungsschein_erstellung", "leistungsschein_betrieb", "leistungsschein_erstellung"]);
+  assert.equal((await vt.vertragsunterlagen(angebotId)).length, 6, "nicht doppelt");
+  const ls = doks[1].daten as { punkte: string[]; preis: number; kalkulation: { stunden: number } };
+  assert.equal(ls.punkte.length, 5);
+  assert.equal(ls.preis, 299000);
+  assert.equal(ls.kalkulation.stunden, 8, "Kalkulation je Leistung dokumentiert");
+
+  const eingabe = { angebotId, kunde: { name: "Paul Tablet", funktion: "Inhaber", unternehmer: true }, bilder: Object.fromEntries(doks.map((d) => [d.id, bild])), levarex: { name: "Daniel Lück", bild }, wer: "Daniel Lück" };
+  // Ohne jede einzelne Unterschrift geht nichts
+  await assert.rejects(() => vt.vertragUnterschreiben({ ...eingabe, bilder: { [doks[0].id]: bild } }), /Unterschrift fehlt: Leistungsschein/);
+  await assert.rejects(() => vt.vertragUnterschreiben({ ...eingabe, kunde: { ...eingabe.kunde, unternehmer: false } }), /§ 14 BGB/);
+  await vt.vertragUnterschreiben(eingabe);
+  const [a] = await db.select().from(schema.angebote).where(eq(schema.angebote.id, angebotId));
+  assert.equal(a.status, "unterschrieben");
+  assert.equal((await db.select().from(schema.unterschriften).where(eq(schema.unterschriften.angebotId, angebotId))).length, 12, "je Dokument Kunde und Levarex");
+  // Die nicht versendete Angebots-Mail ist überholt, die Auftragsbestätigung bringt alle Verträge mit
+  const post = await db.select().from(schema.postausgang).where(eq(schema.postausgang.betriebId, id!));
+  assert.equal(post.find((p) => p.zweck === "angebot")!.status, "abgelehnt");
+  const ab = post.find((p) => p.zweck === "auftragsbestaetigung")!;
+  for (const d of doks) assert.ok(ab.anhaenge.includes(d.id), `Anhang ${d.titel}`);
+  await abarbeiten();
+  const [abNeu] = await db.select().from(schema.postausgang).where(eq(schema.postausgang.id, ab.id));
+  assert.notEqual(abNeu.qkStatus, "blockiert", abNeu.hinweise.join(" | "));
+  assert.ok(abNeu.hinweise.some((h) => h.includes("Entwurf")), "Hinweis: Vertragstexte noch Entwurf");
+  // PDF mit eingebetteter Unterschrift lässt sich sauber erzeugen
+  const { dokumentPdf } = await import("../src/lib/docs/render");
+  const [rv] = await db.select().from(schema.dokumente).where(eq(schema.dokumente.id, doks[0].id));
+  assert.ok((await dokumentPdf(rv)).length > 5000);
+  // Nach Freigabe liegen die Verträge im Kundenportal
+  await post_freigeben(ab.id);
+  const portal = await import("../src/lib/kundenportal");
+  const sicht = await portal.portalDaten(id!);
+  assert.ok(sicht.dokumente.some((d) => d.art === "rahmenvertrag"));
+  assert.equal(sicht.dokumente.filter((d) => d.art.startsWith("leistungsschein")).length, 5);
+  // Zweimal unterschreiben geht nicht
+  await assert.rejects(() => vt.vertragUnterschreiben(eingabe), /Status/);
+});
+
+async function post_freigeben(id: number) {
+  await post.freigeben(id, "Daniel Lück");
+  await abarbeiten();
+}

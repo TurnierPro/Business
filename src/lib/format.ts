@@ -47,6 +47,9 @@ export const DOKART: Record<string, string> = {
   abnahmeprotokoll: "Abnahmeprotokoll",
   monatsreport: "Monatsreport",
   umzugsanleitung: "Anleitung Domain-Umstellung",
+  rahmenvertrag: "Rahmenvertrag",
+  leistungsschein_erstellung: "Leistungsschein Erstellung",
+  leistungsschein_betrieb: "Leistungsschein Betrieb",
 };
 
 /** „2026-10-21“ + „09:00“ als deutsche Zeit (Sommer/Winter beachtet), egal in welcher Zeitzone der Server läuft. */

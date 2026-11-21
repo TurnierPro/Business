@@ -1,23 +1,11 @@
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import { eq } from "drizzle-orm";
 import { getDb, schema } from "@/lib/db";
 import { pruefeLinkSchluessel } from "@/lib/geheim";
 import { PAKETE, PaketKey, euro, UST } from "@/lib/pakete";
 import { laufzeitSumme } from "@/lib/katalog";
-import { unterschriftEingegangen } from "@/lib/ablauf/verkauf";
 
 export const metadata = { title: "Ihr Angebot", robots: { index: false } };
-
-async function annehmen(f: FormData) {
-  "use server";
-  const schluessel = String(f.get("schluessel"));
-  const id = pruefeLinkSchluessel("angebot", schluessel);
-  if (!id) notFound();
-  const name = String(f.get("name") ?? "").trim();
-  if (!name || f.get("zustimmung") !== "ja") redirect(`/portal/angebot/${schluessel}?fehler=1`);
-  await unterschriftEingegangen(id, `Kunde: ${name} (Annahme im Portal)`);
-  redirect(`/portal/angebot/${schluessel}`);
-}
 
 export default async function Angebot({ params, searchParams }: { params: Promise<{ schluessel: string }>; searchParams: Promise<{ fehler?: string }> }) {
   const { schluessel } = await params;
@@ -52,17 +40,10 @@ export default async function Angebot({ params, searchParams }: { params: Promis
           <dt>Zahlung</dt><dd>50 % bei Unterschrift, 50 % beim Livegang nach der Abnahme</dd>
         </dl>
       </div>
-      <form action={annehmen} className="karte">
-        <h2>Angebot annehmen</h2>
-        {fehler ? <div className="hinweis fehler" role="alert">Bitte Namen eintragen und das Häkchen setzen.</div> : null}
-        <input type="hidden" name="schluessel" value={schluessel} />
-        <label className="feld"><span>Ihr vollständiger Name</span><input name="name" autoComplete="name" required /></label>
-        <label className="haken" style={{ marginBottom: 16 }}>
-          <input type="checkbox" name="zustimmung" value="ja" required />
-          <span>Ich nehme das Angebot im Namen von {b?.name} verbindlich an und habe die Bedingungen im Angebots-PDF gelesen.</span>
-        </label>
-        <button className="knopf haupt">Verbindlich annehmen</button>
-      </form>
+      <section className="karte">
+        <h2>Unterschrift</h2>
+        <p>Unterschrieben wird beim Termin mit Daniel Lück auf dem Tablet: der Rahmenvertrag und je Baustein ein Leistungsschein. Fragen vorab? Rufen Sie uns an.</p>
+      </section>
     </>
   );
 }

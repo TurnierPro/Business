@@ -188,3 +188,15 @@ test("Nachrichten-API: nur mit Schlüssel und Recht „nachrichten“", async ()
   assert.equal((await route.POST(anfrage(mitRecht))).status, 201);
   assert.equal((await route.POST(anfrage(mitRecht))).status, 200, "zweimal eingeliefert → nicht doppelt");
 });
+
+test("Unterschrift auf dem Tablet: nur echte PNG-Bilder, kein eingeschleustes HTML oder SVG", async () => {
+  const fs = await import("node:fs");
+  const { unterschriftsbildOk } = await import("../src/lib/ablauf/vertraege");
+  const echt = `data:image/png;base64,${fs.readFileSync(new URL("./unterschrift-muster.b64", import.meta.url), "utf8").trim()}`;
+  assert.equal(unterschriftsbildOk(echt), true);
+  assert.equal(unterschriftsbildOk("data:image/svg+xml;base64,PHN2ZyBvbmxvYWQ9YWxlcnQoMSk+"), false, "SVG kann Skript enthalten");
+  assert.equal(unterschriftsbildOk('data:image/png;base64,AAAA" onerror="alert(1)'), false, "Ausbruch aus dem src-Attribut");
+  assert.equal(unterschriftsbildOk(`data:image/png;base64,${Buffer.from("<html>".repeat(100)).toString("base64")}`), false, "kein echtes PNG");
+  assert.equal(unterschriftsbildOk(`data:image/png;base64,${"A".repeat(500_000)}`), false, "zu groß");
+  assert.equal(unterschriftsbildOk(""), false);
+});

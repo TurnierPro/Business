@@ -28,6 +28,13 @@ export const KUENDIGUNG_MONATE_VOR_ENDE = 3;
 export const AENDERUNG_STUNDENSATZ = 9500;
 /** Fälligkeit der ersten Rate (50 %) nach Vertragsschluss, nicht vor Arbeitsbeginn. */
 export const ERSTE_RATE_FAELLIG_TAGE = 7;
+/** Fassung des Vertragswerks (Rahmenvertrag, Leistungsscheine). Solange „Entwurf“: Texte aus den Konditionen, nicht aus Dok. 21. */
+export const VERTRAGSWERK_VERSION = process.env.VERTRAGSWERK_VERSION ?? "Entwurf 11/2026 (Texte aus Dok. 21 folgen)";
+/** Service-Level laut Baukasten: Verfügbarkeit und Gutschrift bei Unterschreitung. */
+export const VERFUEGBARKEIT_PROZENT = 99.5;
+/** Haftung bei leichter Fahrlässigkeit, in Cent. */
+export const HAFTUNG_JE_FALL = 25_000_000;
+export const HAFTUNG_JE_JAHR = 50_000_000;
 /** Prozess-Check wird angerechnet, wenn der Auftrag innerhalb dieser Frist kommt. */
 export const PROZESS_CHECK_ANRECHNUNG_TAGE = 60;
 
@@ -78,6 +85,7 @@ export const LOESCHFRISTEN: { was: string; tage: number | null; grund: string; a
   { was: "Backups", tage: 30, grund: "Wiederherstellung; gelöschte Daten verschwinden spätestens dann auch aus Backups", automatisch: true },
   { was: "Rechnungen, Buchungsbelege", tage: 8 * 365, grund: "§ 147 AO (8 Jahre ab Jahresende)", automatisch: false },
   { was: "Angebote, Auftragsbestätigungen, Abnahmeprotokolle von Kunden", tage: 6 * 365, grund: "§ 257 HGB (Handelsbriefe, 6 Jahre ab Jahresende)", automatisch: false },
+  { was: "Unterschriften unter Verträgen (Bild, Name, Zeitpunkt)", tage: 6 * 365, grund: "Gehören zu Rahmenvertrag und Leistungsscheinen (§ 257 HGB, 6 Jahre ab Jahresende)", automatisch: false },
   { was: "Kundendaten nach Vertragsende", tage: null, grund: "Sperren statt löschen, solange Aufbewahrungspflichten laufen; danach löschen", automatisch: false },
 ];
 

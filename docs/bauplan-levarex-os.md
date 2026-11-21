@@ -239,7 +239,7 @@ Bis Januar 2027 müssen die Etappen 1–4 stehen (Angebot, Verträge, Rechnungen
 
 | Nr. | Frage | Warum |
 |---|---|---|
-| F1 | **Unterschrift der Leistungsscheine:** Das Vertragswerk sieht sie „auf dem Tablet im Kundenportal“ vor. Bleibt das so (dann ist das eine Ausnahme vom Lese-Zugang), oder unterschreibt der Kunde beim Termin auf Daniels Tablet in Levarex OS? | Widerspricht sonst „nur lesen“; bestimmt auch, ob eine E-Signatur nötig ist. |
+| F1 | **Unterschrift der Leistungsscheine:** Das Vertragswerk sieht sie „auf dem Tablet im Kundenportal“ vor. Bleibt das so (dann ist das eine Ausnahme vom Lese-Zugang), oder unterschreibt der Kunde beim Termin auf Daniels Tablet in Levarex OS? | Widerspricht sonst „nur lesen“; bestimmt auch, ob eine E-Signatur nötig ist. | **Beantwortet 21.11.2026:** Unterschrift auf Daniels Tablet in Levarex OS (Seite in Portal-Optik, je Dokument eigene Unterschrift); die unterschriebenen Unterlagen liegen danach im Portal zum Lesen. Umgesetzt in Etappe 3.
 | F2 | **Inhalte und Abnahme:** Sollen Kunden Fotos und Texte im Portal hochladen und die Abnahme dort erklären? Oder läuft beides per Mail, und ihr tragt es ein? | Die Abnahmefiktion funktioniert auch per Mail, im Portal ist sie leichter nachweisbar. |
 | F3 | **Welche n8n-Abläufe zuerst?** Vorschläge: Postfach (netcup) → Nachrichten, Lexware-Zahlungseingang → Rechnung bezahlt, Kalender → Termine. | Bestimmt Rechte und Ereignisse in Etappe 7. |
 | F4 | **„Intuitiver“:** Welche zwei oder drei Stellen nerven heute am meisten? Gern als Bildschirmfoto mit Stichwort. | Sonst baue ich nach Vermutung. |

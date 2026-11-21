@@ -1,33 +1,17 @@
 import { notFound, redirect } from "next/navigation";
 import { betriebPerPortal, portalDaten } from "@/lib/kundenportal";
-import { unterschriftEingegangen } from "@/lib/ablauf/verkauf";
 import { PAKETE, PaketKey, euro, UST } from "@/lib/pakete";
 import { marke } from "@/lib/marke";
 import { DOKART } from "@/lib/format";
 import { zahlungUeberStripe } from "@/lib/adapters/stripe";
 import { anzahlungsLink } from "@/lib/ablauf/zahlung";
 import { abnahmeErklaeren } from "@/lib/ablauf/vertrag";
-import { AGB_URL, AGB_VERSION } from "@/lib/recht";
 import { erlaubt, GRENZEN, versuchMerken } from "@/lib/sicherheit";
 import { kontingent, ticketAnlegen, ticketNummer, TICKET_STATUS } from "@/lib/ablauf/tickets";
 
 export const metadata = { title: "Ihr Kundenportal", robots: { index: false } };
 
 const tag = (d: Date | null) => (d ? new Date(d).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Europe/Berlin" }) : "");
-
-async function annehmen(f: FormData) {
-  "use server";
-  const token = String(f.get("token"));
-  const b = await betriebPerPortal(token);
-  if (!b) notFound();
-  const daten = await portalDaten(b.id);
-  const name = String(f.get("name") ?? "").trim();
-  if (!daten.angebotOffen || !name || f.get("zustimmung") !== "ja" || f.get("unternehmer") !== "ja") redirect(`/portal/k/${token}?fehler=1#angebot`);
-  // Nachweis: Name, Zeitpunkt, AGB-Version, Unternehmer bestätigt
-  await unterschriftEingegangen(daten.angebotOffen.id, `Kunde: ${name} (Annahme im Kundenportal)`, { name, am: new Date().toISOString(), agbVersion: AGB_VERSION, unternehmer: true });
-  // Mit Stripe geht es direkt weiter zur Zahlseite für die Anzahlung
-  redirect(zahlungUeberStripe() ? await anzahlungsLink(daten.angebotOffen.id) : `/portal/k/${token}?danke=1`);
-}
 
 async function abnehmen(f: FormData) {
   "use server";
@@ -65,7 +49,7 @@ export default async function Kundenportal({ params, searchParams }: { params: P
   const b = await betriebPerPortal(token);
   if (!b) notFound();
   const d = await portalDaten(b.id);
-  const { fehler, danke, bezahlt, abgebrochen, abnahme, abnahmefehler, ticket, ticketfehler } = await searchParams;
+  const { danke, bezahlt, abgebrochen, abnahme, abnahmefehler, ticket, ticketfehler } = await searchParams;
   const mitBetreuung = d.projekt && ["live", "bereit", "bau", "pruefung"].includes(d.projekt.status);
   const k = mitBetreuung ? await kontingent(b.id) : null;
   const naechster = d.schritte.findIndex((s) => !s.erledigt);
@@ -76,7 +60,7 @@ export default async function Kundenportal({ params, searchParams }: { params: P
   const gruss = stunde < 11 ? "Guten Morgen" : stunde < 18 ? "Guten Tag" : "Guten Abend";
   // Der wichtigste offene Schritt für den Kunden: zuerst, was er tun muss, sonst unser nächster Schritt
   const handlung = d.angebotOffen
-    ? { was: "Angebot ansehen und annehmen", href: "#angebot", knopf: "Zum Angebot" }
+    ? { was: "Angebot ansehen; unterschrieben wird beim Termin", href: "#angebot", knopf: "Zum Angebot" }
     : d.anzahlungOffen
       ? { was: "Anzahlung bezahlen", href: `/portal/k/${token}/zahlen`, knopf: "Jetzt bezahlen" }
       : d.inhalteOffen
@@ -113,7 +97,7 @@ export default async function Kundenportal({ params, searchParams }: { params: P
         <section className="karte">
           <h2>Was wir gerade von Ihnen brauchen</h2>
           <ul className="liste">
-            {d.angebotOffen ? <li><div><div className="titel">Angebot ansehen und annehmen</div><div className="unter">{PAKETE[d.angebotOffen.paket as PaketKey].name}</div></div><a className="knopf klein" href="#angebot">Zum Angebot</a></li> : null}
+            {d.angebotOffen ? <li><div><div className="titel">Angebot ansehen</div><div className="unter">{PAKETE[d.angebotOffen.paket as PaketKey].name}</div></div><a className="knopf klein" href="#angebot">Zum Angebot</a></li> : null}
             {d.anzahlungOffen ? <li><div><div className="titel">Anzahlung bezahlen</div><div className="unter">{euro(Math.round((d.anzahlungOffen.einmalig / 2) * (1 + UST)))} brutto, online per Karte oder SEPA-Lastschrift</div></div><a className="knopf haupt klein" href={`/portal/k/${token}/zahlen`}>Jetzt bezahlen</a></li> : null}
             {d.inhalteOffen ? <li><div><div className="titel">Texte und Fotos hochladen</div><div className="unter">Damit wir Ihre Seite bauen können</div></div><a className="knopf haupt klein" href={`/portal/${d.inhalteOffen.portalToken}`}>Inhalte hochladen</a></li> : null}
             {d.abnahmeOffen ? <li><div><div className="titel">Website prüfen und abnehmen</div><div className="unter">Bitte bis {tag(d.abnahmeOffen.abnahmeFrist)}</div></div><a className="knopf klein" href="#abnahme">Zur Abnahme</a></li> : null}
@@ -146,22 +130,11 @@ export default async function Kundenportal({ params, searchParams }: { params: P
       ) : null}
 
       {d.angebotOffen ? (
-        <form id="angebot" action={annehmen} className="karte">
-          <h2>Angebot annehmen</h2>
-          {fehler ? <div className="hinweis fehler" role="alert">Bitte Ihren Namen eintragen und beide Häkchen setzen.</div> : null}
+        <section id="angebot" className="karte">
+          <h2>Ihr Angebot</h2>
           <p>{PAKETE[d.angebotOffen.paket as PaketKey]?.name ?? "Webauftritt"}{d.angebotOffen.module.length ? " mit Modulen" : ""}: {euro(d.angebotOffen.einmalig)} netto einmalig und {euro(d.angebotOffen.monatlich)} netto Monatsbeitrag, Laufzeit 24 Monate ab Livegang. Alle Details stehen im Angebot bei Ihren Unterlagen.</p>
-          <input type="hidden" name="token" value={token} />
-          <label className="feld"><span>Ihr vollständiger Name</span><input name="name" autoComplete="name" required /></label>
-          <label className="haken" style={{ marginBottom: 12 }}>
-            <input type="checkbox" name="zustimmung" value="ja" required />
-            <span>Ich nehme das Angebot im Namen von {b.name} verbindlich an.</span>
-          </label>
-          <label className="haken" style={{ marginBottom: 16 }}>
-            <input type="checkbox" name="unternehmer" value="ja" required />
-            <span>Ich handle für den Betrieb, nicht als Verbraucher (§ 14 BGB). Es gelten die <a href={AGB_URL} target="_blank">AGB für Unternehmer</a>, Version {AGB_VERSION}.</span>
-          </label>
-          <button className="knopf haupt">Verbindlich annehmen</button>
-        </form>
+          <p className="leise">Unterschrieben wird beim Termin mit Daniel Lück: Er bringt die Verträge auf dem Tablet mit. Fragen vorab? Rufen Sie uns an.</p>
+        </section>
       ) : null}
 
       {d.abnahmeOffen ? (

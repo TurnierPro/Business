@@ -489,3 +489,19 @@ export const nachrichten = pgTable(
   },
   (t) => [uniqueIndex("nachrichten_extern").on(t.kanal, t.externeId)],
 );
+
+// Unterschriften unter Verträgen (Rahmenvertrag, Leistungsscheine), geleistet auf dem Tablet beim Termin.
+// Nachweis: Bild der Unterschrift, Name, Zeitpunkt, Prüfsumme des unterschriebenen Dokuments, wer das Tablet bedient hat.
+export const unterschriften = pgTable("unterschriften", {
+  id: serial("id").primaryKey(),
+  betriebId: integer("betrieb_id").notNull().references(() => betriebe.id, { onDelete: "cascade" }),
+  angebotId: integer("angebot_id").notNull(),
+  dokumentId: integer("dokument_id").notNull(),
+  rolle: text("rolle").notNull(), // kunde | levarex
+  name: text("name").notNull(),
+  funktion: text("funktion"),
+  bild: text("bild").notNull(), // data:image/png;base64,… (höchstens 300 KB)
+  pruefsumme: text("pruefsumme").notNull(), // SHA-256 der Vertragsdaten zum Zeitpunkt der Unterschrift
+  erfasstVon: text("erfasst_von").notNull(),
+  am: timestamp("am", { withTimezone: true }).defaultNow().notNull(),
+});

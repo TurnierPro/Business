@@ -9,7 +9,7 @@ import { PAKETE, PaketKey } from "../pakete";
 import { gebuchteModule } from "../bausteine";
 import { betrieb, sperrSchluessel } from "./gemeinsam";
 
-const AUFBEWAHREN = ["rechnung", "angebot", "auftragsbestaetigung", "abnahmeprotokoll"];
+const AUFBEWAHREN = ["rechnung", "angebot", "auftragsbestaetigung", "abnahmeprotokoll", "rahmenvertrag", "leistungsschein_erstellung", "leistungsschein_betrieb"];
 
 // Betroffenenrechte (Art. 15 und 17 DSGVO) und Verzeichnis der Verarbeitungen als Auftragsverarbeiter (Art. 30 Abs. 2).
 
@@ -17,12 +17,13 @@ const AUFBEWAHREN = ["rechnung", "angebot", "auftragsbestaetigung", "abnahmeprot
 export async function datenauskunft(betriebId: number, wer: string) {
   const db = await getDb();
   const b = await betrieb(betriebId);
-  const [kontakte, aktivitaeten, tickets, zeiten, nachrichten] = await Promise.all([
+  const [kontakte, aktivitaeten, tickets, zeiten, nachrichten, unterschriften] = await Promise.all([
     db.select().from(schema.kontakte).where(eq(schema.kontakte.betriebId, betriebId)),
     db.select().from(schema.aktivitaeten).where(eq(schema.aktivitaeten.betriebId, betriebId)),
     db.select().from(schema.tickets).where(eq(schema.tickets.betriebId, betriebId)),
     db.select().from(schema.zeiten).where(eq(schema.zeiten.betriebId, betriebId)),
     db.select().from(schema.nachrichten).where(eq(schema.nachrichten.betriebId, betriebId)),
+    db.select({ name: schema.unterschriften.name, funktion: schema.unterschriften.funktion, rolle: schema.unterschriften.rolle, dokumentId: schema.unterschriften.dokumentId, am: schema.unterschriften.am, pruefsumme: schema.unterschriften.pruefsumme }).from(schema.unterschriften).where(eq(schema.unterschriften.betriebId, betriebId)),
   ]);
   const [termine, angebote, projekte, rechnungen, dokumente, post, anfragen, verlauf] = await Promise.all([
     db.select().from(schema.termine).where(eq(schema.termine.betriebId, betriebId)),
@@ -45,6 +46,8 @@ export async function datenauskunft(betriebId: number, wer: string) {
     tickets,
     zeiten,
     nachrichten,
+    // Bild der Unterschrift steht in den Vertrags-PDFs; hier nur die Angaben dazu
+    unterschriften,
     termine: termine.map(({ audioPfad, ...t }) => ({ ...t, aufnahmeGespeichert: !!audioPfad })),
     angebote,
     projekte: projekte.map(({ portalToken: _t, ...p }) => p),
