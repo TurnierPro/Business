@@ -2,6 +2,7 @@
 
 - Firma: Levarex Consulting GmbH i. G., Sitz Stutensee. In Texten immer „Maximilian“, nie „Max“. Logos nur aus `brand/logos` (Originaldateien), nie nachzeichnen. Bauplan: `docs/bauplan-levarex-os.md`.
 
+- Zusätzliche Skills (UI UX Pro Max, Impeccable, Taste, Archify, Ponytail, Agent Skills, ECC-Auswahl) liegen in `.claude/skills`; Herkunft und Vorrang in `.claude/skills/HERKUNFT.md`. Marke und diese Datei gehen vor.
 - Maximilian lernt programmieren. Erkläre jeden Schritt kurz und in einfachen Worten, auf Deutsch.
 - Code, Kommentare und Oberfläche auf Deutsch (Bezeichner wie `betrieb`, `freigeben`, `postausgang`).
 - Grundregel: Nichts verlässt das System ohne Freigabe im Postausgang (`src/lib/ablauf/postausgang.ts`). Kein neuer Versandweg an dieser Tür vorbei.
