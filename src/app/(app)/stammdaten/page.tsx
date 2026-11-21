@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { brauchtBenutzer, darf } from "@/lib/auth";
 import { geaendert, katalogLaden, paketDaten } from "@/lib/katalog-db";
 import { euro, type PaketKey } from "@/lib/pakete";
@@ -16,27 +15,23 @@ function Zuruecksetzen({ art, k }: { art: string; k: string }) {
   return <form action={katalogZuruecksetzen}><input type="hidden" name="art" value={art} /><input type="hidden" name="key" value={k} /><button className="knopf klein">Zurücksetzen</button></form>;
 }
 
-export default async function Stammdaten({ searchParams }: { searchParams: Promise<{ bereich?: string }> }) {
+export default async function Stammdaten() {
   const ich = await brauchtBenutzer();
   const admin = darf(ich, "verwalten");
-  const { bereich = "pakete" } = await searchParams;
   const k = await katalogLaden();
   const anders = await geaendert();
-  const reiter = [["pakete", "Webauftritt"], ["module", "Module"], ["zusaetze", "Zusatzmodule und Vorab"]];
   return (
     <>
       <div className="kopfzeile"><div><h1>Katalog</h1><p>Der Baukasten für den Angebots-Konfigurator: Webauftritt, Module, Zusatzmodule. Jeder Baustein als „Das Problem“ und fünf Punkte. Änderungen gelten für neue Angebote; verschickte Angebote bleiben unverändert.{admin ? "" : " Nur Admins können ändern."}</p></div></div>
-      <nav className="knopfreihe" aria-label="Katalog" style={{ marginBottom: 16 }}>
-        {reiter.map(([key, name]) => <Link key={key} href={`/stammdaten?bereich=${key}`} className="knopf klein" aria-current={bereich === key ? "page" : undefined} style={bereich === key ? { borderColor: "var(--akzent)" } : { color: "var(--leise)" }}>{name}</Link>)}
-      </nav>
+      <p className="leise klein">Karte antippen zum Bearbeiten.</p>
 
-      {bereich === "pakete" ? (
-        <section className="karte" style={{ padding: 0 }}>
+      <h2 className="katalog-titel">Webauftritt</h2>
+      <section className="katalog-raster">
           {(Object.keys(k.pakete) as PaketKey[]).map((key) => {
             const p = paketDaten(key);
             return (
-              <details key={key} className="zeile-aufklappen">
-                <summary><span><b>{p.name}</b> {p.aktiv === false ? <span className="status">ausgeblendet</span> : null}<br /><span className="mono klein leise">{euro(p.einmalig)} + {euro(p.monatlich)}/Monat · online {p.wochen} Wochen nach Inhalten</span></span><Abweichung an={anders.has(`paket:${key}`)} /></summary>
+              <details key={key} className="zeile-aufklappen katalog-karte">
+                <summary><span><b>{p.name}</b> {p.aktiv === false ? <span className="status">ausgeblendet</span> : null}<br /><span className="mono klein leise">{euro(p.einmalig)} + {euro(p.monatlich)}/Monat · online {p.wochen} Wochen nach Inhalten</span><span className="problem">{p.problem}</span><ul className="punkte">{p.inhalt.map((x) => <li key={x}>{x}</li>)}</ul></span><Abweichung an={anders.has(`paket:${key}`)} /></summary>
                 <form action={paketSpeichern} className="inhalt">
                   <fieldset disabled={!admin} style={{ border: 0, padding: 0, margin: 0 }}>
                     <input type="hidden" name="key" value={key} />
@@ -61,14 +56,13 @@ export default async function Stammdaten({ searchParams }: { searchParams: Promi
               </details>
             );
           })}
-        </section>
-      ) : null}
+      </section>
 
-      {bereich === "module" ? (
-        <section className="karte" style={{ padding: 0 }}>
+      <h2 className="katalog-titel">Module</h2>
+      <section className="katalog-raster">
           {[...k.module, null].map((m) => (
-            <details key={m?.key ?? "neu"} className="zeile-aufklappen">
-              <summary>{m ? <><span><b>{m.name}</b> {m.aktiv === false ? <span className="status">ausgeblendet</span> : null}<br /><span className="mono klein leise">{m.einmalig === null ? "Preis individuell" : `${euro(m.einmalig)} + ${euro(m.monatlich)}/Monat`}{m.stufe === 2 ? " · nach Prozess-Check" : ""}</span></span><Abweichung an={anders.has(`modul:${m.key}`)} /></> : <span className="akzent">+ Neues Modul anlegen</span>}</summary>
+            <details key={m?.key ?? "neu"} className="zeile-aufklappen katalog-karte">
+              <summary>{m ? <><span><b>{m.name}</b> {m.aktiv === false ? <span className="status">ausgeblendet</span> : null}<br /><span className="mono klein leise">{m.einmalig === null ? "Preis individuell" : `${euro(m.einmalig)} + ${euro(m.monatlich)}/Monat`}{m.stufe === 2 ? " · nach Prozess-Check" : ""}</span>{m.problem ? <span className="problem">{m.problem}</span> : null}{m.punkte?.length ? <ul className="punkte">{m.punkte.map((x) => <li key={x}>{x}</li>)}</ul> : null}</span><Abweichung an={anders.has(`modul:${m.key}`)} /></> : <span className="akzent">+ Neues Modul anlegen</span>}</summary>
               <form action={modulSpeichern} className="inhalt">
                 <fieldset disabled={!admin} style={{ border: 0, padding: 0, margin: 0 }}>
                   <input type="hidden" name="key" value={m?.key ?? ""} />
@@ -93,14 +87,13 @@ export default async function Stammdaten({ searchParams }: { searchParams: Promi
               {admin && m && anders.has(`modul:${m.key}`) ? <div className="inhalt" style={{ paddingTop: 0 }}><Zuruecksetzen art="modul" k={m.key} /></div> : null}
             </details>
           ))}
-        </section>
-      ) : null}
+      </section>
 
-      {bereich === "zusaetze" ? (
-        <section className="karte" style={{ padding: 0 }}>
+      <h2 className="katalog-titel">Zusatzmodule und Vorab</h2>
+      <section className="katalog-raster">
           {[...k.zusaetze, null].map((z) => (
-            <details key={z?.key ?? "neu"} className="zeile-aufklappen">
-              <summary>{z ? <><span><b>{z.name}</b> {z.aktiv === false ? <span className="status">ausgeblendet</span> : null}<br /><span className="mono klein leise">{z.individuell ? "Festpreis nach Prozess-Check" : `${euro(z.einmalig)}${z.monatlich ? ` + ${euro(z.monatlich)}/Monat` : ""}`}</span></span><Abweichung an={anders.has(`zusatz:${z.key}`)} /></> : <span className="akzent">+ Neues Zusatzmodul anlegen</span>}</summary>
+            <details key={z?.key ?? "neu"} className="zeile-aufklappen katalog-karte">
+              <summary>{z ? <><span><b>{z.name}</b> {z.aktiv === false ? <span className="status">ausgeblendet</span> : null}<br /><span className="mono klein leise">{z.individuell ? "Festpreis nach Prozess-Check" : `${euro(z.einmalig)}${z.monatlich ? ` + ${euro(z.monatlich)}/Monat` : ""}`}</span>{z.text ? <span className="problem">{z.text}</span> : null}</span><Abweichung an={anders.has(`zusatz:${z.key}`)} /></> : <span className="akzent">+ Neues Zusatzmodul anlegen</span>}</summary>
               <form action={zusatzSpeichern} className="inhalt">
                 <fieldset disabled={!admin} style={{ border: 0, padding: 0, margin: 0 }}>
                   <input type="hidden" name="key" value={z?.key ?? ""} />
@@ -117,8 +110,7 @@ export default async function Stammdaten({ searchParams }: { searchParams: Promi
               {admin && z && anders.has(`zusatz:${z.key}`) ? <div className="inhalt" style={{ paddingTop: 0 }}><Zuruecksetzen art="zusatz" k={z.key} /></div> : null}
             </details>
           ))}
-        </section>
-      ) : null}
+      </section>
     </>
   );
 }

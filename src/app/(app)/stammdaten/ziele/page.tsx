@@ -21,20 +21,27 @@ export default async function Ziele() {
       </div>
       <form action={sollSpeichern} className="karte abstand" style={{ padding: 0 }}>
         <fieldset disabled={!admin} style={{ border: 0, padding: 0, margin: 0 }}>
-          <table className="tabelle">
-            <thead><tr><th>Monat</th><th className="zahl">Soll-Umsatz (€)</th><th className="zahl">Aufträge</th><th className="zahl weg-mobil">Business Case</th></tr></thead>
-            <tbody>
-              {soll.map((s) => (
-                <tr key={s.monat}>
-                  <td>{name(s.monat)}{s.geaendert ? <span className="marke-klein" style={{ marginLeft: 6, borderColor: "var(--akzent)", color: "var(--akzent)" }}>geändert</span> : null}<input type="hidden" name="monat" value={s.monat} /></td>
-                  <td className="zahl"><input name={`umsatz-${s.monat}`} inputMode="decimal" defaultValue={(s.umsatz / 100).toLocaleString("de-DE", { maximumFractionDigits: 0 })} aria-label={`Soll-Umsatz ${name(s.monat)}`} style={{ maxWidth: 140, textAlign: "right" }} className="mono" /></td>
-                  <td className="zahl"><input name={`auftraege-${s.monat}`} type="number" min={0} max={999} defaultValue={s.auftraege} aria-label={`Aufträge ${name(s.monat)}`} style={{ maxWidth: 80, textAlign: "right" }} className="mono" /></td>
-                  <td className="zahl weg-mobil leise klein">{euro(s.vorgabe.umsatz)} · {s.vorgabe.auftraege}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          <div style={{ padding: 16 }}><button className="knopf haupt">Speichern</button> <span className="leise klein">Werte gleich dem Business Case gelten wieder als Vorgabe.</span></div>
+          <div className="finanz-raster" style={{ gridTemplateColumns: "repeat(2, minmax(0, 1fr))", padding: "8px 24px 0", gap: 32 }}>
+            {[0, 1].map((h) => (
+              <div key={h}>
+                <h3 style={{ margin: "12px 0 4px" }}>Jahr {h + 1} · Dez {2026 + h} bis Nov {2027 + h}</h3>
+                <table className="tabelle">
+                  <thead><tr><th>Monat</th><th className="zahl">Soll-Umsatz (€)</th><th className="zahl">Aufträge</th><th className="zahl weg-mobil">Business Case</th></tr></thead>
+                  <tbody>
+                    {soll.slice(h * 12, h * 12 + 12).map((s) => (
+                      <tr key={s.monat}>
+                        <td>{name(s.monat)}{s.geaendert ? <span className="marke-klein" style={{ marginLeft: 6, borderColor: "var(--akzent)", color: "var(--akzent)" }}>geändert</span> : null}<input type="hidden" name="monat" value={s.monat} /></td>
+                        <td className="zahl"><input name={`umsatz-${s.monat}`} inputMode="decimal" defaultValue={(s.umsatz / 100).toLocaleString("de-DE", { maximumFractionDigits: 0 })} aria-label={`Soll-Umsatz ${name(s.monat)}`} style={{ maxWidth: 130, height: 38, textAlign: "right" }} className="mono" /></td>
+                        <td className="zahl"><input name={`auftraege-${s.monat}`} type="number" min={0} max={999} defaultValue={s.auftraege} aria-label={`Aufträge ${name(s.monat)}`} style={{ maxWidth: 74, height: 38, textAlign: "right" }} className="mono" /></td>
+                        <td className="zahl weg-mobil leise klein">{euro(s.vorgabe.umsatz)} · {s.vorgabe.auftraege}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ))}
+          </div>
+          <div style={{ padding: "16px 24px 20px" }}><button className="knopf haupt">Speichern</button> <span className="leise klein">Werte gleich dem Business Case gelten wieder als Vorgabe.</span></div>
         </fieldset>
       </form>
     </>

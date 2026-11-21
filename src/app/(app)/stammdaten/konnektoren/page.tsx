@@ -37,7 +37,7 @@ export default async function Konnektoren() {
         return (
           <section key={kat} className="abstand">
             <h2>{kat}</h2>
-            <div className="raster zwei" style={{ alignItems: "start" }}>
+            <div className="raster konnektoren" style={{ alignItems: "start" }}>
               {teil.map((k) => (
                 <details key={k.key} className="karte">
                   <summary style={{ cursor: "pointer", listStyle: "none" }}>
