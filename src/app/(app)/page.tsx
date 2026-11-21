@@ -94,13 +94,13 @@ export default async function ZuTun() {
       {!nichts ? (
         <div className="auf-einen-blick" style={{ marginBottom: 16 }} aria-label="Überblick">
           {[
+            { id: "aufgaben", etikett: "Mein Tag", n: meineAufgaben.length, unter: "Aufgaben heute" },
+            { id: "aufgaben", etikett: "Besuche", n: besuche.length, unter: "fällig" },
             { id: "freigeben", etikett: "Freigeben", n: freigaben.length, unter: "wartet auf dein OK" },
-            { id: "aufgaben", etikett: "Deine Aufgaben", n: meineAufgaben.length, unter: "heute fällig" },
             { id: "einstufen", etikett: "Einstufen", n: neueLeads.length, unter: "neue Leads" },
-            { id: "besuche", etikett: "Besuche", n: besuche.length, unter: "fällig" },
             { id: "tickets", etikett: "Tickets", n: tickets.length, unter: "von Kunden offen" },
           ].map((k) => (
-            <a key={k.id} className="blick" href={k.n ? `#${k.id}` : undefined} aria-disabled={!k.n} style={k.n ? undefined : { opacity: 0.55 }}>
+            <a key={k.etikett} className="blick" href={k.n ? `#${k.id}` : undefined} aria-disabled={!k.n} style={k.n ? undefined : { opacity: 0.55 }}>
               <span className="etikett">{k.etikett}</span>
               <span className="wert" style={{ fontFamily: "var(--mono)", fontSize: 26 }}>{k.n}</span>
               <span className="unter">{k.unter}</span>
@@ -110,6 +110,24 @@ export default async function ZuTun() {
       ) : null}
 
       <div className="raster" style={{ gap: 16 }}>
+
+      <section className="karte mein-tag" id="aufgaben" aria-labelledby="meintag">
+        <div className="kopfzeile" style={{ marginBottom: 4 }}>
+          <h2 id="meintag" style={{ margin: 0 }}>Mein Tag <span className="anzahl-pille">{meineAufgaben.length + besuche.length}</span></h2>
+          <Link className="knopf klein" href="/aufgaben">Alle Aufgaben</Link>
+        </div>
+        <p className="leise klein" style={{ marginBottom: 8 }}>Heute fällig: Aufgaben, Rückrufe und Besuche vor Ort. Abhaken, wenn erledigt; „Morgen“ schiebt um einen Tag.</p>
+        {meineAufgaben.length ? <AufgabenListe eintraege={meineAufgaben} zurueck="/" /> : <p className="leise">Heute keine Aufgaben.</p>}
+        {besuche.length ? (
+          <>
+            <h3 style={{ margin: "16px 0 4px" }}>Besuche fällig</h3>
+            <ul className="liste">
+              {besuche.map((l) => <li key={l.id}><div style={{ flex: 1 }}><div className="titel">{l.name}</div><div className="unter">{l.strasse}, {l.plz} {l.ort}</div></div><Link className="knopf klein" href={`/leads/${l.id}?tab=aktivitaeten`}>Messbogen</Link></li>)}
+            </ul>
+            <p className="klein" style={{ marginTop: 8 }}><Link href="/leads/besuche">Besuchsplan nach Ort</Link></p>
+          </>
+        ) : null}
+      </section>
 
       {freigaben.length ? (
         <Block id="freigeben" titel="Freigeben" zahl={freigaben.length} erklaerung="Alles, was an Kunden geht (Briefe, Angebote, Rechnungen, Mails), wartet hier auf dein OK. Öffnen, Vorschau und Hinweise der Qualitätskontrolle lesen, dann freigeben, ändern oder ablehnen." mehr={freigaben.length > 5 ? { href: "/freigaben", text: "Alle anzeigen" } : undefined}>
@@ -124,11 +142,6 @@ export default async function ZuTun() {
         </Block>
       ) : null}
 
-      {meineAufgaben.length ? (
-        <Block id="aufgaben" titel="Deine Aufgaben heute" zahl={meineAufgaben.length} erklaerung="Abhaken, wenn erledigt; „Morgen“ schiebt die Aufgabe um einen Tag." mehr={{ href: "/aufgaben", text: "Alle Aufgaben" }}>
-          <AufgabenListe eintraege={meineAufgaben} zurueck="/" />
-        </Block>
-      ) : null}
 
       {neueLeads.length ? (
         <Block id="einstufen" titel="Leads einstufen" zahl={neueLeads.length} erklaerung="„Interessant“ startet automatisch Online-Check, Demo-Seite und Akquise-Brief (zur Freigabe)." mehr={neueLeads.length > 5 ? { href: "/leads?status=neu", text: "Alle neuen" } : undefined}>
@@ -140,13 +153,6 @@ export default async function ZuTun() {
         </Block>
       ) : null}
 
-      {besuche.length ? (
-        <Block id="besuche" titel="Besuche fällig" zahl={besuche.length} erklaerung="Der Brief ist seit einer Woche da. Jetzt vorbeigehen, Demo zeigen, danach den Messbogen ausfüllen." mehr={{ href: "/leads/besuche", text: "Besuchsplan" }}>
-          <ul className="liste">
-            {besuche.map((l) => <li key={l.id}><div style={{ flex: 1 }}><div className="titel">{l.name}</div><div className="unter">{l.strasse}, {l.plz} {l.ort}</div></div><Link className="knopf klein" href={`/leads/${l.id}`}>Öffnen</Link></li>)}
-          </ul>
-        </Block>
-      ) : null}
 
       {unbekannt.length ? (
         <Block titel="Nachrichten ohne Betrieb" zahl={unbekannt.length} erklaerung="Absender nicht erkannt (unbekannte Mail-Adresse oder Nummer). Betrieb wählen, dann entstehen Aufgabe und Antwortentwurf. Ohne Zuordnung werden sie nach 90 Tagen gelöscht.">

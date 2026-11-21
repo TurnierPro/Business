@@ -39,6 +39,7 @@ export const REGELN: Regel[] = [
   { name: "Erinnerungen und Mahnungen (täglich 8 Uhr)", art: "zahlungserinnerungen", faellig: taeglichAb(8) },
   { name: "Abnahme nach Fristablauf (täglich 5 Uhr)", art: "abnahmefiktion", faellig: taeglichAb(5) },
   { name: "Lieferfristen (täglich 6 Uhr)", art: "lieferfristen", faellig: taeglichAb(6) },
+  { name: "Geburtstage vormerken (täglich 6 Uhr)", art: "geburtstage", faellig: taeglichAb(6) },
   { name: "Vertragsende (täglich 5 Uhr)", art: "vertragsende", faellig: taeglichAb(5) },
   { name: "Monatsreports für Kunden (Monatsanfang)", art: "monatsreports", faellig: monatsanfangAb(7) },
   { name: "Bericht an Steuerberater (Quartalsanfang)", art: "steuerberater", faellig: monatsanfangAb(8, true) },

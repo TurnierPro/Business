@@ -128,3 +128,22 @@ export async function besuchsplan(jetzt = new Date()) {
   }
   return [...gruppen.entries()].sort((a, b) => b[1].length - a[1].length || a[0].localeCompare(b[0])).map(([ort, betriebe]) => ({ ort, betriebe }));
 }
+
+/**
+ * Agent (täglich): Geburtstage der Inhaber in 3 Tagen als Aufgabe für den Vertrieb (Karte oder Anruf).
+ * Nichts wird automatisch verschickt; eine Mail nur mit Einwilligung des Inhabers. Zweck des Geburtsdatums: dieser Gruß.
+ */
+export async function geburtstage(jetzt = new Date(), vorlaufTage = 3): Promise<string> {
+  const db = await getDb();
+  const ziel = new Date(jetzt.getTime() + vorlaufTage * 864e5);
+  const mmtt = `${String(ziel.getMonth() + 1).padStart(2, "0")}-${String(ziel.getDate()).padStart(2, "0")}`;
+  const alle = await db.select().from(schema.betriebe).where(inArray(schema.betriebe.status, ["neu", "interessant", "angeschrieben", "termin", "angebot", "kunde"]));
+  let n = 0;
+  for (const b of alle) {
+    if (!b.inhaberGeburtsdatum || b.inhaberGeburtsdatum.slice(5) !== mmtt) continue;
+    if (await istGesperrt(b.id)) continue;
+    await systemAufgabe({ betriebId: b.id, titel: `Geburtstag ${b.inhaber ?? "des Inhabers"} am ${ziel.toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit" })}`, text: "Karte schicken oder kurz anrufen. Keine Werbung im Gruß.", inTagen: vorlaufTage, zustaendig: b.zustaendig ?? VERTRIEB });
+    n++;
+  }
+  return `${n} Geburtstage vorgemerkt`;
+}

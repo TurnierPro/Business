@@ -29,7 +29,7 @@ export function BetriebFelder({ b = {} }: { b?: B }) {
             </label>
             <label className="feld"><span>Inhaber <em>optional</em></span><input name="inhaber" defaultValue={b.inhaber ?? ""} placeholder="Vorname Nachname" /></label>
           </div>
-          <label className="feld"><span>Geburtsdatum Inhaber <em>optional</em></span><input name="geburtsdatum" type="date" defaultValue={b.inhaberGeburtsdatum ?? ""} max={new Date().toISOString().slice(0, 10)} /><small>Nur, wenn der Inhaber es uns selbst gibt.</small></label>
+          <label className="feld"><span>Geburtsdatum Inhaber <em>optional</em></span><input name="geburtsdatum" type="date" defaultValue={b.inhaberGeburtsdatum ?? ""} max={new Date().toISOString().slice(0, 10)} /><small>Nur, wenn der Inhaber es uns selbst gibt. Dient nur dem Geburtstagsgruß (Aufgabe 3 Tage vorher).</small></label>
           <label className="feld"><span>Telefon <em>optional</em></span><input name="telefon" type="tel" defaultValue={b.telefon ?? ""} placeholder="0721 …" /></label>
           <label className="feld" style={{ gridColumn: "1 / -1" }}><span>E-Mail <em>optional</em></span><input name="email" type="email" defaultValue={b.email ?? ""} /><small>Nur, wenn der Betrieb sie uns gegeben hat. Kein Erstkontakt per E-Mail.</small></label>
         </div>

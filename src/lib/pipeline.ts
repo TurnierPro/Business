@@ -69,3 +69,51 @@ export async function stufeWechseln(id: number, ziel: string, wer: string): Prom
   await setzeStatus(id, ziel);
   await protokolliere(wer, `Pipeline: ${STUFEN.find((s) => s.key === b.status)?.name ?? b.status} → ${STUFEN.find((s) => s.key === ziel)?.name}`, id);
 }
+
+/** Kundenspalten nach „Angebot“: wo jedes Kundenprojekt gerade steht (nur zum Ansehen, sie wandern von selbst weiter). */
+export const KUNDEN_STUFEN = [
+  { key: "k_anzahlung", name: "Unterschrieben" },
+  { key: "k_inhalte", name: "Inhalte" },
+  { key: "k_bau", name: "Bau und Vorschau" },
+  { key: "k_abnahme", name: "Abnahme" },
+  { key: "k_live", name: "Live" },
+] as const;
+
+export async function kundenSpalten() {
+  const db = await getDb();
+  const kunden = await db.select().from(schema.betriebe).where(eq(schema.betriebe.status, "kunde"));
+  const ids = kunden.map((k) => k.id);
+  const [projekte, angebote] = ids.length
+    ? await Promise.all([
+        db.select().from(schema.projekte).where(inArray(schema.projekte.betriebId, ids)).orderBy(desc(schema.projekte.erstelltAm)),
+        db.select().from(schema.angebote).where(inArray(schema.angebote.betriebId, ids)).orderBy(desc(schema.angebote.erstelltAm)),
+      ])
+    : [[], []];
+  const spalteVon = (p: (typeof projekte)[number] | undefined) => {
+    if (!p) return "k_anzahlung";
+    if (p.status === "inhalte") return "k_inhalte";
+    if (p.status === "bau" || p.status === "pruefung") return "k_bau";
+    if (p.status === "bereit") return p.abnahmeStatus === "offen" || ["abgenommen", "vorbehalt", "fiktion"].includes(p.abnahmeStatus ?? "") ? "k_abnahme" : "k_bau";
+    return "k_live";
+  };
+  return KUNDEN_STUFEN.map((s) => {
+    const karten = kunden
+      .map((b) => ({ b, p: projekte.find((x) => x.betriebId === b.id), a: angebote.find((x) => x.betriebId === b.id) }))
+      .filter((x) => spalteVon(x.p) === s.key)
+      .map(({ b, p, a }) => ({
+        id: b.id,
+        name: b.name,
+        ort: b.ort,
+        gewerk: b.gewerk,
+        wert: a?.einmalig ?? 0,
+        geschaetzt: false,
+        tageOhneAktivitaet: 0,
+        liegt: false,
+        zustaendig: b.zustaendig,
+        naechsteAufgabe: !p ? "erste Rate offen" : p.status === "pruefung" ? "Prüfung nicht bestanden" : p.abnahmeStatus === "offen" && p.abnahmeFrist ? `Abnahme bis ${p.abnahmeFrist.toLocaleDateString("de-DE")}` : p.liveAm ? `live seit ${p.liveAm.toLocaleDateString("de-DE")}` : null,
+        href: p ? `/projekte/${p.id}` : `/leads/${b.id}`,
+        monatlich: a?.monatlich ?? 0,
+      }));
+    return { key: s.key, name: s.name, summe: karten.reduce((x, k) => x + k.wert, 0), karten };
+  });
+}

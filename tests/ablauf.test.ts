@@ -942,3 +942,16 @@ test("Pipeline: Stufe per Ziehen ändern, Regeln für Kunde, Sperre und Interess
   await db.update(schema.betriebe).set({ status: "kunde" }).where(eq(schema.betriebe.id, id!));
   await assert.rejects(() => pl.stufeWechseln(id!, "angebot", "Daniel Lück"), /Kunden bleiben/);
 });
+
+test("Geburtstagsgruß: Aufgabe 3 Tage vorher, nichts wird verschickt", async () => {
+  const v = await import("../src/lib/ablauf/vertrieb");
+  const { id } = await akquise.legeBetriebAn({ name: "Geburtstag Test GmbH", gewerk: "SHK", score: 50, scoreGrund: "Test", website: "geburtstag-test.example", inhaber: "Paul Test" }, "Test", "Test");
+  await db.update(schema.betriebe).set({ inhaberGeburtsdatum: "1970-03-12" }).where(eq(schema.betriebe.id, id!));
+  const vorher = (await db.select().from(schema.postausgang)).length;
+  assert.match(await v.geburtstage(new Date("2027-03-09T08:00:00")), /^1 /);
+  assert.match(await v.geburtstage(new Date("2027-03-09T09:00:00")), /^1 /, "zweiter Lauf legt keine zweite Aufgabe an");
+  const aufg = (await db.select().from(schema.aktivitaeten).where(eq(schema.aktivitaeten.betriebId, id!))).filter((a) => a.titel.startsWith("Geburtstag"));
+  assert.equal(aufg.length, 1);
+  assert.match(aufg[0].titel, /Paul Test am 12\.03\./);
+  assert.equal((await db.select().from(schema.postausgang)).length, vorher, "nichts im Postausgang");
+});
