@@ -12,9 +12,12 @@ import { sollIst, sollwerte } from "@/lib/soll";
 export const metadata = { title: "Finanzen" };
 
 export default async function Finanzen({ searchParams }: { searchParams: Promise<{ z?: string }> }) {
-  const z = zeitraum((await searchParams).z);
-  const a = await auswertung(z);
+  // Standard: der laufende Monat (Monatsbasis); Quartal und Jahr wählbar
+  const jetzt = new Date();
+  const z = zeitraum((await searchParams).z ?? `${jetzt.getFullYear()}-${String(jetzt.getMonth() + 1).padStart(2, "0")}`);
   const jahr = z.von.getFullYear();
+  const [a, jahresWerte] = await Promise.all([auswertung(z), z.art === "jahr" ? null : auswertung(zeitraum(String(jahr)))]);
+  const jahresverlauf = (jahresWerte ?? a).proMonat;
   const quartal = Math.floor(z.von.getMonth() / 3) + 1;
   const monat = `${jahr}-${String(z.von.getMonth() + 1).padStart(2, "0")}`;
   const wahl = [
@@ -48,18 +51,31 @@ export default async function Finanzen({ searchParams }: { searchParams: Promise
         </div>
       </div>
 
-      <div className="knopfreihe" style={{ marginBottom: 16, justifyContent: "space-between" }}>
-        <div className="knopfreihe">
-          <Link className="knopf klein" href={`/finanzen?z=${nachbar(z, -1)}`} aria-label="Zeitraum davor">←</Link>
-          <b style={{ minWidth: 150, textAlign: "center" }}>{z.name}</b>
-          <Link className="knopf klein" href={`/finanzen?z=${nachbar(z, 1)}`} aria-label="Zeitraum danach">→</Link>
+      <section className="karte zeitwahl" aria-label="Zeitraum wählen">
+        <div className="knopfreihe" style={{ justifyContent: "space-between" }}>
+          <div className="knopfreihe">
+            <Link className="knopf klein" href={`/finanzen?z=${nachbar(z, -1)}`} aria-label="Zeitraum davor">←</Link>
+            <b style={{ minWidth: 170, textAlign: "center", fontSize: 18 }}>{z.name}</b>
+            <Link className="knopf klein" href={`/finanzen?z=${nachbar(z, 1)}`} aria-label="Zeitraum danach">→</Link>
+          </div>
+          <nav className="reiter" aria-label="Ansicht" style={{ margin: 0 }}>
+            {wahl.map((w) => <Link key={w.text} href={`/finanzen?z=${w.key}`} aria-current={w.aktiv ? "page" : undefined}>{w.text}</Link>)}
+          </nav>
         </div>
-        <nav className="knopfreihe" aria-label="Zeitraum">
-          {wahl.map((w) => (
-            <Link key={w.text} href={`/finanzen?z=${w.key}`} className="knopf klein" aria-current={w.aktiv ? "page" : undefined} style={w.aktiv ? { borderColor: "var(--akzent)" } : { color: "var(--leise)" }}>{w.text}</Link>
-          ))}
+        <nav className="monatsleiste" aria-label={`Monate ${jahr}`}>
+          {Array.from({ length: 12 }, (_, i) => {
+            const key = `${jahr}-${String(i + 1).padStart(2, "0")}`;
+            const werte = jahresverlauf.find((m) => m.monat === key);
+            const aktiv = z.art === "monat" && z.monate[0] === key;
+            return (
+              <Link key={key} href={`/finanzen?z=${key}`} aria-current={aktiv ? "page" : undefined} className={z.monate.includes(key) ? "im" : ""}>
+                <span>{monatName(key).slice(0, 3)}</span>
+                <span className="mono klein">{werte && (werte.umsatz || werte.ausgaben) ? euro(werte.umsatz - werte.ausgaben).replace(",00", "") : "–"}</span>
+              </Link>
+            );
+          })}
         </nav>
-      </div>
+      </section>
 
       <section className="karte" style={{ marginBottom: 16 }}>
         <div className="kopfzeile" style={{ marginBottom: 8 }}><h2 style={{ margin: 0 }}>Soll und Ist</h2><Link className="klein" href="/stammdaten/ziele">Soll anpassen</Link></div>
@@ -76,7 +92,7 @@ export default async function Finanzen({ searchParams }: { searchParams: Promise
 
       {a.zuPruefen ? <div className="hinweis">{a.zuPruefen} Beleg{a.zuPruefen > 1 ? "e" : ""} vom Beleg-Agenten ausgelesen. Bitte prüfen und bestätigen.</div> : null}
 
-      <div className="raster drei">
+      <div className="raster sechs">
         {kacheln.map((k) => (
           <div key={k.name} className="kennzahl">
             <div className="wert" style={k.akzent ? { color: k.wert < 0 ? "var(--fehler)" : "var(--akzent)" } : undefined}>{euro(k.wert)}</div>
@@ -95,53 +111,36 @@ export default async function Finanzen({ searchParams }: { searchParams: Promise
         </section>
       ) : null}
 
-      <section className="karte abstand">
-        <h2>Umsatz und Ausgaben je Monat</h2>
-        <div dangerouslySetInnerHTML={{ __html: umsatzDiagramm(a.proMonat.map((m) => ({ name: monatName(m.monat), umsatz: m.umsatz, ausgaben: m.ausgaben })), FARBEN_DUNKEL) }} />
+      <div className="finanz-raster abstand">
+      <section className="karte">
+        <h2>Umsatz und Ausgaben je Monat {jahr}</h2>
+        <div dangerouslySetInnerHTML={{ __html: umsatzDiagramm(jahresverlauf.map((m) => ({ name: monatName(m.monat), umsatz: m.umsatz, ausgaben: m.ausgaben })), FARBEN_DUNKEL) }} />
         <details style={{ marginTop: 8 }}>
           <summary className="leise klein" style={{ cursor: "pointer" }}>Als Tabelle</summary>
           <table className="tabelle"><thead><tr><th>Monat</th><th className="zahl">Umsatz</th><th className="zahl">Ausgaben</th><th className="zahl">Ergebnis</th></tr></thead>
-            <tbody>{a.proMonat.map((m) => <tr key={m.monat}><td>{monatName(m.monat)}</td><td className="zahl">{euro(m.umsatz)}</td><td className="zahl">{euro(m.ausgaben)}</td><td className="zahl">{euro(m.umsatz - m.ausgaben)}</td></tr>)}</tbody>
+            <tbody>{jahresverlauf.map((m) => <tr key={m.monat}><td>{monatName(m.monat)}</td><td className="zahl">{euro(m.umsatz)}</td><td className="zahl">{euro(m.ausgaben)}</td><td className="zahl">{euro(m.umsatz - m.ausgaben)}</td></tr>)}</tbody>
           </table>
         </details>
       </section>
-
-      <div className="raster zwei abstand" style={{ alignItems: "start" }}>
-        <section className="karte">
-          <h2>Ausgaben nach Kategorie</h2>
-          <p className="leise klein">Plan = Fixkosten aus dem Business Case (3.900 € im Monat).</p>
-          <table className="tabelle">
-            <thead><tr><th>Kategorie</th><th className="zahl">Plan</th><th className="zahl">Ist</th></tr></thead>
-            <tbody>
-              {a.proKategorie.map((k) => (
-                <tr key={k.key}>
-                  <td>{k.name}</td>
-                  <td className="zahl leise">{k.plan ? euro(k.plan) : "–"}</td>
-                  <td className="zahl" style={k.plan && k.ist > k.plan ? { color: "var(--fehler)" } : undefined}>{euro(k.ist)}{k.plan && k.ist > k.plan ? " ▲" : ""}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </section>
-
-        <section className="karte">
-          <h2>Umsatzsteuer und Steuerberater</h2>
-          <dl className="daten">
-            <dt>USt eingenommen</dt><dd className="mono">{euro(a.ustEinnahmen)}</dd>
-            <dt>Vorsteuer</dt><dd className="mono">{euro(a.vorsteuer)}</dd>
-            <dt>Zahllast</dt><dd className="mono"><b>{euro(a.ustZahllast)}</b></dd>
-          </dl>
-          <p className="leise klein" style={{ marginTop: 12 }}>Ist-Versteuerung: Umsatzsteuer zählt, wenn das Geld da ist.</p>
-          <div className="knopfreihe" style={{ marginTop: 16 }}>
-            <a className="knopf klein" href={`/finanzen-datei/export?z=${z.key}&art=einnahmen`}>Einnahmen als CSV</a>
-            <a className="knopf klein" href={`/finanzen-datei/export?z=${z.key}&art=ausgaben`}>Ausgaben als CSV</a>
-            <form action={berichtVorbereiten}><button className="knopf klein">Bericht an Steuerberater vorbereiten</button></form>
-          </div>
-          <p className="leise klein" style={{ marginTop: 8 }}>Der Bericht geht durch Qualitätskontrolle und Freigabe. Automatisch passiert das zu jedem Quartalsanfang.</p>
-        </section>
+      <section className="karte">
+        <h2>Ausgaben nach Kategorie</h2>
+        <p className="leise klein">Plan = Fixkosten aus dem Business Case (3.900 € im Monat).</p>
+        <table className="tabelle">
+          <thead><tr><th>Kategorie</th><th className="zahl">Plan</th><th className="zahl">Ist</th></tr></thead>
+          <tbody>
+            {a.proKategorie.map((k) => (
+              <tr key={k.key}>
+                <td>{k.name}</td>
+                <td className="zahl leise">{k.plan ? euro(k.plan) : "–"}</td>
+                <td className="zahl" style={k.plan && k.ist > k.plan ? { color: "var(--fehler)" } : undefined}>{euro(k.ist)}{k.plan && k.ist > k.plan ? " ▲" : ""}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </section>
       </div>
-
-      <section className="karte abstand">
+      <div className="finanz-raster abstand">
+      <section className="karte">
         <h2>Rechnungen im Zeitraum</h2>
         {a.rechnungen.length ? (
           <table className="tabelle">
@@ -161,6 +160,22 @@ export default async function Finanzen({ searchParams }: { searchParams: Promise
           </table>
         ) : <p className="leise">Keine Rechnungen in diesem Zeitraum.</p>}
       </section>
+      <section className="karte">
+        <h2>Umsatzsteuer und Steuerberater</h2>
+        <dl className="daten">
+          <dt>USt eingenommen</dt><dd className="mono">{euro(a.ustEinnahmen)}</dd>
+          <dt>Vorsteuer</dt><dd className="mono">{euro(a.vorsteuer)}</dd>
+          <dt>Zahllast</dt><dd className="mono"><b>{euro(a.ustZahllast)}</b></dd>
+        </dl>
+        <p className="leise klein" style={{ marginTop: 12 }}>Ist-Versteuerung: Umsatzsteuer zählt, wenn das Geld da ist.</p>
+        <div className="knopfreihe" style={{ marginTop: 16 }}>
+          <a className="knopf klein" href={`/finanzen-datei/export?z=${z.key}&art=einnahmen`}>Einnahmen als CSV</a>
+          <a className="knopf klein" href={`/finanzen-datei/export?z=${z.key}&art=ausgaben`}>Ausgaben als CSV</a>
+          <form action={berichtVorbereiten}><button className="knopf klein">Bericht an Steuerberater vorbereiten</button></form>
+        </div>
+        <p className="leise klein" style={{ marginTop: 8 }}>Der Bericht geht durch Qualitätskontrolle und Freigabe. Automatisch passiert das zu jedem Quartalsanfang.</p>
+      </section>
+      </div>
 
       <section className="karte abstand">
         <div className="kopfzeile" style={{ marginBottom: 8 }}><h2>Ausgaben im Zeitraum</h2><Link className="knopf klein" href="/finanzen/ausgabe/neu">Ausgabe erfassen</Link></div>

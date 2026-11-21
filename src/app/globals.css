@@ -503,3 +503,18 @@ input[type="file"] { padding: 10px 12px; height: auto; }
 .freigabezeile { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.6fr) 130px 230px; }
 @media (max-width: 900px) { .freigabezeile { grid-template-columns: minmax(0, 1fr) auto; } .freigabezeile > .klein:not(.naechst) { display: none; } }
 .vorschau { height: calc(100vh - 260px); min-height: 640px; }
+
+/* Finanzen: Zeitraum und Monatsleiste */
+.raster.sechs { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+@media (max-width: 1300px) { .raster.sechs { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 700px) { .raster.sechs { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.zeitwahl { margin-bottom: 16px; display: grid; gap: 14px; }
+.monatsleiste { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 6px; }
+.monatsleiste a { display: grid; gap: 2px; text-align: center; padding: 8px 4px; border-radius: 12px; background: var(--grund); border: 1px solid var(--rand-weich); text-decoration: none; color: var(--leise); font-size: 14px; min-width: 0; }
+.monatsleiste a.im { color: var(--text); border-color: var(--rahmen); }
+.monatsleiste a[aria-current="page"] { background: var(--text); color: var(--grund); border-color: var(--text); }
+.monatsleiste a .klein { font-size: 11.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 900px) { .monatsleiste { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
+.finanz-raster { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+@media (max-width: 1100px) { .finanz-raster { grid-template-columns: 1fr; } }
+.raster.sechs .kennzahl .wert { font-size: clamp(18px, 1.55vw, 26px); white-space: nowrap; }
