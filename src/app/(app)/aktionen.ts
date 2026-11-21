@@ -464,8 +464,8 @@ export async function benutzerAendern(f: FormData) {
   }, "verwalten");
 }
 
-export async function zweiFaktorStarten() {
-  await ausfuehren("/einstellungen", "Code mit der App scannen und bestätigen", async () => {
+export async function zweiFaktorStarten(f?: FormData) {
+  await ausfuehren((f && text(f, "zurueck")) || "/einstellungen", "Code mit der App scannen und bestätigen", async () => {
     const ich = await brauchtBenutzer();
     const db = await getDb();
     // Geheimnis verschlüsselt speichern: ein Datenbank-Abzug allein reicht nicht für den zweiten Faktor
@@ -474,7 +474,7 @@ export async function zweiFaktorStarten() {
 }
 
 export async function zweiFaktorBestaetigen(f: FormData) {
-  await ausfuehren("/einstellungen", "Zwei-Faktor-Anmeldung ist aktiv", async (wer) => {
+  await ausfuehren(text(f, "weiter") || "/einstellungen", "Zwei-Faktor-Anmeldung ist aktiv", async (wer) => {
     const ich = await brauchtBenutzer();
     const db = await getDb();
     const [b] = await db.select().from(schema.benutzer).where(eq(schema.benutzer.id, ich.id));

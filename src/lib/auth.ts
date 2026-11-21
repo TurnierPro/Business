@@ -50,6 +50,9 @@ export const lokalerStart = () => {
   return !basis || /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?(\/|$)/.test(basis);
 };
 
+/** Zwei-Faktor ist Pflicht: auf dem Server kommt ohne eingerichtete App niemand ins System (lokal nur ein Hinweis). */
+export const zweiFaktorPflichtFehlt = (b: { totpAktiv: boolean }) => !b.totpAktiv && !lokalerStart();
+
 /** Auf dem Server muss das Start-Passwort gesetzt sein (nie das Übungs-Passwort aus dem Code). */
 export const startPasswortUnsicher = () => process.env.NODE_ENV === "production" && !lokalerStart() && (!process.env.LEVAREX_START_PASSWORT || process.env.LEVAREX_START_PASSWORT.length < 12);
 

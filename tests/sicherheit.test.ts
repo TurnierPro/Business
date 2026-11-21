@@ -372,3 +372,18 @@ test("Start-Passwort: Übungs-Passwort nur auf dem eigenen Rechner, nie auf eine
     if (vorher.PW !== undefined) env.LEVAREX_START_PASSWORT = vorher.PW;
   }
 });
+
+test("Zwei-Faktor ist Pflicht auf dem Server, auf dem eigenen Rechner nur ein Hinweis", async () => {
+  const { zweiFaktorPflichtFehlt } = await import("../src/lib/auth");
+  const env = process.env as Record<string, string | undefined>;
+  const vorher = env.BASE_URL;
+  try {
+    env.BASE_URL = "https://os.levarex-consulting.de";
+    assert.equal(zweiFaktorPflichtFehlt({ totpAktiv: false }), true, "Server ohne App: gesperrt bis zur Einrichtung");
+    assert.equal(zweiFaktorPflichtFehlt({ totpAktiv: true }), false);
+    env.BASE_URL = "http://localhost:3000";
+    assert.equal(zweiFaktorPflichtFehlt({ totpAktiv: false }), false, "lokal: nur Hinweis");
+  } finally {
+    if (vorher === undefined) delete env.BASE_URL; else env.BASE_URL = vorher;
+  }
+});
