@@ -243,3 +243,64 @@ dl.daten dd { margin: 0; }
 .mehr > summary::-webkit-details-marker { display: none; }
 .mehr-menue { position: absolute; right: 0; top: calc(100% + 6px); z-index: 10; background: var(--flaeche); border: 1px solid var(--rahmen); border-radius: 6px; padding: 8px; display: grid; gap: 6px; min-width: 220px; }
 .mehr-menue .knopf { width: 100%; justify-content: flex-start; }
+
+/* ---------- Kundenportal „Mein Levarex“: weicher und ruhiger als das OS ----------
+   Entscheidung Maximilian 21.11.2026: im Portal runde Ecken statt Radius 0 (Abweichung von der Markenregel, nur Portal).
+   Weiter ohne Schatten und Verläufe; Tiefe entsteht über Flächen und Abstand. */
+.portal-seite { --r-karte: 18px; --r-feld: 12px; min-height: 100vh; }
+.portal-kopf { position: sticky; top: 0; z-index: 5; background: rgba(17, 20, 19, 0.92); backdrop-filter: blur(8px); border-bottom: 1px solid var(--linie); }
+.portal-kopf .innen { max-width: 880px; margin: 0 auto; padding: 14px 20px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.portal-kopf .etikett { font-family: var(--mono); font-size: 11.5px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--leise); }
+.portal { max-width: 880px; padding: 32px 20px 96px; display: grid; gap: 20px; }
+.portal .karte { border-radius: var(--r-karte); border-color: rgba(100, 107, 104, 0.35); padding: 24px 28px; }
+.portal .karte + .karte, .portal .abstand { margin-top: 0; }
+.portal .karte h2 { font-size: 19px; margin-bottom: 16px; }
+.portal .knopf, .portal button.knopf { border-radius: var(--r-feld); }
+.portal .knopf.klein { border-radius: 10px; }
+.portal .status { border-radius: 999px; padding: 3px 10px; }
+.portal .hinweis { border-radius: 14px; }
+.portal .feld input, .portal .feld select, .portal .feld textarea { border-radius: var(--r-feld); }
+.portal .liste > li { border-bottom-color: rgba(44, 50, 48, 0.8); flex-wrap: wrap; }
+.portal .tabelle th:first-child, .portal .tabelle td:first-child { padding-left: 0; }
+
+/* Kopfkarte: Begrüßung, Fortschritt, nächster Schritt */
+.portal-held { border-radius: 22px; padding: 28px; background: var(--flaeche); border: 1px solid rgba(100, 107, 104, 0.35); display: grid; gap: 18px; }
+.portal-held h1 { font-size: clamp(26px, 4vw, 34px); line-height: 1.15; font-stretch: 112%; }
+.portal-held .gruss { color: var(--leise); margin: 0; }
+.portal-held .stand { display: grid; gap: 8px; }
+.portal-held .stand-zeile { display: flex; justify-content: space-between; font-size: 14px; color: var(--leise); }
+.portal-held .stand-zeile b { color: var(--text); font-weight: 600; }
+.portal-balken { height: 10px; border-radius: 999px; background: var(--linie); overflow: hidden; }
+.portal-balken span { display: block; height: 100%; border-radius: 999px; background: var(--ok); }
+.portal-naechstes { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; background: var(--grund); border-radius: 16px; padding: 16px 18px; }
+.portal-naechstes .etikett { font-family: var(--mono); font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--leise); }
+.portal-naechstes .was { font-weight: 600; font-size: 17px; }
+
+/* Unterlagen als Kacheln */
+.portal-kacheln { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+.portal-kachel { display: grid; grid-template-columns: 40px 1fr; gap: 12px; align-items: center; padding: 14px; border-radius: 14px; background: var(--grund); border: 1px solid rgba(100, 107, 104, 0.3); color: inherit; text-decoration: none; transition: border-color 0.15s; min-width: 0; }
+.portal-kachel:hover, .portal-kachel:focus-visible { border-color: var(--akzent); }
+.portal-kachel .symbol { width: 40px; height: 40px; border-radius: 12px; background: var(--flaeche); display: grid; place-items: center; color: var(--leise); }
+.portal-kachel .titel { font-weight: 600; font-size: 15px; overflow-wrap: anywhere; }
+.portal-kachel .unter { font-size: 13px; color: var(--leise); overflow-wrap: anywhere; }
+
+/* Zeitstrahl im Portal weicher */
+.portal .fortschritt li { padding: 10px 0; }
+.portal .fortschritt .punkt { width: 34px; height: 34px; }
+.portal .fortschritt li:not(:last-child)::after { left: 16px; top: 46px; border-radius: 2px; }
+
+/* Ansprechpartner */
+.portal-personen { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+.portal-person { display: flex; gap: 12px; align-items: center; padding: 12px; border-radius: 14px; background: var(--grund); }
+.portal-person .initialen { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; background: var(--linie); font-weight: 600; font-family: var(--mono); font-size: 14px; flex: none; }
+.portal-fuss { max-width: 880px; margin: 0 auto; padding: 0 20px 48px; font-size: 13px; color: var(--leise); line-height: 1.7; }
+.portal-fuss a { color: var(--leise); }
+.portal-zwei { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start; }
+@media (max-width: 760px) {
+  .portal { padding: 20px 16px 72px; gap: 16px; }
+  .portal .karte { padding: 20px; }
+  .portal-held { padding: 22px 20px; border-radius: 18px; }
+  .portal-zwei { grid-template-columns: 1fr; }
+  .portal-kopf .etikett { display: none; }
+}
+@media (prefers-reduced-motion: reduce) { .portal-kachel { transition: none; } }

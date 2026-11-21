@@ -70,18 +70,47 @@ export default async function Kundenportal({ params, searchParams }: { params: P
   const k = mitBetreuung ? await kontingent(b.id) : null;
   const naechster = d.schritte.findIndex((s) => !s.erledigt);
   const offeneRechnungen = d.rechnungen.filter((r) => r.status === "offen");
+  const erledigt = d.schritte.filter((s) => s.erledigt).length;
+  const prozent = d.schritte.length ? Math.round((erledigt / d.schritte.length) * 100) : 0;
+  const stunde = Number(new Date().toLocaleString("de-DE", { hour: "numeric", hourCycle: "h23", timeZone: "Europe/Berlin" }));
+  const gruss = stunde < 11 ? "Guten Morgen" : stunde < 18 ? "Guten Tag" : "Guten Abend";
+  // Der wichtigste offene Schritt für den Kunden: zuerst, was er tun muss, sonst unser nächster Schritt
+  const handlung = d.angebotOffen
+    ? { was: "Angebot ansehen und annehmen", href: "#angebot", knopf: "Zum Angebot" }
+    : d.anzahlungOffen
+      ? { was: "Anzahlung bezahlen", href: `/portal/k/${token}/zahlen`, knopf: "Jetzt bezahlen" }
+      : d.inhalteOffen
+        ? { was: "Texte und Fotos hochladen", href: `/portal/${d.inhalteOffen.portalToken}`, knopf: "Inhalte hochladen" }
+        : d.abnahmeOffen
+          ? { was: `Website prüfen und abnehmen, bitte bis ${tag(d.abnahmeOffen.abnahmeFrist)}`, href: "#abnahme", knopf: "Zur Abnahme" }
+          : null;
 
   return (
     <>
-      <h1>{b.name}</h1>
-      <p className="leise" style={{ marginTop: 8 }}>Ihr Kundenportal bei Levarex. Hier sehen Sie, wo Ihr Projekt steht, und finden alle Unterlagen.</p>
-      {danke ? <div className="hinweis ok abstand" role="status">Vielen Dank. Ihr Angebot ist angenommen. Die Rechnung über die Anzahlung bekommen Sie in Kürze.</div> : null}
-      {bezahlt ? <div className="hinweis ok abstand" role="status">Vielen Dank für Ihre Zahlung. Die Rechnung kommt per E-Mail, und wir melden uns mit den nächsten Schritten.</div> : null}
-      {abnahme ? <div className="hinweis ok abstand" role="status">{abnahme === "verweigert" ? "Danke für Ihre Rückmeldung. Wir beheben die Mängel und melden uns." : "Vielen Dank für die Abnahme. Das Protokoll bekommen Sie per E-Mail."}</div> : null}
-      {abgebrochen ? <div className="hinweis abstand" role="status">Die Zahlung wurde abgebrochen. Sie können sie jederzeit hier fortsetzen.</div> : null}
+      <section className="portal-held" aria-labelledby="betrieb-name">
+        <div>
+          <p className="gruss">{gruss}</p>
+          <h1 id="betrieb-name">{b.name}</h1>
+        </div>
+        <div className="stand">
+          <div className="stand-zeile"><span>Stand Ihres Projekts</span><b>{erledigt} von {d.schritte.length} Schritten</b></div>
+          <div className="portal-balken" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={prozent} aria-label="Fortschritt"><span style={{ width: `${prozent}%` }} /></div>
+        </div>
+        <div className="portal-naechstes">
+          <div>
+            <div className="etikett">{handlung ? "Jetzt für Sie" : "Als Nächstes bei uns"}</div>
+            <div className="was">{handlung ? handlung.was : naechster >= 0 ? d.schritte[naechster].titel : "Alles erledigt. Wir kümmern uns um Ihre Website."}</div>
+          </div>
+          {handlung ? <a className="knopf haupt" href={handlung.href}>{handlung.knopf}</a> : null}
+        </div>
+      </section>
+      {danke ? <div className="hinweis ok" role="status">Vielen Dank. Ihr Angebot ist angenommen. Die Rechnung über die Anzahlung bekommen Sie in Kürze.</div> : null}
+      {bezahlt ? <div className="hinweis ok" role="status">Vielen Dank für Ihre Zahlung. Die Rechnung kommt per E-Mail, und wir melden uns mit den nächsten Schritten.</div> : null}
+      {abnahme ? <div className="hinweis ok" role="status">{abnahme === "verweigert" ? "Danke für Ihre Rückmeldung. Wir beheben die Mängel und melden uns." : "Vielen Dank für die Abnahme. Das Protokoll bekommen Sie per E-Mail."}</div> : null}
+      {abgebrochen ? <div className="hinweis" role="status">Die Zahlung wurde abgebrochen. Sie können sie jederzeit hier fortsetzen.</div> : null}
 
-      {d.angebotOffen || d.anzahlungOffen || d.inhalteOffen || d.abnahmeOffen || offeneRechnungen.length ? (
-        <section className="karte abstand">
+      {[d.angebotOffen, d.anzahlungOffen, d.inhalteOffen, d.abnahmeOffen].filter(Boolean).length + offeneRechnungen.length > 1 ? (
+        <section className="karte">
           <h2>Was wir gerade von Ihnen brauchen</h2>
           <ul className="liste">
             {d.angebotOffen ? <li><div><div className="titel">Angebot ansehen und annehmen</div><div className="unter">{PAKETE[d.angebotOffen.paket as PaketKey].name}</div></div><a className="knopf klein" href="#angebot">Zum Angebot</a></li> : null}
@@ -93,7 +122,7 @@ export default async function Kundenportal({ params, searchParams }: { params: P
         </section>
       ) : null}
 
-      <section className="karte abstand">
+      <section className="karte">
         <h2>So weit sind wir</h2>
         <ol className="fortschritt">
           {d.schritte.map((s, i) => (
@@ -109,7 +138,7 @@ export default async function Kundenportal({ params, searchParams }: { params: P
       </section>
 
       {d.website ? (
-        <section className="karte abstand">
+        <section className="karte">
           <h2>Ihre Website</h2>
           <p>Ihre Seite ist live{d.website.domain ? <> unter <b className="mono">{d.website.domain}</b></> : null}.</p>
           <a className="knopf" href={d.website.url} target="_blank">Website öffnen</a>
@@ -117,7 +146,7 @@ export default async function Kundenportal({ params, searchParams }: { params: P
       ) : null}
 
       {d.angebotOffen ? (
-        <form id="angebot" action={annehmen} className="karte abstand">
+        <form id="angebot" action={annehmen} className="karte">
           <h2>Angebot annehmen</h2>
           {fehler ? <div className="hinweis fehler" role="alert">Bitte Ihren Namen eintragen und beide Häkchen setzen.</div> : null}
           <p>{PAKETE[d.angebotOffen.paket as PaketKey].name}: {euro(d.angebotOffen.einmalig)} netto einmalig, {euro(d.angebotOffen.monatlich)} netto im Monat für die Betreuung (12 Monate Mindestlaufzeit). Alle Details stehen im Angebot unten bei Ihren Unterlagen.</p>
@@ -136,7 +165,7 @@ export default async function Kundenportal({ params, searchParams }: { params: P
       ) : null}
 
       {d.abnahmeOffen ? (
-        <form id="abnahme" action={abnehmen} className="karte abstand">
+        <form id="abnahme" action={abnehmen} className="karte">
           <h2>Website abnehmen</h2>
           {abnahmefehler ? <div className="hinweis fehler" role="alert">Bitte Ihren Namen eintragen und bei Mängeln kurz beschreiben, was nicht passt.</div> : null}
           <p>Bitte prüfen Sie Ihre Website{d.projekt?.domain ? <> unter <b className="mono">{d.projekt.domain}</b></> : null} bis zum <b>{tag(d.abnahmeOffen.abnahmeFrist)}</b>. Erklären Sie bis dahin nichts und nennen keinen Mangel, gilt die Website als abgenommen (§ 640 Abs. 2 BGB).</p>
@@ -154,7 +183,7 @@ export default async function Kundenportal({ params, searchParams }: { params: P
       ) : null}
 
       {d.anfragen.length ? (
-        <section className="karte abstand">
+        <section className="karte">
           <h2>Anfragen über Ihre Website</h2>
           <ul className="liste">
             {d.anfragen.map((a) => (
@@ -165,7 +194,7 @@ export default async function Kundenportal({ params, searchParams }: { params: P
       ) : null}
 
       {mitBetreuung ? (
-        <section id="wunsch" className="karte abstand">
+        <section id="wunsch" className="karte">
           <h2>Änderung oder Frage</h2>
           {ticket ? <div className="hinweis ok" role="status">Danke, ist angekommen. Wir melden uns, sobald es erledigt ist.</div> : null}
           {ticketfehler ? <div className="hinweis fehler" role="alert">Bitte Betreff und eine kurze Beschreibung eintragen.</div> : null}
@@ -188,16 +217,23 @@ export default async function Kundenportal({ params, searchParams }: { params: P
         </section>
       ) : null}
 
-      <section className="karte abstand">
+      <section className="karte">
         <h2>Ihre Unterlagen</h2>
         {d.dokumente.length ? (
-          <ul className="liste">
-            {d.dokumente.map((x) => <li key={x.id}><div><div className="titel">{DOKART[x.art] ?? x.art}</div><div className="unter">{x.titel} · {tag(x.versendetAm)}</div></div><a className="knopf klein" href={`/portal/k/${token}/dokument/${x.id}`} target="_blank">PDF</a></li>)}
-          </ul>
+          <div className="portal-kacheln">
+            {d.dokumente.map((x) => (
+              <a key={x.id} className="portal-kachel" href={`/portal/k/${token}/dokument/${x.id}`} target="_blank">
+                <span className="symbol" aria-hidden="true">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" /><path d="M14 3v5h5M9 13h6M9 17h6" /></svg>
+                </span>
+                <span><span className="titel" style={{ display: "block" }}>{DOKART[x.art] ?? x.art}</span><span className="unter" style={{ display: "block" }}>{tag(x.versendetAm)} · PDF öffnen</span></span>
+              </a>
+            ))}
+          </div>
         ) : <p className="leise">Hier erscheinen Protokoll, Angebot und weitere Unterlagen, sobald wir sie Ihnen geschickt haben.</p>}
       </section>
 
-      <section className="karte abstand">
+      <section className="karte">
         <h2>Rechnungen</h2>
         {d.rechnungen.length ? (
           <table className="tabelle">
@@ -217,9 +253,14 @@ export default async function Kundenportal({ params, searchParams }: { params: P
         ) : <p className="leise">Noch keine Rechnungen.</p>}
       </section>
 
-      <section className="karte abstand">
+      <section className="karte">
         <h2>Ihre Ansprechpartner</h2>
-        <p>Daniel Lück (Beratung) und Maximilian Steiner (Technik)<br />Tel. <a href={`tel:${marke.absender.telefon.replace(/\s/g, "")}`}>{marke.absender.telefon}</a> · <a href={`mailto:${marke.absender.email}`}>{marke.absender.email}</a></p>
+        <div className="portal-personen">
+          {[["DL", "Daniel Lück", "Beratung und Angebot"], ["MS", "Maximilian Steiner", "Website und Technik"]].map(([k, n, r]) => (
+            <div key={n} className="portal-person"><span className="initialen" aria-hidden="true">{k}</span><div><div style={{ fontWeight: 600 }}>{n}</div><div className="leise klein">{r}</div></div></div>
+          ))}
+        </div>
+        <p style={{ marginTop: 16 }}>Tel. <a href={`tel:${marke.absender.telefon.replace(/\s/g, "")}`}>{marke.absender.telefon}</a> · <a href={`mailto:${marke.absender.email}`}>{marke.absender.email}</a></p>
         <p className="leise klein">Dieser Link ist nur für Sie. Bitte nicht weitergeben.</p>
       </section>
     </>

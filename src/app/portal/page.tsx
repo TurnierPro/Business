@@ -23,9 +23,9 @@ export default async function PortalStart({ searchParams }: { searchParams: Prom
       <h1>Ihr Kundenportal</h1>
       <p className="leise" style={{ marginTop: 8 }}>Ihren persönlichen Zugang finden Sie in jeder E-Mail von uns. Link nicht mehr zur Hand? Geben Sie die E-Mail-Adresse ein, die Sie uns genannt haben.</p>
       {gesendet ? (
-        <div className="hinweis ok abstand" role="status">Danke. Wenn die Adresse bei uns hinterlegt ist, bekommen Sie Ihren Link in Kürze per E-Mail (spätestens am nächsten Werktag).</div>
+        <div className="hinweis ok" role="status">Danke. Wenn die Adresse bei uns hinterlegt ist, bekommen Sie Ihren Link in Kürze per E-Mail (spätestens am nächsten Werktag).</div>
       ) : (
-        <form action={anfordern} className="karte abstand">
+        <form action={anfordern} className="karte">
           <label className="feld"><span>Ihre E-Mail-Adresse</span><input name="email" type="email" autoComplete="email" required /></label>
           <button className="knopf haupt">Zugang anfordern</button>
         </form>
