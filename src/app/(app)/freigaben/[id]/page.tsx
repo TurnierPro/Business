@@ -27,7 +27,10 @@ export default async function Eintrag({ params }: { params: Promise<{ id: string
   const schonFreigegeben = e.freigaben.some((f) => f.name === ich.name);
   const slug = typeof e.meta.slug === "string" ? e.meta.slug : null;
   const [seite] = slug ? await db.select().from(schema.seiten).where(eq(schema.seiten.slug, slug)) : [];
-  const vorschauUrl = e.kanal === "livegang" && slug ? `/vorschau/${slug}${seite?.zugangscode ? `?code=${seite.zugangscode}` : ""}` : doks[0] ? `/dokument/${doks[0].id}/ansicht` : null;
+  // Beim Angebot zeigt der Editor oben schon die Live-Vorschau; unten dann keine zweite (sonst steht das PDF doppelt da)
+  const editorZeigtAngebot = offen && !!angebotDok;
+  const vorschauDok = editorZeigtAngebot ? doks.find((d) => d.id !== angebotDok!.id) : doks[0];
+  const vorschauUrl = e.kanal === "livegang" && slug ? `/vorschau/${slug}${seite?.zugangscode ? `?code=${seite.zugangscode}` : ""}` : !editorZeigtAngebot && vorschauDok ? `/dokument/${vorschauDok.id}/ansicht` : null;
 
   return (
     <>

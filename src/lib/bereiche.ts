@@ -1,11 +1,12 @@
-// Aufbau der Oberfläche: sechs Bereiche links, Reiter oben. Eine Stelle für alles, was im Menü steht.
+// Aufbau der Oberfläche: Menü links mit Unterpunkten unter dem aktiven Bereich. Eine Stelle für alles, was im Menü steht.
 
 export type Seite = { href: string; name: string; exakt?: boolean };
 export type Bereich = { key: string; name: string; href: string; seiten: Seite[] };
 
 export const BEREICHE: Bereich[] = [
   { key: "zutun", name: "Zu tun", href: "/", seiten: [{ href: "/", name: "Übersicht", exakt: true }, { href: "/freigaben", name: "Freigaben" }, { href: "/aufgaben", name: "Aufgaben" }] },
-  { key: "leads", name: "Leads", href: "/leads", seiten: [{ href: "/leads", name: "Alle Leads" }, { href: "/pipeline", name: "Pipeline" }, { href: "/leads/besuche", name: "Besuche" }] },
+  { key: "leads", name: "Leads", href: "/leads", seiten: [{ href: "/leads", name: "Alle Leads" }, { href: "/leads/besuche", name: "Besuche" }] },
+  { key: "pipeline", name: "Pipeline", href: "/pipeline", seiten: [{ href: "/pipeline", name: "Pipeline" }] },
   { key: "projekte", name: "Kunden", href: "/projekte", seiten: [{ href: "/projekte", name: "Kunden und Projekte" }, { href: "/tickets", name: "Tickets" }] },
   { key: "finanzen", name: "Finanzen", href: "/finanzen", seiten: [{ href: "/finanzen", name: "Übersicht", exakt: true }, { href: "/finanzen/plan", name: "Plan und Soll" }, { href: "/kennzahlen", name: "Kennzahlen" }] },
   { key: "logs", name: "Logs", href: "/logs", seiten: [{ href: "/logs", name: "Protokoll", exakt: true }, { href: "/logs/post", name: "Versendet" }, { href: "/simulator", name: "Simulator-Postfach" }, { href: "/system", name: "Technik und Agenten" }] },

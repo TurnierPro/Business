@@ -5,9 +5,10 @@ import { BEREICHE, finde } from "@/lib/bereiche";
 
 type Zahlen = { zutun: number; projekte: number };
 
-/** Links: sechs Bereiche und die Suche. */
+/** Links: Bereiche mit ihren Unterpunkten (aufgeklappt beim aktiven Bereich) und die Suche. */
 export function Navigation({ zahlen }: { zahlen: Zahlen }) {
-  const aktiv = finde(usePathname())?.bereich.key;
+  const t = finde(usePathname());
+  const aktiv = t?.bereich.key;
   const zahl: Record<string, number> = { zutun: zahlen.zutun, projekte: zahlen.projekte };
   return (
     <nav className="nav" aria-label="Hauptmenü">
@@ -15,16 +16,23 @@ export function Navigation({ zahlen }: { zahlen: Zahlen }) {
         <input name="q" className="suche-feld" placeholder="Suchen …" aria-label="Suchen" />
       </form>
       {BEREICHE.map((b) => (
-        <Link key={b.key} href={b.href} aria-current={aktiv === b.key ? "page" : undefined}>
-          {b.name}
-          {zahl[b.key] ? <span className="zahl" aria-label={`${zahl[b.key]} offen`}>{zahl[b.key]}</span> : null}
-        </Link>
+        <div key={b.key} className="nav-punkt">
+          <Link href={b.href} aria-current={aktiv === b.key && (b.seiten.length < 2 || t?.seite.href === b.seiten[0].href) ? "page" : undefined} className={aktiv === b.key ? "bereich-aktiv" : undefined}>
+            {b.name}
+            {zahl[b.key] ? <span className="zahl" aria-label={`${zahl[b.key]} offen`}>{zahl[b.key]}</span> : null}
+          </Link>
+          {aktiv === b.key && b.seiten.length > 1 ? (
+            <div className="nav-unter">
+              {b.seiten.slice(1).map((s) => <Link key={s.href} href={s.href} aria-current={t?.seite.href === s.href ? "page" : undefined}>{s.name}</Link>)}
+            </div>
+          ) : null}
+        </div>
       ))}
     </nav>
   );
 }
 
-/** Oben im Inhalt: die Reiter des aktuellen Bereichs. */
+/** Nur auf dem Handy (dort ist das Menü eine Leiste oben): die Unterpunkte des aktuellen Bereichs. */
 export function Unternavigation() {
   const pfad = usePathname();
   const t = finde(pfad);

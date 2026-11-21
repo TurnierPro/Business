@@ -537,3 +537,15 @@ input[type="file"] { padding: 10px 12px; height: auto; }
 .raster.konnektoren { grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); }
 @media (max-width: 1100px) { form .finanz-raster[style] { grid-template-columns: 1fr !important; } }
 .finanz-raster > *, .akte-raster > *, .gruppen > * { min-width: 0; }
+
+/* Menü links mit Unterpunkten; die Reiter oben gibt es nur noch auf dem Handy */
+.nav-punkt { display: grid; gap: 2px; }
+.nav a.bereich-aktiv { color: var(--text); }
+.nav-unter { display: grid; gap: 2px; margin: 2px 0 6px 12px; padding-left: 10px; border-left: 1px solid var(--rand-weich); }
+.nav .nav-unter a { padding: 7px 10px; font-size: 14.5px; font-weight: 400; }
+.unternav { display: none; }
+@media (max-width: 900px) {
+  .nav-unter { display: none; }
+  .nav-punkt { display: contents; }
+  .unternav { display: flex; }
+}
