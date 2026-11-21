@@ -349,3 +349,26 @@ test("Sicherung bei IONOS: Signatur nach AWS-Beispiel, nur verschlüsselt, Datei
     delete process.env.BACKUP_SCHLUESSEL;
   }
 });
+
+test("Start-Passwort: Übungs-Passwort nur auf dem eigenen Rechner, nie auf einem Server", async () => {
+  const { startPasswortUnsicher, lokalerStart } = await import("../src/lib/auth");
+  const env = process.env as Record<string, string | undefined>;
+  const vorher = { NODE_ENV: env.NODE_ENV, BASE_URL: env.BASE_URL, PW: env.LEVAREX_START_PASSWORT };
+  try {
+    env.NODE_ENV = "production";
+    delete env.LEVAREX_START_PASSWORT;
+    delete env.BASE_URL;
+    assert.equal(lokalerStart(), true);
+    assert.equal(startPasswortUnsicher(), false, "Mac ohne Adresse: Übungs-Passwort erlaubt");
+    env.BASE_URL = "http://localhost:3000";
+    assert.equal(startPasswortUnsicher(), false);
+    for (const server of ["https://os.levarex-consulting.de", "http://203.0.113.5:3000", "http://localhost.boese.example"]) {
+      env.BASE_URL = server;
+      assert.equal(startPasswortUnsicher(), true, `${server}: eigenes Start-Passwort nötig`);
+    }
+  } finally {
+    env.NODE_ENV = vorher.NODE_ENV;
+    if (vorher.BASE_URL === undefined) delete env.BASE_URL; else env.BASE_URL = vorher.BASE_URL;
+    if (vorher.PW !== undefined) env.LEVAREX_START_PASSWORT = vorher.PW;
+  }
+});

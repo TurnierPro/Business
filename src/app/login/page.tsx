@@ -3,7 +3,7 @@ import { cookies } from "next/headers";
 import { eq } from "drizzle-orm";
 import { getDb, schema } from "@/lib/db";
 import { headers } from "next/headers";
-import { COOKIE, COOKIE_2FA, COOKIE_OPTIONEN, pruefeAnmeldung, sitzungsWert, startBenutzer, startPasswortUnsicher, START_PASSWORT, aktuellerBenutzer, zwischenWert } from "@/lib/auth";
+import { COOKIE, COOKIE_2FA, COOKIE_OPTIONEN, pruefeAnmeldung, sitzungsWert, startBenutzer, startPasswortUnsicher, lokalerStart, START_PASSWORT, aktuellerBenutzer, zwischenWert } from "@/lib/auth";
 import { clientIp, erlaubt, GRENZEN, versuchMerken, versucheLoeschen } from "@/lib/sicherheit";
 import { protokolliere } from "@/lib/protokoll";
 import { Logo } from "@/components/Logo";
@@ -44,7 +44,7 @@ export default async function Login({ searchParams }: { searchParams: Promise<{ 
   const db = await getDb();
   const benutzer = await db.select({ email: schema.benutzer.email }).from(schema.benutzer);
   const { fehler, gesperrt } = await searchParams;
-  const entwicklung = process.env.NODE_ENV !== "production";
+  const entwicklung = process.env.NODE_ENV !== "production" || lokalerStart();
   return (
     <div className="zentriert">
       <div className="schmal">

@@ -44,8 +44,14 @@ function liesSitzung(roh: string | undefined): { id: number; version: number } |
   return { id: Number(id), version: Number(version) };
 }
 
+/** Läuft Levarex OS auf dem eigenen Rechner (keine Adresse oder localhost)? Dann gilt das Übungs-Passwort. */
+export const lokalerStart = () => {
+  const basis = (process.env.BASE_URL ?? "").trim();
+  return !basis || /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?(\/|$)/.test(basis);
+};
+
 /** Auf dem Server muss das Start-Passwort gesetzt sein (nie das Übungs-Passwort aus dem Code). */
-export const startPasswortUnsicher = () => process.env.NODE_ENV === "production" && (!process.env.LEVAREX_START_PASSWORT || process.env.LEVAREX_START_PASSWORT.length < 12);
+export const startPasswortUnsicher = () => process.env.NODE_ENV === "production" && !lokalerStart() && (!process.env.LEVAREX_START_PASSWORT || process.env.LEVAREX_START_PASSWORT.length < 12);
 
 /** Legt beim allerersten Start die beiden Gründer an. Das Start-Passwort muss beim ersten Anmelden geändert werden. */
 export async function startBenutzer(): Promise<boolean> {
