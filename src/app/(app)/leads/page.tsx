@@ -12,7 +12,6 @@ const FILTER: { key: string; text: string }[] = [
   { key: "aktiv", text: "Offen" },
   { key: "neu", text: "Einstufen" },
   { key: "besuch", text: "Besuch fällig" },
-  { key: "kunde", text: "Kunden" },
   { key: "ruhend", text: "Archiv" },
 ];
 
@@ -54,8 +53,8 @@ export default async function Leads({ searchParams }: { searchParams: Promise<{ 
     <>
       <div className="kopfzeile">
         <div>
-          <h1>Leads und Kunden</h1>
-          <p>Alle Betriebe vom ersten Fund bis zur Betreuung.</p>
+          <h1>Leads</h1>
+          <p>Interessenten bis zur Unterschrift. Wer das Angebot angenommen hat, steht unter <Link href="/projekte">Kunden</Link>.</p>
         </div>
         <div className="knopfreihe">
           <details className="mehr">

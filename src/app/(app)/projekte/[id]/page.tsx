@@ -32,7 +32,10 @@ export default async function Projekt({ params }: { params: Promise<{ id: string
   if (!p) notFound();
   const [b] = await db.select().from(schema.betriebe).where(eq(schema.betriebe.id, p.betriebId));
   const [seite] = p.seitenSlug ? await db.select().from(schema.seiten).where(eq(schema.seiten.slug, p.seitenSlug)) : [];
-  const livegang = (await db.select().from(schema.postausgang).where(eq(schema.postausgang.projektId, id))).find((e) => e.zweck === "livegang" && e.status === "zur_freigabe");
+  const projektPost = await db.select().from(schema.postausgang).where(eq(schema.postausgang.projektId, id));
+  const livegang = projektPost.find((e) => e.zweck === "livegang" && e.status === "zur_freigabe");
+  const bitteUmAbnahme = projektPost.find((e) => e.zweck === "abnahme_aufforderung" && e.status === "zur_freigabe");
+  const offenePost = projektPost.filter((e) => e.status === "zur_freigabe");
   const abgenommen = ["abgenommen", "vorbehalt", "fiktion"].includes(p.abnahmeStatus ?? "");
   // Reihenfolge: Bau → Prüfung → Vorschau → Abnahme → Livegang (nur Maximilian mit Code)
   const index = p.status === "live" || p.status === "beendet" ? SCHRITTE.length : abgenommen ? 5 : SCHRITTE.findIndex((s) => s.key === p.status);
@@ -47,32 +50,111 @@ export default async function Projekt({ params }: { params: Promise<{ id: string
   const UMZUG: Record<string, string> = { geprueft: "geprüft, Umstellung beim Livegang", providerwechsel: "Providerwechsel durch Levarex offen", wartet_dns: "wartet auf Umstellung beim Kunden", umgestellt: "umgestellt" };
   const portal = `${basisUrl()}/portal/${p.portalToken}`;
 
+  const prozent = Math.round((Math.min(index, SCHRITTE.length) / SCHRITTE.length) * 100);
+  // Genau ein nächster Schritt mit genau einem Messing-Knopf
+  const naechstes: { was: string; unter?: string; knopf?: React.ReactNode } =
+    p.status === "inhalte"
+      ? { was: "Wir warten auf Texte und Fotos vom Kunden", unter: `Mitwirkungsliste: ${mitwirkung.filter((m) => m.erledigt).length} von ${mitwirkung.length} da. Der Kunde reicht alles im Kundenportal ein.` }
+      : p.status === "bau"
+        ? { was: "Die Seite wird gebaut und geprüft", unter: "In einer Minute neu laden." }
+        : p.status === "pruefung"
+          ? { was: "Prüfung nicht bestanden: beheben und neu bauen", unter: `${(p.pruefung ?? []).filter((x) => !x.ok).length} Punkte offen, siehe Qualitätsprüfung.`, knopf: <form action={neuBauen}><input type="hidden" name="id" value={id} /><button className="knopf haupt">Neu bauen und prüfen</button></form> }
+          : livegang
+            ? { was: "Abgenommen: Livegang freigeben", unter: "Nur Maximilian, mit Code aus der Authenticator-App. Danach Domain, Schlussrechnung und Lastschrift.", knopf: <Link className="knopf haupt" href={`/freigaben/${livegang.id}`}>Livegang prüfen</Link> }
+            : bitteUmAbnahme
+              ? { was: "Bitte um Abnahme freigeben", unter: "Mit dem Versand beginnt die Frist von 14 Kalendertagen.", knopf: <Link className="knopf haupt" href={`/freigaben/${bitteUmAbnahme.id}`}>Prüfen und freigeben</Link> }
+              : p.status === "bereit" && p.abnahmeStatus === "verweigert"
+                ? { was: "Abnahme verweigert: Mängel beheben", unter: p.abnahmeMaengel ?? "", knopf: <form action={abnahmeErneut}><input type="hidden" name="id" value={id} /><button className="knopf haupt">Erneut zur Abnahme vorlegen</button></form> }
+                : p.status === "bereit"
+                  ? { was: "Der Kunde prüft die Vorschau", unter: p.abnahmeFrist ? `Frist bis ${datum(p.abnahmeFrist)}; danach gilt die Seite als abgenommen.` : "" }
+                  : p.status === "live"
+                    ? { was: "Live, Betreuung läuft", unter: `Seit ${datum(p.liveAm)}. Die Seite wird alle 10 Minuten geprüft.` }
+                    : { was: `Vertrag beendet am ${datum(p.endeAm)}` };
+
   return (
     <>
-      <Link href="/projekte" className="zurueck">← Projekte</Link>
-      <div className="kopfzeile">
-        <div><h1>{b.name}</h1><p>{PAKETE[p.paket as PaketKey].name}{p.domain ? ` · ${p.domain}` : ""}</p></div>
-        <Status wert={p.status} />
+      <Link href="/projekte" className="zurueck">← Kunden</Link>
+      <div className="akte">
+        <div className="akte-kopf">
+          <div>
+            <h1>{b.name}</h1>
+            <div className="unter">{PAKETE[p.paket as PaketKey].name}{p.domain ? ` · ${p.domain}` : ""}</div>
+          </div>
+          <div className="knopfreihe">
+            <Status wert={p.status} />
+            <Link className="knopf klein" href={`/leads/${b.id}`}>Zum Betrieb</Link>
+          </div>
+        </div>
+        <section className="akte-held" aria-label="Stand">
+          <div className="portal-held" style={{ padding: 0, border: 0, background: "transparent" }}>
+            <div className="stand">
+              <div className="stand-zeile"><span>Lieferung</span><b>{index >= SCHRITTE.length ? "fertig" : `${index + 1} von ${SCHRITTE.length} · ${SCHRITTE[index]?.text}`}</b></div>
+              <div className="portal-balken" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={prozent} aria-label="Fortschritt"><span style={{ width: `${prozent}%` }} /></div>
+            </div>
+          </div>
+          <ol className="schritte weg" aria-label="Lieferschritte">
+            {SCHRITTE.map((s, i) => <li key={s.key} className={i < index ? "erledigt" : i === index ? "aktuell" : ""} aria-current={i === index ? "step" : undefined}>{s.text}</li>)}
+          </ol>
+          <div className="portal-naechstes">
+            <div style={{ minWidth: 0, flex: "1 1 320px" }}>
+              <div className="etikett">Als Nächstes</div>
+              <div className="was">{naechstes.was}</div>
+              {naechstes.unter ? <div className="leise klein" style={{ marginTop: 4 }}>{naechstes.unter}</div> : null}
+            </div>
+            {naechstes.knopf ?? null}
+          </div>
+        </section>
+        <div className="auf-einen-blick" aria-label="Auf einen Blick">
+          <div className="blick">
+            <span className="etikett">Lieferfrist</span>
+            <span className="wert">{frist ? (bereitgestellt(p) ? "eingehalten" : datum(frist)) : "startet mit den Inhalten"}</span>
+            <span className="unter">{frist && !bereitgestellt(p) && fristTage !== null ? (fristTage < 0 ? `${-fristTage} Tage überschritten` : `noch ${fristTage} Tage`) : `${PAKETE[p.paket as PaketKey]?.wochen ?? 6} Wochen nach Eingang der Inhalte`}</span>
+          </div>
+          <div className="blick">
+            <span className="etikett">Abnahme</span>
+            <span className="wert">{p.abnahmeStatus ? ABNAHME[p.abnahmeStatus] : "noch nicht"}</span>
+            <span className="unter">{p.abnahmeAm ? `am ${datum(p.abnahmeAm)}` : p.abnahmeFrist ? `Frist bis ${datum(p.abnahmeFrist)}` : "nach der Vorschau"}</span>
+          </div>
+          <div className="blick">
+            <span className="etikett">Stunden</span>
+            <span className="wert">{stunden(zeit.lieferungMinuten)} von {stunden(ziel)}</span>
+            <span className="unter">Lieferung ohne Betreuung</span>
+          </div>
+          <Link className="blick" href={`/freigaben`}>
+            <span className="etikett">Freigaben</span>
+            <span className="wert">{offenePost.length ? `${offenePost.length} warten` : "nichts offen"}</span>
+            <span className="unter">für dieses Projekt</span>
+          </Link>
+          {seite ? (
+            <a className="blick" target="_blank" rel="noopener noreferrer" href={p.status === "live" && p.domain ? `https://${p.domain}` : `/vorschau/${seite.slug}${seite.zugangscode ? `?code=${seite.zugangscode}` : ""}`}>
+              <span className="etikett">Website</span>
+              <span className="wert">{p.status === "live" ? "live ansehen" : "Vorschau ansehen"}</span>
+              <span className="unter">{p.domain ?? "noch ohne Domain"}</span>
+            </a>
+          ) : null}
+          <a className="blick" target="_blank" rel="noopener noreferrer" href={portal}>
+            <span className="etikett">Kundenportal</span>
+            <span className="wert">So sieht es der Kunde</span>
+            <span className="unter">öffnet in neuem Fenster</span>
+          </a>
+        </div>
       </div>
-      <ol className="schritte" aria-label="Fortschritt">
-        {SCHRITTE.map((s, i) => <li key={s.key} className={i < index ? "erledigt" : i === index ? "aktuell" : ""}>{s.text}</li>)}
-      </ol>
 
       <div className="raster zwei" style={{ alignItems: "start" }}>
         <section className="karte">
-          <h2>Als Nächstes</h2>
+          <h2>Stand im Detail</h2>
           {p.status === "inhalte" ? <><p>Wir warten auf Texte und Fotos. Der Kunde hat den Link mit der Start-Mail bekommen.</p><p className="leise klein mono" style={{ wordBreak: "break-all" }}>{portal}</p></> : null}
           {p.status === "bau" ? <p>Die Seite wird gerade gebaut und geprüft. In einer Minute neu laden.</p> : null}
-          {p.status === "pruefung" ? <><div className="hinweis fehler">Die Prüfung ist nicht bestanden. Der Livegang ist gesperrt, bis alles grün ist.</div><form action={neuBauen}><input type="hidden" name="id" value={id} /><button className="knopf">Neu bauen und prüfen</button></form></> : null}
+          {p.status === "pruefung" ? <><div className="hinweis fehler">Die Prüfung ist nicht bestanden. Der Livegang ist gesperrt, bis alles grün ist.</div></> : null}
           {p.status === "bereit" && !abgenommen ? <p>Alle Prüfungen bestanden. Die Vorschau liegt beim Kunden zur Abnahme{p.abnahmeFrist ? ` (Frist bis ${datum(p.abnahmeFrist)})` : ", die Bitte um Abnahme wartet auf Freigabe"}.</p> : null}
-          {p.status === "bereit" && livegang ? <><p>Abgenommen. Bitte die Vorschau noch einmal ansehen und den Livegang freigeben (nur Maximilian, mit Code aus der Authenticator-App).</p><Link className="knopf haupt" href={`/freigaben/${livegang.id}`}>Zur Freigabe</Link></> : null}
+          {p.status === "bereit" && livegang ? <><p>Abgenommen. Bitte die Vorschau noch einmal ansehen und den Livegang freigeben (nur Maximilian, mit Code aus der Authenticator-App).</p><Link className="knopf" href={`/freigaben/${livegang.id}`}>Zur Freigabe</Link></> : null}
           {frist && !bereitgestellt(p) ? <p className={fristTage !== null && fristTage <= 5 ? "hinweis" : "leise"}>Lieferfrist: Vorschau spätestens am {datum(frist)}{fristTage !== null ? (fristTage < 0 ? `, ${-fristTage} Tage überschritten` : `, noch ${fristTage} Tage`) : ""}.</p> : null}
           {p.status === "live" ? <p>Live seit {datum(p.liveAm)}. Betreuung läuft seit {datum(p.aboAb)}. Die Seite wird alle 10 Minuten geprüft.</p> : null}
           {p.abnahmeStatus ? (
             <div style={{ marginTop: 12 }}>
               <p><b>Abnahme:</b> <Status wert={p.abnahmeStatus === "offen" ? "wartet" : p.abnahmeStatus} /> {ABNAHME[p.abnahmeStatus]}{p.abnahmeFrist && p.abnahmeStatus === "offen" ? `, Frist bis ${datum(p.abnahmeFrist)}` : p.abnahmeStatus === "offen" ? ", Aufforderung wartet auf Freigabe" : ""}{p.abnahmeAm ? ` am ${datum(p.abnahmeAm)}` : ""}{p.abnahmeName ? ` von ${p.abnahmeName}` : ""}</p>
               {p.abnahmeMaengel ? <div className="hinweis">Mängel: {p.abnahmeMaengel}</div> : null}
-              {p.abnahmeStatus === "verweigert" ? <form action={abnahmeErneut}><input type="hidden" name="id" value={id} /><button className="knopf">Mängel behoben: erneut zur Abnahme vorlegen</button></form> : null}
+              
             </div>
           ) : null}
           {p.gekuendigtAm ? <p className="hinweis" style={{ marginTop: 12 }}>Gekündigt am {datum(p.gekuendigtAm)}, Ende {datum(p.endeAm)}.</p> : null}

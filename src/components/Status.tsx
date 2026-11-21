@@ -24,7 +24,7 @@ const TEXTE: Record<string, [string, "" | "ok" | "warten" | "fehler"]> = {
   inhalte: ["wartet auf Inhalte", "warten"],
   bau: ["wird gebaut", "warten"],
   pruefung: ["Prüfung nicht bestanden", "fehler"],
-  bereit: ["bereit für Livegang", "warten"],
+  bereit: ["Vorschau beim Kunden", "warten"],
   live: ["live", "ok"],
   hochgeladen: ["hochgeladen", "warten"],
   transkribiert: ["transkribiert", "warten"],

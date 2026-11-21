@@ -19,13 +19,10 @@ export default async function AngebotErstellen({ params }: { params: Promise<{ i
   return (
     <>
       <Link href={`/leads/${id}`} className="zurueck">← {b.name}</Link>
-      <div className="kopfzeile"><div><h1>Angebot erstellen</h1><p>Zwei Entscheidungen: welcher Webauftritt, welche Module. Gemeinsam mit {b.inhaber ?? "dem Kunden"} auswählen, der Preis rechnet sofort mit.</p></div></div>
+      <div className="kopfzeile"><div><h1>Angebot erstellen</h1><p>Gemeinsam mit {b.inhaber ?? "dem Kunden"} von oben nach unten auswählen. Der Preis unten rechnet sofort mit.</p></div></div>
       <form action={angebotErstellen}>
         <input type="hidden" name="id" value={id} />
-        <section className="karte" style={{ marginBottom: 16 }}>
-          <label className="feld" style={{ marginBottom: 0 }}><span>E-Mail-Adresse des Kunden (für Angebot und Portal-Link)</span><input name="email" type="email" required defaultValue={b.email ?? ""} placeholder="name@betrieb.de" /></label>
-        </section>
-        <AngebotKonfigurator gewerk={b.gewerk} startPaket={start} katalog={katalog} />
+        <AngebotKonfigurator gewerk={b.gewerk} startPaket={start} katalog={katalog} email={b.email ?? ""} inhaber={b.inhaber} />
       </form>
     </>
   );

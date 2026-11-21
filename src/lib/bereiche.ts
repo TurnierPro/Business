@@ -5,8 +5,8 @@ export type Bereich = { key: string; name: string; href: string; seiten: Seite[]
 
 export const BEREICHE: Bereich[] = [
   { key: "zutun", name: "Zu tun", href: "/", seiten: [{ href: "/", name: "Übersicht", exakt: true }, { href: "/freigaben", name: "Freigaben" }, { href: "/aufgaben", name: "Aufgaben" }] },
-  { key: "leads", name: "Leads", href: "/leads", seiten: [{ href: "/leads", name: "Alle Betriebe" }, { href: "/pipeline", name: "Pipeline" }, { href: "/leads/besuche", name: "Besuche" }] },
-  { key: "projekte", name: "Projekte", href: "/projekte", seiten: [{ href: "/projekte", name: "Projekte" }, { href: "/tickets", name: "Tickets" }] },
+  { key: "leads", name: "Leads", href: "/leads", seiten: [{ href: "/leads", name: "Alle Leads" }, { href: "/pipeline", name: "Pipeline" }, { href: "/leads/besuche", name: "Besuche" }] },
+  { key: "projekte", name: "Kunden", href: "/projekte", seiten: [{ href: "/projekte", name: "Kunden und Projekte" }, { href: "/tickets", name: "Tickets" }] },
   { key: "finanzen", name: "Finanzen", href: "/finanzen", seiten: [{ href: "/finanzen", name: "Übersicht", exakt: true }, { href: "/finanzen/plan", name: "Plan und Soll" }, { href: "/kennzahlen", name: "Kennzahlen" }] },
   { key: "logs", name: "Logs", href: "/logs", seiten: [{ href: "/logs", name: "Protokoll", exakt: true }, { href: "/logs/post", name: "Versendet" }, { href: "/simulator", name: "Simulator-Postfach" }, { href: "/system", name: "Technik und Agenten" }] },
   { key: "stammdaten", name: "Stammdaten", href: "/stammdaten", seiten: [{ href: "/stammdaten", name: "Katalog", exakt: true }, { href: "/stammdaten/ziele", name: "Soll-Umsätze" }, { href: "/stammdaten/konnektoren", name: "Konnektoren" }, { href: "/einstellungen", name: "Benutzer und Sicherheit" }, { href: "/unterlagen", name: "Unterlagen" }, { href: "/datenschutz", name: "Datenschutz" }] },

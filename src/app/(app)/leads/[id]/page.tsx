@@ -86,7 +86,7 @@ export default async function Lead({ params, searchParams }: { params: Promise<{
 
   return (
     <>
-      <Link href="/leads" className="zurueck">← Betriebe</Link>
+      {b.status === "kunde" ? <Link href="/projekte" className="zurueck">← Kunden</Link> : <Link href="/leads" className="zurueck">← Leads</Link>}
       <div className="akte">
         <div className="akte-kopf">
           <div>

@@ -15,11 +15,11 @@ export const metadata = { title: "Zu tun" };
 
 // „Zu tun“: nur, was jetzt eine Entscheidung oder Handlung von dir braucht. Wichtigstes zuerst, Leeres fällt weg.
 
-function Block({ titel, erklaerung, zahl, mehr, children }: { titel: string; erklaerung: string; zahl: number; mehr?: { href: string; text: string }; children: React.ReactNode }) {
+function Block({ id, titel, erklaerung, zahl, mehr, children }: { id?: string; titel: string; erklaerung: string; zahl: number; mehr?: { href: string; text: string }; children: React.ReactNode }) {
   return (
-    <section className="karte" style={{ marginBottom: 16 }}>
+    <section className="karte" id={id}>
       <div className="kopfzeile" style={{ marginBottom: 4 }}>
-        <h2 style={{ margin: 0 }}>{titel} <span className="mono leise klein">{zahl}</span></h2>
+        <h2 style={{ margin: 0 }}>{titel} <span className="anzahl-pille">{zahl}</span></h2>
         {mehr ? <Link className="knopf klein" href={mehr.href}>{mehr.text}</Link> : null}
       </div>
       <p className="leise klein" style={{ marginBottom: 8 }}>{erklaerung}</p>
@@ -47,6 +47,8 @@ export default async function ZuTun() {
     db.select({ n: sql<number>`count(*)::int` }).from(schema.jobs).where(and(eq(schema.jobs.art, "beispieldaten"), inArray(schema.jobs.status, ["wartet", "laeuft"]))),
   ]);
   const unbekannt = await unbekannteNachrichten();
+  const betriebIds = [...new Set(freigaben.map((f) => f.betriebId).filter((x): x is number => !!x))];
+  const namen = new Map((betriebIds.length ? await db.select({ id: schema.betriebe.id, name: schema.betriebe.name }).from(schema.betriebe).where(inArray(schema.betriebe.id, betriebIds)) : []).map((x) => [x.id, x.name]));
   const alleBetriebe = unbekannt.length ? await db.select({ id: schema.betriebe.id, name: schema.betriebe.name }).from(schema.betriebe).orderBy(schema.betriebe.name) : [];
   const stunde = Number(jetzt.toLocaleString("de-DE", { hour: "numeric", hourCycle: "h23", timeZone: "Europe/Berlin" }));
   const gruss = stunde < 11 ? "Guten Morgen" : stunde < 18 ? "Hallo" : "Guten Abend";
@@ -84,17 +86,37 @@ export default async function ZuTun() {
       ) : null}
 
       {hinweise.length ? (
-        <ul className="liste karte" style={{ marginBottom: 16 }} aria-label="Hinweise">
-          {hinweise.map((h) => <li key={h.text}><Link href={h.href} style={h.dringend ? { color: "var(--fehler)" } : undefined}>{h.text}</Link></li>)}
-        </ul>
+        <div className="raster" style={{ gap: 8, marginBottom: 16 }} aria-label="Hinweise">
+          {hinweise.map((h) => <Link key={h.text} href={h.href} className={`hinweis${h.dringend ? " fehler" : ""}`} style={{ marginBottom: 0, textDecoration: "none", display: "block" }}>{h.text}</Link>)}
+        </div>
       ) : null}
 
+      {!nichts ? (
+        <div className="auf-einen-blick" style={{ marginBottom: 16 }} aria-label="Überblick">
+          {[
+            { id: "freigeben", etikett: "Freigeben", n: freigaben.length, unter: "wartet auf dein OK" },
+            { id: "aufgaben", etikett: "Deine Aufgaben", n: meineAufgaben.length, unter: "heute fällig" },
+            { id: "einstufen", etikett: "Einstufen", n: neueLeads.length, unter: "neue Leads" },
+            { id: "besuche", etikett: "Besuche", n: besuche.length, unter: "fällig" },
+            { id: "tickets", etikett: "Tickets", n: tickets.length, unter: "von Kunden offen" },
+          ].map((k) => (
+            <a key={k.id} className="blick" href={k.n ? `#${k.id}` : undefined} aria-disabled={!k.n} style={k.n ? undefined : { opacity: 0.55 }}>
+              <span className="etikett">{k.etikett}</span>
+              <span className="wert" style={{ fontFamily: "var(--mono)", fontSize: 26 }}>{k.n}</span>
+              <span className="unter">{k.unter}</span>
+            </a>
+          ))}
+        </div>
+      ) : null}
+
+      <div className="raster" style={{ gap: 16 }}>
+
       {freigaben.length ? (
-        <Block titel="1. Freigeben" zahl={freigaben.length} erklaerung="Alles, was an Kunden geht (Briefe, Angebote, Rechnungen, Mails), wartet hier auf dein OK. Öffnen, Vorschau und Hinweise der Qualitätskontrolle lesen, dann freigeben, ändern oder ablehnen." mehr={freigaben.length > 5 ? { href: "/freigaben", text: "Alle anzeigen" } : undefined}>
+        <Block id="freigeben" titel="Freigeben" zahl={freigaben.length} erklaerung="Alles, was an Kunden geht (Briefe, Angebote, Rechnungen, Mails), wartet hier auf dein OK. Öffnen, Vorschau und Hinweise der Qualitätskontrolle lesen, dann freigeben, ändern oder ablehnen." mehr={freigaben.length > 5 ? { href: "/freigaben", text: "Alle anzeigen" } : undefined}>
           <ul className="liste">
             {freigaben.slice(0, 5).map((f) => (
               <li key={f.id}>
-                <div style={{ flex: 1 }}><div className="titel">{f.betreff}</div><div className="unter">{ZWECK[f.zweck] ?? f.zweck} · {datumZeit(f.erstelltAm)}{f.qkStatus === "blockiert" ? " · blockiert" : f.hinweise.length ? ` · ${f.hinweise.length} Hinweis${f.hinweise.length > 1 ? "e" : ""}` : ""}</div></div>
+                <div style={{ flex: 1 }}><div className="titel">{f.betriebId && namen.get(f.betriebId) ? `${namen.get(f.betriebId)}: ` : ""}{ZWECK[f.zweck] ?? f.zweck}</div><div className="unter">{f.betreff} · {datumZeit(f.erstelltAm)}{f.qkStatus === "blockiert" ? " · blockiert" : f.hinweise.length ? ` · ${f.hinweise.length} Hinweis${f.hinweise.length > 1 ? "e" : ""}` : ""}</div></div>
                 <Link className="knopf klein" href={`/freigaben/${f.id}`}>Prüfen</Link>
               </li>
             ))}
@@ -103,13 +125,13 @@ export default async function ZuTun() {
       ) : null}
 
       {meineAufgaben.length ? (
-        <Block titel="2. Deine Aufgaben heute" zahl={meineAufgaben.length} erklaerung="Abhaken, wenn erledigt; „Morgen“ schiebt die Aufgabe um einen Tag." mehr={{ href: "/aufgaben", text: "Alle Aufgaben" }}>
+        <Block id="aufgaben" titel="Deine Aufgaben heute" zahl={meineAufgaben.length} erklaerung="Abhaken, wenn erledigt; „Morgen“ schiebt die Aufgabe um einen Tag." mehr={{ href: "/aufgaben", text: "Alle Aufgaben" }}>
           <AufgabenListe eintraege={meineAufgaben} zurueck="/" />
         </Block>
       ) : null}
 
       {neueLeads.length ? (
-        <Block titel="3. Leads einstufen" zahl={neueLeads.length} erklaerung="„Interessant“ startet automatisch Online-Check, Demo-Seite und Akquise-Brief (zur Freigabe)." mehr={neueLeads.length > 5 ? { href: "/leads?status=neu", text: "Alle neuen" } : undefined}>
+        <Block id="einstufen" titel="Leads einstufen" zahl={neueLeads.length} erklaerung="„Interessant“ startet automatisch Online-Check, Demo-Seite und Akquise-Brief (zur Freigabe)." mehr={neueLeads.length > 5 ? { href: "/leads?status=neu", text: "Alle neuen" } : undefined}>
           <ul className="liste">
             {neueLeads.slice(0, 5).map((l) => (
               <li key={l.id}><div style={{ flex: 1 }}><div className="titel">{l.name}</div><div className="unter">{[l.gewerk, l.ort, l.score ? `Score ${l.score}` : null].filter(Boolean).join(" · ")}</div></div><Link className="knopf klein" href={`/leads/${l.id}`}>Einstufen</Link></li>
@@ -119,7 +141,7 @@ export default async function ZuTun() {
       ) : null}
 
       {besuche.length ? (
-        <Block titel="4. Besuche fällig" zahl={besuche.length} erklaerung="Der Brief ist seit einer Woche da. Jetzt vorbeigehen, Demo zeigen, beim Termin aufnehmen (nur mit Einwilligung).">
+        <Block id="besuche" titel="Besuche fällig" zahl={besuche.length} erklaerung="Der Brief ist seit einer Woche da. Jetzt vorbeigehen, Demo zeigen, danach den Messbogen ausfüllen." mehr={{ href: "/leads/besuche", text: "Besuchsplan" }}>
           <ul className="liste">
             {besuche.map((l) => <li key={l.id}><div style={{ flex: 1 }}><div className="titel">{l.name}</div><div className="unter">{l.strasse}, {l.plz} {l.ort}</div></div><Link className="knopf klein" href={`/leads/${l.id}`}>Öffnen</Link></li>)}
           </ul>
@@ -145,12 +167,13 @@ export default async function ZuTun() {
       ) : null}
 
       {tickets.length ? (
-        <Block titel="5. Tickets von Kunden" zahl={tickets.length} erklaerung="Änderungswünsche und Fragen aus der Betreuung. Zeit buchen, antworten (geht über die Freigabe)." mehr={{ href: "/tickets", text: "Alle Tickets" }}>
+        <Block id="tickets" titel="Tickets von Kunden" zahl={tickets.length} erklaerung="Änderungswünsche und Fragen aus der Betreuung. Zeit buchen, antworten (geht über die Freigabe)." mehr={{ href: "/tickets", text: "Alle Tickets" }}>
           <ul className="liste">
             {tickets.slice(0, 5).map(({ t, name }) => <li key={t.id}><div style={{ flex: 1 }}><div className="titel">{ticketNummer(t.id)} {t.betreff}</div><div className="unter">{name}{t.prioritaet !== "normal" ? ` · ${t.prioritaet}` : ""}</div></div><Link className="knopf klein" href={`/tickets/${t.id}`}>Öffnen</Link></li>)}
           </ul>
         </Block>
       ) : null}
+      </div>
     </>
   );
 }

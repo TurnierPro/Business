@@ -17,10 +17,10 @@ const BASIS: Punkt[] = [
   ["Bau", "Anfrageformular mit Foto-Upload getestet"],
   ["Bau", "Klick zum Anruf mit Messung eingerichtet"],
   ["Bau", "Rechtstexte vom lizenzierten Anbieter eingebunden"],
+  ["Abnahme", "Vorschau beim Kunden, Abnahme erklärt (oder Frist abgelaufen)", "abnahme"],
   ["Livegang", "Livegang freigegeben", "livegang"],
   ["Livegang", "Domain zeigt auf Levarex, Zertifikat aktiv", "domain"],
   ["Nach Livegang", "Google-Unternehmensprofil und Search Console eingerichtet"],
-  ["Nach Livegang", "Abnahme erklärt", "abnahme"],
   ["Nach Livegang", "AV-Vertrag unterschrieben"],
 ];
 const PERSONAL: Punkt[] = [
@@ -43,7 +43,7 @@ const KUNDENMANAGEMENT: Punkt[] = [
   ["Nach Livegang", "Nachfassen nach 7 und 14 Tagen und Bewertungsbitte aktiv"],
 ];
 
-export const PHASEN = ["Start", "Inhalte", "Bau", "Livegang", "Nach Livegang"];
+export const PHASEN = ["Start", "Inhalte", "Bau", "Abnahme", "Livegang", "Nach Livegang"];
 
 export function vorlage(_paket: PaketKey, module: string[] = []): Punkt[] {
   const extra = [...(module.includes("personal") ? PERSONAL : []), ...(module.includes("marketing") ? MARKETING : []), ...(module.includes("kundenmanagement") ? KUNDENMANAGEMENT : [])];
