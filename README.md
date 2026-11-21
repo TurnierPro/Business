@@ -124,11 +124,11 @@ Jeder Dienst hat einen Simulator und wird „echt“, sobald seine Zugangsdaten 
 | Stripe | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_STEUERSATZ_ID` | Modul 10 |
 | Docuseal, lexoffice | `DOCUSEAL_*`, `LEXOFFICE_API_KEY` | Modul 10 |
 | Push aufs Handy | `NTFY_URL` | Modul 12 |
-| Backup extern | `BACKUP_ZIEL` | Modul 3 |
+| Backup extern (IONOS) | `S3_ENDPOINT`, `S3_BUCKET`, `S3_ZUGRIFF`, `S3_GEHEIM`, `BACKUP_SCHLUESSEL` | Etappe 8 |
 
 ## Auf den Server (Hostinger)
 
-Der Server läuft bei Hostinger mit `docker-compose.yml` (App + PostgreSQL; n8n, Caddy und Sicherung bei IONOS folgen mit Etappe 8, siehe [`docs/bauplan-levarex-os.md`](docs/bauplan-levarex-os.md)). In der `.env` auf dem Server mindestens setzen: `BASE_URL`, `SESSION_SECRET`, `POSTGRES_PASSWORD`, `LEVAREX_START_PASSWORT`. Das Betriebshandbuch [`docs/betrieb.md`](docs/betrieb.md) beschreibt noch den alten Weg mit Hetzner und Coolify und wird in Etappe 8 neu geschrieben.
+Der Server läuft bei Hostinger mit `docker-compose.yml`: Caddy (HTTPS), App, PostgreSQL und n8n in getrennten Netzen; Sicherung täglich verschlüsselt bei IONOS. Vorlage für die `.env` auf dem Server: [`deploy/server.env.example`](deploy/server.env.example). Aufsetzen und Wiederherstellen Schritt für Schritt: [`docs/runbook-server.md`](docs/runbook-server.md); Meldungen und feste Zeiten: [`docs/betrieb.md`](docs/betrieb.md).
 
 ## Aufbau
 

@@ -4,8 +4,13 @@ FROM node:22-bookworm-slim
 WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1 NODE_ENV=production DATA_DIR=/data
 
-# PostgreSQL-Werkzeuge für Backups, rsync/ssh für die Storage Box
-RUN apt-get update && apt-get install -y --no-install-recommends postgresql-client rsync openssh-client ca-certificates && rm -rf /var/lib/apt/lists/*
+# PostgreSQL-Werkzeuge für Sicherung und Wiederherstellung (pg_dump, pg_restore), tar für die Dateien
+# Client-Version muss zur Datenbank passen (postgres:17); Debian selbst liefert nur Version 15
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl gnupg \
+  && curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | gpg --dearmor -o /usr/share/keyrings/pgdg.gpg \
+  && echo "deb [signed-by=/usr/share/keyrings/pgdg.gpg] https://apt.postgresql.org/pub/repos/apt bookworm-pgdg main" > /etc/apt/sources.list.d/pgdg.list \
+  && apt-get update && apt-get install -y --no-install-recommends postgresql-client-17 \
+  && rm -rf /var/lib/apt/lists/*
 
 COPY package.json package-lock.json ./
 RUN npm ci

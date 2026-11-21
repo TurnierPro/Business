@@ -2,6 +2,7 @@ import { aktiverMailDienst, MAIL_DIENSTE } from "./mail";
 import { whatsappEcht } from "./whatsapp";
 import { lexwareEcht } from "./lexware";
 import { qontoEcht } from "./qonto";
+import { objektspeicherEcht } from "./objektspeicher";
 
 // Übersicht aller Fremddienste. Ein Dienst ist "echt", sobald seine Zugangsdaten gesetzt sind.
 // Bis dahin übernimmt ein Simulator, und nichts verlässt das System.
@@ -20,6 +21,7 @@ export function dienste(): Dienst[] {
     { key: "buchhaltung", name: "Lexware Office", zweck: "Rechnungen und E-Rechnung, Nummer und PDF von Lexware, täglicher Zahlstatus", echt: lexwareEcht(), hinweis: "LEXWARE_API_KEY in Lexware Office erzeugen (Einstellungen → Öffentliche API) und setzen. AV-Vertrag in Lexware abschließen." },
     { key: "transkription", name: "Whisper (eigener Server)", zweck: "Vor-Ort-Termine in Text", echt: !!e.WHISPER_URL, hinweis: "Entfällt vorerst; Protokoll von Hand. Später nur ein Dienst mit AV-Vertrag und Standort EU (Entscheidung der Gründer)." },
     { key: "dns", name: "DNS-Abfrage und Domain-Umzug", zweck: "Bestandsaufnahme alter Domains, Umstellung prüfen, Zertifikate", echt: !!e.SERVER_IP, hinweis: "SERVER_IP (öffentliche IPv4 des Ziel-Servers) setzen. Test-Domains (.example) laufen immer im Simulator." },
+    { key: "sicherung", name: "IONOS Object Storage", zweck: "Tägliche Sicherung (Datenbank und Dateien) außerhalb des Servers, verschlüsselt, 30 Tage", echt: objektspeicherEcht() && !!e.BACKUP_SCHLUESSEL, hinweis: "S3_ENDPOINT, S3_BUCKET, S3_ZUGRIFF, S3_GEHEIM und BACKUP_SCHLUESSEL (mind. 32 Zeichen, in Bitwarden) setzen. AV-Vertrag mit IONOS." },
     { key: "push", name: "ntfy (Push aufs Handy)", zweck: "Warnungen und Tagesbericht", echt: !!e.NTFY_URL, hinweis: "Entfällt: Warnungen über Better Stack, Tagesbericht auf der Startseite. NTFY_URL nur zum Testen." },
   ];
 }

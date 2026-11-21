@@ -318,3 +318,34 @@ test("Heikle Schritte (Livegang, Rollen, Schlüssel): nur Technik-Leitung mit fr
   await db.update(schema.postausgang).set({ qkStatus: "ok" }).where(eq(schema.postausgang.id, id));
   await assert.rejects(() => post.freigeben(id, VERTRIEB), /Livegang gibt nur/);
 });
+
+test("Sicherung bei IONOS: Signatur nach AWS-Beispiel, nur verschlüsselt, Dateinamen geprüft", async () => {
+  const o = await import("../src/lib/adapters/objektspeicher");
+  // Offizielles Beispiel „GET Object“ aus der AWS-Doku zu Signature Version 4
+  const auth = o.signiereV4({
+    methode: "GET",
+    pfad: "/test.txt",
+    kopf: { host: "examplebucket.s3.amazonaws.com", range: "bytes=0-9", "x-amz-content-sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", "x-amz-date": "20130524T000000Z" },
+    payloadHash: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    region: "us-east-1",
+    zugriff: "AKIAIOSFODNN7EXAMPLE",
+    geheim: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
+  });
+  assert.match(auth, /Signature=f0e8bdb87c964420e857bd35b5d6ed310bd44f0170aba48dd91039c6036bdb41$/);
+  await assert.rejects(() => o.hochladen("../../etc/passwd", Buffer.from("x")), /Ungültiger Dateiname/);
+  // Backup-Lauf im Simulator: nur .enc-Dateien, Datenbank und Dateien, ohne Klartext
+  process.env.BACKUP_SCHLUESSEL = "eine sehr lange Passphrase für Backups 2026 Test";
+  try {
+    const { backup, entschluesseleBackup } = await import("../src/lib/ablauf/betrieb");
+    await backup();
+    const liste = await o.auflisten();
+    assert.ok(liste.some((x) => /^levarex-dateien-.*\.tar\.gz\.enc$/.test(x.name)), "Dateien gesichert");
+    assert.ok(liste.every((x) => x.name.endsWith(".enc")), "nur verschlüsselt");
+    const db = liste.find((x) => !x.name.startsWith("levarex-dateien-"))!;
+    const roh = await o.herunterladen(db.name);
+    assert.equal(roh.subarray(0, 4).toString(), "LVX1");
+    assert.ok(entschluesseleBackup(roh, process.env.BACKUP_SCHLUESSEL).length > 100);
+  } finally {
+    delete process.env.BACKUP_SCHLUESSEL;
+  }
+});

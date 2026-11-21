@@ -1,6 +1,6 @@
 # Sicherheit und Datenschutz: Prüfbericht (Stand 20.10.2026)
 
-> Hinweis (21.11.2026): Dieses Dokument beschreibt noch Hetzner und Coolify. Neu ist Hostinger mit Docker Compose und Sicherung bei IONOS; Neufassung mit Etappe 8 des Bauplans (`docs/bauplan-levarex-os.md`).
+> Betrieb: Hostinger-VPS mit Docker Compose (Caddy, App, PostgreSQL, n8n), Sicherung verschlüsselt bei IONOS Object Storage. Aufsetzen und Wiederherstellen: `docs/runbook-server.md`.
 
 Geprüft wurde Levarex OS selbst (eigenes System, lokal): Code-Durchsicht mit Blick eines Angreifers, Angriffe gegen den laufenden Server, Abhängigkeiten, Datenschutz nach DSGVO, BDSG, TDDDG und UWG. **Keine Rechtsberatung**: Die Datenschutz-Dokumente sind Entwürfe; vor dem ersten echten Kunden mit Anwalt oder externem Datenschutzberater abstimmen. Vor dem Verkauf als Produkt einen **externen** Penetrationstest beauftragen. Ein Test durch den eigenen Entwickler ersetzt ihn nicht.
 
@@ -19,7 +19,7 @@ Geprüft wurde Levarex OS selbst (eigenes System, lokal): Code-Durchsicht mit Bl
 | 7 | Formularfeld „zurück“ erlaubte Weiterleitung auf fremde Seiten (Open Redirect, für Phishing nutzbar) | mittel | behoben: nur interne Pfade |
 | 8 | Sitzungen blieben nach Passwortwechsel gültig | mittel | behoben: Sitzungs-Version; Passwortwechsel und „überall abmelden“ beenden alle Sitzungen |
 | 9 | Zwei-Faktor-Geheimnis im Klartext in der Datenbank; Codes mehrfach verwendbar | mittel | behoben: verschlüsselt (AES-256-GCM); jeder Code nur einmal |
-| 10 | Backups gingen unverschlüsselt auf die Storage Box | mittel | behoben: außerhalb des Servers nur verschlüsselt; ohne `BACKUP_SCHLUESSEL` keine externe Kopie |
+| 10 | Backups gingen unverschlüsselt aus dem Server | mittel | behoben: zu IONOS nur verschlüsselt (AES-256-GCM); ohne `BACKUP_SCHLUESSEL` keine externe Kopie; Signatur der Übertragung gegen AWS-Beispiel getestet |
 | 11 | Abhängigkeit mit bekannter Schwachstelle (postcss in Next.js) | niedrig | behoben: `npm audit` meldet 0 |
 | 12 | Antwortzeit verriet, ob ein Konto existiert | niedrig | behoben: gleiche Rechenzeit |
 | 13 | Gesundheits-Endpunkt und Fehlermeldungen zeigten technische Details | niedrig | behoben: Details nur ins Server-Log |
@@ -62,7 +62,7 @@ Dazu wie bisher:
 |---|---|---|
 | Verzeichnis der Verarbeitungstätigkeiten | Art. 30 DSGVO | Entwurf in Levarex OS, mit Berater prüfen |
 | TOM dokumentiert | Art. 32 DSGVO | in Levarex OS; organisatorische Punkte offen |
-| AV-Verträge mit Hetzner, Anthropic, Resend, Briefdienst abschließen und ablegen | Art. 28 DSGVO | offen (Register „Unterlagen“) |
+| AV-Verträge mit Hostinger, IONOS, Anthropic, Lexware, Qonto (soweit nötig), Mail-Anbieter, Briefdienst abschließen und ablegen | Art. 28 DSGVO | offen (Register „Unterlagen“) |
 | Drittland: Anthropic und Resend (USA). Grundlage prüfen: Data Privacy Framework, sonst Standardvertragsklauseln; Alternative: EU-Anbieter | Art. 44 ff. DSGVO | offen |
 | AV-Vertrag-Muster für eure Kunden (Levarex als Auftragsverarbeiter), mit TOM und Unterauftragnehmern | Art. 28 DSGVO | offen, Anwalt |
 | Datenschutzerklärung und Impressum auf levarex-consulting.de, Datenschutzhinweise fürs Kundenportal | Art. 13 DSGVO, § 5 DDG | offen |
@@ -77,17 +77,17 @@ Dazu wie bisher:
 | Aufbewahrung Rechnungen 8 Jahre, Handelsbriefe 6 Jahre, GoBD-Verfahrensdokumentation | § 147 AO, § 257 HGB, GoBD | Löschregeln beachten das; Doku offen |
 | Mitarbeiterdaten (ab erster Einstellung) | § 26 BDSG | später |
 
-## 4. Server härten (Hetzner, vor dem ersten echten Kunden)
+## 4. Server härten (Hostinger, vor dem ersten echten Kunden)
 
-1. SSH nur mit Schlüssel, Passwort-Anmeldung und Root-Login aus; Hetzner-Firewall: nur 22 (besser nur eure IP), 80, 443.
-2. Automatische Sicherheitsupdates (`unattended-upgrades`), Coolify regelmäßig aktualisieren.
-3. Datenbank nicht nach außen öffnen (nur im Docker-Netz).
-4. Umgebungsvariablen nur in Coolify und im Passwortmanager:
-   - `SESSION_SECRET` mit mindestens 32 zufälligen Zeichen
-   - `LEVAREX_START_PASSWORT`
-   - `BACKUP_SCHLUESSEL`
-   - Stripe-Schlüssel
-5. Caddy oder Traefik mit HTTPS. `BASE_URL` mit `https://` setzen, dann sind HSTS und HTTPS-Pflicht aktiv.
-6. Zwei-Faktor für alle Konten einschalten: Levarex OS, Hetzner, Coolify, GitHub, Stripe, Domain-Anbieter, E-Mail.
-7. Backups: Rücksicherung einmal von Hand üben, mit `scripts/backup-entschluesseln.ts`.
-8. Geräte: Festplattenverschlüsselung (FileVault), Bildschirmsperre, Passwortmanager, keine Firmendaten auf Arbeitgeber-Geräten.
+Das meiste erledigt `deploy/server-einrichten.sh` (Runbook Schritt A.3):
+
+1. SSH nur mit Schlüssel, Passwort-Anmeldung aus, Root nur per Schlüssel; Firewall (ufw): nur 22, 80, 443; fail2ban gegen Rateversuche.
+2. Automatische Sicherheitsupdates (`unattended-upgrades`, Neustart um 4 Uhr). Levarex OS, PostgreSQL, Caddy und n8n mit festen Versionen, Update-Plan im Runbook Teil C.
+3. Netze getrennt: Datenbank nur im internen Netz mit der App; n8n ohne Datenbankzugang und ohne deren Zugangsdaten, nur über `/api/v1` mit eigenem Schlüssel je Ablauf; Community-Knoten in n8n aus, Zwei-Faktor in n8n an.
+4. Geheimnisse nur in der `.env` auf dem Server (Rechte 600) und in Bitwarden: `SESSION_SECRET`, `POSTGRES_PASSWORD`, `LEVAREX_START_PASSWORT`, `BACKUP_SCHLUESSEL`, `N8N_ENCRYPTION_KEY`, `S3_*`, Dienst-Schlüssel.
+5. Caddy holt HTTPS-Zertifikate; Kunden-Domains nur, wenn Levarex OS sie kennt (`/api/tls-erlaubt`). `BASE_URL` beginnt mit `https://`, dann sind HSTS und HTTPS-Pflicht aktiv.
+6. Zwei-Faktor für alle Konten: Levarex OS, Hostinger, IONOS, GitHub, netcup, Lexware, Qonto, Bitwarden, E-Mail. Daniel ist Owner bei Hostinger und IONOS, Notfallzugang in Bitwarden.
+7. Sicherung: Probe-Wiederherstellung auf einem Test-Server vor dem ersten Kunden und dann jedes Quartal (Runbook Teil E), Dauer eintragen.
+8. Überwachung: Better Stack prüft `/api/gesundheit` und meldet Ausfälle aufs Handy.
+9. Externer Sicherheitstest vor dem ersten Kunden im Portal (Bauplan Etappe 8).
+10. Geräte: Festplattenverschlüsselung (FileVault), Bildschirmsperre, Passwortmanager, keine Firmendaten auf Arbeitgeber-Geräten.

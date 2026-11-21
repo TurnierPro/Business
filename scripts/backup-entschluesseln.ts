@@ -1,4 +1,4 @@
-// Notfall: verschlüsseltes Backup von der Storage Box wieder lesbar machen.
+// Notfall: einzelnes verschlüsseltes Backup (z. B. von IONOS heruntergeladen) wieder lesbar machen. Ganze Wiederherstellung: scripts/wiederherstellen.ts
 // Aufruf: BACKUP_SCHLUESSEL=… npx tsx scripts/backup-entschluesseln.ts levarex-2027-01-15-02-00.tar.gz.enc
 import fs from "node:fs";
 import { entschluesseleBackup } from "../src/lib/ablauf/betrieb";

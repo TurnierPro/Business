@@ -1,0 +1,41 @@
+# Caddy: HTTPS mit Let's Encrypt für Levarex OS, Kundenportal, n8n und die Kunden-Websites.
+{
+	email {$ACME_EMAIL}
+	# Kunden-Domains: Zertifikat nur, wenn Levarex OS die Domain kennt (Live-Projekt)
+	on_demand_tls {
+		ask http://app:3000/api/tls-erlaubt
+	}
+}
+
+(sicher) {
+	encode zstd gzip
+	header -Server
+}
+
+{$OS_DOMAIN} {
+	import sicher
+	reverse_proxy app:3000
+}
+
+{$PORTAL_DOMAIN} {
+	import sicher
+	reverse_proxy app:3000
+}
+
+{$N8N_DOMAIN} {
+	import sicher
+	reverse_proxy n8n:5678
+}
+
+# Alle anderen Domains: Kunden-Websites (die App liefert je Domain die richtige Seite aus)
+https:// {
+	import sicher
+	tls {
+		on_demand
+	}
+	reverse_proxy app:3000
+}
+
+http:// {
+	redir https://{host}{uri} permanent
+}

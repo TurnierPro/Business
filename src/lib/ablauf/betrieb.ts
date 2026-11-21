@@ -8,6 +8,7 @@ import { PGlite } from "@electric-sql/pglite";
 import { getDb, eingebauteDb, schema } from "../db";
 import { datenOrdner } from "../pfade";
 import { melde } from "../adapters/push";
+import { auflisten, hochladen, loeschen, objektspeicherEcht } from "../adapters/objektspeicher";
 import { protokolliere } from "../protokoll";
 import { ANGEBOT_LOESCHEN_TAGE, frist } from "../recht";
 import { alteVersucheLoeschen, sicheresFetch } from "../sicherheit";
@@ -18,6 +19,8 @@ import { SYSTEM } from "./gemeinsam";
 
 const run = promisify(execFile);
 const AUFBEWAHRUNG_TAGE = 30;
+// Nicht ins Dateien-Archiv: Datenbank (eigener Dump), Backups, Simulator-Ordner
+const AUSGENOMMEN = ["db", "backups", "backup-extern", "objektspeicher-simulator"];
 
 function backupOrdner() {
   return datenOrdner("backups");
@@ -57,25 +60,35 @@ export async function backup(): Promise<string> {
     const voll = path.join(backupOrdner(), f);
     if (Date.now() - fs.statSync(voll).mtimeMs > AUFBEWAHRUNG_TAGE * 864e5) fs.rmSync(voll);
   }
-  // Kopie außerhalb des Servers, nur verschlüsselt (AES-256-GCM, Schlüssel nur in Bitwarden und in der Server-Umgebung).
-  // Heute per rsync; Umstellung auf IONOS Object Storage (30 Tage) mit Etappe 8 des Bauplans.
-  let extern = "nur lokal (BACKUP_ZIEL fehlt)";
-  if (process.env.BACKUP_ZIEL) {
-    if (!process.env.BACKUP_SCHLUESSEL || process.env.BACKUP_SCHLUESSEL.length < 32) throw new Error("BACKUP_SCHLUESSEL fehlt (mindestens 32 Zeichen). Ohne Verschlüsselung verlässt kein Backup den Server.");
-    const ausgang = datenOrdner("backup-extern");
-    fs.writeFileSync(path.join(ausgang, `${path.basename(datei)}.enc`), verschluesseleBackup(fs.readFileSync(datei), process.env.BACKUP_SCHLUESSEL));
-    for (const f of fs.readdirSync(ausgang)) if (!fs.existsSync(path.join(backupOrdner(), f.replace(/\.enc$/, "")))) fs.rmSync(path.join(ausgang, f));
-    await run("rsync", ["-a", "--delete", "-e", "ssh -p 23", `${ausgang}/`, process.env.BACKUP_ZIEL]);
-    extern = "verschlüsselt extern kopiert";
+  // Dateien (Uploads, Seiten, PDFs, Belege) gehören mit zur Sicherung; Datenbank und Backups selbst nicht
+  const dateienArchiv = path.join(backupOrdner(), `levarex-dateien-${stempel}.tar.gz`);
+  await run("tar", ["-czf", dateienArchiv, "-C", datenOrdner(), ...AUSGENOMMEN.map((x) => `--exclude=./${x}`), "."]);
+  // n8n-Abläufe und deren Zugangsdaten (verschlüsselt mit N8N_ENCRYPTION_KEY, der in Bitwarden liegt)
+  const n8nDaten = process.env.N8N_DATEN;
+  const n8nArchiv = n8nDaten && fs.existsSync(n8nDaten) ? path.join(backupOrdner(), `levarex-n8n-${stempel}.tar.gz`) : null;
+  if (n8nArchiv) await run("tar", ["-czf", n8nArchiv, "-C", n8nDaten!, "."]);
+  // Kopie außerhalb des Servers: IONOS Object Storage (Deutschland), nur verschlüsselt (AES-256-GCM, Schlüssel in Bitwarden).
+  // Ohne Zugangsdaten landet die verschlüsselte Kopie im Simulator-Ordner, damit der Ablauf trotzdem geprüft wird.
+  if (process.env.NODE_ENV === "production" && objektspeicherEcht() && (!process.env.BACKUP_SCHLUESSEL || process.env.BACKUP_SCHLUESSEL.length < 32)) {
+    throw new Error("BACKUP_SCHLUESSEL fehlt (mindestens 32 Zeichen). Ohne Verschlüsselung verlässt kein Backup den Server.");
   }
+  const schluessel = process.env.BACKUP_SCHLUESSEL && process.env.BACKUP_SCHLUESSEL.length >= 32 ? process.env.BACKUP_SCHLUESSEL : null;
+  let extern = "nur lokal (BACKUP_SCHLUESSEL fehlt)";
+  if (schluessel) {
+    for (const f of [datei, dateienArchiv, ...(n8nArchiv ? [n8nArchiv] : [])]) await hochladen(`${path.basename(f)}.enc`, verschluesseleBackup(fs.readFileSync(f), schluessel));
+    // 30 Tage aufbewahren (zusätzlich im Bucket eine Lebenszyklus-Regel setzen, siehe docs/betrieb.md)
+    for (const o of await auflisten()) if (o.name.startsWith("levarex-") && Date.now() - o.am.getTime() > AUFBEWAHRUNG_TAGE * 864e5) await loeschen(o.name);
+    extern = objektspeicherEcht() ? "verschlüsselt bei IONOS" : "verschlüsselt im Simulator (S3_* fehlt)";
+  }
+  const echtExtern = !!schluessel && objektspeicherEcht();
   const kb = Math.round(fs.statSync(datei).size / 1024);
-  await melde("backup", !!process.env.BACKUP_ZIEL || process.env.NODE_ENV !== "production", process.env.BACKUP_ZIEL ? "Backup erstellt" : "Backup erstellt, nur lokal", `${path.basename(datei)}, ${kb} KB, ${extern}`);
+  await melde("backup", echtExtern || process.env.NODE_ENV !== "production", echtExtern ? "Backup erstellt" : "Backup erstellt, nicht extern", `${path.basename(datei)}, ${kb} KB, ${extern}`);
   return `${path.basename(datei)} (${kb} KB, ${extern})`;
 }
 
 /** Spielt das neueste Backup in eine leere Datenbank ein und zählt nach. */
 export async function ruecksicherung(): Promise<string> {
-  const dateien = fs.readdirSync(backupOrdner()).filter((f) => f.startsWith("levarex-")).sort();
+  const dateien = fs.readdirSync(backupOrdner()).filter((f) => f.startsWith("levarex-") && !f.startsWith("levarex-dateien-") && !f.startsWith("levarex-n8n-")).sort();
   const neuestes = dateien.at(-1);
   if (!neuestes) {
     await melde("ruecksicherung", false, "Probe-Rücksicherung fehlgeschlagen", "Kein Backup gefunden.");
