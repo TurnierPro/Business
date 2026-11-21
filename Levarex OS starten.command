@@ -20,6 +20,22 @@ if [ ! -d node_modules ]; then
   npx playwright-core install chromium
 fi
 
+# Läuft noch eine alte Levarex OS (oder etwas anderes) auf Port 3000? Dann startet die neue nicht.
+ALT=$(lsof -ti :3000 2>/dev/null)
+if [ -n "$ALT" ]; then
+  echo ""
+  echo "Auf http://localhost:3000 läuft noch ein Programm (vermutlich die alte Levarex OS)."
+  read -r -p "Beenden und neu starten? (j/n) " ANTWORT
+  if [ "$ANTWORT" = "j" ] || [ "$ANTWORT" = "J" ]; then
+    echo "$ALT" | xargs kill 2>/dev/null
+    sleep 2
+  else
+    echo "Abgebrochen. Die laufende Version bleibt unter http://localhost:3000 erreichbar."
+    read -r -p "Enter drücken zum Schließen."
+    exit 0
+  fi
+fi
+
 # Neu bauen, wenn sich der Code geändert hat
 STAND=$(find src brand drizzle package.json -type f -newer .next/BUILD_ID 2>/dev/null | head -1)
 if [ ! -f .next/BUILD_ID ] || [ -n "$STAND" ]; then
