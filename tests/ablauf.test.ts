@@ -880,3 +880,32 @@ async function post_freigeben(id: number) {
   await post.freigeben(id, "Daniel Lück");
   await abarbeiten();
 }
+
+test("Vertrieb: Messbogen, Gate der Beweisphase, Besuchsplan nach Ort, Nachfassen nur mit Zusage", async () => {
+  const v = await import("../src/lib/ablauf/vertrieb");
+  assert.equal(v.gateStufe(2).stufe, "unter Minimal");
+  assert.equal(v.gateStufe(5).stufe, "Minimal");
+  assert.equal(v.gateStufe(6).stufe, "Neutral");
+  assert.equal(v.gateStufe(10).stufe, "Best Case");
+  assert.equal(v.besuchErlaubt(new Date("2027-01-08T13:00:00+01:00")), false, "Freitag ab 12 Uhr nicht");
+  assert.equal(v.besuchErlaubt(new Date("2027-01-08T10:00:00+01:00")), true);
+  const a1 = await akquise.legeBetriebAn({ name: "Elektro Besuch A", gewerk: "Elektro", score: 80, scoreGrund: "Test", website: "besuch-a.example", plz: "76297", ort: "Stutensee" }, "Test", "Test");
+  const a2 = await akquise.legeBetriebAn({ name: "Maler Besuch B", gewerk: "Maler", score: 70, scoreGrund: "Test", website: "besuch-b.example", plz: "76297", ort: "Stutensee" }, "Test", "Test");
+  const plan = await v.besuchsplan();
+  assert.ok(plan.find((g) => g.ort === "76297 Stutensee")?.betriebe.length === 2, JSON.stringify(plan.map((g) => g.ort)));
+  const am = new Date("2027-01-05T10:00:00+01:00");
+  await assert.rejects(() => v.besuchErfassen({ betriebId: a1.id!, am, inhaberAngetroffen: true, ergebnis: "unterschrift", art14Info: true, paket: "KOMPAKT" }, "Daniel Lück"), /Variante/);
+  await v.besuchErfassen({ betriebId: a1.id!, am, inhaberAngetroffen: true, ergebnis: "unterschrift", variante: "B", paket: "KOMPAKT", art14Info: true, dauerMin: 25 }, "Daniel Lück");
+  await v.besuchErfassen({ betriebId: a2.id!, am, inhaberAngetroffen: true, ergebnis: "ueberlegt", einwand: "Muss ich mit dem Büro besprechen", einwilligungKontakt: "keine", art14Info: false }, "Daniel Lück");
+  const s = await v.auswertung();
+  assert.equal(s.sicher, 1);
+  assert.equal(s.varianteB.unterschriften, 1);
+  assert.equal(s.art14Fehlt, 1, "fehlendes Infoblatt fällt auf");
+  assert.equal(s.einwaende[0][0], "Muss ich mit dem Büro besprechen");
+  const aufg = await db.select().from(schema.aktivitaeten).where(eq(schema.aktivitaeten.betriebId, a2.id!));
+  assert.ok(!aufg.some((x) => x.titel.startsWith("Nachfass-Mail")), "ohne ausdrücklichen Wunsch keine Nachfass-Mail (§ 7 UWG)");
+  // Datenauskunft enthält den Messbogen
+  const ds = await import("../src/lib/ablauf/datenschutz");
+  const auskunft = await ds.datenauskunft(a2.id!, "Test");
+  assert.equal((auskunft as { besuche: unknown[] }).besuche.length, 1);
+});

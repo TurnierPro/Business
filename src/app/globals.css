@@ -163,7 +163,9 @@ dl.daten dd { margin: 0; }
 
 /* Handy */
 @media (max-width: 900px) {
-  .app { grid-template-columns: 1fr; }
+  /* minmax(0, 1fr): sonst drückt die breite Menüleiste die ganze Seite über den Bildschirmrand */
+  .app { grid-template-columns: minmax(0, 1fr); }
+  .seitenleiste, main.inhalt { min-width: 0; }
   .seitenleiste { position: static; height: auto; flex-direction: row; align-items: center; gap: 12px; padding: 12px 16px; border-right: 0; border-bottom: 1px solid var(--linie); overflow-x: auto; }
   .seitenleiste .slogan, .seitenleiste .fuss { display: none; }
   .nav { flex-direction: row; }
@@ -314,3 +316,33 @@ dl.daten dd { margin: 0; }
 /* Schlichte Liste mit Status-Wort vorne (z. B. Mitwirkungsliste) */
 .liste-schlicht { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
 .liste-schlicht li { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+
+/* Besuche vor Ort: große Ziele für Tablet und Handy */
+.tabelle .zahl { text-align: right; font-family: var(--mono); }
+.besuch-ort + .besuch-ort { margin-top: 24px; }
+.besuch-ort h3 { margin: 0 0 8px; font-size: 16px; }
+.besuch { border-top: 1px solid var(--linie); }
+.besuch summary { cursor: pointer; display: flex; flex-direction: column; gap: 2px; padding: 12px 0; min-height: 48px; justify-content: center; }
+.besuch-name { font-weight: 600; }
+.messbogen { display: grid; gap: 12px; padding: 4px 0 16px; max-width: 560px; }
+.messbogen fieldset { border: 0; padding: 0; margin: 0; display: grid; gap: 6px; }
+.messbogen legend { font-weight: 600; margin-bottom: 6px; }
+.messbogen .haken { min-height: 40px; align-items: center; }
+@media (max-width: 760px) {
+  .besuche-zahlen.raster.vier { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .messbogen .raster.zwei { grid-template-columns: 1fr; }
+}
+.tabelle-rahmen { overflow-x: auto; max-width: 100%; }
+/* Lange Adressen und Kennungen im Text umbrechen; Rasterzellen dürfen schmaler werden als ihr Inhalt */
+p .mono, li .mono { overflow-wrap: anywhere; }
+.raster > * { min-width: 0; }
+.hinweis, .karte li, .karte p { overflow-wrap: anywhere; }
+@media (max-width: 760px) {
+  /* Breite Tabellen scrollen in sich, statt die Seite zu verbreitern */
+  main.inhalt .tabelle { display: block; overflow-x: auto; max-width: 100%; }
+}
+@media (max-width: 900px) {
+  /* Suchfeld in der Menüleiste nicht zu einem leeren Kästchen zusammendrücken */
+  .nav form[role="search"] { flex: none; }
+  .nav .suche-feld { width: 140px; min-width: 140px; margin: 0; }
+}

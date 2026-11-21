@@ -628,3 +628,26 @@ export async function portalLinkErneuern(f: FormData) {
     if (b?.email) await kp.zugangAnfordern(b.email);
   });
 }
+
+// ---------- Vertrieb: Messbogen nach dem Besuch ----------
+
+export async function besuchErfassen(f: FormData) {
+  await ausfuehren("/leads/besuche", "Besuch gespeichert", async (wer) => {
+    await (await import("@/lib/ablauf/vertrieb")).besuchErfassen(
+      {
+        betriebId: zahl(f, "betriebId"),
+        inhaberAngetroffen: f.get("angetroffen") === "ja",
+        dauerMin: zahl(f, "dauer") || null,
+        einwand: text(f, "einwand"),
+        paket: text(f, "paket"),
+        variante: text(f, "variante"),
+        ergebnis: text(f, "ergebnis"),
+        ruecktritt: f.get("ruecktritt") === "ja",
+        einwilligungKontakt: text(f, "kontakt"),
+        art14Info: f.get("art14") === "ja",
+        preistest: text(f, "preistest"),
+      },
+      wer,
+    );
+  });
+}

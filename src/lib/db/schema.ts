@@ -351,6 +351,24 @@ export const aktivitaeten = pgTable("aktivitaeten", {
   erstelltAm: timestamp("erstellt_am", { withTimezone: true }).defaultNow().notNull(),
 });
 
+// Besuche vor Ort mit Messbogen (Vertrieb, Dok. 39): Grundlage für Zwischenauswertung und Gate
+export const besuche = pgTable("besuche", {
+  id: serial("id").primaryKey(),
+  betriebId: integer("betrieb_id").references(() => betriebe.id, { onDelete: "cascade" }).notNull(),
+  am: timestamp("am", { withTimezone: true }).defaultNow().notNull(),
+  inhaberAngetroffen: boolean("inhaber_angetroffen").notNull().default(false),
+  dauerMin: integer("dauer_min"),
+  einwand: text("einwand"), // wörtlich
+  paket: text("paket"), // KOMPAKT | PROFESSIONAL | leer
+  variante: text("variante"), // A (Unterschrift vor Ort) | B (mit Rücktrittsrecht 14 Tage)
+  ergebnis: text("ergebnis").notNull(), // unterschrift | folgetermin | ueberlegt | kein_interesse | nicht_angetroffen
+  ruecktritt: boolean("ruecktritt").notNull().default(false),
+  einwilligungKontakt: text("einwilligung_kontakt"), // mail | telefon | brief | keine
+  art14Info: boolean("art14_info").notNull().default(false),
+  preistest: text("preistest"),
+  erstelltVon: text("erstellt_von").notNull(),
+});
+
 // Zeiterfassung: Grundlage für „Stunden je Projekt“ und „Betreuung je Kunde“ aus dem Business Case
 export const zeiten = pgTable("zeiten", {
   id: serial("id").primaryKey(),

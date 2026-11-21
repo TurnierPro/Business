@@ -17,7 +17,9 @@ export async function nachVersand(e: Eintrag): Promise<void> {
     await crm.systemAufgabe({ betriebId: e.betriebId, titel: "Besuch vor Ort", text: "Brief ist raus. Demo dabeihaben, Einwilligung zur Aufnahme einholen.", inTagen: 8, zustaendig: crm.VERTRIEB });
   }
   if (e.zweck === "angebot" && e.betriebId) {
-    await crm.systemAufgabe({ betriebId: e.betriebId, titel: "Angebot nachfassen", text: "Anrufen: Fragen zum Angebot? Annahme geht im Kundenportal.", inTagen: 5, zustaendig: crm.VERTRIEB });
+    // Nachfassen nach 7 und 14 Tagen (Dok. 39); beide Aufgaben erledigen sich mit der Unterschrift
+    await crm.systemAufgabe({ betriebId: e.betriebId, titel: "Angebot nachfassen", text: "Anrufen: Fragen zum Angebot? Unterschrieben wird beim Termin auf dem Tablet.", inTagen: 7, zustaendig: crm.VERTRIEB });
+    await crm.systemAufgabe({ betriebId: e.betriebId, titel: "Angebot nachfassen (zweiter Anruf)", text: "Letztes Nachfassen, kein Druck: „Ich überleg's mir“ ist eine gute Antwort.", inTagen: 14, zustaendig: crm.VERTRIEB });
   }
   if (e.zweck === "kickoff" && e.projektId) await hakeAb(e.projektId, "kickoff");
   if (e.zweck === "kickoff" && e.betriebId) {

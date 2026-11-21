@@ -17,6 +17,7 @@ const AUFBEWAHREN = ["rechnung", "angebot", "auftragsbestaetigung", "abnahmeprot
 export async function datenauskunft(betriebId: number, wer: string) {
   const db = await getDb();
   const b = await betrieb(betriebId);
+  const besuche = await db.select().from(schema.besuche).where(eq(schema.besuche.betriebId, betriebId));
   const [kontakte, aktivitaeten, tickets, zeiten, nachrichten, unterschriften, portalZugaenge] = await Promise.all([
     db.select().from(schema.kontakte).where(eq(schema.kontakte.betriebId, betriebId)),
     db.select().from(schema.aktivitaeten).where(eq(schema.aktivitaeten.betriebId, betriebId)),
@@ -44,6 +45,7 @@ export async function datenauskunft(betriebId: number, wer: string) {
     stammdaten,
     ansprechpartner: kontakte,
     aktivitaeten,
+    besuche,
     tickets,
     zeiten,
     nachrichten,
@@ -93,6 +95,7 @@ export async function allesLoeschen(betriebId: number, bestaetigung: string, wer
   await db.delete(schema.termine).where(eq(schema.termine.betriebId, betriebId));
   await db.delete(schema.kontakte).where(eq(schema.kontakte.betriebId, betriebId));
   await db.delete(schema.aktivitaeten).where(eq(schema.aktivitaeten.betriebId, betriebId));
+  await db.delete(schema.besuche).where(eq(schema.besuche.betriebId, betriebId));
   await db.delete(schema.tickets).where(eq(schema.tickets.betriebId, betriebId));
   await db.delete(schema.portalZugaenge).where(eq(schema.portalZugaenge.betriebId, betriebId));
   // Von Nachrichten bleiben nur unsere versendeten Mails (Handelsbriefe), der Rest geht
