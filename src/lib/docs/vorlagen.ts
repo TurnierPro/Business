@@ -28,7 +28,7 @@ export type AngebotDaten = {
   einmalig: number;
   monatlich: number;
   positionen?: { text: string; einmalig: number; monatlich: number; hinweis?: string }[];
-  zahlweg?: "stripe" | "ueberweisung";
+  zahlweg?: "ueberweisung";
   anmerkungen?: string;
   agbVersion?: string;
   // Beim Erstellen eingefroren (ältere Angebote haben das noch nicht, dann gilt der Katalog)
@@ -74,7 +74,7 @@ export type AuftragDaten = {
   einmalig: number;
   monatlich: number;
   annahme: { name: string; am: string; agbVersion: string; unternehmer: boolean };
-  zahlweg: "stripe" | "ueberweisung";
+  zahlweg: "ueberweisung";
 };
 export type AbnahmeDaten = {
   an: Anschrift;
@@ -150,18 +150,14 @@ ${(d.positionen?.length ? d.positionen : [{ text: p.name, einmalig: d.einmalig, 
 <p class="leise" style="font-size:8.5pt">Der Monatsbeitrag bezahlt Hosting, Wartung, Sicherheit, Rechtstexte und Änderungen im vereinbarten Umfang. Laufzeit ${LAUFZEIT_MONATE} Monate ab Livegang, danach jeweils ${VERLAENGERUNG_MONATE} Monate; Kündigung ${KUENDIGUNG_MONATE_VOR_ENDE} Monate vor Ende in Textform. Später gebuchte Module laufen ${LAUFZEIT_MONATE} Monate ab ihrem Livegang.</p>
 ${d.anmerkungen?.trim() ? `<h2>Anmerkungen</h2>${absaetze(d.anmerkungen)}` : ""}
 <h2>So läuft es ab</h2>
-<ul>${
-  d.zahlweg === "stripe"
-    ? "<li>Zahlungsplan, individuell vereinbart: 50 % bei Auftrag, Sie zahlen direkt online nach der Annahme (Karte oder SEPA-Lastschrift über Stripe). Wir beginnen nach Zahlungseingang mit Konzept und Entwurf.</li><li>50 % nach Ihrer Abnahme der fertigen Website. Diesen Betrag und die monatliche Betreuung ziehen wir mit der hinterlegten Zahlungsart ein. Rechnungen erhalten Sie per E-Mail.</li>"
-    : `<li>Zahlung: 50 % bei Unterschrift, fällig ${ERSTE_RATE_FAELLIG_TAGE} Tage nach Vertragsschluss und nicht vor Arbeitsbeginn; 50 % beim Livegang nach Ihrer Abnahme. Keine Ratenzahlung.</li><li>Monatsbeitrag per SEPA-Lastschrift mit Vorabankündigung 5 Kalendertage vor dem Einzug; bis der Einzug eingerichtet ist, per Überweisung.</li>`
-}
+<ul><li>Zahlung: 50 % bei Unterschrift, fällig ${ERSTE_RATE_FAELLIG_TAGE} Tage nach Vertragsschluss und nicht vor Arbeitsbeginn; 50 % beim Livegang nach Ihrer Abnahme. Keine Ratenzahlung.</li><li>Monatsbeitrag per SEPA-Lastschrift mit Vorabankündigung 5 Kalendertage vor dem Einzug; bis der Einzug eingerichtet ist, per Überweisung.</li>
 <li>Online ${p.wochen} Wochen nach Erhalt Ihrer vollständigen Inhalte. Klappt das nicht, ist ein Monatsbeitrag kostenlos.</li>
 <li>Beim Livegang: Lighthouse ≥ 95 und Barrierefreiheit nach WCAG 2.2 AA, sonst bessern wir kostenlos nach.</li>
 <li>Änderungen vor der Abnahme und über das monatliche Kontingent hinaus: ${euro(AENDERUNG_STUNDENSATZ)} netto je Stunde, nur nach Ihrer Freigabe in Textform.</li>
 <li>Die Domain gehört Ihnen, den Auth-Code halten wir nie zurück. Texte und Fotos gehören Ihnen ab Zahlung, Code und Design nach ${LAUFZEIT_MONATE} Monaten.</li>
 <li>Wo Website, Formulare und Kundendaten liegen, steht in der Liste der Unterauftragsverarbeiter im AV-Vertrag.</li></ul>
 <div class="box"><b>Allgemeine Geschäftsbedingungen</b><br>Es gelten unsere AGB für Unternehmer, Version ${esc(d.agbVersion ?? AGB_VERSION)}, abrufbar unter <span class="mono">${esc(AGB_URL)}</span>. Dieses Angebot richtet sich nur an Unternehmer (§ 14 BGB). Mit der Annahme bestätigen Sie, dass Sie für Ihren Betrieb handeln und nicht als Verbraucher.</div>
-<div class="box"><b>Annehmen</b><br><span class="leise">Sie nehmen dieses Angebot in Ihrem Kundenportal an (Link in unserer E-Mail). ${d.zahlweg === "stripe" ? "Danach zahlen Sie die Anzahlung direkt online." : "Danach bekommen Sie die Rechnung über die Anzahlung."} Anlage: Leistungsbeschreibung.</span></div>
+<div class="box"><b>Unterschreiben</b><br><span class="leise">Den Rahmenvertrag und je Baustein einen Leistungsschein unterschreiben Sie beim Termin mit Daniel Lück auf dem Tablet. Danach bekommen Sie die Rechnung über die erste Rate. Anlage: Leistungsbeschreibung.</span></div>
 ${fuss()}</div>
 ${leistungsbeschreibung(d)}`,
   });
@@ -284,7 +280,7 @@ ${d.positionen.map((x) => `<tr><td>${esc(x.text)}</td><td class="zahl">${x.einma
 </tbody></table>
 <div class="box"><b>Annahme</b><br>Angenommen von ${esc(d.annahme.name)} am ${esc(am)} Uhr im Kundenportal.<br>Grundlage: unsere AGB für Unternehmer, Version ${esc(d.annahme.agbVersion)}.${d.annahme.unternehmer ? " Bestätigt: Der Auftrag wird für den Betrieb erteilt, nicht als Verbraucher (§ 14 BGB)." : ""}</div>
 <h2>Wie es weitergeht</h2><ul>
-<li>${d.zahlweg === "stripe" ? "Anzahlung 50 % online im Kundenportal." : "Rechnung über die Anzahlung von 50 % kommt per E-Mail."} Wir beginnen nach Zahlungseingang.</li>
+<li>Die Rechnung über die erste Rate (50 %) kommt per E-Mail. Wir beginnen nach Zahlungseingang.</li>
 <li>Danach laden Sie Texte, Fotos und Logo im Kundenportal hoch.</li>
 <li>Die restlichen 50 % werden beim Livegang nach Ihrer Abnahme fällig.</li></ul>
 </div>${fuss()}</div>`,

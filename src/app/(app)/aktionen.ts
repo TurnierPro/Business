@@ -164,7 +164,7 @@ export async function vertragUnterschreiben(f: FormData) {
 
 export async function zahlungSimulieren(f: FormData) {
   const id = zahl(f, "betriebId");
-  await ausfuehren(`/leads/${id}`, "Zahlung eingetragen. Projekt angelegt, Start-Mail liegt zur Freigabe.", (wer) => verkauf.zahlungEingegangen(zahl(f, "angebotId"), `${wer} (Simulator)`));
+  await ausfuehren(`/leads/${id}`, "Zahlung eingetragen. Projekt angelegt, Start-Mail liegt zur Freigabe.", (wer) => verkauf.zahlungEingegangen(zahl(f, "angebotId"), `${wer} (von Hand gebucht)`));
 }
 
 export async function neuBauen(f: FormData) {

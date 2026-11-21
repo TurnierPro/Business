@@ -14,8 +14,7 @@ export const ZWECK: Record<string, string> = {
   betreuungsrechnung: "Rechnung Betreuung",
   zahlungserinnerung: "Zahlungserinnerung",
   finanzbericht: "Bericht an Steuerberater",
-  schlusszahlung: "Schlusszahlung einziehen (Stripe)",
-  betreuung_start: "Betreuung starten (Stripe)",
+  lastschrift_start: "Lastschrift einrichten (Qonto)",
   auftragsbestaetigung: "Auftragsbestätigung",
   abnahme_aufforderung: "Bitte um Abnahme",
   abnahme_bestaetigung: "Abnahmeprotokoll",
@@ -27,13 +26,13 @@ export const ZWECK: Record<string, string> = {
   portal_zugang: "Zugang zum Kundenportal",
   umzug_anleitung: "Domain umstellen: Anleitung",
   umzug_fertig: "Domain umgestellt, Kündigungshinweis",
-  betreuung_ende: "Betreuung beenden (Stripe)",
+  lastschrift_ende: "Lastschrift beenden (Qonto)",
   test: "Test",
   testmail: "Testmail (Konnektor prüfen)",
   antwort: "Antwort auf Nachricht",
 };
 
-export const KANAL: Record<string, string> = { mail: "E-Mail", brief: "Brief", whatsapp: "WhatsApp", livegang: "Livegang", zahlung: "Zahlung" };
+export const KANAL: Record<string, string> = { mail: "E-Mail", brief: "Brief", whatsapp: "WhatsApp", livegang: "Livegang", lastschrift: "Lastschrift" };
 
 export const DOKART: Record<string, string> = {
   brief: "Brief",

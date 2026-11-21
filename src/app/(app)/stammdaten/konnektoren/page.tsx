@@ -15,7 +15,7 @@ export default async function Konnektoren() {
       <div className="kopfzeile">
         <div>
           <h1>Konnektoren</h1>
-          <p>Hier hängt Levarex OS an eure Werkzeuge: Outlook oder Gmail, WhatsApp, Telefonanlage, Stripe und mehr. Ohne Zugangsdaten läuft jeder Anschluss im Simulator. Alles, was nach draußen geht, läuft trotzdem immer über die Freigaben.</p>
+          <p>Hier hängt Levarex OS an eure Werkzeuge: Outlook oder Gmail, WhatsApp, Telefonanlage, Lexware Office, Qonto und mehr. Ohne Zugangsdaten läuft jeder Anschluss im Simulator. Alles, was nach draußen geht, läuft trotzdem immer über die Freigaben.</p>
         </div>
       </div>
 

@@ -9,7 +9,7 @@ export async function GET(req: Request) {
   if (z instanceof Response) return z;
   const db = await getDb();
   const liste = await db.select().from(schema.betriebe).orderBy(desc(schema.betriebe.erstelltAm)).limit(500);
-  return json(liste.map(({ portalToken: _t, stripeKundeId: _k, stripeZahlart: _z, ...b }) => b));
+  return json(liste.map(({ portalToken: _t, qontoKundeId: _q, ...b }) => b));
 }
 
 export async function POST(req: Request) {

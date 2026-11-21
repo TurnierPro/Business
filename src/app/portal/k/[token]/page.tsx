@@ -3,8 +3,6 @@ import { betriebPerPortal, portalDaten } from "@/lib/kundenportal";
 import { PAKETE, PaketKey, euro, UST } from "@/lib/pakete";
 import { marke } from "@/lib/marke";
 import { DOKART } from "@/lib/format";
-import { zahlungUeberStripe } from "@/lib/adapters/stripe";
-import { anzahlungsLink } from "@/lib/ablauf/zahlung";
 import { abnahmeErklaeren } from "@/lib/ablauf/vertrag";
 import { erlaubt, GRENZEN, versuchMerken } from "@/lib/sicherheit";
 import { kontingent, ticketAnlegen, ticketNummer, TICKET_STATUS } from "@/lib/ablauf/tickets";
@@ -218,7 +216,7 @@ export default async function Kundenportal({ params, searchParams }: { params: P
                   <td className="weg-mobil mono klein">{tag(r.erstelltAm)}</td>
                   <td className="zahl">{euro(Math.round(r.netto * (1 + UST)))}</td>
                   <td><span className={`status ${r.status === "bezahlt" ? "ok" : "warten"}`}>{r.status === "bezahlt" ? "bezahlt" : "offen"}</span></td>
-                  <td>{r.stripeUrl ? <a className="klein" href={r.stripeUrl} target="_blank">Rechnung</a> : r.dokumentId ? <a className="klein" href={`/portal/k/${token}/dokument/${r.dokumentId}`} target="_blank">PDF</a> : r.quelle === "stripe" ? <span className="leise klein">per E-Mail</span> : null}</td>
+                  <td>{r.dokumentId ? <a className="klein" href={`/portal/k/${token}/dokument/${r.dokumentId}`} target="_blank">PDF</a> : null}</td>
                 </tr>
               ))}
             </tbody>

@@ -10,7 +10,6 @@ import { schreibe, jsonAus } from "../adapters/ki";
 import { datenOrdner } from "../pfade";
 import { portalLink } from "../kundenportal";
 import { aktuellerKatalog, berechne, type Auswahl } from "../katalog";
-import { zahlungUeberStripe, type StripeRechnung } from "../adapters/stripe";
 import { datumDe } from "../docs/basis";
 import { NICHT_ENTHALTEN, PAKETE, PaketKey, euro, paketVorschlag, UST } from "../pakete";
 import { katalogLaden } from "../katalog-db";
@@ -126,13 +125,13 @@ export async function erstelleAngebot(o: { betriebId: number; auswahl: Auswahl; 
     betriebId: b.id,
     art: "angebot",
     titel: `Angebot ${nummer}`,
-    daten: { an, nummer, datum: datumDe(), paket: o.auswahl.paket, einleitung, einmalig: r.einmalig, monatlich: r.monatlich, positionen: r.positionen, zahlweg: zahlungUeberStripe() ? "stripe" : "ueberweisung", agbVersion: AGB_VERSION,
+    daten: { an, nummer, datum: datumDe(), paket: o.auswahl.paket, einleitung, einmalig: r.einmalig, monatlich: r.monatlich, positionen: r.positionen, zahlweg: "ueberweisung", agbVersion: AGB_VERSION,
       // Eingefroren: spätere Änderungen in den Stammdaten ändern kein verschicktes Angebot
       paketName: p.name, paketProblem: p.problem, paketInhalt: [...p.inhalt], nichtEnthalten: [...NICHT_ENTHALTEN[o.auswahl.paket]], wochen: p.wochen,
       bausteine, mitKi: o.auswahl.module.some((m) => m === "marketing" || m === "kundenmanagement") },
   });
   const anrede = an.inhaber ? (an.anrede === "Frau" ? `Sehr geehrte Frau ${an.inhaber.split(" ").slice(-1)[0]},` : `Sehr geehrter Herr ${an.inhaber.split(" ").slice(-1)[0]},`) : "Guten Tag,";
-  const zahlen = zahlungUeberStripe() ? " Nach der Annahme können Sie die Anzahlung direkt online bezahlen." : "";
+  const zahlen = "";
   const eintragId = await inPostausgang({
     betriebId: b.id,
     kanal: "mail",
@@ -197,6 +196,9 @@ export async function erstelleRechnung(o: {
     daten: { an: anschrift(b), nummer: n.nummer, datum: datumDe(), art: o.art, positionen, zahlungszielTage: ZAHLUNGSZIEL_TAGE, zahlbarBis: datumDe(faellig), leistung: o.leistung },
   });
   const brutto = Math.round(o.netto * (1 + UST));
+  // Monatsbeitrag: Einzug per SEPA-Lastschrift über Qonto, sobald der Einzug eingerichtet ist, sonst Überweisung
+  const [proj] = o.projektId ? await db.select({ qontoAboId: schema.projekte.qontoAboId }).from(schema.projekte).where(eq(schema.projekte.id, o.projektId)) : [];
+  const lastschrift = o.art === "betreuung" && !!proj?.qontoAboId;
   await inPostausgang({
     betriebId: o.betriebId,
     projektId: o.projektId,
@@ -204,7 +206,7 @@ export async function erstelleRechnung(o: {
     zweck: o.art === "anzahlung" ? "rechnung" : o.art === "schluss" ? "schlussrechnung" : "betreuungsrechnung",
     empfaenger: b.email ?? "(E-Mail-Adresse fehlt)",
     betreff: `Rechnung ${n.nummer} von Levarex`,
-    text: `Guten Tag,\n\nim Anhang finden Sie die Rechnung ${n.nummer} über ${euro(brutto)} (brutto). ${o.art === "betreuung" ? "" : `Bitte überweisen Sie den Betrag bis zum ${datumDe(faellig)}.`}\n\n${o.art === "anzahlung" ? "Nach Zahlungseingang schicken wir Ihnen den Zugang zum Kundenportal für Texte und Fotos." : o.art === "schluss" ? "Vielen Dank für die Zusammenarbeit. Ab jetzt läuft die Betreuung." : "Der Betrag wird wie vereinbart per SEPA-Lastschrift eingezogen."}\n\nMit freundlichen Grüßen\nMaximilian Steiner\nLevarex Consulting`,
+    text: `Guten Tag,\n\nim Anhang finden Sie die Rechnung ${n.nummer} über ${euro(brutto)} (brutto). ${lastschrift ? "" : `Bitte überweisen Sie den Betrag bis zum ${datumDe(faellig)}.`}\n\n${o.art === "anzahlung" ? "Nach Zahlungseingang schicken wir Ihnen den Zugang zum Kundenportal für Texte und Fotos." : o.art === "schluss" ? "Vielen Dank für die Zusammenarbeit. Ab jetzt läuft die Betreuung." : lastschrift ? "Den Betrag ziehen wir frühestens 5 Kalendertage nach dieser Mitteilung per SEPA-Lastschrift von Ihrem Konto ein." : "Vielen Dank."}\n\nMit freundlichen Grüßen\nMaximilian Steiner\nLevarex Consulting`,
     anhaenge: [...(o.anhaenge ?? []), dokId],
     // Regel aus dem Business Case: Rechnungen über 10.000 € brauchen zwei Freigaben.
     noetigeFreigaben: brutto > 1_000_000 ? 2 : 1,
@@ -216,7 +218,7 @@ export async function erstelleRechnung(o: {
 
 export type Annahme = { name: string; am: string; agbVersion: string; unternehmer: boolean };
 
-/** Angebot ist angenommen: Nachweis speichern, Auftragsbestätigung vorbereiten, ohne Stripe auch die Anzahlungsrechnung. */
+/** Angebot ist angenommen: Nachweis speichern, Auftragsbestätigung und Rechnung über die erste Rate vorbereiten. */
 export async function unterschriftEingegangen(angebotId: number, wer: string, annahme?: Annahme, vertragsDokumente: number[] = []): Promise<void> {
   const db = await getDb();
   const [a] = await db.select().from(schema.angebote).where(eq(schema.angebote.id, angebotId));
@@ -237,7 +239,7 @@ export async function unterschriftEingegangen(angebotId: number, wer: string, an
     betriebId: b.id,
     art: "auftragsbestaetigung",
     titel: `Auftragsbestätigung ${nummer}`,
-    daten: { an: anschrift(b), nummer, angebotNummer, datum: datumDe(), paket: a.paket, positionen, einmalig: a.einmalig, monatlich: a.monatlich, annahme: nachweis, zahlweg: zahlungUeberStripe() ? "stripe" : "ueberweisung" },
+    daten: { an: anschrift(b), nummer, angebotNummer, datum: datumDe(), paket: a.paket, positionen, einmalig: a.einmalig, monatlich: a.monatlich, annahme: nachweis, zahlweg: "ueberweisung" },
   });
   await inPostausgang({
     betriebId: b.id,
@@ -245,40 +247,27 @@ export async function unterschriftEingegangen(angebotId: number, wer: string, an
     zweck: "auftragsbestaetigung",
     empfaenger: b.email ?? "(E-Mail-Adresse fehlt)",
     betreff: `Auftragsbestätigung ${nummer}`,
-    text: `Guten Tag,\n\nvielen Dank für Ihren Auftrag. Im Anhang finden Sie die Auftragsbestätigung zu unserem Angebot ${angebotNummer}${vertragsDokumente.length ? " und die unterschriebenen Verträge (Rahmenvertrag und Leistungsscheine)" : ""}. Alles liegt auch in Ihrem Kundenportal:\n${await portalLink(b.id)}\n\n${zahlungUeberStripe() ? "Die Anzahlung können Sie dort direkt online bezahlen, falls noch nicht geschehen." : "Die Rechnung über die Anzahlung kommt in einer eigenen E-Mail."} Danach geht es los.\n\nMit freundlichen Grüßen\nDaniel Lück\nLevarex Consulting`,
+    text: `Guten Tag,\n\nvielen Dank für Ihren Auftrag. Im Anhang finden Sie die Auftragsbestätigung zu unserem Angebot ${angebotNummer}${vertragsDokumente.length ? " und die unterschriebenen Verträge (Rahmenvertrag und Leistungsscheine)" : ""}. Alles liegt auch in Ihrem Kundenportal:\n${await portalLink(b.id)}\n\nDie Rechnung über die erste Rate (50 %) kommt in einer eigenen E-Mail. Danach geht es los.\n\nMit freundlichen Grüßen\nDaniel Lück\nLevarex Consulting`,
     anhaenge: [dokId, ...vertragsDokumente],
     erlaubteZahlen: [euro(a.einmalig), euro(a.monatlich), ...positionen.flatMap((x) => [euro(x.einmalig), euro(x.monatlich)])],
     hinweise: nachweis.unternehmer ? [] : ["Annahme ohne Unternehmer-Bestätigung (intern erfasst). Bitte mit dem Kunden klären."],
     meta: { angebotId },
   });
-  // Mit Stripe zahlt der Kunde direkt im Portal, Stripe schickt die Rechnung. Sonst eigene Rechnung.
-  if (zahlungUeberStripe()) return;
   await erstelleRechnung({ betriebId: a.betriebId, angebotId, art: "anzahlung", netto: Math.round(a.einmalig / 2), positionstext: `Anzahlung 50 % ${PAKETE[a.paket as PaketKey].name} laut Angebot ${angebotNummer}` });
 }
 
-export type StripeZahlung = { kundeId: string | null; zahlart: string | null; rechnung: StripeRechnung | null };
-
-export async function zahlungEingegangen(angebotId: number, wer: string, stripe?: StripeZahlung): Promise<number> {
+/** Erste Rate ist bezahlt (Lexware-Abgleich oder von Hand gebucht): Projekt anlegen und Start-Mail vorbereiten. */
+export async function zahlungEingegangen(angebotId: number, wer: string): Promise<number> {
   const db = await getDb();
   const [a] = await db.select().from(schema.angebote).where(eq(schema.angebote.id, angebotId));
   if (a?.status === "angezahlt") {
-    // Stripe meldet manche Zahlungen doppelt: dann nichts zweimal anlegen
+    // Zweimal gemeldet (z. B. Abgleich und Knopf): nichts doppelt anlegen
     const [vorhanden] = await db.select().from(schema.projekte).where(eq(schema.projekte.angebotId, angebotId));
     if (vorhanden) return vorhanden.id;
   }
   if (!a || a.status !== "unterschrieben") throw new Error("Zahlung passt zu keinem unterschriebenen Angebot.");
   await db.update(schema.angebote).set({ status: "angezahlt", angezahltAm: new Date() }).where(eq(schema.angebote.id, angebotId));
-  if (zahlungUeberStripe()) {
-    const netto = Math.round(a.einmalig / 2);
-    const r = stripe?.rechnung ?? { id: `sim_in_${angebotId}`, nummer: `SIM-${new Date().getFullYear()}-${String(angebotId).padStart(4, "0")}`, url: null, netto, bezahlt: true };
-    await db.insert(schema.rechnungen).values({ nummer: r.nummer, lfdNr: 0, jahr: new Date().getFullYear(), betriebId: a.betriebId, angebotId, art: "anzahlung", netto: r.netto || netto, status: "bezahlt", bezahltAm: new Date(), quelle: "stripe", stripeId: r.id, stripeUrl: r.url }).onConflictDoNothing();
-    await db
-      .update(schema.betriebe)
-      .set({ stripeKundeId: stripe?.kundeId ?? `sim_kunde_${a.betriebId}`, stripeZahlart: stripe?.zahlart ?? "sim_zahlart" })
-      .where(eq(schema.betriebe.id, a.betriebId));
-  } else {
-    await db.update(schema.rechnungen).set({ status: "bezahlt", bezahltAm: new Date() }).where(and(eq(schema.rechnungen.angebotId, angebotId), eq(schema.rechnungen.art, "anzahlung")));
-  }
+  await db.update(schema.rechnungen).set({ status: "bezahlt", bezahltAm: new Date() }).where(and(eq(schema.rechnungen.angebotId, angebotId), eq(schema.rechnungen.art, "anzahlung")));
   const token = crypto.randomBytes(18).toString("base64url");
   const [p] = await db.insert(schema.projekte).values({ betriebId: a.betriebId, angebotId, paket: a.paket, portalToken: token }).returning();
   await checklisteSicherstellen(p.id);

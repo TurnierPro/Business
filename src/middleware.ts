@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 
 // Schneller Vorabcheck: ohne Sitzungs-Cookie direkt zur Anmeldung.
 // Die echte Prüfung der Signatur passiert serverseitig in jeder geschützten Seite.
-const OFFEN = ["/login", "/vorschau", "/portal", "/api/gesundheit", "/api/stripe", "/api/tls-erlaubt", "/api/v1", "/api/whatsapp", "/kalender", "/_next", "/favicon", "/marke"];
+const OFFEN = ["/login", "/vorschau", "/portal", "/api/gesundheit", "/api/tls-erlaubt", "/api/v1", "/api/whatsapp", "/kalender", "/_next", "/favicon", "/marke"];
 
 // Hosts von Levarex OS selbst. Jeder andere Host ist eine Kunden-Domain und bekommt die Kunden-Website.
 function eigenerHost(host: string): boolean {
@@ -40,7 +40,7 @@ function cspApp(nonce: string): string {
     "media-src 'self' blob:",
     "frame-src 'self'",
     "frame-ancestors 'self'",
-    "form-action 'self' https://checkout.stripe.com",
+    "form-action 'self'",
     "base-uri 'self'",
     "object-src 'none'",
     ...(HTTPS ? ["upgrade-insecure-requests"] : []),

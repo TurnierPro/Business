@@ -52,6 +52,8 @@ export const betriebe = pgTable("betriebe", {
   quelle: text("quelle").notNull().default("manuell"),
   // Woher genau die Daten stammen (Art. 14 DSGVO), z. B. „Impressum https://…, abgerufen 19.10.2026“
   datenquelle: text("datenquelle"),
+  // Qonto: Kunde für die SEPA-Lastschrift (Monatsbeitrag)
+  qontoKundeId: text("qonto_kunde_id"),
   status: text("status").notNull().default("neu"),
   notizen: text("notizen"),
   tags: jsonb("tags").$type<string[]>().notNull().default([]),
@@ -59,9 +61,6 @@ export const betriebe = pgTable("betriebe", {
   besuchAb: timestamp("besuch_ab", { withTimezone: true }),
   // Geheimer Link zum Kundenportal (entsteht mit dem ersten Angebot)
   portalToken: text("portal_token").unique(),
-  // Stripe: Kunde und gespeicherte Zahlungsart (nach der Anzahlung)
-  stripeKundeId: text("stripe_kunde_id"),
-  stripeZahlart: text("stripe_zahlart"),
   letzteAktivitaet: timestamp("letzte_aktivitaet", { withTimezone: true }).defaultNow().notNull(),
   erstelltAm: timestamp("erstellt_am", { withTimezone: true }).defaultNow().notNull(),
 });
@@ -163,10 +162,9 @@ export const rechnungen = pgTable(
     mahnstufe: integer("mahnstufe").notNull().default(0),
     gemahntAm: timestamp("gemahnt_am", { withTimezone: true }),
     bezahltAm: timestamp("bezahlt_am", { withTimezone: true }),
-    // eigen = von Levarex OS erstellt, stripe = von Stripe erstellt und verschickt
+    // eigen = von Levarex OS erstellt, lexware = in Lexware Office angelegt (Nummer und PDF von dort)
     quelle: text("quelle").notNull().default("eigen"),
-    stripeId: text("stripe_id"),
-    stripeUrl: text("stripe_url"),
+    lexwareId: text("lexware_id"),
     erstelltAm: timestamp("erstellt_am", { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => [uniqueIndex("rechnung_nummer_idx").on(t.nummer)],
@@ -185,6 +183,8 @@ export const projekte = pgTable("projekte", {
   domain: text("domain"),
   inhalteAm: timestamp("inhalte_am", { withTimezone: true }),
   liveAm: timestamp("live_am", { withTimezone: true }),
+  // Qonto: wiederkehrender Einzug des Monatsbeitrags
+  qontoAboId: text("qonto_abo_id"),
   aboAb: timestamp("abo_ab", { withTimezone: true }),
   // Abnahme nach dem Livegang (§ 640 BGB): offen | abgenommen | vorbehalt | verweigert | fiktion
   abnahmeStatus: text("abnahme_status"),
@@ -198,7 +198,6 @@ export const projekte = pgTable("projekte", {
   umzug: jsonb("umzug").$type<Record<string, unknown>>().notNull().default({}),
   gekuendigtAm: timestamp("gekuendigt_am", { withTimezone: true }),
   endeAm: timestamp("ende_am", { withTimezone: true }),
-  stripeAboId: text("stripe_abo_id"),
   erstelltAm: timestamp("erstellt_am", { withTimezone: true }).defaultNow().notNull(),
 });
 

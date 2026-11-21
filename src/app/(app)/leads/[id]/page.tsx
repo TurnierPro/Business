@@ -58,7 +58,7 @@ export default async function Lead({ params, searchParams }: { params: Promise<{
   const angebot = angebote[0];
   const offenePost = post.filter((p) => p.status === "zur_freigabe");
   const gesperrt = b.status === "gesperrt";
-  const zahlungSimuliert = !istEcht("zahlung");
+  const lexwareAktiv = istEcht("buchhaltung");
 
   return (
     <>
@@ -127,10 +127,8 @@ export default async function Lead({ params, searchParams }: { params: Promise<{
 
           {angebot && angebot.status === "unterschrieben" ? (
             <div className="karte" style={{ background: "var(--grund)" }}>
-              <p><b>Unterschrieben am {datum(angebot.unterschriebenAm)}.</b> Wir warten auf die Anzahlung ({euro(Math.round(angebot.einmalig / 2))} netto).</p>
-              {zahlungSimuliert ? (
-                <form action={zahlungSimulieren}><input type="hidden" name="betriebId" value={id} /><input type="hidden" name="angebotId" value={angebot.id} /><button className="knopf">Zahlungseingang simulieren</button><p className="leise klein" style={{ marginTop: 8 }}>Simulator, bis Stripe und Bankabgleich angebunden sind.</p></form>
-              ) : null}
+              <p><b>Unterschrieben am {datum(angebot.unterschriebenAm)}.</b> Wir warten auf die erste Rate ({euro(Math.round(angebot.einmalig / 2))} netto).</p>
+              <form action={zahlungSimulieren}><input type="hidden" name="betriebId" value={id} /><input type="hidden" name="angebotId" value={angebot.id} /><button className="knopf">Zahlung eingegangen</button><p className="leise klein" style={{ marginTop: 8 }}>{lexwareAktiv ? "Lexware meldet Zahlungen täglich von selbst; der Knopf ist für Ausnahmen." : "Von Hand buchen, sobald das Geld auf dem Konto ist."}</p></form>
             </div>
           ) : null}
 

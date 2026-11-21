@@ -2,7 +2,6 @@ import crypto from "node:crypto";
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { getDb, schema } from "./db";
 import { basisUrl } from "./ablauf/gemeinsam";
-import { zahlungUeberStripe } from "./adapters/stripe";
 
 // Kundenportal: Jeder Kunde sieht über seinen geheimen Link den Stand seines Projekts,
 // seine Unterlagen und Rechnungen. Grundregel: Sichtbar ist nur, was wir freigegeben und verschickt haben.
@@ -102,12 +101,12 @@ export async function portalDaten(betriebId: number) {
   return {
     schritte: schr,
     dokumente: doks.filter((d) => d.art !== "rechnung"),
-    // Eigene Rechnungen erst nach Freigabe und Versand, Stripe-Rechnungen verschickt Stripe selbst.
+    // Rechnungen erst nach Freigabe und Versand (eigene und Lexware-Rechnungen)
     rechnungen: rechnungen
-      .filter((r) => r.quelle === "stripe" || verschickteNummern.has(r.nummer))
+      .filter((r) => verschickteNummern.has(r.nummer))
       .map((r) => ({ ...r, dokumentId: doks.find((d) => d.art === "rechnung" && (d.daten as { nummer?: string }).nummer === r.nummer)?.id ?? null })),
     angebotOffen: angebot?.status === "versendet" ? angebot : null,
-    anzahlungOffen: angebot?.status === "unterschrieben" && zahlungUeberStripe() ? angebot : null,
+    anzahlungOffen: null as typeof angebot | null,
     inhalteOffen: projekt?.status === "inhalte" ? projekt : null,
     // Abnahme erst, wenn die Aufforderung verschickt ist (dann läuft die Frist)
     abnahmeOffen: projekt?.abnahmeStatus === "offen" && projekt.abnahmeFrist ? projekt : null,

@@ -8,9 +8,8 @@ import { datenOrdner } from "../pfade";
 import { schreibeSeite, standardInhalt, SeitenInhalt } from "../sites/generator";
 import { pruefeSeite } from "../sites/qualitaet";
 import { schreibe, jsonAus } from "../adapters/ki";
-import { PAKETE, PaketKey, euro } from "../pakete";
+import { PAKETE, PaketKey, euro, UST } from "../pakete";
 import { gebuchteModule } from "../bausteine";
-import { zahlungUeberStripe } from "../adapters/stripe";
 import { inPostausgang } from "./postausgang";
 import { systemAufgabeErledigt } from "./crm";
 import { hakeAb } from "./checkliste";
@@ -175,20 +174,22 @@ export async function livegangDurchfuehren(projektId: number): Promise<void> {
     const { abnahmeAnfordern } = await import("./vertrag");
     await abnahmeAnfordern(projektId, SYSTEM);
   }
-  if (!p.angebotId || !zahlungUeberStripe()) return;
+  if (!p.angebotId) return;
   const [a] = await db.select().from(schema.angebote).where(eq(schema.angebote.id, p.angebotId));
-  if (!a) return;
-  // Mit Stripe: Abo-Start nach Freigabe (Betreuung beginnt mit dem Livegang)
+  if (!a || a.monatlich <= 0) return;
+  // Monatsbeitrag per SEPA-Lastschrift über Qonto: Einrichtung nur nach Freigabe (Qonto schickt dem Kunden den Mandats-Link)
   const b = await betrieb(p.betriebId);
-  const startAb = new Date();
+  const ersterEinzug = new Date(Date.now() + 14 * 864e5);
+  const brutto = Math.round(a.monatlich * (1 + UST));
   await inPostausgang({
     betriebId: p.betriebId,
     projektId,
-    kanal: "zahlung",
-    zweck: "betreuung_start",
-    empfaenger: `Stripe: ${b.name}`,
-    betreff: `Betreuung starten: ${b.name}`,
-    text: `Monatliche Betreuung ${euro(a.monatlich)} netto per Stripe, erste Abbuchung ${startAb.toLocaleDateString("de-DE")}.`,
-    meta: { projektId, monatlich: a.monatlich, startAb: startAb.toISOString() },
+    kanal: "lastschrift",
+    zweck: "lastschrift_start",
+    empfaenger: b.email ?? "(E-Mail-Adresse fehlt)",
+    betreff: `Lastschrift einrichten: ${b.name}`,
+    text: `Monatsbeitrag ${euro(a.monatlich)} netto (${euro(brutto)} brutto) per SEPA-Lastschrift über Qonto, monatlich ab ${ersterEinzug.toLocaleDateString("de-DE")}. Qonto schickt dem Kunden den Link zum SEPA-Mandat und kündigt jeden Einzug vorher an.`,
+    erlaubteZahlen: [euro(a.monatlich), euro(brutto)],
+    meta: { projektId, monatlichBrutto: brutto, ersterEinzug: ersterEinzug.toISOString() },
   });
 }

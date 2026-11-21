@@ -5,6 +5,7 @@ import { protokolliere } from "../protokoll";
 import { sendeMail } from "../adapters/mail";
 import { sendeBrief } from "../adapters/post";
 import { sendeWhatsApp, telefonNormal } from "../adapters/whatsapp";
+import { qontoEcht } from "../adapters/qonto";
 import { dokumentPdf } from "../docs/render";
 import { archivieren } from "../docs/archiv";
 import { pruefeText, schreibe, jsonAus } from "../adapters/ki";
@@ -21,7 +22,7 @@ import { mailHtml } from "../docs/mailvorlage";
 export type NeuerEintrag = {
   betriebId?: number | null;
   projektId?: number | null;
-  kanal: "mail" | "brief" | "whatsapp" | "livegang" | "zahlung";
+  kanal: "mail" | "brief" | "whatsapp" | "livegang" | "lastschrift";
   zweck: string;
   empfaenger: string;
   betreff: string;
@@ -110,15 +111,15 @@ export async function qualitaetskontrolle(id: number): Promise<string> {
     else if (!(await whatsappFensterOffen(e.empfaenger))) blocker.push("WhatsApp nur als Antwort: Der Kunde hat in den letzten 24 Stunden nicht geschrieben. Bitte per E-Mail antworten.");
     if (e.text.length > 4000) blocker.push("Zu lang für WhatsApp (höchstens 4000 Zeichen).");
   }
-  const nurIntern = e.kanal === "livegang" || e.kanal === "zahlung";
+  const nurIntern = e.kanal === "livegang" || e.kanal === "lastschrift";
   if (!nurIntern) hinweise.push(...pruefeText(e.text, (e.meta.erlaubteZahlen as string[]) ?? []));
   if (e.text.trim().length < 20 && !nurIntern) blocker.push("Der Text ist leer oder zu kurz.");
-  if (e.kanal === "zahlung") {
-    const [b] = e.betriebId ? await db.select().from(schema.betriebe).where(eq(schema.betriebe.id, e.betriebId)) : [];
-    if (!b?.stripeKundeId || !b?.stripeZahlart) blocker.push("Keine gespeicherte Zahlungsart bei Stripe. Kunde muss zuerst die Anzahlung online bezahlt haben.");
-    if (e.zweck === "schlusszahlung" && !(Number(e.meta.netto) > 0)) blocker.push("Betrag fehlt.");
-    if (!process.env.STRIPE_SECRET_KEY) hinweise.push("Stripe läuft im Simulator: Es wird kein echtes Geld bewegt.");
+  if (e.kanal === "lastschrift") {
+    if (e.zweck === "lastschrift_start" && !MAIL.test(e.empfaenger.trim())) blocker.push("Keine gültige E-Mail-Adresse: Qonto schickt dem Kunden den Link zum SEPA-Mandat per E-Mail.");
+    if (e.zweck === "lastschrift_start" && !(Number(e.meta.monatlichBrutto) > 0)) blocker.push("Betrag fehlt.");
+    if (!qontoEcht()) hinweise.push("Qonto läuft im Simulator: Es wird kein echtes Geld eingezogen.");
   }
+
 
   const doks = e.anhaenge.length ? await db.select().from(schema.dokumente).where(inArray(schema.dokumente.id, e.anhaenge)) : [];
   if (doks.length !== e.anhaenge.length) blocker.push("Ein Anhang fehlt.");
@@ -213,8 +214,18 @@ export async function versende(id: number): Promise<string> {
     if (!d) throw new Error("Brief ohne Dokument");
     ergebnis = await sendeBrief({ an: e.empfaenger, betreff: e.betreff, pdf: await archivieren(d), dateiname: `brief-${e.id}.pdf` });
   } else if (e.kanal === "mail") {
+    // Rechnungen: mit Lexware endgültig dort anlegen; Lexware vergibt die Nummer, die in Betreff und Text nachgezogen wird
+    const { rechnungNachLexware } = await import("./geld");
+    for (const d of doks) {
+      const n = await rechnungNachLexware(d);
+      if (!n) continue;
+      e.betreff = e.betreff.split(n.alt).join(n.neu);
+      e.text = e.text.split(n.alt).join(n.neu);
+      await db.update(schema.postausgang).set({ betreff: e.betreff, text: e.text }).where(eq(schema.postausgang.id, e.id));
+    }
+    const frisch = doks.length ? await db.select().from(schema.dokumente).where(inArray(schema.dokumente.id, e.anhaenge)) : [];
     // Genau die versendeten PDFs werden eingefroren und liegen danach unverändert im Kundenportal
-    const anhaenge = await Promise.all(doks.map(async (d) => ({ name: `${d.titel}.pdf`, inhalt: await archivieren(d) })));
+    const anhaenge = await Promise.all(frisch.map(async (d) => ({ name: `${d.titel}.pdf`, inhalt: await archivieren(d) })));
     // Pflichtangaben nach § 35a GmbHG hängen an jeder Mail
     // Immer zwei Fassungen: Nur-Text (mit Signatur) und HTML im Levarex-Design
     ergebnis = await sendeMail({ an: e.empfaenger, betreff: e.betreff, text: e.text + mailSignatur(), html: mailHtml({ betreff: e.betreff, text: e.text }), anhaenge });
@@ -223,9 +234,9 @@ export async function versende(id: number): Promise<string> {
     const { whatsappFensterOffen } = await import("./nachrichten");
     if (!(await whatsappFensterOffen(e.empfaenger))) throw new Error("Versand verweigert: WhatsApp-Fenster (24 Stunden) ist geschlossen. Bitte per E-Mail antworten.");
     ({ ergebnis, externeId } = await sendeWhatsApp({ an: e.empfaenger, text: e.text }));
-  } else if (e.kanal === "zahlung") {
-    const { fuehreZahlungAus } = await import("./zahlung");
-    ergebnis = await fuehreZahlungAus(e);
+  } else if (e.kanal === "lastschrift") {
+    const { lastschriftAusfuehren } = await import("./geld");
+    ergebnis = await lastschriftAusfuehren(e);
   } else {
     ergebnis = "Livegang freigegeben";
   }

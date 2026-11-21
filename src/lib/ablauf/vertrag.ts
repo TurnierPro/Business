@@ -2,7 +2,6 @@ import { and, eq, isNotNull, lte } from "drizzle-orm";
 import { getDb, schema } from "../db";
 import { protokolliere } from "../protokoll";
 import { melde } from "../adapters/push";
-import { zahlungUeberStripe } from "../adapters/stripe";
 import { portalLink } from "../kundenportal";
 import { datumDe } from "../docs/basis";
 import { PAKETE, PaketKey, euro, UST } from "../pakete";
@@ -125,22 +124,6 @@ async function nachAbnahme(projektId: number): Promise<void> {
   await db.update(schema.angebote).set({ status: "abgeschlossen" }).where(eq(schema.angebote.id, a.id));
   const anzahlung = Math.round(a.einmalig / 2);
   const rest = a.einmalig - anzahlung;
-  if (zahlungUeberStripe()) {
-    // Geld bewegt sich nur nach Freigabe
-    const brutto = Math.round(rest * (1 + UST));
-    await inPostausgang({
-      betriebId: b.id,
-      projektId,
-      kanal: "zahlung",
-      zweck: "schlusszahlung",
-      empfaenger: `Stripe: ${b.name}`,
-      betreff: `Schlusszahlung einziehen: ${b.name}`,
-      text: `Abnahme ${ergebnis === "fiktion" ? "durch Fristablauf" : "erklärt"} am ${am}. Schlusszahlung 50 % ${name}: ${euro(rest)} netto (${euro(brutto)} brutto). Wird mit der gespeicherten Zahlungsart eingezogen, Stripe schickt die Rechnung an den Kunden.`,
-      noetigeFreigaben: brutto > 1_000_000 ? 2 : 1,
-      meta: { angebotId: a.id, netto: rest, beschreibung: `Schlusszahlung 50 % ${name}, Abnahme ${am}` },
-    });
-    return;
-  }
   // Schlussrechnung: Gesamtleistung minus Anzahlung und darauf entfallende Steuer (§ 14 Abs. 5 UStG)
   const [anz] = await db.select().from(schema.rechnungen).where(and(eq(schema.rechnungen.angebotId, a.id), eq(schema.rechnungen.art, "anzahlung")));
   const anzNetto = anz?.netto ?? anzahlung;
@@ -192,18 +175,19 @@ export async function kuendigungErfassen(projektId: number, wer: string, eingang
     hinweise: VERTRAGSWERK_VERSION.startsWith("Entwurf") ? ["Laufzeit und Kündigungsfrist nach Baukasten; das Vertragswerk ist noch ein Entwurf. Enddatum bitte prüfen."] : [],
     meta: { projektId },
   });
-  if (p.stripeAboId) {
+  if (p.qontoAboId) {
     await inPostausgang({
       betriebId: b.id,
       projektId,
-      kanal: "zahlung",
-      zweck: "betreuung_ende",
-      empfaenger: `Stripe: ${b.name}`,
-      betreff: `Betreuung beenden: ${b.name}`,
-      text: `Stripe-Abo ${p.stripeAboId} endet am ${datumDe(ende)}. Danach wird nichts mehr eingezogen.`,
-      meta: { projektId, aboId: p.stripeAboId, endeAm: ende.toISOString() },
+      kanal: "lastschrift",
+      zweck: "lastschrift_ende",
+      empfaenger: b.email ?? "(E-Mail-Adresse fehlt)",
+      betreff: `Lastschrift beenden: ${b.name}`,
+      text: `Qonto-Einzug ${p.qontoAboId} zum Vertragsende am ${datumDe(ende)} beenden. Danach wird nichts mehr eingezogen.`,
+      meta: { projektId, aboId: p.qontoAboId, endeAm: ende.toISOString() },
     });
   }
+
   return ende;
 }
 

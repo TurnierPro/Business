@@ -70,9 +70,9 @@ export const FRISTEN: { datum: string; was: string; quelle: string }[] = [
 ];
 
 export const ENTSCHEIDUNGEN: { titel: string; text: string; wer: string }[] = [
-  { titel: "Stripe zieht nur widerrufbare Basislastschriften ein", text: "8 Wochen Rückgaberecht auch für Firmen; Limit 10.000 € je Woche für Neukunden. Bericht empfiehlt Projektzahlungen per Überweisung und Stripe nur für Abos. Umschalten: ZAHLUNGSWEG=ueberweisung.", wer: "Gründer, IT-Anwalt (AGB-Klauseln)" },
+  { titel: "Qonto-Lastschrift: Basis- oder Firmenlastschrift?", text: "Basislastschrift hat 8 Wochen Rückgaberecht, Firmenlastschrift (B2B) keines, braucht aber die Bestätigung der Bank des Kunden. Projektraten per Überweisung, Lastschrift nur für den Monatsbeitrag. Mit Qonto klären, welche Variante die API anlegt.", wer: "Gründer, Steuerberater" },
   { titel: "50 % Anzahlung vor jeder Leistung", text: "Im Angebot individuell vereinbaren oder an eine Vorleistung (Konzept, Design-Entwurf) knüpfen. Schlusszahlung erst nach Abnahme.", wer: "IT-Anwalt" },
-  { titel: "Stripe-Rechnungen und E-Rechnung", text: "Erzeugt Stripe konforme ZUGFeRD/XRechnung? Sonst Rechnungen aus lexoffice/sevDesk und Stripe nur zum Einzug.", wer: "Steuerberater" },
+  { titel: "E-Rechnung über Lexware Office", text: "Rechnungen entstehen beim freigegebenen Versand in Lexware Office (Nummer und PDF von dort). Klären: ZUGFeRD oder XRechnung für B2B ab 2027/28, Nummernkreis, Kontenrahmen.", wer: "Steuerberater" },
   { titel: "n8n-Lizenz für Kunden-Hosting", text: "Sustainable Use License: Betrieb für Kunden gegen Entgelt erlaubt? Vor Bankgespräch klären.", wer: "IT-Anwalt" },
   { titel: "Rein KI-generierte Inhalte", text: "Nutzungsrechte nur einräumen, „soweit solche bestehen“; Design-System und Vorlagen über NDA und Geheimnisschutz sichern.", wer: "IT-Anwalt" },
   { titel: "Keine KI-Rangfolge von Bewerbern", text: "Karriereseiten: KI fasst zusammen und strukturiert, sortiert nicht, rankt nicht, lehnt nicht ab.", wer: "Produktregel" },

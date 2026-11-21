@@ -142,7 +142,7 @@ async function bisProjekt(b: Beispiel): Promise<{ id: number; projektId: number 
   const { id, angebotId } = await bisAngebotVersendet(b);
   await verkauf.unterschriftEingegangen(angebotId, `Kunde: ${b.inhaber} (Kundenportal, Beispiel)`, { name: b.inhaber ?? b.name, am: new Date().toISOString(), agbVersion: AGB_VERSION, unternehmer: true });
   await freigeben(id, "auftragsbestaetigung");
-  const projektId = await verkauf.zahlungEingegangen(angebotId, "Stripe (Beispiel)");
+  const projektId = await verkauf.zahlungEingegangen(angebotId, "Zahlung eingegangen (Beispiel)");
   await freigeben(id, "kickoff", MAX);
   return { id, projektId };
 }
@@ -189,7 +189,7 @@ export async function beispieleLaden(): Promise<string> {
   await bisAngebotEntwurf(BETRIEBE.angebot);
   // Angebot versendet, wartet auf Unterschrift
   await bisAngebotVersendet(BETRIEBE.unterschrift);
-  // Im Portal angenommen, Anzahlung über Stripe noch offen
+  // Auf dem Tablet unterschrieben, erste Rate noch offen
   {
     const { angebotId } = await bisAngebotVersendet(BETRIEBE.rechnung);
     await verkauf.unterschriftEingegangen(angebotId, `Kunde: ${BETRIEBE.rechnung.inhaber} (Beispiel)`, { name: BETRIEBE.rechnung.inhaber ?? BETRIEBE.rechnung.name, am: new Date().toISOString(), agbVersion: AGB_VERSION, unternehmer: true });
@@ -223,7 +223,7 @@ export async function beispieleLaden(): Promise<string> {
     await post.ablehnen(livegang.id, "Prüfung nachträglich nicht bestanden (Beispiel)", MAX);
     await db.update(schema.projekte).set({ status: "pruefung", pruefung: pruefeSeite(p.seitenSlug!) }).where(eq(schema.projekte.id, projektId));
   }
-  // Projekt live und abgenommen: Schlusszahlung über Stripe, Betreuung als Abo (alles nach Freigabe),
+  // Projekt live und abgenommen: Schlussrechnung und Lastschrift über Qonto (alles nach Freigabe),
   // Anfragen über die Website und ein Monatsreport, der auf Freigabe wartet
   {
     const { id, projektId } = await bisProjekt(BETRIEBE.live);
@@ -242,8 +242,8 @@ export async function beispieleLaden(): Promise<string> {
     await vertrag.abnahmeErklaeren(projektId, { ergebnis: "abgenommen", name: BETRIEBE.live.inhaber ?? BETRIEBE.live.name, maengel: "" });
     await warte();
     await freigeben(id, "abnahme_bestaetigung", MAX);
-    await freigeben(id, "schlusszahlung", MAX);
-    await freigeben(id, "betreuung_start", MAX);
+    await freigeben(id, "schlussrechnung", MAX);
+    await freigeben(id, "lastschrift_start", MAX);
     const vor = (tage: number) => new Date(Date.now() - tage * 864e5);
     await db.update(schema.projekte).set({ liveAm: vor(45), aboAb: vor(45), abnahmeAm: vor(38) }).where(eq(schema.projekte.id, projektId));
     const [p] = await db.select().from(schema.projekte).where(eq(schema.projekte.id, projektId));

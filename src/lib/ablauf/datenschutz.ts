@@ -36,7 +36,7 @@ export async function datenauskunft(betriebId: number, wer: string) {
     db.select().from(schema.protokoll).where(eq(schema.protokoll.betriebId, betriebId)),
   ]);
   await protokolliere(wer, "Datenauskunft erstellt (Art. 15 DSGVO)", betriebId);
-  const { portalToken: _p, stripeKundeId: _s, stripeZahlart: _z, ...stammdaten } = b;
+  const { portalToken: _p, qontoKundeId: _q, ...stammdaten } = b;
   return {
     erstelltAm: new Date().toISOString(),
     hinweis: "Auskunft nach Art. 15 DSGVO. Zwecke: Akquise (Art. 6 Abs. 1 lit. f), Vertrag (lit. b), Aufbewahrung von Rechnungen (lit. c, § 147 AO, 8 Jahre).",

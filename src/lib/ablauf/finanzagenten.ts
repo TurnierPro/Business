@@ -20,7 +20,7 @@ export async function betreuungsrechnungen(jetzt = new Date()): Promise<string> 
   const monat = `${MONATE[jetzt.getMonth()]} ${jetzt.getFullYear()}`;
   let neu = 0;
   for (const p of live) {
-    if (!p.aboAb || !p.angebotId || p.stripeAboId) continue; // Stripe-Abo rechnet selbst ab
+    if (!p.aboAb || !p.angebotId) continue;
     if (p.endeAm && p.endeAm < jetzt) continue; // Vertrag beendet
     const [a] = await db.select().from(schema.angebote).where(eq(schema.angebote.id, p.angebotId));
     if (!a) continue;

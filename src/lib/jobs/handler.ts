@@ -27,6 +27,7 @@ export const HANDLER: Record<string, Handler> = {
   vertragsende: async () => (await import("../ablauf/vertrag")).vertragsende(),
   monatsreports: async () => (await import("../ablauf/berichte")).monatsreports(),
   umzug_bestand: async (d) => (await import("../ablauf/umzug")).bestandsaufnahme(Number(d.projektId)),
+  lexware_abgleich: async () => (await import("../ablauf/geld")).lexwareAbgleich(),
   antwortentwurf: async (d) => (await import("../ablauf/nachrichten")).antwortEntwerfen(Number(d.nachrichtId)),
   umzug_pruefen: async () => (await import("../ablauf/umzug")).umstellungPruefen(),
 };
@@ -39,6 +40,7 @@ export const JOB_NAMEN: Record<string, string> = {
   bau: "Seite bauen und prüfen",
   versand: "Versand",
   antwortentwurf: "Antwortentwurf",
+  lexware_abgleich: "Zahlstatus aus Lexware",
   qualitaetskontrolle: "Qualitätskontrolle",
   backup: "Backup",
   ruecksicherung: "Probe-Rücksicherung",

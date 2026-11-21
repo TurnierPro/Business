@@ -1,5 +1,7 @@
 import { aktiverMailDienst, MAIL_DIENSTE } from "./mail";
 import { whatsappEcht } from "./whatsapp";
+import { lexwareEcht } from "./lexware";
+import { qontoEcht } from "./qonto";
 
 // Übersicht aller Fremddienste. Ein Dienst ist "echt", sobald seine Zugangsdaten gesetzt sind.
 // Bis dahin übernimmt ein Simulator, und nichts verlässt das System.
@@ -14,8 +16,8 @@ export function dienste(): Dienst[] {
     { key: "whatsapp", name: "WhatsApp Business (Meta)", zweck: "Nachrichten empfangen, Antworten nach Freigabe (nur im 24-Stunden-Fenster)", echt: whatsappEcht(), hinweis: "WHATSAPP_TOKEN, WHATSAPP_TELEFON_ID, WHATSAPP_APP_SECRET, WHATSAPP_VERIFY_TOKEN setzen. Anleitung unter Stammdaten → Konnektoren." },
     { key: "post", name: "Briefdienst", zweck: "Akquise-Briefe drucken und versenden", echt: !!e.BRIEFDIENST_API_KEY, hinweis: "Anbieter wählen (Modul 7), dann Adapter in src/lib/adapters/post.ts ergänzen." },
     { key: "signatur", name: "E-Signatur (Docuseal)", zweck: "Angebote unterschreiben", echt: !!e.DOCUSEAL_URL, hinweis: "Offen: Unterschrift im Portal oder auf dem Tablet (Bauplan F1). Bis dahin Simulator." },
-    { key: "zahlung", name: "Stripe", zweck: "Anzahlung im Portal, Rechnungen, Schlusszahlung, Betreuungs-Abo", echt: !!e.STRIPE_SECRET_KEY, hinweis: "STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, STRIPE_STEUERSATZ_ID setzen. Zum Üben Testmodus-Schlüssel (sk_test_…)." },
-    { key: "buchhaltung", name: "lexoffice", zweck: "Rechnungen, E-Rechnung", echt: !!e.LEXOFFICE_API_KEY, hinweis: "Mit Steuerberater abstimmen, dann LEXOFFICE_API_KEY setzen." },
+    { key: "zahlung", name: "Qonto (SEPA-Lastschrift)", zweck: "Monatsbeitrag per Lastschrift, Mandat unterschreibt der Kunde über Qonto", echt: qontoEcht(), hinweis: "QONTO_ACCESS_TOKEN (OAuth, sepa_direct_debit.write) und QONTO_KONTO_ID setzen. SEPA-Lastschrift im Qonto-Konto freischalten (Gläubiger-ID)." },
+    { key: "buchhaltung", name: "Lexware Office", zweck: "Rechnungen und E-Rechnung, Nummer und PDF von Lexware, täglicher Zahlstatus", echt: lexwareEcht(), hinweis: "LEXWARE_API_KEY in Lexware Office erzeugen (Einstellungen → Öffentliche API) und setzen. AV-Vertrag in Lexware abschließen." },
     { key: "transkription", name: "Whisper (eigener Server)", zweck: "Vor-Ort-Termine in Text", echt: !!e.WHISPER_URL, hinweis: "Entfällt vorerst; Protokoll von Hand. Später nur ein Dienst mit AV-Vertrag und Standort EU (Entscheidung der Gründer)." },
     { key: "dns", name: "DNS-Abfrage und Domain-Umzug", zweck: "Bestandsaufnahme alter Domains, Umstellung prüfen, Zertifikate", echt: !!e.SERVER_IP, hinweis: "SERVER_IP (öffentliche IPv4 des Ziel-Servers) setzen. Test-Domains (.example) laufen immer im Simulator." },
     { key: "push", name: "ntfy (Push aufs Handy)", zweck: "Warnungen und Tagesbericht", echt: !!e.NTFY_URL, hinweis: "Entfällt: Warnungen über Better Stack, Tagesbericht auf der Startseite. NTFY_URL nur zum Testen." },

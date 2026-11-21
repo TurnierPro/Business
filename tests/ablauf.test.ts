@@ -90,15 +90,16 @@ test("Kompletter Ablauf von Lead bis Livegang", async () => {
   assert.ok((await aufgabe("Angebot nachfassen")) && !(await aufgabe("Angebot nachfassen"))!.erledigtAm, "Nachfass-Aufgabe angelegt");
   assert.ok((await aufgabe("Besuch vor Ort"))?.erledigtAm, "Besuchs-Aufgabe mit dem Termin erledigt");
 
-  // Annahme im Portal → Anzahlung über Stripe (Simulator): keine eigene Rechnung, Stripe-Rechnung bezahlt
+  // Unterschrift → Rechnung über die erste Rate (eigene Rechnung, ohne Lexware), Zahlung eingegangen → Projekt
   const angebotId = Number(angebotMail.meta.angebotId);
   // Daniel hat beim Termin zusätzlich das Modul Personal & Bewerbung vereinbart
   await db.update(schema.angebote).set({ module: ["personal"] }).where(eq(schema.angebote.id, angebotId));
   await verkauf.unterschriftEingegangen(angebotId, "Simulator");
   await abarbeiten();
-  assert.equal((await db.select().from(schema.postausgang).where(eq(schema.postausgang.zweck, "rechnung"))).length, 0, "keine doppelte Rechnung neben Stripe");
-  const zahlung = await import("../src/lib/ablauf/zahlung");
-  assert.match(await zahlung.anzahlungsLink(angebotId), /zahlung-simulator/);
+  const ersteRate = await offeneFreigabe("rechnung");
+  assert.match(ersteRate.text, /Bitte überweisen/);
+  await post.freigeben(ersteRate.id, "Daniel Lück");
+  await abarbeiten();
   const projektId = await verkauf.zahlungEingegangen(angebotId, "Simulator");
   assert.equal(await verkauf.zahlungEingegangen(angebotId, "Simulator"), projektId, "doppelte Zahlungsmeldung legt nichts doppelt an");
   await abarbeiten();
@@ -117,7 +118,7 @@ test("Kompletter Ablauf von Lead bis Livegang", async () => {
   const [gebaut] = await db.select().from(schema.projekte).where(eq(schema.projekte.id, projektId));
   assert.equal(gebaut.status, "bereit", JSON.stringify(gebaut.pruefung));
 
-  // Livegang freigeben → live; Betreuung wartet als Zahlung auf Freigabe, Kunde wird um Abnahme gebeten
+  // Livegang freigeben → live; Lastschrift (Qonto) wartet auf Freigabe, Kunde wird um Abnahme gebeten
   const live = await offeneFreigabe("livegang");
   await post.freigeben(live.id, "Maximilian Steiner");
   await abarbeiten();
@@ -125,33 +126,32 @@ test("Kompletter Ablauf von Lead bis Livegang", async () => {
   assert.equal(fertig.status, "live");
   assert.equal(fertig.abnahmeStatus, "offen");
   assert.equal(fertig.abnahmeFrist, null, "Frist läuft erst nach Versand der Aufforderung");
-  assert.equal((await db.select().from(schema.postausgang).where(eq(schema.postausgang.zweck, "schlusszahlung"))).length, 0, "keine Schlusszahlung vor der Abnahme");
-  const betreuung = await offeneFreigabe("betreuung_start");
+  assert.equal((await db.select().from(schema.postausgang).where(eq(schema.postausgang.zweck, "schlussrechnung"))).length, 0, "keine Schlussrechnung vor der Abnahme");
+  const lastschrift = await offeneFreigabe("lastschrift_start");
+  assert.equal(lastschrift.kanal, "lastschrift");
   const aufforderung = await offeneFreigabe("abnahme_aufforderung");
   await post.freigeben(aufforderung.id, "Maximilian Steiner");
   await abarbeiten();
   const [mitFrist] = await db.select().from(schema.projekte).where(eq(schema.projekte.id, projektId));
   assert.ok(mitFrist.abnahmeFrist && mitFrist.abnahmeFrist > new Date(Date.now() + 13 * 864e5));
 
-  // Abnahme im Portal mit Mängeln → Abnahmeprotokoll und Schlusszahlung zur Freigabe
+  // Abnahme im Portal mit Mängeln → Abnahmeprotokoll und Schlussrechnung zur Freigabe
   const vertrag = await import("../src/lib/ablauf/vertrag");
   await assert.rejects(() => vertrag.abnahmeErklaeren(projektId, { ergebnis: "vorbehalt", name: "Thomas Muster", maengel: "" }), /Mängel/);
   await vertrag.abnahmeErklaeren(projektId, { ergebnis: "vorbehalt", name: "Thomas Muster", maengel: "Telefonnummer im Kopf fehlt" });
   await abarbeiten();
   const protokollMail = await offeneFreigabe("abnahme_bestaetigung");
   await post.freigeben(protokollMail.id, "Maximilian Steiner");
-  const schlusszahlung = await offeneFreigabe("schlusszahlung");
-  const vorFreigabe = await db.select().from(schema.rechnungen);
-  assert.deepEqual(vorFreigabe.map((r) => r.art), ["anzahlung"], "ohne Freigabe wird nichts eingezogen");
-  await post.freigeben(schlusszahlung.id, "Maximilian Steiner");
-  await post.freigeben(betreuung.id, "Maximilian Steiner");
+  const schlussrechnung = await offeneFreigabe("schlussrechnung");
+  await post.freigeben(schlussrechnung.id, "Maximilian Steiner");
+  await post.freigeben(lastschrift.id, "Maximilian Steiner");
   const bestaetigung = await offeneFreigabe("auftragsbestaetigung");
   await post.freigeben(bestaetigung.id, "Daniel Lück");
   await abarbeiten();
   const rechnungen = await db.select().from(schema.rechnungen);
-  assert.deepEqual(rechnungen.map((r) => [r.art, r.quelle, r.status]), [["anzahlung", "stripe", "bezahlt"], ["schluss", "stripe", "bezahlt"]]);
+  assert.deepEqual(rechnungen.map((r) => [r.art, r.quelle, r.status]), [["anzahlung", "eigen", "bezahlt"], ["schluss", "eigen", "offen"]]);
   const [mitAbo] = await db.select().from(schema.projekte).where(eq(schema.projekte.id, projektId));
-  assert.ok(mitAbo.stripeAboId);
+  assert.match(mitAbo.qontoAboId ?? "", /^sim_abo_/, "Lastschrift eingerichtet (Simulator)");
   assert.ok((await aufgabe("Angebot nachfassen"))?.erledigtAm, "Nachfassen erledigt sich mit der Annahme");
   const { checkliste } = await import("../src/lib/ablauf/checkliste");
   const punkte = await checkliste(projektId);
@@ -213,12 +213,12 @@ test("Qualitätskontrolle muss vor der Freigabe gelaufen sein", async () => {
 
 test("Finanz-Agenten: Mahnstufen und Betreuungsrechnung", async () => {
   const agenten = await import("../src/lib/ablauf/finanzagenten");
-  // Weg ohne Stripe: eigene Rechnung, die offen bleibt
-  process.env.ZAHLUNGSWEG = "ueberweisung";
+  // Eigene Rechnung, die offen bleibt. Offene Rechnungen anderer Tests gelten hier als bezahlt, damit nur diese zählt.
+  const { ne } = await import("drizzle-orm");
+  await db.update(schema.rechnungen).set({ status: "bezahlt" }).where(ne(schema.rechnungen.status, "bezahlt"));
   const { id } = await akquise.legeBetriebAn({ name: "Überweiser GmbH", gewerk: "Maler", score: 60, scoreGrund: "Test", website: "ueberweiser.example", email: "chef@ueberweiser.example" }, "Test", "Test");
   const [a] = await db.insert(schema.angebote).values({ betriebId: id!, paket: "KOMPAKT", einmalig: 149000, monatlich: 6000, status: "versendet" }).returning();
   await verkauf.unterschriftEingegangen(a.id, "Test");
-  delete process.env.ZAHLUNGSWEG;
   const [r] = await db.select().from(schema.rechnungen).where(eq(schema.rechnungen.betriebId, id!));
   assert.ok(r.faelligAm, "Rechnung hat ein Fälligkeitsdatum");
   const tag = (n: number) => new Date(r.faelligAm!.getTime() + n * 864e5);
@@ -240,12 +240,12 @@ test("Finanz-Agenten: Mahnstufen und Betreuungsrechnung", async () => {
   await post.qualitaetskontrolle(m1.id);
   const [m1qk] = await db.select().from(schema.postausgang).where(eq(schema.postausgang.id, m1.id));
   assert.ok(!m1qk.hinweise.some((h) => h.includes("steht nicht in den Daten")), m1qk.hinweise.join(" | "));
-  const r2 = await agenten.betreuungsrechnungen(new Date(Date.now() + 40 * 864e5));
-  assert.match(r2, /^0 Betreuungsrechnungen/, "ohne Livegang keine Betreuungsrechnung");
+  await agenten.betreuungsrechnungen(new Date(Date.now() + 40 * 864e5));
+  const betreuung = (await db.select().from(schema.rechnungen).where(eq(schema.rechnungen.betriebId, id!))).filter((x) => x.art === "betreuung");
+  assert.equal(betreuung.length, 0, "ohne Livegang keine Betreuungsrechnung");
 });
 
-test("Ohne Stripe: Abnahme durch Fristablauf, Schlussrechnung zieht Anzahlung ab", async () => {
-  process.env.ZAHLUNGSWEG = "ueberweisung";
+test("Abnahme durch Fristablauf, Schlussrechnung zieht die erste Rate ab", async () => {
   try {
     const vertrag = await import("../src/lib/ablauf/vertrag");
     const { id } = await akquise.legeBetriebAn({ name: "Frist GmbH", gewerk: "SHK", score: 60, scoreGrund: "Test", website: "frist.example", email: "chef@frist.example" }, "Test", "Test");
@@ -276,7 +276,6 @@ test("Ohne Stripe: Abnahme durch Fristablauf, Schlussrechnung zieht Anzahlung ab
     assert.match(await vertrag.vertragsende(new Date("2028-03-01T10:00:00Z")), /^0 /, "läuft noch");
     assert.match(await vertrag.vertragsende(new Date("2029-03-01T10:00:00Z")), /^1 /);
   } finally {
-    delete process.env.ZAHLUNGSWEG;
   }
 });
 
@@ -566,23 +565,80 @@ test("Baukasten: Ausbaustufen, Pilotpreis, Prozess-Check, Individuelle Module", 
   assert.ok(d.paketProblem.length > 10);
 });
 
-test("Stripe-Webhook: echte Signatur nötig, Zahlung wird verbucht", async () => {
-  const Stripe = (await import("stripe")).default;
-  process.env.STRIPE_SECRET_KEY = "sk_test_dummy";
-  process.env.STRIPE_WEBHOOK_SECRET = "whsec_test";
+test("Lexware Office: Rechnung erst beim freigegebenen Versand, Nummer und PDF von Lexware, Zahlstatus täglich", async () => {
+  const vorher = globalThis.fetch;
+  const aufrufe: { url: string; methode: string; body?: Record<string, unknown> }[] = [];
+  let status = "open";
+  globalThis.fetch = (async (url: string, init: RequestInit = {}) => {
+    aufrufe.push({ url, methode: init.method ?? "GET", body: init.body ? JSON.parse(String(init.body)) : undefined });
+    if (url.endsWith("/v1/invoices?finalize=true")) return Response.json({ id: "lx-1", version: 1 });
+    if (url.endsWith("/v1/invoices/lx-1")) return Response.json({ voucherNumber: "RE0042", voucherStatus: status });
+    if (url.endsWith("/v1/invoices/lx-1/document")) return Response.json({ documentFileId: "datei-1" });
+    if (url.endsWith("/v1/files/datei-1")) return new Response(Buffer.from("%PDF-1.4 Lexware-Rechnung"), { status: 200 });
+    return new Response("unerwartet", { status: 500 });
+  }) as typeof fetch;
+  process.env.LEXWARE_API_KEY = "lx_test";
   try {
-    const { id } = await akquise.legeBetriebAn({ name: "Webhook GmbH", gewerk: "SHK", score: 70, scoreGrund: "Test", website: "webhook.example", email: "chef@webhook.example" }, "Test", "Test");
-    const [a] = await db.insert(schema.angebote).values({ betriebId: id!, paket: "KOMPAKT", einmalig: 149000, monatlich: 6000, status: "unterschrieben" }).returning();
-    const zahlung = await import("../src/lib/ablauf/zahlung");
-    const nutzlast = JSON.stringify({ id: "evt_1", object: "event", type: "checkout.session.completed", data: { object: { id: "cs_1", object: "checkout.session", payment_status: "paid", metadata: { angebotId: String(a.id) }, customer: "cus_1", payment_intent: null, invoice: null } } });
-    await assert.rejects(() => zahlung.stripeEreignis(nutzlast, "t=1,v1=falsch"));
-    const signatur = new Stripe("sk_test_dummy").webhooks.generateTestHeaderString({ payload: nutzlast, secret: "whsec_test" });
-    assert.match(await zahlung.stripeEreignis(nutzlast, signatur), /Anzahlung verbucht/);
-    const [b] = await db.select().from(schema.betriebe).where(eq(schema.betriebe.id, id!));
-    assert.equal(b.stripeKundeId, "cus_1");
+    const { id } = await akquise.legeBetriebAn({ name: "Lexware Test GmbH", gewerk: "SHK", score: 60, scoreGrund: "Test", website: "lexware.example", email: "chef@lexware.example", strasse: "Weg 3", plz: "76297", ort: "Stutensee" }, "Test", "Test");
+    const [a] = await db.insert(schema.angebote).values({ betriebId: id!, paket: "KOMPAKT", einmalig: 149000, monatlich: 6000, status: "versendet" }).returning();
+    await verkauf.unterschriftEingegangen(a.id, "Test");
+    await abarbeiten();
+    assert.equal(aufrufe.length, 0, "vor der Freigabe geht nichts an Lexware");
+    const e = (await db.select().from(schema.postausgang).where(eq(schema.postausgang.betriebId, id!))).find((x) => x.zweck === "rechnung")!;
+    await post.freigeben(e.id, "Daniel Lück");
+    await abarbeiten();
+    const anlegen = aufrufe.find((x) => x.methode === "POST")!;
+    assert.equal((anlegen.body!.lineItems as { unitPrice: { netAmount: number } }[])[0].unitPrice.netAmount, 745, "erste Rate 50 % von 1.490 €");
+    const [r] = await db.select().from(schema.rechnungen).where(eq(schema.rechnungen.angebotId, a.id));
+    assert.deepEqual([r.nummer, r.quelle, r.lexwareId], ["RE0042", "lexware", "lx-1"]);
+    const [versendet] = await db.select().from(schema.postausgang).where(eq(schema.postausgang.id, e.id));
+    assert.equal(versendet.status, "versendet");
+    assert.match(versendet.betreff, /RE0042/, "Nummer von Lexware in Betreff und Text");
+    const [dok] = (await db.select().from(schema.dokumente).where(eq(schema.dokumente.betriebId, id!))).filter((d) => d.art === "rechnung");
+    assert.ok((await import("node:fs")).readFileSync(dok.archivPfad!).toString().startsWith("%PDF-1.4 Lexware"), "das PDF von Lexware ist eingefroren");
+    // Täglicher Abgleich: bezahlt → Projekt startet
+    const geld = await import("../src/lib/ablauf/geld");
+    assert.match(await geld.lexwareAbgleich(), /0 bezahlt/);
+    status = "paid";
+    assert.match(await geld.lexwareAbgleich(), /1 bezahlt/);
+    const [bezahlt] = await db.select().from(schema.rechnungen).where(eq(schema.rechnungen.id, r.id));
+    assert.equal(bezahlt.status, "bezahlt");
+    assert.ok((await db.select().from(schema.projekte).where(eq(schema.projekte.angebotId, a.id))).length === 1, "Projekt angelegt");
   } finally {
-    delete process.env.STRIPE_SECRET_KEY;
-    delete process.env.STRIPE_WEBHOOK_SECRET;
+    globalThis.fetch = vorher;
+    delete process.env.LEXWARE_API_KEY;
+  }
+});
+
+test("Qonto: Lastschrift für den Monatsbeitrag nur nach Freigabe, Kunde unterschreibt das Mandat über Qonto", async () => {
+  const vorher = globalThis.fetch;
+  const aufrufe: { url: string; body: Record<string, unknown> }[] = [];
+  globalThis.fetch = (async (url: string, init: RequestInit = {}) => {
+    aufrufe.push({ url, body: init.body ? JSON.parse(String(init.body)) : {} });
+    if (url.endsWith("/v2/clients")) return Response.json({ client: { id: "kunde-1" } });
+    if (url.endsWith("/v2/sepa/direct_debit_subscriptions")) return Response.json({ direct_debit_subscription: { id: "abo-1", sign_url: "https://pay.qonto.example/sign" } });
+    return new Response("unerwartet", { status: 500 });
+  }) as typeof fetch;
+  Object.assign(process.env, { QONTO_ACCESS_TOKEN: "qt_test", QONTO_KONTO_ID: "konto-1" });
+  try {
+    const { id } = await akquise.legeBetriebAn({ name: "Qonto Test GmbH", gewerk: "SHK", score: 60, scoreGrund: "Test", website: "qonto.example", email: "chef@qonto.example" }, "Test", "Test");
+    const [p] = await db.insert(schema.projekte).values({ betriebId: id!, paket: "KOMPAKT", portalToken: "qonto-token-1234567890", status: "live" }).returning();
+    const eintrag = await post.inPostausgang({ betriebId: id, projektId: p.id, kanal: "lastschrift", zweck: "lastschrift_start", empfaenger: "chef@qonto.example", betreff: "Lastschrift einrichten", text: "Monatsbeitrag 60,00 € netto (71,40 € brutto) per SEPA-Lastschrift über Qonto.", meta: { projektId: p.id, monatlichBrutto: 7140, ersterEinzug: "2027-03-01T00:00:00Z" } });
+    await abarbeiten();
+    assert.equal(aufrufe.length, 0, "vor der Freigabe nichts bei Qonto");
+    await post.freigeben(eintrag, "Maximilian Steiner");
+    await abarbeiten();
+    const abo = aufrufe.find((x) => x.url.endsWith("/direct_debit_subscriptions"))!.body.direct_debit_subscription as Record<string, unknown>;
+    assert.deepEqual(abo.amount, { value: "71.40", currency: "EUR" });
+    assert.equal(abo.schedule_type, "monthly");
+    assert.equal(abo.notify_client, true, "Qonto schickt Mandats-Link und kündigt Einzüge an");
+    assert.equal(abo.client_id, "kunde-1");
+    const [neu] = await db.select().from(schema.projekte).where(eq(schema.projekte.id, p.id));
+    assert.equal(neu.qontoAboId, "abo-1");
+  } finally {
+    globalThis.fetch = vorher;
+    delete process.env.QONTO_ACCESS_TOKEN;
+    delete process.env.QONTO_KONTO_ID;
   }
 });
 
@@ -593,8 +649,6 @@ test("Mail ohne gültige Adresse lässt sich nicht freigeben", async () => {
 });
 
 test("Rechnung über 10.000 € braucht zwei verschiedene Personen", async () => {
-  process.env.ZAHLUNGSWEG = "ueberweisung";
-  after(() => { delete process.env.ZAHLUNGSWEG; });
   const { id } = await akquise.legeBetriebAn({ name: "Groß GmbH", gewerk: "Elektro", score: 80, scoreGrund: "Test", website: "gross.example", email: "chef@gross.example" }, "Test", "Test");
   const [a] = await db.insert(schema.angebote).values({ betriebId: id!, paket: "PROFESSIONAL", einmalig: 2_000_000, monatlich: 59000, status: "versendet" }).returning();
   await verkauf.unterschriftEingegangen(a.id, "Test");

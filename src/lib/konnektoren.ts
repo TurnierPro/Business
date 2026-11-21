@@ -2,6 +2,8 @@ import { isNull } from "drizzle-orm";
 import { getDb, schema } from "./db";
 import { aktiverMailDienst, MAIL_DIENSTE, type MailDienst } from "./adapters/mail";
 import { WHATSAPP_BRAUCHT, whatsappEcht } from "./adapters/whatsapp";
+import { LEXWARE_BRAUCHT, lexwareEcht } from "./adapters/lexware";
+import { QONTO_BRAUCHT, qontoEcht } from "./adapters/qonto";
 
 // Alle Anschlüsse an fremde Werkzeuge an einer Stelle. Jeder Konnektor ist ein Adapter mit Simulator:
 // Fehlen die Zugangsdaten, läuft der Simulator und nichts verlässt das System.
@@ -115,8 +117,8 @@ export async function konnektoren(): Promise<Konnektor[]> {
         "Wenn ja: Bot muss sich als KI zu erkennen geben, darf nichts zusagen und schreibt nur Entwürfe.",
       ],
     },
-    { key: "stripe", kategorie: "Geld", name: "Stripe", zweck: "Anzahlung im Portal, Schlusszahlung, Betreuungs-Abo per SEPA-Lastschrift", status: s(["STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET"]), braucht: ["STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET", "STRIPE_STEUERSATZ_ID"], schritte: ["Konto bei Stripe, zum Üben Testmodus (sk_test_…).", "Webhook <BASE_URL>/api/stripe/webhook anlegen, Geheimnis als STRIPE_WEBHOOK_SECRET."] },
-    { key: "lexoffice", kategorie: "Geld", name: "lexoffice", zweck: "Rechnungen und E-Rechnung (ZUGFeRD) in die Buchhaltung", status: s(["LEXOFFICE_API_KEY"]), braucht: ["LEXOFFICE_API_KEY"], schritte: ["Mit dem Steuerberater abstimmen (lexoffice, sevDesk oder DATEV).", "API-Schlüssel in lexoffice erzeugen, LEXOFFICE_API_KEY setzen."] },
+    { key: "qonto", kategorie: "Geld", name: "Qonto (SEPA-Lastschrift)", zweck: "Monatsbeitrag per Lastschrift; der Kunde unterschreibt das Mandat über einen Link von Qonto, Qonto kündigt jeden Einzug an", status: qontoEcht() ? "aktiv" : "simulator", braucht: QONTO_BRAUCHT, schritte: ["SEPA-Lastschrift im Qonto-Konto freischalten lassen (Gläubiger-ID).", "Qonto Business API: OAuth-App anlegen, Bereich sepa_direct_debit.write, Zugriffstoken erzeugen.", "QONTO_ACCESS_TOKEN und QONTO_KONTO_ID (Bankkonto-ID) setzen.", "Bis dahin: Monatsbeitrag per Überweisung, Levarex OS schreibt das automatisch in die Rechnung."], datenschutz: "Kontodaten des Kunden liegen nur bei Qonto, Levarex OS speichert nur die IDs." },
+    { key: "lexware", kategorie: "Geld", name: "Lexware Office", zweck: "Rechnungen und E-Rechnung: angelegt beim freigegebenen Versand, Nummer und PDF von Lexware, täglicher Zahlstatus", status: lexwareEcht() ? "aktiv" : "simulator", braucht: LEXWARE_BRAUCHT, schritte: ["In Lexware Office: Einstellungen → Öffentliche API → Schlüssel erzeugen.", "LEXWARE_API_KEY setzen (optional LEXWARE_BASIS_URL).", "Mit dem Steuerberater klären: Nummernkreis, E-Rechnung (ZUGFeRD/XRechnung), Kontenrahmen.", "Ohne Schlüssel: eigene Rechnungsnummern und PDFs aus Levarex OS."], datenschutz: "AV-Vertrag in Lexware Office abschließen." },
     { key: "docuseal", kategorie: "Dokumente und Post", name: "E-Signatur (Docuseal)", zweck: "Angebote digital unterschreiben", status: s(["DOCUSEAL_URL", "DOCUSEAL_TOKEN"]), braucht: ["DOCUSEAL_URL", "DOCUSEAL_TOKEN"], schritte: ["Docuseal auf dem eigenen Server starten.", "DOCUSEAL_URL und DOCUSEAL_TOKEN setzen."] },
     { key: "brief", kategorie: "Dokumente und Post", name: "Briefdienst", zweck: "Akquise-Briefe drucken und versenden (erst nach dem Notartermin)", status: s(["BRIEFDIENST_API_KEY"]), braucht: ["BRIEFDIENST_API_KEY", "AKQUISE_FREIGESCHALTET"], schritte: ["Anbieter mit Sitz in Deutschland wählen, AV-Vertrag.", "BRIEFDIENST_API_KEY setzen; AKQUISE_FREIGESCHALTET=ja erst nach Gründung."] },
     { key: "kalender", kategorie: "Dokumente und Post", name: "Kalender (Outlook, Google, Apple)", zweck: "Termine und Aufgaben als Kalender-Abo", status: "aktiv", braucht: [], schritte: ["Unter Stammdaten → Benutzer und Sicherheit den persönlichen Kalender-Link kopieren und in Outlook oder Google Kalender abonnieren."] },
