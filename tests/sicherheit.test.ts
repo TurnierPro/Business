@@ -250,3 +250,49 @@ test("Getrennte Adressen: unter der Portal-Adresse nur das Portal, unter der OS-
     delete process.env.PORTAL_URL;
   }
 });
+
+test("Schnittstelle für n8n: Rechte, Mengenbegrenzung, Protokoll, kein Versand ohne Freigabe", async () => {
+  const api = await import("../src/lib/api");
+  const lesen = await api.schluesselErzeugen("n8n lesen", ["lesen"], "Test");
+  const entwurf = await api.schluesselErzeugen("n8n entwürfe", ["entwuerfe"], "Test");
+  const entwuerfe = await import("../src/app/api/v1/entwuerfe/route");
+  const anfrage = (s: string, body: unknown) => new Request("https://x/api/v1/entwuerfe", { method: "POST", headers: { Authorization: `Bearer ${s}`, "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  const mail = { empfaenger: "kunde@example.com", betreff: "Rückfrage", text: "Guten Tag, wir melden uns morgen mit dem Termin." };
+  assert.equal((await entwuerfe.POST(anfrage(lesen, mail))).status, 403, "Recht fehlt");
+  const r = await entwuerfe.POST(anfrage(entwurf, mail));
+  assert.equal(r.status, 201);
+  const { id } = (await r.json()) as { id: number };
+  const [e] = await db.select().from(schema.postausgang).where(eq(schema.postausgang.id, id));
+  assert.equal(e.status, "zur_freigabe", "Entwurf, nicht versendet");
+  assert.ok(!Object.keys(api.RECHTE).some((k) => /send|versand/i.test(k)), "kein Recht zum Versenden");
+  // Jeder Zugriff wird protokolliert
+  const prot = await db.select().from(schema.apiProtokoll);
+  assert.ok(prot.some((x) => x.ergebnis === "403") && prot.some((x) => x.ergebnis === "erlaubt" && x.pfad === "/api/v1/entwuerfe"));
+  // Mengenbegrenzung je Schlüssel
+  const betriebe = await import("../src/app/api/v1/betriebe/route");
+  let letzte = 0;
+  for (let i = 0; i <= api.API_GRENZE_JE_MINUTE; i++) letzte = (await betriebe.GET(new Request("https://x/api/v1/betriebe", { headers: { Authorization: `Bearer ${lesen}` } }))).status;
+  assert.equal(letzte, 429);
+  // OpenAPI-Beschreibung für n8n
+  const oa = await import("../src/app/api/v1/openapi.json/route");
+  const spec = (await oa.GET().json()) as { paths: Record<string, unknown> };
+  assert.ok(spec.paths["/entwuerfe"] && spec.paths["/nachrichten"] && spec.paths["/dokumente/{id}"]);
+});
+
+test("Webhooks: nur https, signiert, nur IDs, keine internen Adressen (SSRF)", async () => {
+  const crypto = await import("node:crypto");
+  const wh = await import("../src/lib/webhooks");
+  await assert.rejects(() => wh.webhookAnlegen({ name: "x", url: "http://n8n.example/hook", ereignisse: ["betrieb.neu"] }, "Test"), /https/);
+  await assert.rejects(() => wh.webhookAnlegen({ name: "x", url: "https://n8n.example/hook", ereignisse: ["gibt.es.nicht"] }, "Test"), /Ereignis/);
+  const { id, geheimnis } = await wh.webhookAnlegen({ name: "n8n intern", url: "https://127.0.0.1/hook", ereignisse: ["betrieb.neu"] }, "Test");
+  const [w] = await db.select().from(schema.webhooks).where(eq(schema.webhooks.id, id));
+  assert.notEqual(w.geheimnis, geheimnis, "Geheimnis verschlüsselt gespeichert");
+  await wh.ereignis("betrieb.neu", { betriebId: 42, quelle: "Test" });
+  const jobs = (await db.select().from(schema.jobs).where(eq(schema.jobs.art, "webhook"))).filter((j) => Number((j.daten as { webhookId: number }).webhookId) === id);
+  assert.equal(jobs.length, 1);
+  assert.deepEqual((jobs[0].daten as { daten: unknown }).daten, { betriebId: 42, quelle: "Test" }, "nur IDs");
+  await assert.rejects(() => wh.webhookZustellen(jobs[0].daten as never), /intern|erlaubt|nicht/i, "interne Adresse wird nie aufgerufen");
+  // Signatur wie in der Doku: sha256=HMAC(geheimnis, zeit.body)
+  const soll = `sha256=${crypto.createHmac("sha256", "g").update("123.{}").digest("hex")}`;
+  assert.equal(wh.signatur("g", "123", "{}"), soll);
+});

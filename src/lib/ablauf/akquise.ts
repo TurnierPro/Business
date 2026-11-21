@@ -44,6 +44,7 @@ export async function legeBetriebAn(b: GefundenerBetrieb & { email?: string; not
     })
     .returning({ id: schema.betriebe.id });
   await protokolliere(wer, `Lead angelegt: ${b.name}`, neu.id, quelle);
+  await (await import("../webhooks")).ereignis("betrieb.neu", { betriebId: neu.id, quelle });
   return { id: neu.id };
 }
 

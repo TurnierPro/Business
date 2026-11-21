@@ -6,11 +6,12 @@ import { getDb, schema } from "@/lib/db";
 import { otpauthUrl } from "@/lib/totp";
 import { kalenderLink } from "@/lib/kalender";
 import { RECHTE } from "@/lib/api";
+import { EREIGNISSE } from "@/lib/webhooks";
 import { basisUrl } from "@/lib/ablauf/gemeinsam";
 import { datum, datumZeit } from "@/lib/format";
 import { entschluessele } from "@/lib/geheim";
 import { ueberallAbmelden } from "../aktionen";
-import { apiSchluesselErzeugen, apiSchluesselWiderrufen, benutzerAendern, benutzerAnlegen, leadsImportieren, zweiFaktorBestaetigen, zweiFaktorStarten } from "../aktionen";
+import { apiSchluesselErzeugen, apiSchluesselWiderrufen, webhookAnlegen, webhookLoeschen, benutzerAendern, benutzerAnlegen, leadsImportieren, zweiFaktorBestaetigen, zweiFaktorStarten } from "../aktionen";
 
 export const metadata = { title: "Einstellungen" };
 
@@ -24,6 +25,8 @@ export default async function Einstellungen() {
     db.select().from(schema.apiSchluessel).orderBy(desc(schema.apiSchluessel.erstelltAm)),
   ]);
   const neuerSchluessel = (await cookies()).get("lvx_neuer_schluessel")?.value;
+  const neuesGeheimnis = (await cookies()).get("lvx_neues_geheimnis")?.value;
+  const hooks = await (await getDb()).select().from(schema.webhooks);
   const geheim = mein.totpGeheim && !mein.totpAktiv ? entschluessele(mein.totpGeheim) : null;
   const qr = geheim ? await QRCode.toDataURL(otpauthUrl(geheim, mein.email), { margin: 1, width: 220 }) : null;
   const kalender = await kalenderLink(ich.id);
@@ -109,7 +112,7 @@ export default async function Einstellungen() {
 
       <section className="karte abstand" id="api">
         <h2>Schnittstelle (API)</h2>
-        <p className="leise klein">Für n8n, Website-Formulare oder andere Programme. Adresse: <span className="mono">{basisUrl()}/api/v1/…</span> mit <span className="mono">Authorization: Bearer lvx_…</span>. Endpunkte: <span className="mono">GET /betriebe</span>, <span className="mono">POST /betriebe</span> (Lead anlegen), <span className="mono">GET /projekte</span>, <span className="mono">POST /tickets</span>. Was die Schnittstelle anlegt, läuft durch dieselben Regeln wie alles andere (Sperrliste, Freigabe).</p>
+        <p className="leise klein">Für n8n, Website-Formulare oder andere Programme. Adresse: <span className="mono">{basisUrl()}/api/v1/…</span> mit <span className="mono">Authorization: Bearer lvx_…</span>. Alle Endpunkte und Felder stehen in <a href="/api/v1/openapi.json" target="_blank" className="mono">/api/v1/openapi.json</a> (in n8n importierbar). Was die Schnittstelle anlegt, läuft durch dieselben Regeln wie alles andere (Sperrliste, Freigabe); versenden kann sie nichts. Höchstens 120 Anfragen je Minute und Schlüssel, jeder Zugriff wird protokolliert.</p>
         {neuerSchluessel ? <div className="hinweis ok" role="status">Neuer Schlüssel, nur jetzt sichtbar: <span className="mono" style={{ userSelect: "all", wordBreak: "break-all" }}>{neuerSchluessel}</span></div> : null}
         {schluessel.length ? (
           <table className="tabelle">
@@ -131,6 +134,32 @@ export default async function Einstellungen() {
             <input name="name" placeholder="Wofür? z. B. n8n" required aria-label="Name des Schlüssels" style={{ maxWidth: 220 }} />
             {Object.entries(RECHTE).map(([k, n]) => <label key={k} className="haken"><input type="checkbox" name="rechte" value={k} defaultChecked={k === "lesen"} /><span>{n}</span></label>)}
             <button className="knopf">Schlüssel erzeugen</button>
+          </form>
+        ) : null}
+      </section>
+
+      <section className="karte abstand" id="webhooks">
+        <h2>Webhooks (z. B. an n8n)</h2>
+        <p className="leise klein">Bei einem Ereignis schickt Levarex OS einen signierten POST mit Ereignis und IDs, keine Kundendaten. Die Details holt n8n mit seinem API-Schlüssel. Prüfen in n8n: Kopf <span className="mono">X-Levarex-Signatur</span> = <span className="mono">sha256=HMAC(Geheimnis, X-Levarex-Zeit + "." + Body)</span>.</p>
+        {neuesGeheimnis ? <div className="hinweis ok" role="status">Geheimnis für die Signaturprüfung, nur jetzt sichtbar: <span className="mono" style={{ userSelect: "all", wordBreak: "break-all" }}>{neuesGeheimnis}</span></div> : null}
+        {hooks.length ? (
+          <ul className="liste">
+            {hooks.map((w) => (
+              <li key={w.id}>
+                <div><div className="titel">{w.name}</div><div className="unter mono">{w.url}</div><div className="unter">{w.ereignisse.map((e) => EREIGNISSE[e] ?? e).join(", ")}{w.letzterVersand ? ` · zuletzt ${datumZeit(w.letzterVersand)}` : ""}{w.letzterFehler ? ` · Fehler: ${w.letzterFehler}` : ""}</div></div>
+                {admin ? <form action={webhookLoeschen}><input type="hidden" name="id" value={w.id} /><button className="knopf klein gefahr">Löschen</button></form> : null}
+              </li>
+            ))}
+          </ul>
+        ) : <p className="leise">Noch keine Webhooks.</p>}
+        {admin ? (
+          <form action={webhookAnlegen} style={{ marginTop: 12 }}>
+            <div className="raster zwei">
+              <label className="feld"><span>Name</span><input name="name" required placeholder="z. B. n8n Vertrieb" /></label>
+              <label className="feld"><span>Adresse (https)</span><input name="url" type="url" required placeholder="https://n8n.levarex-consulting.de/webhook/…" /></label>
+            </div>
+            <div className="knopfreihe">{Object.entries(EREIGNISSE).map(([k, n]) => <label key={k} className="haken"><input type="checkbox" name="ereignisse" value={k} /><span>{n}</span></label>)}</div>
+            <button className="knopf" style={{ marginTop: 8 }}>Webhook anlegen</button>
           </form>
         ) : null}
       </section>

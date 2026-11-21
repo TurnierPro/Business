@@ -29,6 +29,7 @@ export const ZWECK: Record<string, string> = {
   lastschrift_ende: "Lastschrift beenden (Qonto)",
   test: "Test",
   testmail: "Testmail (Konnektor prüfen)",
+  api_entwurf: "Entwurf über die Schnittstelle",
   antwort: "Antwort auf Nachricht",
 };
 

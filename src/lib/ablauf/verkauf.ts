@@ -229,6 +229,7 @@ export async function unterschriftEingegangen(angebotId: number, wer: string, an
   await db.update(schema.angebote).set({ status: "unterschrieben", unterschriebenAm: new Date(), annahme: nachweis }).where(eq(schema.angebote.id, angebotId));
   await setzeStatus(a.betriebId, "kunde");
   await systemAufgabeErledigt(a.betriebId, "Angebot nachfassen");
+  await (await import("../webhooks")).ereignis("angebot.unterschrieben", { angebotId, betriebId: a.betriebId });
   await protokolliere(wer, `Angebot angenommen (${PAKETE[a.paket as PaketKey].name}, AGB ${nachweis.agbVersion}${nachweis.unternehmer ? ", Unternehmer bestätigt" : ""})`, a.betriebId);
 
   const b = await betrieb(a.betriebId);
@@ -273,6 +274,7 @@ export async function zahlungEingegangen(angebotId: number, wer: string): Promis
   await checklisteSicherstellen(p.id);
   const b = await betrieb(a.betriebId);
   await protokolliere(wer, "Anzahlung eingegangen, Projekt angelegt", a.betriebId);
+  await (await import("../webhooks")).ereignis("projekt.gestartet", { projektId: p.id, betriebId: a.betriebId, angebotId });
   await inPostausgang({
     betriebId: a.betriebId,
     projektId: p.id,

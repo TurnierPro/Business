@@ -87,6 +87,7 @@ export async function nachrichtEingang(n: Eingang, quelle: string): Promise<{ id
   await protokolliere(quelle, `${KANAELE[n.kanal]} von ${wer}`, z.betriebId);
 
   if (z.betriebId) await folgeschritte(neu.id, wer, n.entwurf !== false);
+  await (await import("../webhooks")).ereignis("nachricht.eingang", { nachrichtId: neu.id, kanal: n.kanal, betriebId: z.betriebId });
   return { id: neu.id, neu: true, betriebId: z.betriebId };
 }
 

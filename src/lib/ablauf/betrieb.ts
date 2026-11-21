@@ -165,6 +165,7 @@ export async function aufraeumen(): Promise<string> {
     if (fs.statSync(voll).mtime < vor(frist("Sicherung alter Kunden-Websites (Umzug)"))) fs.rmSync(voll, { recursive: true, force: true });
   }
   await db.delete(schema.nachrichten).where(and(isNull(schema.nachrichten.betriebId), lt(schema.nachrichten.zeit, vor(frist("Nachrichten ohne Zuordnung")))));
+  await db.delete(schema.apiProtokoll).where(lt(schema.apiProtokoll.am, vor(frist("Zugriffsprotokoll der Schnittstelle"))));
   await db.delete(schema.simulatorPost).where(lt(schema.simulatorPost.am, vor(frist("Simulator-Postfach"))));
   await db.delete(schema.meldungen).where(lt(schema.meldungen.am, vor(frist("Systemmeldungen"))));
   await db.delete(schema.jobs).where(and(eq(schema.jobs.status, "fertig"), lt(schema.jobs.erstelltAm, vor(frist("Erledigte Hintergrund-Jobs")))));

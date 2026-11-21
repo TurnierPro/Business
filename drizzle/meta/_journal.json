@@ -120,6 +120,13 @@
       "when": 1795292044015,
       "tag": "0016_portal_zugaenge",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1795292240229,
+      "tag": "0017_api_webhooks",
+      "breakpoints": true
     }
   ]
 }

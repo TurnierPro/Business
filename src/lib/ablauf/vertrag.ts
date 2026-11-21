@@ -94,6 +94,7 @@ export async function abnahmefiktion(jetzt = new Date()): Promise<string> {
 /** Abnahmeprotokoll an den Kunden und Schlusszahlung vorbereiten. Beides geht durch Qualitätskontrolle und Freigabe. */
 async function nachAbnahme(projektId: number): Promise<void> {
   const p = await projekt(projektId);
+  await (await import("../webhooks")).ereignis("abnahme.erklaert", { projektId, betriebId: p.betriebId, ergebnis: p.abnahmeStatus });
   await hakeAb(projektId, "abnahme");
   const b = await betrieb(p.betriebId);
   const db = await getDb();

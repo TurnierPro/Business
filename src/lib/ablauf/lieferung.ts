@@ -163,6 +163,7 @@ export async function livegangDurchfuehren(projektId: number): Promise<void> {
   await db.update(schema.seiten).set({ zugangscode: null }).where(eq(schema.seiten.slug, p.seitenSlug));
   await db.update(schema.projekte).set({ status: "live", liveAm: new Date(), aboAb: new Date() }).where(eq(schema.projekte.id, projektId));
   await protokolliere(SYSTEM, "Livegang durchgeführt, Betreuung läuft", p.betriebId, p.domain ?? p.seitenSlug);
+  await (await import("../webhooks")).ereignis("projekt.live", { projektId, betriebId: p.betriebId, domain: p.domain });
   await hakeAb(projektId, "livegang");
   // Bestehende Domain: erst umstellen, dann Abnahme. Sonst Abnahme sofort.
   // Schlusszahlung erst nach Abnahme (§ 641 BGB).

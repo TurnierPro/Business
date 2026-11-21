@@ -523,3 +523,28 @@ export const portalZugaenge = pgTable(
   },
   (t) => [uniqueIndex("portal_zugang_token").on(t.token)],
 );
+
+// Zugriffe über die Schnittstelle (wer, was, wann, erlaubt oder abgelehnt). Löschung nach 90 Tagen.
+export const apiProtokoll = pgTable("api_protokoll", {
+  id: serial("id").primaryKey(),
+  schluesselId: integer("schluessel_id"),
+  name: text("name"),
+  methode: text("methode").notNull(),
+  pfad: text("pfad").notNull(),
+  ergebnis: text("ergebnis").notNull(), // erlaubt | 401 | 403 | 429
+  am: timestamp("am", { withTimezone: true }).defaultNow().notNull(),
+});
+
+// Ausgehende Webhooks (z. B. an n8n): bei Ereignissen ein signierter POST, nur mit IDs (Details holt n8n über die API).
+export const webhooks = pgTable("webhooks", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  url: text("url").notNull(),
+  ereignisse: jsonb("ereignisse").$type<string[]>().notNull().default([]),
+  geheimnis: text("geheimnis").notNull(), // verschlüsselt (geheim.ts)
+  aktiv: boolean("aktiv").notNull().default(true),
+  letzterVersand: timestamp("letzter_versand", { withTimezone: true }),
+  letzterFehler: text("letzter_fehler"),
+  erstelltVon: text("erstellt_von").notNull(),
+  erstelltAm: timestamp("erstellt_am", { withTimezone: true }).defaultNow().notNull(),
+});

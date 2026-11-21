@@ -481,6 +481,20 @@ export async function apiSchluesselErzeugen(f: FormData) {
   redirect("/einstellungen?ok=" + encodeURIComponent("Schlüssel erzeugt. Jetzt kopieren, er wird nur einmal angezeigt.") + "#api");
 }
 
+export async function webhookAnlegen(f: FormData) {
+  const b = await brauchtBenutzer();
+  if (!darf(b, "verwalten")) redirect("/einstellungen?fehler=" + encodeURIComponent("Das darf nur ein Admin."));
+  const w = await (await import("@/lib/webhooks")).webhookAnlegen({ name: text(f, "name"), url: text(f, "url"), ereignisse: f.getAll("ereignisse").map(String) }, b.name).catch((e: Error) => e);
+  if (w instanceof Error) redirect("/einstellungen?fehler=" + encodeURIComponent(w.message) + "#webhooks");
+  // Geheimnis nur einmal zeigen (kurzlebiges Cookie, nicht in der Adresse)
+  (await cookies()).set("lvx_neues_geheimnis", w.geheimnis, { httpOnly: true, sameSite: "strict", path: "/einstellungen", maxAge: 120 });
+  redirect("/einstellungen?ok=" + encodeURIComponent("Webhook angelegt. Geheimnis jetzt in n8n eintragen, es wird nur einmal angezeigt.") + "#webhooks");
+}
+
+export async function webhookLoeschen(f: FormData) {
+  await ausfuehren("/einstellungen", "Webhook gelöscht", async (wer) => (await import("@/lib/webhooks")).webhookLoeschen(zahl(f, "id"), wer), "verwalten");
+}
+
 export async function apiSchluesselWiderrufen(f: FormData) {
   await ausfuehren("/einstellungen", "Widerrufen", async (wer) => (await import("@/lib/api")).schluesselWiderrufen(zahl(f, "id"), wer), "verwalten");
 }
