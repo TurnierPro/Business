@@ -33,7 +33,19 @@ function grundHeader(res: NextResponse, o: { referrer?: string } = {}): NextResp
 // Kunden-Websites haben kein JavaScript: alles verbieten, was nicht gebraucht wird
 const CSP_KUNDENSEITE = "default-src 'none'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'self'";
 
-function cspApp(nonce: string): string {
+// Das Kundenportal darf nur von Levarex OS selbst eingebettet werden (Reiter „Kundenportal“ beim Betrieb), von sonst niemandem
+function rahmenErlaubt(portal: boolean): string {
+  if (!portal) return "frame-ancestors 'self'";
+  let os = "";
+  try {
+    os = process.env.BASE_URL ? new URL(process.env.BASE_URL).origin : "";
+  } catch {
+    os = "";
+  }
+  return `frame-ancestors 'self'${os ? ` ${os}` : ""}`;
+}
+
+function cspApp(nonce: string, portal = false): string {
   return [
     "default-src 'self'",
     `script-src 'self' 'nonce-${nonce}'${PRODUKTION ? "" : " 'unsafe-eval'"}`,
@@ -43,7 +55,7 @@ function cspApp(nonce: string): string {
     "connect-src 'self'",
     "media-src 'self' blob:",
     "frame-src 'self'",
-    "frame-ancestors 'self'",
+    rahmenErlaubt(portal),
     "form-action 'self'",
     "base-uri 'self'",
     "object-src 'none'",
@@ -78,13 +90,15 @@ function pruefe(req: NextRequest): NextResponse {
   }
   // Nonce je Aufruf: nur Skripte mit dieser Zufallszahl dürfen laufen (Next.js übernimmt sie selbst)
   const nonce = btoa(crypto.randomUUID());
-  const csp = pathname.startsWith("/vorschau") ? CSP_KUNDENSEITE : cspApp(nonce);
+  const imPortal = !!portalHost && host === portalHost;
+  const csp = pathname.startsWith("/vorschau") ? CSP_KUNDENSEITE : cspApp(nonce, imPortal);
   const kopf = new Headers(req.headers);
   kopf.set("x-nonce", nonce);
   kopf.set("Content-Security-Policy", csp);
   const weiter = (r: NextResponse) => {
     r.headers.set("Content-Security-Policy", csp);
-    r.headers.set("X-Frame-Options", "SAMEORIGIN");
+    // Unter der Portal-Adresse regelt frame-ancestors das Einbetten (nur Levarex OS); X-Frame-Options kennt keine fremde Adresse
+    if (!imPortal) r.headers.set("X-Frame-Options", "SAMEORIGIN");
     return r;
   };
   if (OFFEN.some((p) => pathname.startsWith(p))) return weiter(NextResponse.next({ request: { headers: kopf } }));

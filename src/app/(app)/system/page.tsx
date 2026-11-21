@@ -1,4 +1,4 @@
-import { desc, gte, sql } from "drizzle-orm";
+import { desc, eq, gte, sql } from "drizzle-orm";
 import { getDb, schema } from "@/lib/db";
 import { dienste } from "@/lib/adapters/dienste";
 import { REGELN } from "@/lib/jobs/zeitplan";
@@ -24,12 +24,33 @@ export default async function System() {
     db.select().from(schema.protokoll).orderBy(desc(schema.protokoll.am)).limit(30),
   ]);
   const summe = kosten.reduce((a, k) => a + (k.s ?? 0), 0);
+  // Ampel: in einem Satz, ob etwas zu tun ist
+  const [{ n: fehlerJobs }] = await db.select({ n: sql<number>`count(*)::int` }).from(schema.jobs).where(eq(schema.jobs.status, "fehler"));
+  const seit24h = new Date(Date.now() - 864e5);
+  const warnungen = meldungen.filter((m) => !m.ok && m.am > seit24h);
+  const letztesBackup = meldungen.find((m) => m.art === "backup");
+  const alleDienste = dienste();
+  const simuliert = alleDienste.filter((d) => !d.echt).length;
+  const probleme = [
+    ...(fehlerJobs ? [`${fehlerJobs} Hintergrund-Job${fehlerJobs > 1 ? "s" : ""} mit Fehler (unten unter „Hintergrund-Jobs“)`] : []),
+    ...warnungen.map((m) => `${m.titel}${m.detail ? `: ${m.detail.slice(0, 120)}` : ""}`),
+    ...(letztesBackup && !letztesBackup.ok ? ["Letzte Sicherung fehlgeschlagen"] : []),
+  ];
   return (
     <>
       <div className="kopfzeile"><div><h1>System</h1><p>Dienste, Hintergrund-Jobs, Backups und alles, was protokolliert wird.</p></div></div>
 
-      <section className="karte">
-        <h2>Agenten</h2>
+      <section className={`karte ampel ${probleme.length ? "rot" : "gruen"}`} aria-live="polite">
+        <div className="kopfzeile" style={{ marginBottom: probleme.length ? 8 : 0 }}>
+          <h2 style={{ margin: 0 }}><span className={`status ${probleme.length ? "fehler" : "ok"}`}>{probleme.length ? "Bitte prüfen" : "Alles läuft"}</span></h2>
+          <span className="leise klein">{simuliert} von {alleDienste.length} Diensten im Simulator · letzte Sicherung: {letztesBackup ? `${letztesBackup.ok ? "ok" : "Fehler"}, ${letztesBackup.am.toLocaleString("de-DE", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}` : "noch keine"}</span>
+        </div>
+        {probleme.length ? <ul style={{ margin: 0, paddingLeft: 18 }}>{probleme.map((x) => <li key={x}>{x}</li>)}</ul> : null}
+      </section>
+
+      <details className="karte">
+        <summary className="aufklapp-titel">Agenten</summary>
+        
         <p className="leise">Jeder Agent bereitet vor. Alles, was nach draußen geht, läuft durch die Qualitätskontrolle und wartet dann auf euch.</p>
         <table className="tabelle">
           <thead><tr><th>Agent</th><th className="weg-mobil">Auslöser</th><th>Was er tut</th><th>Mensch entscheidet</th></tr></thead>
@@ -39,10 +60,11 @@ export default async function System() {
             ))}
           </tbody>
         </table>
-      </section>
+      </details>
 
-      <section className="karte">
-        <h2>Dienste</h2>
+      <details className="karte">
+        <summary className="aufklapp-titel">Dienste</summary>
+        
         <table className="tabelle">
           <thead><tr><th>Dienst</th><th className="weg-mobil">Wofür</th><th>Stand</th></tr></thead>
           <tbody>
@@ -55,7 +77,7 @@ export default async function System() {
             ))}
           </tbody>
         </table>
-      </section>
+      </details>
 
       <div className="raster zwei abstand" style={{ alignItems: "start" }}>
         <section className="karte">
@@ -84,7 +106,7 @@ export default async function System() {
         </section>
       </div>
 
-      <section className="karte abstand" style={{ padding: 0 }}>
+      <section className="karte abstand">
         <div style={{ padding: "16px 16px 0" }}>
           <h2>Verarbeitungen für Kunden</h2>
           <p className="leise klein">Entwurf des Verzeichnisses als Auftragsverarbeiter (Art. 30 Abs. 2 DSGVO), automatisch aus den laufenden Projekten. Löschfristen im AVV festlegen.</p>
@@ -105,8 +127,9 @@ export default async function System() {
         ) : <div className="leer"><strong>Noch keine Kundenprojekte.</strong>Einträge entstehen mit der Anzahlung.</div>}
       </section>
 
-      <section className="karte abstand">
-        <h2>Hintergrund-Jobs</h2>
+      <details className="karte abstand">
+        <summary className="aufklapp-titel">Hintergrund-Jobs</summary>
+        
         <table className="tabelle">
           <thead><tr><th>Job</th><th>Status</th><th className="weg-mobil">Ergebnis</th><th className="weg-mobil">Zeit</th><th></th></tr></thead>
           <tbody>
@@ -121,7 +144,7 @@ export default async function System() {
             ))}
           </tbody>
         </table>
-      </section>
+      </details>
 
       <div className="raster zwei abstand" style={{ alignItems: "start" }}>
         <section className="karte">
@@ -147,12 +170,13 @@ export default async function System() {
         </section>
       ) : null}
 
-      <section className="karte abstand">
-        <h2>Protokoll</h2>
+      <details className="karte abstand">
+        <summary className="aufklapp-titel">Protokoll</summary>
+        
         <ul className="liste">
           {verlauf.map((v) => <li key={v.id}><div><div>{v.aktion}</div><div className="unter">{v.wer} · {datumZeit(v.am)}{v.detail ? ` · ${v.detail}` : ""}</div></div></li>)}
         </ul>
-      </section>
+      </details>
     </>
   );
 }

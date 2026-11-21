@@ -7,10 +7,13 @@ import { aktivitaetAnlegen } from "../aktionen";
 
 export const metadata = { title: "Aufgaben" };
 
-export default async function Aufgaben({ searchParams }: { searchParams: Promise<{ alle?: string }> }) {
+export default async function Aufgaben({ searchParams }: { searchParams: Promise<{ alle?: string; wer?: string }> }) {
   const ich = await brauchtBenutzer();
-  const { alle } = await searchParams;
-  const liste = await offeneAufgaben(alle ? {} : { wer: ich.name });
+  const p = await searchParams;
+  // Filter nach Person: ich (Standard), eine bestimmte Person oder alle
+  const wer = p.alle ? "alle" : p.wer || ich.name;
+  const alle = wer === "alle";
+  const liste = await offeneAufgaben(alle ? {} : { wer });
   const db = await getDb();
   const [benutzer, betriebe] = await Promise.all([
     db.select({ name: schema.benutzer.name }).from(schema.benutzer),
@@ -28,15 +31,17 @@ export default async function Aufgaben({ searchParams }: { searchParams: Promise
   return (
     <>
       <div className="kopfzeile">
-        <div><h1>Aufgaben</h1><p>{alle ? "Alle offenen Aufgaben und Termine im Team." : "Deine offenen Aufgaben und Termine."} Viele legt Levarex OS selbst an, z. B. „Angebot nachfassen“.</p></div>
-        <a className="knopf klein" href={alle ? "/aufgaben" : "/aufgaben?alle=1"}>{alle ? "Nur meine" : "Alle im Team"}</a>
+        <div><h1>Aufgaben</h1><p>{alle ? "Alle offenen Aufgaben und Termine im Team." : wer === ich.name ? "Deine offenen Aufgaben und Termine." : `Offene Aufgaben von ${wer}.`} Viele legt Levarex OS selbst an, z. B. „Angebot nachfassen“.</p></div>
       </div>
-      <div className="raster zwei" style={{ alignItems: "start" }}>
+      <nav className="reiter" aria-label="Für wen">
+        {[...benutzer.map((b) => b.name), "alle"].map((n) => <a key={n} href={n === ich.name ? "/aufgaben" : `/aufgaben?wer=${encodeURIComponent(n)}`} aria-current={wer === n ? "page" : undefined}>{n === "alle" ? "Alle im Team" : n === ich.name ? `Ich (${n.split(" ")[0]})` : n.split(" ")[0]}</a>)}
+      </nav>
+      <div className="akte-raster" style={{ gridTemplateColumns: "minmax(0, 1.4fr) minmax(0, 1fr)" }}>
         <div>
           {gruppen.map((g) => (
-            <section key={g.name} className="karte" style={{ marginBottom: 16 }}>
-              <h2>{g.name} <span className="leise mono klein">{g.e.length}</span></h2>
-              <AufgabenListe eintraege={g.e} zurueck={alle ? "/aufgaben?alle=1" : "/aufgaben"} leer="Nichts offen." />
+            <section key={g.name} className="karte" style={{ marginBottom: 12 }}>
+              <h2>{g.name} <span className="anzahl-pille">{g.e.length}</span></h2>
+              <AufgabenListe eintraege={g.e} zurueck={alle ? "/aufgaben?wer=alle" : wer === ich.name ? "/aufgaben" : `/aufgaben?wer=${encodeURIComponent(wer)}`} leer="Nichts offen." />
             </section>
           ))}
         </div>

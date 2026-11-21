@@ -246,6 +246,11 @@ test("Getrennte Adressen: unter der Portal-Adresse nur das Portal, unter der OS-
     assert.notEqual(anfrage("https://portal.levarex.example/portal/k/abcdefghijklmnopqrstuvwxyz").status, 404);
     assert.equal(anfrage("https://os.levarex.example/portal/k/abc").headers.get("location"), "https://portal.levarex.example/portal/k/abc", "Portal nur unter eigener Adresse");
     assert.match(anfrage("https://os.levarex.example/leads").headers.get("location") ?? "", /\/login$/, "OS braucht Anmeldung");
+    const portalCsp = anfrage("https://portal.levarex.example/portal/k/abcdefghijklmnopqrstuvwxyz").headers.get("content-security-policy") ?? "";
+    assert.match(portalCsp, /frame-ancestors 'self' https:\/\/os\.levarex\.example(;|$)/, "Portal nur in Levarex OS einbettbar");
+    assert.doesNotMatch(portalCsp, /frame-ancestors[^;]*\*/, "kein Platzhalter");
+    const osCsp = anfrage("https://os.levarex.example/login").headers.get("content-security-policy") ?? "";
+    assert.match(osCsp, /frame-ancestors 'self'(;|$)/, "OS selbst bleibt nur für sich einbettbar");
   } finally {
     delete process.env.PORTAL_URL;
   }

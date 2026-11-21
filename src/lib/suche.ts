@@ -1,10 +1,11 @@
+import { DOKART } from "./format";
 import { ilike, or } from "drizzle-orm";
 import { getDb, schema } from "./db";
 import { ticketNummer } from "./ablauf/tickets";
 
 // Eine Suche über alles: Betriebe, Ansprechpartner, Projekte, Rechnungen, Tickets, Dokumente.
 
-export type Treffer = { art: string; titel: string; unter: string; href: string };
+export type Treffer = { art: string; titel: string; unter: string; href: string; neu?: boolean };
 
 export async function suche(roh: string): Promise<Treffer[]> {
   const q = roh.trim();
@@ -22,10 +23,10 @@ export async function suche(roh: string): Promise<Treffer[]> {
   const ticketTreffer = /^t-?\d+$/i.test(q) ? await db.select().from(schema.tickets) : [];
   return [
     ...betriebe.map((b) => ({ art: "Betrieb", titel: b.name, unter: [b.gewerk, b.ort, b.inhaber].filter(Boolean).join(" · "), href: `/leads/${b.id}` })),
-    ...kontakte.map((k) => ({ art: "Kontakt", titel: k.name, unter: [k.rolle, k.telefon, k.email].filter(Boolean).join(" · "), href: `/leads/${k.betriebId}` })),
+    ...kontakte.map((k) => ({ art: "Kontakt", titel: k.name, unter: [k.rolle, k.telefon, k.email].filter(Boolean).join(" · "), href: `/leads/${k.betriebId}#kontakte` })),
     ...projekte.map((p) => ({ art: "Projekt", titel: p.domain ?? `Projekt ${p.id}`, unter: p.status, href: `/projekte/${p.id}` })),
-    ...rechnungen.map((r) => ({ art: "Rechnung", titel: r.nummer, unter: r.status, href: `/leads/${r.betriebId}` })),
+    ...rechnungen.map((r) => ({ art: "Rechnung", titel: r.nummer, unter: `${r.art === "anzahlung" ? "Erste Rate" : r.art === "schluss" ? "Schlussrechnung" : "Monatsbeitrag"} · ${r.status}`, href: `/leads/${r.betriebId}#auftrag` })),
     ...[...tickets, ...ticketTreffer.filter((t) => ticketNummer(t.id).toLowerCase() === q.toLowerCase().replace(/^t(\d)/, "t-$1"))].map((t) => ({ art: "Ticket", titel: `${ticketNummer(t.id)} ${t.betreff}`, unter: t.status, href: `/tickets/${t.id}` })),
-    ...dokumente.map((d) => ({ art: "Dokument", titel: d.titel, unter: d.art, href: d.betriebId ? `/leads/${d.betriebId}` : `/dokument/${d.id}` })),
+    ...dokumente.map((d) => ({ art: "Dokument", titel: d.titel, unter: DOKART[d.art] ?? d.art, href: `/dokument/${d.id}`, neu: true })),
   ].filter((t, i, alle) => alle.findIndex((x) => x.href === t.href && x.titel === t.titel) === i);
 }

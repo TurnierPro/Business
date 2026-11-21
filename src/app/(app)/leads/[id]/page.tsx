@@ -9,6 +9,7 @@ import { datum, datumZeit, DOKART, ZWECK } from "@/lib/format";
 import { PAKETE, PaketKey, euro } from "@/lib/pakete";
 import { istEcht } from "@/lib/adapters/dienste";
 import { basisUrl } from "@/lib/ablauf/gemeinsam";
+import { portalBasis } from "@/lib/kundenportal";
 import { besuchErfassen, aktivitaetAnlegen, antwortEntwerfen, nachrichtErledigt, portalLinkErneuern, portalZugangAnlegen, portalZugangSperren, betriebSpeichern, betriebZuweisen, datenLoeschen, einstufen, kontaktLoeschen, kontaktSpeichern, terminHochladen, widerspruch, zahlungSimulieren } from "../../aktionen";
 import { AufgabenListe } from "@/components/AufgabenListe";
 import { ARTEN } from "@/lib/ablauf/crm";
@@ -20,7 +21,7 @@ import { ERGEBNISSE, KONTAKT } from "@/lib/ablauf/vertrieb";
 const PROJEKT_TEXT: Record<string, string> = { inhalte: "wartet auf Inhalte", bau: "wird gebaut", pruefung: "Prüfung nicht bestanden", bereit: "Vorschau beim Kunden", live: "live, Betreuung läuft", beendet: "beendet" };
 const ANGEBOT_TEXT: Record<string, string> = { entwurf: "erstellt", versendet: "beim Kunden", unterschrieben: "unterschrieben", angezahlt: "erste Rate bezahlt", abgeschlossen: "abgeschlossen", abgelehnt: "abgelehnt" };
 
-const REITER = [["ueberblick", "Überblick"], ["aktivitaeten", "Aktivitäten"], ["dokumente", "Unterlagen und Post"], ["daten", "Daten"]] as const;
+const REITER = [["ueberblick", "Überblick"], ["aktivitaeten", "Aktivitäten"], ["dokumente", "Unterlagen und Post"], ["portal", "Kundenportal"], ["daten", "Daten"]] as const;
 
 export default async function Lead({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ tab?: string }> }) {
   const id = Number((await params).id);
@@ -113,7 +114,7 @@ export default async function Lead({ params, searchParams }: { params: Promise<{
         </div>
         <div className="knopfreihe">
           <Status wert={b.status} />
-          {b.portalToken ? <a className="knopf klein" href={`${basisUrl()}/portal/k/${b.portalToken}`} target="_blank" rel="noopener noreferrer">Kundenportal ansehen ↗</a> : <span className="leise klein">Kundenportal ab dem ersten Angebot</span>}
+          {b.portalToken ? <Link className="knopf klein" href={`/leads/${id}?tab=portal`}>Kundenportal ansehen</Link> : <span className="leise klein">Kundenportal ab dem ersten Angebot</span>}
         </div>
       </div>
 
@@ -358,6 +359,18 @@ export default async function Lead({ params, searchParams }: { params: Promise<{
             ) : <p className="leise">Noch nichts. Besuche, Gespräche, Nachrichten und Notizen erscheinen hier.</p>}
           </section>
         </div>
+      ) : null}
+
+      {tab === "portal" ? (
+        b.portalToken ? (
+          <section className="karte" aria-labelledby="portalsicht">
+            <div className="kopfzeile" style={{ marginBottom: 10 }}>
+              <div><h2 id="portalsicht" style={{ margin: 0 }}>So sieht {b.inhaber ?? "der Kunde"} das Kundenportal</h2><p className="leise klein" style={{ margin: "4px 0 0" }}>Echte Ansicht mit dem Link des Kunden. Nur ansehen: Abnahme oder Formulare hier bitte nicht für den Kunden ausfüllen.</p></div>
+              <a className="knopf klein" href={`${process.env.PORTAL_URL ? portalBasis() : ""}/portal/k/${b.portalToken}`} target="_blank" rel="noopener noreferrer">In neuem Fenster ↗</a>
+            </div>
+            <iframe className="portalrahmen" src={`${process.env.PORTAL_URL ? portalBasis() : ""}/portal/k/${b.portalToken}`} title={`Kundenportal von ${b.name}`} />
+          </section>
+        ) : <div className="karte leer"><strong>Noch kein Kundenportal.</strong>Es entsteht mit dem ersten Angebot.</div>
       ) : null}
 
       {tab === "dokumente" ? (

@@ -583,3 +583,27 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="r
 .nav a { padding: 8px 12px; }
 .pipeline .karte-klein { padding: 10px; margin-top: 8px; }
 .zeitleiste li { padding: 10px 0; }
+.suche-raster { display: grid; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); gap: 12px; align-items: start; }
+.ticketzeile { grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr) 150px; }
+.aufklapp-titel { cursor: pointer; font-weight: 600; font-size: 17.5px; }
+details.karte[open] > .aufklapp-titel { margin-bottom: 10px; }
+.ampel.gruen { border-color: rgba(125, 184, 150, 0.4); }
+.ampel.rot { border-color: rgba(224, 138, 124, 0.5); }
+.portalrahmen { width: 100%; height: calc(100vh - 240px); min-height: 640px; border: 1px solid var(--rand-weich); border-radius: 16px; background: var(--grund); }
+
+/* Tablet und Handy (Touch): größere Tippflächen, mindestens 48 px; mit Maus bleibt es kompakt */
+@media (pointer: coarse) {
+  .knopf, button.knopf { min-height: 48px; padding: 10px 18px; }
+  .knopf.klein { min-height: 42px; padding: 8px 14px; }
+  input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="range"]), select { height: 48px; font-size: 16px; }
+  .haken { min-height: 52px; align-items: center; padding: 12px 16px; }
+  .haken input { width: 24px; height: 24px; }
+  .nav a, .nav .nav-unter a { min-height: 44px; }
+  .reiter a { padding: 11px 16px; }
+  .wahl { padding: 20px; }
+  .wahl .haekchen { width: 30px; height: 30px; }
+  .fortschritt li { padding: 10px 0; }
+  .besuch summary { min-height: 56px; }
+  .haken-knopf { width: 40px; height: 40px; }
+}
+.suche-raster > .karte + .karte { margin-top: 0; }
