@@ -388,7 +388,7 @@ export async function zeitErfassen(f: FormData) {
   const zurueck = text(f, "zurueck") || "/";
   await ausfuehren(zurueck, "Zeit erfasst", async (wer) => {
     const minuten = zahl(f, "minuten") || Math.round(Number(text(f, "stunden").replace(",", ".")) * 60);
-    await (await import("@/lib/ablauf/zeiten")).zeitErfassen({ projektId: zahl(f, "projektId") || null, betriebId: zahl(f, "betriebId") || null, minuten, taetigkeit: text(f, "taetigkeit"), notiz: text(f, "notiz"), datum: datumAus(f, "datum", "12:00") ?? undefined }, wer);
+    await (await import("@/lib/ablauf/zeiten")).zeitErfassen({ projektId: zahl(f, "projektId") || null, betriebId: zahl(f, "betriebId") || null, minuten, taetigkeit: text(f, "taetigkeit"), baustein: text(f, "baustein"), notiz: text(f, "notiz"), datum: datumAus(f, "datum", "12:00") ?? undefined }, wer);
   });
 }
 

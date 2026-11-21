@@ -1,10 +1,12 @@
 import { kennzahlen } from "@/lib/kennzahlen";
 import { Status } from "@/components/Status";
+import { stundenJeBaustein } from "@/lib/ablauf/zeiten";
 
 export const metadata = { title: "Kennzahlen" };
 
 export default async function Kennzahlen() {
-  const { messgroessen, trichter } = await kennzahlen();
+  const [{ messgroessen, trichter }, bausteine] = await Promise.all([kennzahlen(), stundenJeBaustein()]);
+  const h = (x: number | null) => (x === null ? "–" : `${x.toLocaleString("de-DE", { maximumFractionDigits: 1 })} h`);
   const max = Math.max(1, ...trichter.map((t) => t.anzahl));
   return (
     <>
@@ -21,6 +23,18 @@ export default async function Kennzahlen() {
           </section>
         ))}
       </div>
+      <section className="karte abstand">
+        <h2>Stunden je Baustein</h2>
+        <p className="leise klein">Lieferzeit ohne Betreuung, Durchschnitt je Projekt. Gemessen ab Projekt 1; Ziel aus dem Baukasten (Start-Werte liegen höher).</p>
+        <table className="tabelle">
+          <thead><tr><th>Baustein</th><th className="zahl">Projekte</th><th className="zahl">Ø Stunden</th><th className="zahl">Ziel</th><th>Stand</th></tr></thead>
+          <tbody>
+            {bausteine.map((b) => (
+              <tr key={b.key}><td>{b.name}</td><td className="zahl">{b.projekte}</td><td className="zahl">{h(b.schnitt)}</td><td className="zahl">{h(b.ziel)}</td><td><Status wert={b.schnitt === null || b.ziel === null ? "keine_daten" : b.schnitt <= b.ziel ? "im_ziel" : "nicht_im_ziel"} /></td></tr>
+            ))}
+          </tbody>
+        </table>
+      </section>
       <section className="karte abstand">
         <h2>Vertriebstrichter</h2>
         <ul className="liste">

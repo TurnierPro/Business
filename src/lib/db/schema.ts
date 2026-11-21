@@ -379,6 +379,8 @@ export const zeiten = pgTable("zeiten", {
   datum: timestamp("datum", { withTimezone: true }).defaultNow().notNull(),
   minuten: integer("minuten").notNull(),
   taetigkeit: text("taetigkeit").notNull(),
+  // Baustein, für den die Zeit anfiel: webauftritt | personal | marketing | kundenmanagement | zusatz (Stunden je Baustein messen)
+  baustein: text("baustein"),
   notiz: text("notiz"),
   erstelltAm: timestamp("erstellt_am", { withTimezone: true }).defaultNow().notNull(),
 });

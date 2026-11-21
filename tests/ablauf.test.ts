@@ -909,3 +909,19 @@ test("Vertrieb: Messbogen, Gate der Beweisphase, Besuchsplan nach Ort, Nachfasse
   const auskunft = await ds.datenauskunft(a2.id!, "Test");
   assert.equal((auskunft as { besuche: unknown[] }).besuche.length, 1);
 });
+
+test("Stunden je Baustein: Zeiten mit Baustein, Durchschnitt gegen das Ziel", async () => {
+  const z = await import("../src/lib/ablauf/zeiten");
+  const { id } = await akquise.legeBetriebAn({ name: "Zeit Baustein GmbH", gewerk: "SHK", score: 60, scoreGrund: "Test", website: "zeit-baustein.example" }, "Test", "Test");
+  const [p] = await db.insert(schema.projekte).values({ betriebId: id!, paket: "KOMPAKT", portalToken: "zeit-baustein-token-123456" }).returning();
+  await z.zeitErfassen({ projektId: p.id, minuten: 180, taetigkeit: "bau" }, "Maximilian Steiner");
+  await z.zeitErfassen({ projektId: p.id, minuten: 300, taetigkeit: "bau", baustein: "personal" }, "Maximilian Steiner");
+  await z.zeitErfassen({ projektId: p.id, minuten: 60, taetigkeit: "betreuung" }, "Maximilian Steiner");
+  await assert.rejects(() => z.zeitErfassen({ projektId: p.id, minuten: 10, taetigkeit: "bau", baustein: "quatsch" }, "Test"), /Baustein/);
+  const s = await z.stundenJeBaustein();
+  const web = s.find((x) => x.key === "webauftritt")!;
+  assert.ok(web.projekte >= 1 && web.ziel !== null);
+  const pers = s.find((x) => x.key === "personal")!;
+  assert.equal(pers.ziel, 5);
+  assert.ok(pers.schnitt !== null && pers.schnitt >= 5);
+});

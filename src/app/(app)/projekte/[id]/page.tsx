@@ -9,7 +9,7 @@ import { PAKETE, PaketKey } from "@/lib/pakete";
 import { abnahmeErneut, kuendigungErfassen, neuBauen, providerwechselErledigt, umzugPruefen } from "../../aktionen";
 import { umzugVon } from "@/lib/ablauf/umzug";
 import { checkliste, PHASEN } from "@/lib/ablauf/checkliste";
-import { stunden, TAETIGKEITEN, ZIEL_STUNDEN, zeitenVonProjekt } from "@/lib/ablauf/zeiten";
+import { BAUSTEINE, stunden, TAETIGKEITEN, ZIEL_STUNDEN, zeitenVonProjekt } from "@/lib/ablauf/zeiten";
 import { checklistePunkt, zeitErfassen, zeitLoeschen } from "../../aktionen";
 import { bfsgHinweis } from "@/lib/ablauf/lieferung";
 import { bereitgestellt, lieferfristBis, mitwirkungsliste } from "@/lib/ablauf/lieferfrist";
@@ -144,6 +144,7 @@ export default async function Projekt({ params }: { params: Promise<{ id: string
             <input type="hidden" name="zurueck" value={`/projekte/${id}`} />
             <label className="feld"><span>Dauer</span><select name="minuten" defaultValue="60">{[15, 30, 45, 60, 90, 120, 180, 240, 300, 360, 480].map((m) => <option key={m} value={m}>{stunden(m)}</option>)}</select></label>
             <label className="feld"><span>Tätigkeit</span><select name="taetigkeit" defaultValue="bau">{Object.entries(TAETIGKEITEN).map(([k, n]) => <option key={k} value={k}>{n}</option>)}</select></label>
+            <label className="feld"><span>Baustein</span><select name="baustein" defaultValue="webauftritt">{Object.entries(BAUSTEINE).map(([k, n]) => <option key={k} value={k}>{n}</option>)}</select></label>
             <label className="feld"><span>Datum</span><input type="date" name="datum" defaultValue={new Date().toISOString().slice(0, 10)} /></label>
             <label className="feld"><span>Notiz</span><input name="notiz" /></label>
             <div><button className="knopf">Zeit erfassen</button></div>

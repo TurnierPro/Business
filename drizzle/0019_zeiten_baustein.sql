@@ -1,0 +1,1 @@
+ALTER TABLE "zeiten" ADD COLUMN "baustein" text;

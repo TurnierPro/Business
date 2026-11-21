@@ -17,13 +17,16 @@ export const TAETIGKEITEN: Record<string, string> = {
 export const ZIEL_STUNDEN: Record<string, number> = { KOMPAKT: 4, PROFESSIONAL: 8 };
 export const ZIEL_STUNDEN_MODULE: Record<string, number> = { personal: 5, marketing: 6, kundenmanagement: 15 };
 
-export async function zeitErfassen(z: { betriebId?: number | null; projektId?: number | null; ticketId?: number | null; minuten: number; taetigkeit: string; notiz?: string; datum?: Date }, wer: string): Promise<void> {
+export const BAUSTEINE: Record<string, string> = { webauftritt: "Webauftritt", personal: "Personal & Bewerbung", marketing: "Marketing & Sichtbarkeit", kundenmanagement: "Kundenmanagement", zusatz: "Zusatzmodul" };
+
+export async function zeitErfassen(z: { betriebId?: number | null; projektId?: number | null; ticketId?: number | null; minuten: number; taetigkeit: string; baustein?: string; notiz?: string; datum?: Date }, wer: string): Promise<void> {
   if (!(z.minuten > 0 && z.minuten <= 24 * 60)) throw new Error("Bitte Minuten zwischen 1 und 1440 angeben");
   if (!TAETIGKEITEN[z.taetigkeit]) throw new Error("Unbekannte Tätigkeit");
+  if (z.baustein && !BAUSTEINE[z.baustein]) throw new Error("Unbekannter Baustein");
   const db = await getDb();
   let betriebId = z.betriebId ?? null;
   if (!betriebId && z.projektId) [{ betriebId }] = await db.select({ betriebId: schema.projekte.betriebId }).from(schema.projekte).where(eq(schema.projekte.id, z.projektId));
-  await db.insert(schema.zeiten).values({ betriebId, projektId: z.projektId ?? null, ticketId: z.ticketId ?? null, wer, minuten: Math.round(z.minuten), taetigkeit: z.taetigkeit, notiz: z.notiz || null, datum: z.datum ?? new Date() });
+  await db.insert(schema.zeiten).values({ betriebId, projektId: z.projektId ?? null, ticketId: z.ticketId ?? null, wer, minuten: Math.round(z.minuten), taetigkeit: z.taetigkeit, baustein: z.baustein || (z.projektId && z.taetigkeit !== "betreuung" ? "webauftritt" : null), notiz: z.notiz || null, datum: z.datum ?? new Date() });
 }
 
 export async function zeitLoeschen(id: number): Promise<void> {
@@ -52,3 +55,19 @@ export async function betreuungImMonat(betriebId: number, monat = new Date()): P
 }
 
 export const stunden = (min: number) => `${(min / 60).toLocaleString("de-DE", { maximumFractionDigits: 1 })} h`;
+
+/** Stunden je Baustein (Lieferung ohne Betreuung): Durchschnitt je Projekt gegen das Ziel aus dem Baukasten. */
+export async function stundenJeBaustein() {
+  const db = await getDb();
+  const [zeiten, projekte] = await Promise.all([db.select().from(schema.zeiten), db.select().from(schema.projekte)]);
+  const lieferung = zeiten.filter((z) => z.projektId && z.taetigkeit !== "betreuung" && z.baustein);
+  return Object.entries(BAUSTEINE).map(([key, name]) => {
+    const jeProjekt = new Map<number, number>();
+    for (const z of lieferung.filter((x) => x.baustein === key)) jeProjekt.set(z.projektId!, (jeProjekt.get(z.projektId!) ?? 0) + z.minuten);
+    const werte = [...jeProjekt.values()].map((m) => m / 60);
+    // Webauftritt: Ziel je Paket des Projekts mitteln
+    const ziele = key === "webauftritt" ? [...jeProjekt.keys()].map((id) => ZIEL_STUNDEN[projekte.find((p) => p.id === id)?.paket ?? ""] ?? 0) : [];
+    const ziel = key === "webauftritt" ? (ziele.length ? ziele.reduce((s, x) => s + x, 0) / ziele.length : null) : (ZIEL_STUNDEN_MODULE[key] ?? null);
+    return { key, name, projekte: werte.length, schnitt: werte.length ? werte.reduce((s, x) => s + x, 0) / werte.length : null, ziel };
+  });
+}
