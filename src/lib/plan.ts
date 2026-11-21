@@ -56,7 +56,7 @@ function gehaelter(monat: string, s: SzenarioKey): number {
   const voll = monat >= SZENARIEN[s].vollesGehaltAb;
   const not = s === "vorsichtig" && monat >= "2027-12" && monat < "2028-07";
   const stufe = (vollBetrag: number) => (voll ? vollBetrag : not ? g.not : g.basis);
-  const max = monat < "2027-04" ? 0 : stufe(g.maxVoll); // bis März zahlt Max' Arbeitgeber
+  const max = monat < "2027-04" ? 0 : stufe(g.maxVoll); // bis März zahlt Maximilian' Arbeitgeber
   const daniel = monat < "2027-06" ? g.danielStart : stufe(g.danielVoll); // bis Mai 1.000 € plus Gründungszuschuss
   return max + daniel;
 }

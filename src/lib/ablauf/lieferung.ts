@@ -83,7 +83,7 @@ export async function bau(projektId: number): Promise<string> {
   const roh = p.inhalte as Record<string, string> & { bilder?: { datei: string; alt: string }[] };
   const basis = standardInhalt({ ...b, telefon: roh.telefon || b.telefon, email: roh.email || b.email }, false);
 
-  // Fehlende Bildbeschreibungen schreibt die KI vor; ohne KI ein neutraler Text. Max prüft vor dem Livegang.
+  // Fehlende Bildbeschreibungen schreibt die KI vor; ohne KI ein neutraler Text. Maximilian prüft vor dem Livegang.
   const bilder = (roh.bilder ?? []).map((x, i) => ({ datei: x.datei, alt: x.alt || `${b.name}: Foto ${i + 1} aus unserer Arbeit` }));
   const leistungen = roh.leistungen
     ? roh.leistungen.split("\n").map((z) => z.trim()).filter(Boolean).map((z) => {

@@ -73,7 +73,7 @@ export default async function Eintrag({ params }: { params: Promise<{ id: string
                 <summary className="leise klein" style={{ cursor: "pointer" }}>Nur-Text-Fassung (für alte Mail-Programme)</summary>
                 <div className="textblock">{e.text}<span className="leise">{mailSignatur()}</span></div>
               </details>
-              <p className="leise klein" style={{ marginTop: 8 }}>Logo, Design und Signatur mit den Pflichtangaben (§ 35a GmbHG) setzt Nexova OS automatisch. Du prüfst nur den Text.</p>
+              <p className="leise klein" style={{ marginTop: 8 }}>Logo, Design und Signatur mit den Pflichtangaben (§ 35a GmbHG) setzt Levarex OS automatisch. Du prüfst nur den Text.</p>
             </div>
           ) : null}
           {e.kanal === "whatsapp" ? (

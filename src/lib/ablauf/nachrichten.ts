@@ -137,7 +137,7 @@ export async function antwortEntwerfen(nachrichtId: number): Promise<string> {
 export async function ausgangFesthalten(e: { id: number; kanal: string; betriebId: number | null; empfaenger: string; betreff: string; text: string; meta: Record<string, unknown> }, externeId: string | null): Promise<void> {
   if (e.kanal !== "mail" && e.kanal !== "whatsapp") return;
   const db = await getDb();
-  await db.insert(schema.nachrichten).values({ kanal: e.kanal, richtung: "aus", betriebId: e.betriebId, postausgangId: e.id, externeId, absender: "Nexova", empfaenger: e.empfaenger, betreff: e.kanal === "mail" ? e.betreff : null, inhalt: e.text, quelle: "Postausgang" });
+  await db.insert(schema.nachrichten).values({ kanal: e.kanal, richtung: "aus", betriebId: e.betriebId, postausgangId: e.id, externeId, absender: "Levarex", empfaenger: e.empfaenger, betreff: e.kanal === "mail" ? e.betreff : null, inhalt: e.text, quelle: "Postausgang" });
   if (typeof e.meta.antwortAuf === "number") await db.update(schema.nachrichten).set({ status: "erledigt" }).where(eq(schema.nachrichten.id, e.meta.antwortAuf));
 }
 

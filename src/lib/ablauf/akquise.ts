@@ -142,7 +142,7 @@ export async function vorbereitung(betriebId: number): Promise<string> {
   const anrede = an.inhaber ? (an.anrede === "Frau" ? `Sehr geehrte Frau ${an.inhaber.split(" ").slice(-1)[0]},` : `Sehr geehrter Herr ${an.inhaber.split(" ").slice(-1)[0]},`) : "Sehr geehrte Damen und Herren,";
   const briefErsatz = `${anrede}
 
-wir sind Daniel Lück und Max Steiner aus Karlsruhe. Wir sorgen dafür, dass Betriebe wie ${b.name} mehr Anfragen und mehr Bewerbungen bekommen und das Büro weniger Arbeit hat.
+wir sind Daniel Lück und Maximilian Steiner aus Stutensee bei Karlsruhe. Wir sorgen dafür, dass Betriebe wie ${b.name} mehr Anfragen und mehr Bewerbungen bekommen und das Büro weniger Arbeit hat.
 
 Wir haben uns angesehen, wie man Sie heute online findet. ${schwach[0] ? schwach[0].befund : "Einiges läuft schon gut."} Das kostet Anfragen, die bei Ihnen ankommen könnten.
 
@@ -153,13 +153,13 @@ Ich komme in den nächsten Tagen gern für 20 Minuten vorbei und zeige Ihnen, wa
 Mit freundlichen Grüßen
 
 Daniel Lück
-Nexova Consulting`;
+Levarex Consulting`;
   const briefText = await schreibe({
     zweck: "akquise_brief",
     modell: "text",
     betriebId,
     aufgabe:
-      "Schreibe einen kurzen Akquise-Brief (höchstens 170 Wörter) an diesen Inhaber. Beginne mit der Anrede, ende mit Grüßen von Daniel Lück, Nexova Consulting. Nenne eine konkrete Beobachtung aus dem Check. Kündige an, dass Daniel in den nächsten Tagen für 20 Minuten vorbeikommt. Keine Preise. Nur den Brieftext ausgeben.",
+      "Schreibe einen kurzen Akquise-Brief (höchstens 170 Wörter) an diesen Inhaber. Beginne mit der Anrede, ende mit Grüßen von Daniel Lück, Levarex Consulting. Nenne eine konkrete Beobachtung aus dem Check. Kündige an, dass Daniel in den nächsten Tagen für 20 Minuten vorbeikommt. Keine Preise. Nur den Brieftext ausgeben.",
     daten: { anrede, betrieb: b.name, gewerk: b.gewerk, ort: b.ort, beobachtungen: schwach.map((p) => p.befund) },
     ersatz: briefErsatz,
   });

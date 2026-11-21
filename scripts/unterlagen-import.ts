@@ -1,5 +1,5 @@
-// Liest docs/unterlagen-bericht.md (Recherche „Dokumente für die Nexova GmbH“, Stand 18.10.2026)
-// und erzeugt src/lib/unterlagen-daten.json für das Register in Nexova OS.
+// Liest docs/unterlagen-bericht.md (Recherche „Dokumente für die Levarex GmbH“, Stand 18.10.2026)
+// und erzeugt src/lib/unterlagen-daten.json für das Register in Levarex OS.
 // Aufruf nach einer neuen Fassung des Berichts: npx tsx scripts/unterlagen-import.ts
 import fs from "node:fs";
 

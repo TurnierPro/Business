@@ -2,7 +2,7 @@ import { marke } from "../marke";
 import { pflichtangaben } from "../recht";
 import { esc } from "./basis";
 
-// E-Mails im Nexova-Design. Regeln für Mail-Programme (Outlook, Gmail, Apple Mail):
+// E-Mails im Levarex-Design. Regeln für Mail-Programme (Outlook, Gmail, Apple Mail):
 // Tabellen statt Flexbox, nur Inline-Styles, keine Skripte, keine SVG (Gmail zeigt sie nicht),
 // helles Design (wie alles Gedruckte), Systemschriften als Ersatz für Archivo.
 
@@ -23,13 +23,10 @@ function textAlsHtml(text: string): string {
     .join("");
 }
 
-/** Wortmarke als Text: N E X O V A mit Messing-X. */
-function wortmarke(): string {
-  const wort = marke.name.split(" ")[0].toUpperCase();
-  const i = wort.indexOf("X");
-  const teil = (s: string) => `<span style="color:${t.text}">${esc(s)}</span>`;
-  const mitte = i >= 0 ? `${teil(wort.slice(0, i))}<span style="color:${t.akzent}">X</span>${teil(wort.slice(i + 1))}` : teil(wort);
-  return `<div style="font-family:${SCHRIFT};font-size:22px;letter-spacing:7px;font-weight:300">${mitte}</div><div style="font-family:${SCHRIFT};font-size:9px;letter-spacing:5px;color:${t.textLeise};margin-top:2px">CONSULTING</div>`;
+/** Logo als Bild aus der Originaldatei (public/marke, erzeugt mit scripts/logo-png.ts). Gmail zeigt kein SVG. */
+function logoBild(): string {
+  const basis = (process.env.BASE_URL ?? "http://localhost:3000").replace(/\/$/, "");
+  return `<img src="${basis}/marke/levarex-logo-mail.png" width="216" height="26" alt="LEVAREX Consulting" style="display:block;border:0;height:26px;width:216px;font-family:${SCHRIFT};font-size:16px;letter-spacing:4px;color:${t.text}">`;
 }
 
 export function mailHtml(o: { betreff: string; text: string }): string {
@@ -39,7 +36,7 @@ export function mailHtml(o: { betreff: string; text: string }): string {
 <body style="margin:0;padding:0;background:${t.flaeche}">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${t.flaeche}"><tr><td align="center" style="padding:24px 12px">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:${t.grund};border:1px solid ${t.linie}">
-<tr><td style="padding:28px 32px 8px;font-family:${SCHRIFT}">${wortmarke()}</td></tr>
+<tr><td style="padding:28px 32px 8px;font-family:${SCHRIFT}">${logoBild()}</td></tr>
 <tr><td style="padding:16px 32px 8px;font-family:${SCHRIFT}">${textAlsHtml(o.text)}</td></tr>
 <tr><td style="padding:16px 32px 28px;font-family:${SCHRIFT};font-size:11px;line-height:1.6;color:${t.textLeise};border-top:1px solid ${t.linie}">
 ${esc(p.firma)} · ${esc(a.strasse)}, ${esc(a.ort)}<br>

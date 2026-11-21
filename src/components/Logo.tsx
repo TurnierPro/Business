@@ -1,6 +1,6 @@
-import { logoSvg } from "@/lib/docs/logo";
-import { marke } from "@/lib/marke";
+import { logo, type LogoArt } from "@/lib/docs/logo";
 
-export function Logo({ hoehe = 22 }: { hoehe?: number }) {
-  return <span aria-label="Nexova" dangerouslySetInnerHTML={{ __html: logoSvg({ text: marke.dunkel.text, akzent: marke.dunkel.akzent, hoehe }) }} />;
+/** Levarex-Logo für die dunkle Oberfläche (Original-Datei). */
+export function Logo({ hoehe = 22, art = "ohne-consulting" }: { hoehe?: number; art?: LogoArt }) {
+  return <span className="logo-bild" dangerouslySetInnerHTML={{ __html: logo({ art, thema: "dunkel", hoehe }) }} />;
 }

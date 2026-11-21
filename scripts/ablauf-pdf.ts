@@ -5,11 +5,11 @@ import { htmlZuPdf } from "../src/lib/docs/render";
 import { marke } from "../src/lib/marke";
 import { ABNAHME_FRIST_TAGE } from "../src/lib/recht";
 
-// Erzeugt „Nexova OS: Ablauf, Datenstruktur, Konnektoren“ als PDF zum Durchsprechen und Challengen.
+// Erzeugt „Levarex OS: Ablauf, Datenstruktur, Konnektoren“ als PDF zum Durchsprechen und Challengen.
 // Aufruf: npx tsx scripts/ablauf-pdf.ts [Zieldatei]
 
 const t = marke.hell;
-const ziel = process.argv[2] ?? path.join("docs", "nexova-os-ablauf.pdf");
+const ziel = process.argv[2] ?? path.join("docs", "levarex-os-ablauf.pdf");
 
 const tabelle = (kopfzeile: string[], zeilen: string[][], breiten?: string[]) =>
   `<table>${breiten ? `<colgroup>${breiten.map((b) => `<col style="width:${b}">`).join("")}</colgroup>` : ""}<thead><tr>${kopfzeile.map((k) => `<th>${esc(k)}</th>`).join("")}</tr></thead><tbody>${zeilen
@@ -56,7 +56,7 @@ const schritte: string[][] = [
   ["4", "Angebot", `${A}: Angebot aus Katalog (Paket, Module, Zusätze), Preise und Leistungen werden eingefroren. Mail mit Link ins Kundenportal.`, "Angebot prüfen und freigeben"],
   ["5", "Auftrag und Anzahlung", `${A}: Annahme im Portal, Auftragsbestätigung, Anzahlungsrechnung (50 %). Arbeitsbeginn nach Zahlungseingang.`, "Rechnung freigeben; über 10.000 € brutto zwei Personen"],
   ["6", "Inhalte und Domain", `${A}: Start-Mail mit Upload-Link. Hat der Kunde schon eine Domain: Bestandsaufnahme, Anleitung zur Umstellung, Prüfung, Zertifikat.`, "Start-Mail und Anleitung freigeben"],
-  ["7", "Bau und Prüfung", `${A}: Bau-Agent erstellt die Seite, Qualitätsprüfung (Ladezeit, Barrierefreiheit, Rechtstexte, Links).`, "Max prüft und gibt den Livegang frei"],
+  ["7", "Bau und Prüfung", `${A}: Bau-Agent erstellt die Seite, Qualitätsprüfung (Ladezeit, Barrierefreiheit, Rechtstexte, Links).`, "Maximilian prüft und gibt den Livegang frei"],
   ["8", "Abnahme und Schluss", `${A}: Bitte um Abnahme im Portal. Ohne Mängelanzeige gilt sie nach ${ABNAHME_FRIST_TAGE} Tagen als erteilt (§ 640 Abs. 2 BGB). Dann Schlussrechnung und Betreuungs-Abo.`, "Schlusszahlung und Abo freigeben"],
   ["9", "Betreuung", `${A}: Tickets mit Zeitkontingent, Monatsreport, Betreuungsrechnungen, Zahlungserinnerung und Mahnstufen, Kündigung und Vertragsende.`, "Jede Mail an den Kunden freigeben"],
 ];
@@ -98,15 +98,15 @@ const offen: string[][] = [
   ["WhatsApp", "Eigene Nummer für WhatsApp Business? Wer schaut wann rein (Wochenende)?", "offen"],
   ["Telefon- und WhatsApp-Bot", "Laut Business Case nicht vor Herbst 2027 (AI Act Art. 50, § 201 StGB, Haftung). Bleibt das so?", "Datenstruktur ist vorbereitet"],
   ["Zahlung", "Anzahlung per Stripe (Karte, SEPA) oder nur Überweisung?", "offen"],
-  ["Name", "Markenrecherche „Nexova“ beim DPMA und EUIPO (es gibt eine Nexova AG in Basel)", "vor dem ersten Brief"],
+  ["Name", "Markenrecherche „Levarex“ beim DPMA und EUIPO (es gibt eine Levarex AG in Basel)", "vor dem ersten Brief"],
   ["Aufbewahrung", "Nachrichten an Kunden: 6 Jahre als Handelsbrief oder kürzer? Mit Steuerberater klären.", "offen"],
 ];
 
 function inhalt(): string {
   return `<div class="seite">${kopf()}<div class="fluss">
 <p class="leise mono klein">Stand ${datumDe()} · Arbeitsfassung zum Durchsprechen</p>
-<h1>Nexova OS: Ablauf, Daten, Anschlüsse</h1>
-<p>Dieses Papier beschreibt, wie ein Betrieb vom ersten Fund bis zur laufenden Betreuung durch Nexova OS geht, welche Daten dabei entstehen und wie das System an Werkzeuge wie Outlook, Gmail, WhatsApp oder eine Telefonanlage angeschlossen wird. Es soll Widerspruch erzeugen: Jeder Abschnitt endet mit Fragen.</p>
+<h1>Levarex OS: Ablauf, Daten, Anschlüsse</h1>
+<p>Dieses Papier beschreibt, wie ein Betrieb vom ersten Fund bis zur laufenden Betreuung durch Levarex OS geht, welche Daten dabei entstehen und wie das System an Werkzeuge wie Outlook, Gmail, WhatsApp oder eine Telefonanlage angeschlossen wird. Es soll Widerspruch erzeugen: Jeder Abschnitt endet mit Fragen.</p>
 <div class="box"><b>Die eine Regel</b><br>Nichts geht an Kunden, bevor ein Mensch es gesehen und freigegeben hat. Davor prüft immer eine Qualitätskontrolle (Regeln und KI). Das gilt für Briefe, Mails, WhatsApp, Rechnungen, Zahlungen und den Livegang. Technisch gibt es genau eine Tür nach draußen: den Postausgang.</div>
 
 <h2>1. Der Ablauf in neun Schritten</h2>
@@ -114,7 +114,7 @@ ${tabelle(["", "Schritt", "Was das System tut", "Was ein Mensch tut"], schritte,
 ${frage([
   "Ist der Besuch 7 Tage nach dem Brief richtig, oder lieber anrufen (nur mit mutmaßlicher Einwilligung)?",
   "Reicht eine Freigabe für Angebote bis 10.000 € brutto, oder soll jedes Angebot von beiden gesehen werden?",
-  "Wer ist Vertretung, wenn Daniel oder Max eine Woche ausfällt? Freigaben bleiben sonst liegen.",
+  "Wer ist Vertretung, wenn Daniel oder Maximilian eine Woche ausfällt? Freigaben bleiben sonst liegen.",
 ])}
 
 <h2>2. Wer entscheidet was</h2>
@@ -122,7 +122,7 @@ ${tabelle(["Entscheidung", "Wer", "Woran man es sieht"], [
   ["Lead einstufen", "Daniel (Vertrieb)", "„Zu tun“ → Leads einstufen"],
   ["Brief, Angebot, Mails an Kunden", "wer zuständig ist", "„Zu tun“ → Freigeben, mit Vorschau"],
   ["Rechnungen über 10.000 € brutto", "beide, nacheinander", "Freigabe zeigt „1 von 2“"],
-  ["Livegang", "Max (Technik)", "Freigabe mit Website-Vorschau"],
+  ["Livegang", "Maximilian (Technik)", "Freigabe mit Website-Vorschau"],
   ["Zahlung einziehen (Stripe)", "wer zuständig ist", "Freigabe „Zahlung“"],
   ["Löschung, Auskunft, Datenpanne", "Admin", "Stammdaten → Datenschutz"],
 ], ["38%", "24%", "38%"])}
@@ -165,13 +165,13 @@ ${frage([
 ])}
 
 <h2>5. Anschlüsse (Konnektoren)</h2>
-<p>Jeder Fremddienst hat einen Adapter mit Simulator. Ohne Zugangsdaten läuft der Simulator, und nichts verlässt das System. Zugangsdaten stehen nur in der Umgebung des Servers und im Passwortmanager. Übersicht und Anleitungen in Nexova OS unter <b>Stammdaten → Konnektoren</b>, dort auch der Knopf „Testmail an mich“.</p>
+<p>Jeder Fremddienst hat einen Adapter mit Simulator. Ohne Zugangsdaten läuft der Simulator, und nichts verlässt das System. Zugangsdaten stehen nur in der Umgebung des Servers und im Passwortmanager. Übersicht und Anleitungen in Levarex OS unter <b>Stammdaten → Konnektoren</b>, dort auch der Knopf „Testmail an mich“.</p>
 ${tabelle(["Zweck", "Womit", "Stand"], konnektoren, ["22%", "50%", "28%"])}
 <h3>E-Mail im bekannten Design</h3>
-<p>Jede Mail geht in zwei Fassungen raus: im Nexova-Design (hell, Logo, Signatur mit Pflichtangaben nach § 35a GmbHG) und als reiner Text. Das Design ist für Outlook, Gmail und Apple Mail gebaut (Tabellen, keine Skripte, keine Grafiken, die blockiert werden). Bei Microsoft 365 liegt die Mail danach auch in Outlook unter „Gesendete Elemente“. In der Freigabe sieht man die Mail genau so, wie sie ankommt.</p>
+<p>Jede Mail geht in zwei Fassungen raus: im Levarex-Design (hell, Logo, Signatur mit Pflichtangaben nach § 35a GmbHG) und als reiner Text. Das Design ist für Outlook, Gmail und Apple Mail gebaut (Tabellen, keine Skripte, keine Grafiken, die blockiert werden). Bei Microsoft 365 liegt die Mail danach auch in Outlook unter „Gesendete Elemente“. In der Freigabe sieht man die Mail genau so, wie sie ankommt.</p>
 ${frage([
   "Antworten der Kunden: ins gemeinsame Postfach (hallo@…) oder an den Zuständigen?",
-  "Soll Nexova OS Mails auch aus dem persönlichen Postfach von Daniel oder Max senden?",
+  "Soll Levarex OS Mails auch aus dem persönlichen Postfach von Daniel oder Maximilian senden?",
 ])}
 
 <h2>6. Offene Entscheidungen</h2>
@@ -188,7 +188,7 @@ svg{display:block;margin:2mm 0 5mm;break-inside:avoid}
 td{font-size:9.5pt}`;
 
 async function main() {
-  const pdf = await htmlZuPdf(druckSeite({ titel: "Nexova OS: Ablauf, Daten, Anschlüsse", inhalt: inhalt(), extraCss: css }));
+  const pdf = await htmlZuPdf(druckSeite({ titel: "Levarex OS: Ablauf, Daten, Anschlüsse", inhalt: inhalt(), extraCss: css }));
   fs.mkdirSync(path.dirname(ziel), { recursive: true });
   fs.writeFileSync(ziel, pdf);
   console.log(`${ziel} (${Math.round(pdf.length / 1024)} KB)`);

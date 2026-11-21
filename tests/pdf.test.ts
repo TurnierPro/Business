@@ -7,7 +7,7 @@ import path from "node:path";
 // PDF-Qualität: Jede Dokumentart muss sauber gesetzt sein, auch mit sehr langen Inhalten.
 // htmlZuPdf wirft, sobald etwas in die Fußzeile ragt, über den Rand läuft oder abgeschnitten wird.
 process.env.DATABASE_URL = "memory://";
-process.env.DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "nexova-pdf-"));
+process.env.DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "levarex-pdf-"));
 
 const { dokumentHtml, htmlZuPdf } = await import("../src/lib/docs/render");
 const { druckSeite } = await import("../src/lib/docs/basis");

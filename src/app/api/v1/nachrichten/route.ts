@@ -4,7 +4,7 @@ import { nachrichtEingang } from "@/lib/ablauf/nachrichten";
 // Nachrichten von außen einliefern: Mail-Postfach (über n8n), Telefonanlage (Anruf verpasst, Zusammenfassung),
 // später WhatsApp- oder Telefon-Bot. Beispiel:
 //   POST /api/v1/nachrichten  { "kanal": "telefon", "absender": "+49721…", "inhalt": "Rückruf wegen Angebot", "externeId": "anruf-123", "dauerSek": 45 }
-// Nexova OS ordnet den Betrieb zu, legt eine Aufgabe an und entwirft bei Mail/WhatsApp eine Antwort im Postausgang.
+// Levarex OS ordnet den Betrieb zu, legt eine Aufgabe an und entwirft bei Mail/WhatsApp eine Antwort im Postausgang.
 export async function POST(req: Request) {
   const z = await pruefeZugriff(req, "nachrichten");
   if (z instanceof Response) return z;

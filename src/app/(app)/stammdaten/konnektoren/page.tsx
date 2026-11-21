@@ -15,14 +15,14 @@ export default async function Konnektoren() {
       <div className="kopfzeile">
         <div>
           <h1>Konnektoren</h1>
-          <p>Hier hängt Nexova OS an eure Werkzeuge: Outlook oder Gmail, WhatsApp, Telefonanlage, Stripe und mehr. Ohne Zugangsdaten läuft jeder Anschluss im Simulator. Alles, was nach draußen geht, läuft trotzdem immer über die Freigaben.</p>
+          <p>Hier hängt Levarex OS an eure Werkzeuge: Outlook oder Gmail, WhatsApp, Telefonanlage, Stripe und mehr. Ohne Zugangsdaten läuft jeder Anschluss im Simulator. Alles, was nach draußen geht, läuft trotzdem immer über die Freigaben.</p>
         </div>
       </div>
 
       <div className="karte abstand">
         <h2>E-Mail-Versand</h2>
         <p>Aktiv: <b>{MAIL_DIENSTE[mail].name}</b> <Status wert={mail === "simulator" ? "simulator" : "aktiv"} /></p>
-        <p className="leise">Jede Mail geht in zwei Fassungen raus: im Nexova-Design (hell, Logo, Signatur mit Pflichtangaben) und als reiner Text für alte Mail-Programme. Den Weg legt der erste vollständige Zugang fest, oder fest mit <span className="mono">MAIL_DIENST</span> (microsoft, google, smtp, resend, simulator).</p>
+        <p className="leise">Jede Mail geht in zwei Fassungen raus: im Levarex-Design (hell, Logo, Signatur mit Pflichtangaben) und als reiner Text für alte Mail-Programme. Den Weg legt der erste vollständige Zugang fest, oder fest mit <span className="mono">MAIL_DIENST</span> (microsoft, google, smtp, resend, simulator).</p>
         {darf(ich, "aendern") ? (
           <form action={testmailAnMich}>
             <button className="knopf haupt">Testmail an mich ({ich.email})</button>

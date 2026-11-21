@@ -86,7 +86,7 @@ Größe in Bautagen [Einschätzung]: S bis 1, M 2–3, L 4–6. **Summe etwa 25�
   - Levarex Consulting GmbH i. G., Sitz Stutensee, levarex-consulting.de.
   - `brand/tokens.json` anpassen (Name, Sitz Karlsruhe → Stutensee, Kontakt).
   - Pflichtangaben § 35a.
-  - „Maximilian“ statt „Max“, auch in `portal/k/[token]/page.tsx`.
+  - „Maximilian“ statt „Maximilian“, auch in `portal/k/[token]/page.tsx`.
   - Farben und Schriften bleiben.
 - **Logo:** aus den Originaldateien `Levarex_Logos.zip`. Die Kopien im Lovable-Projekt (`public/marke/`) erst nach Abgleich mit der Zip verwenden. Nichts nachzeichnen.
 - **Technische Kennungen:** Cookies `nexova_*` → `lvx_*`, `NEXOVA_HOSTS` → `LEVAREX_HOSTS`, API-Präfix `nxv_` → `lvx_`.

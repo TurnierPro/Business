@@ -6,7 +6,7 @@ import path from "node:path";
 
 // Sicherheits- und Datenschutz-Tests: jeder Fund aus dem Penetrationstest bekommt hier einen Test, damit er nie zurückkommt.
 process.env.DATABASE_URL = "memory://";
-process.env.DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "nexova-sicher-"));
+process.env.DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "levarex-sicher-"));
 
 const { getDb, schema } = await import("../src/lib/db");
 const s = await import("../src/lib/sicherheit");
@@ -85,7 +85,7 @@ test("Zwei-Faktor: jeder Code nur einmal, Geheimnis verschlüsselt", async () =>
 test("Passwort-Regeln", async () => {
   const { passwortProblem, pruefePasswort, hashPasswort, pruefeAnmeldung } = await import("../src/lib/auth");
   assert.ok(passwortProblem("kurz"));
-  assert.ok(passwortProblem("nexova-start-2026"));
+  assert.ok(passwortProblem("levarex-start-2026"));
   assert.ok(passwortProblem("111111111111111"));
   assert.equal(passwortProblem("Grüner Hobel fährt nach Durlach"), null);
   const h = hashPasswort("Grüner Hobel fährt nach Durlach");
@@ -123,10 +123,10 @@ test("Löschkonzept: Aufräum-Agent löscht nach Frist (Aufnahmen, Simulator-Pos
 
 test("Datenpanne: 72-Stunden-Frist, Betroffenenanfrage: ein Monat", async () => {
   const ds = await import("../src/lib/ablauf/datenschutz");
-  const id = await ds.panneErfassen({ entdecktAm: new Date(Date.now() - 70 * 3600_000), beschreibung: "Mail mit Angebot an falschen Empfänger" }, "Max Steiner");
+  const id = await ds.panneErfassen({ entdecktAm: new Date(Date.now() - 70 * 3600_000), beschreibung: "Mail mit Angebot an falschen Empfänger" }, "Maximilian Steiner");
   const [p] = await db.select().from(schema.datenpannen).where(eq(schema.datenpannen.id, id));
   assert.ok(ds.restStunden(p.entdecktAm) <= 2 && ds.restStunden(p.entdecktAm) >= 1);
-  await ds.panneAktualisieren(id, { risiko: "risiko", gemeldet: true }, "Max Steiner");
+  await ds.panneAktualisieren(id, { risiko: "risiko", gemeldet: true }, "Maximilian Steiner");
   const [p2] = await db.select().from(schema.datenpannen).where(eq(schema.datenpannen.id, id));
   assert.ok(p2.gemeldetAm);
   assert.equal(ds.anfrageFrist(new Date(2026, 0, 31)).getMonth(), 2, "31.01. + 1 Monat: Anfang März (kein 31.02.)");
@@ -134,21 +134,21 @@ test("Datenpanne: 72-Stunden-Frist, Betroffenenanfrage: ein Monat", async () => 
 });
 
 test("Sicherheits-Header und CSP in der Middleware", async () => {
-  process.env.BASE_URL = "https://os.nexova.example";
+  process.env.BASE_URL = "https://os.levarex.example";
   const { NextRequest } = await import("next/server");
   const { middleware } = await import("../src/middleware");
-  const app = middleware(new NextRequest("https://os.nexova.example/login", { headers: { host: "os.nexova.example" } }));
+  const app = middleware(new NextRequest("https://os.levarex.example/login", { headers: { host: "os.levarex.example" } }));
   const csp = app.headers.get("content-security-policy") ?? "";
   assert.match(csp, /script-src 'self' 'nonce-[A-Za-z0-9+/=]+'/);
   assert.match(csp, /frame-ancestors 'self'/);
   assert.match(csp, /object-src 'none'/);
   assert.equal(app.headers.get("x-content-type-options"), "nosniff");
   assert.equal(app.headers.get("x-frame-options"), "SAMEORIGIN");
-  const portal = middleware(new NextRequest("https://os.nexova.example/portal/k/abc", { headers: { host: "os.nexova.example" } }));
+  const portal = middleware(new NextRequest("https://os.levarex.example/portal/k/abc", { headers: { host: "os.levarex.example" } }));
   assert.equal(portal.headers.get("referrer-policy"), "no-referrer", "Portal-Link geht nie als Referrer raus");
   const kunde = middleware(new NextRequest("https://mueller.example/", { headers: { host: "mueller.example" } }));
   assert.match(kunde.headers.get("content-security-policy") ?? "", /default-src 'none'/, "Kunden-Websites ohne JavaScript");
-  const ohne = middleware(new NextRequest("https://os.nexova.example/leads", { headers: { host: "os.nexova.example" } }));
+  const ohne = middleware(new NextRequest("https://os.levarex.example/leads", { headers: { host: "os.levarex.example" } }));
   assert.match(ohne.headers.get("location") ?? "", /\/login$/);
 });
 
@@ -158,7 +158,7 @@ test("WhatsApp-Webhook: nur mit gültiger Signatur von Meta, Prüftoken nötig",
   process.env.WHATSAPP_VERIFY_TOKEN = "pruef-123";
   const route = await import("../src/app/api/whatsapp/route");
   const nachricht = JSON.stringify({ entry: [{ changes: [{ value: { contacts: [{ wa_id: "4915112345678", profile: { name: "Fremd" } }], messages: [{ id: "wamid.sig", from: "4915112345678", timestamp: "1760000000", type: "text", text: { body: "Hallo" } }] } }] }] });
-  const anfrage = (sig: string | null) => new Request("https://os.nexova.example/api/whatsapp", { method: "POST", body: nachricht, headers: sig ? { "x-hub-signature-256": sig } : {} });
+  const anfrage = (sig: string | null) => new Request("https://os.levarex.example/api/whatsapp", { method: "POST", body: nachricht, headers: sig ? { "x-hub-signature-256": sig } : {} });
   assert.equal((await route.POST(anfrage(null))).status, 401);
   assert.equal((await route.POST(anfrage("sha256=" + "0".repeat(64)))).status, 401, "gefälschte Signatur");
   const falsch = crypto.createHmac("sha256", "anderes-geheimnis").update(nachricht).digest("hex");

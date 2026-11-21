@@ -5,8 +5,8 @@ import "@fontsource/ibm-plex-mono/600.css";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: { default: "Nexova OS", template: "%s · Nexova OS" },
-  description: "Leads, Freigaben, Lieferung und Überwachung für Nexova Consulting",
+  title: { default: "Levarex OS", template: "%s · Levarex OS" },
+  description: "Leads, Freigaben, Lieferung und Überwachung für Levarex Consulting",
   robots: { index: false, follow: false },
 };
 

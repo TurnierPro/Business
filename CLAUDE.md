@@ -1,6 +1,8 @@
-# Nexova OS – Hinweise für Claude
+# Levarex OS – Hinweise für Claude
 
-- Max lernt programmieren. Erkläre jeden Schritt kurz und in einfachen Worten, auf Deutsch.
+- Firma: Levarex Consulting GmbH i. G., Sitz Stutensee. In Texten immer „Maximilian“, nie „Max“. Logos nur aus `brand/logos` (Originaldateien), nie nachzeichnen. Bauplan: `docs/bauplan-levarex-os.md`.
+
+- Maximilian lernt programmieren. Erkläre jeden Schritt kurz und in einfachen Worten, auf Deutsch.
 - Code, Kommentare und Oberfläche auf Deutsch (Bezeichner wie `betrieb`, `freigeben`, `postausgang`).
 - Grundregel: Nichts verlässt das System ohne Freigabe im Postausgang (`src/lib/ablauf/postausgang.ts`). Kein neuer Versandweg an dieser Tür vorbei.
 - Nachrichten aller Kanäle (Mail, WhatsApp, Telefon, Portal, Formular) laufen über `src/lib/ablauf/nachrichten.ts` in die Tabelle `nachrichten`. Bots liefern dort ein und schreiben nur Entwürfe. Neue Konnektoren zusätzlich in `src/lib/konnektoren.ts` eintragen.

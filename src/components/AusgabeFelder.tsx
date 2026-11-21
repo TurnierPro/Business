@@ -8,7 +8,7 @@ export function AusgabeFelder({ a = {} }: { a?: A }) {
   return (
     <>
       <div className="raster zwei">
-        <label className="feld"><span>Lieferant</span><input name="lieferant" required defaultValue={a.lieferant === "Beleg prüfen" ? "" : a.lieferant} placeholder="z. B. Hetzner Online GmbH" /></label>
+        <label className="feld"><span>Lieferant</span><input name="lieferant" required defaultValue={a.lieferant === "Beleg prüfen" ? "" : a.lieferant} placeholder="z. B. Hostinger" /></label>
         <label className="feld"><span>Datum</span><input name="datum" type="date" required defaultValue={tag} /></label>
         <label className="feld"><span>Betrag brutto (€)</span><input name="brutto" inputMode="decimal" required defaultValue={brutto} placeholder="119,00" /></label>
         <label className="feld"><span>Umsatzsteuer</span>

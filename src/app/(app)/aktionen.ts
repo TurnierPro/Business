@@ -310,7 +310,7 @@ export async function umzugPruefen(f: FormData) {
 
 export async function providerwechselErledigt(f: FormData) {
   const id = zahl(f, "id");
-  await ausfuehren(`/projekte/${id}`, "Vermerkt. Nexova OS prüft jetzt, ob die Domain auf uns zeigt.", async (wer) => (await import("@/lib/ablauf/umzug")).providerwechselErledigt(id, wer));
+  await ausfuehren(`/projekte/${id}`, "Vermerkt. Levarex OS prüft jetzt, ob die Domain auf uns zeigt.", async (wer) => (await import("@/lib/ablauf/umzug")).providerwechselErledigt(id, wer));
 }
 
 // ---------- CRM: Kontakte, Aktivitäten, Aufgaben ----------
@@ -465,7 +465,7 @@ export async function apiSchluesselErzeugen(f: FormData) {
   const schluessel = await (await import("@/lib/api")).schluesselErzeugen(text(f, "name"), f.getAll("rechte").map(String), b.name).catch((e: Error) => e);
   if (schluessel instanceof Error) redirect("/einstellungen?fehler=" + encodeURIComponent(schluessel.message));
   // Der Schlüssel wird genau einmal angezeigt (nur in einem kurzlebigen Cookie, nicht in der Adresse)
-  (await cookies()).set("nexova_neuer_schluessel", schluessel, { httpOnly: true, sameSite: "strict", path: "/einstellungen", maxAge: 120 });
+  (await cookies()).set("lvx_neuer_schluessel", schluessel, { httpOnly: true, sameSite: "strict", path: "/einstellungen", maxAge: 120 });
   redirect("/einstellungen?ok=" + encodeURIComponent("Schlüssel erzeugt. Jetzt kopieren, er wird nur einmal angezeigt.") + "#api");
 }
 
@@ -550,8 +550,8 @@ export async function testmailAnMich() {
       kanal: "mail",
       zweck: "testmail",
       empfaenger: ich.email,
-      betreff: "Testmail aus Nexova OS",
-      text: `Hallo ${wer.split(" ")[0]},\n\ndiese Mail prüft den Versandweg „${MAIL_DIENSTE[aktiverMailDienst()].name}“. Wenn sie im Postfach ankommt, im Nexova-Design und mit Signatur, ist alles richtig angeschlossen.\n\nAuch Testmails gehen nur nach Qualitätskontrolle und Freigabe raus.`,
+      betreff: "Testmail aus Levarex OS",
+      text: `Hallo ${wer.split(" ")[0]},\n\ndiese Mail prüft den Versandweg „${MAIL_DIENSTE[aktiverMailDienst()].name}“. Wenn sie im Postfach ankommt, im Levarex-Design und mit Signatur, ist alles richtig angeschlossen.\n\nAuch Testmails gehen nur nach Qualitätskontrolle und Freigabe raus.`,
     });
     return { ziel: `/freigaben/${id}` };
   });

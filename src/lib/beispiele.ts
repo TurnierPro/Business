@@ -72,7 +72,7 @@ const BETRIEBE = {
   ],
 };
 
-const MAX = "Max Steiner (Beispiel)";
+const MAX = "Maximilian Steiner (Beispiel)";
 const DANIEL = "Daniel Lück (Beispiel)";
 
 async function warte(): Promise<void> {
@@ -302,10 +302,10 @@ const AUSGABEN: [number, string, string, string, number, number, boolean][] = [
   // [Monate zurück, Lieferant, Beschreibung, Kategorie, Brutto in Cent, USt-Satz, mit Beleg]
   [3, "Notariat Karlsruhe (Beispiel)", "Gründung GmbH, Entwurf Satzung", "gruendung", 89250, 19, true],
   [3, "Kanzlei Arbeitsrecht (Beispiel)", "Freistellungsvereinbarung", "gruendung", 142800, 19, true],
-  [3, "Hetzner Online (Beispiel)", "Cloud-Server und Storage Box", "software", 3570, 19, true],
-  [2, "Hetzner Online (Beispiel)", "Cloud-Server und Storage Box", "software", 3570, 19, true],
-  [1, "Hetzner Online (Beispiel)", "Cloud-Server und Storage Box", "software", 4760, 19, true],
-  [0, "Hetzner Online (Beispiel)", "Cloud-Server und Storage Box", "software", 4760, 19, false],
+  [3, "Hostinger (Beispiel)", "Server (VPS)", "software", 3570, 19, true],
+  [2, "Hostinger (Beispiel)", "Server (VPS)", "software", 3570, 19, true],
+  [1, "Hostinger (Beispiel)", "Server (VPS)", "software", 4760, 19, true],
+  [0, "Hostinger (Beispiel)", "Server (VPS)", "software", 4760, 19, false],
   [2, "Anthropic (Beispiel)", "Claude Max und API", "software", 23800, 19, false],
   [1, "Anthropic (Beispiel)", "Claude Max und API", "software", 26180, 19, false],
   [0, "Anthropic (Beispiel)", "Claude Max und API", "software", 25000, 19, false],
@@ -317,13 +317,13 @@ const AUSGABEN: [number, string, string, string, number, number, boolean][] = [
   [1, "Versicherung (Beispiel)", "IT-Haftpflicht und Cyber, Quartal", "versicherungen", 75000, 0, true],
   [1, "Druckerei (Beispiel)", "Briefpapier und Visitenkarten", "marketing", 35700, 19, false],
   [0, "Briefdienst (Beispiel)", "Akquise-Briefe Testlauf", "marketing", 11900, 19, false],
-  [0, "Telekom (Beispiel)", "Mobilfunk Max und Daniel", "mobilfunk", 9520, 19, false],
+  [0, "Telekom (Beispiel)", "Mobilfunk Maximilian und Daniel", "mobilfunk", 9520, 19, false],
   [0, "Coworking Karlsruhe (Beispiel)", "Arbeitsplätze Oktober", "buero", 26180, 19, false],
   [0, "Tankstelle (Beispiel)", "Fahrten zu Leads", "fahrten", 8340, 19, false],
 ];
 
 async function belegPdf(lieferant: string, beschreibung: string, brutto: number, datum: Date): Promise<string> {
-  const html = druckSeite({ titel: "Beleg", inhalt: `<div class="seite"><h1>${esc(lieferant)}</h1><p class="mono">Rechnung vom ${datum.toLocaleDateString("de-DE")}</p><p>An: Nexova Consulting GmbH i. G.</p><table><tr><td>${esc(beschreibung)}</td><td class="zahl">${(brutto / 100).toFixed(2).replace(".", ",")} €</td></tr></table><p class="leise">Beispielbeleg, erfunden.</p></div>` });
+  const html = druckSeite({ titel: "Beleg", inhalt: `<div class="seite"><h1>${esc(lieferant)}</h1><p class="mono">Rechnung vom ${datum.toLocaleDateString("de-DE")}</p><p>An: Levarex Consulting GmbH i. G.</p><table><tr><td>${esc(beschreibung)}</td><td class="zahl">${(brutto / 100).toFixed(2).replace(".", ",")} €</td></tr></table><p class="leise">Beispielbeleg, erfunden.</p></div>` });
   const pfad = path.join(datenOrdner("belege", "beispiel"), `${Date.now()}-${Math.round(Math.random() * 1e6)}.pdf`);
   fs.writeFileSync(pfad, await htmlZuPdf(html));
   return pfad;

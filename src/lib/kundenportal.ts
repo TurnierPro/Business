@@ -129,7 +129,7 @@ export async function portalLinkErneuern(betriebId: number, wer: string): Promis
 
 /**
  * Kunde hat seinen Link verloren und gibt seine E-Mail ein. Passt sie zu einem Kunden mit Portal,
- * legt Nexova OS eine Mail mit dem Link in den Postausgang (Freigabe wie immer). Die Antwort ist
+ * legt Levarex OS eine Mail mit dem Link in den Postausgang (Freigabe wie immer). Die Antwort ist
  * immer gleich, damit niemand herausfinden kann, welche Adressen es gibt.
  */
 export async function zugangAnfordern(email: string): Promise<void> {
@@ -147,7 +147,7 @@ export async function zugangAnfordern(email: string): Promise<void> {
       zweck: "portal_zugang",
       empfaenger: b.email!,
       betreff: "Ihr Zugang zum Kundenportal",
-      text: `Guten Tag,\n\nSie haben Ihren Zugang zum Kundenportal angefordert. Hier ist Ihr persönlicher Link:\n${await portalLink(b.id)}\n\nDer Link ist nur für Sie. Bitte nicht weitergeben. Wenn Sie den Zugang nicht angefordert haben, können Sie diese Mail ignorieren.\n\nMit freundlichen Grüßen\nIhr Team von Nexova Consulting`,
+      text: `Guten Tag,\n\nSie haben Ihren Zugang zum Kundenportal angefordert. Hier ist Ihr persönlicher Link:\n${await portalLink(b.id)}\n\nDer Link ist nur für Sie. Bitte nicht weitergeben. Wenn Sie den Zugang nicht angefordert haben, können Sie diese Mail ignorieren.\n\nMit freundlichen Grüßen\nIhr Team von Levarex Consulting`,
       meta: { angefordert: true },
     });
   }

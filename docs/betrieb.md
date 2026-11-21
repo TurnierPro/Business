@@ -1,4 +1,6 @@
-# Betriebshandbuch Nexova OS
+# Betriebshandbuch Levarex OS
+
+> Hinweis (21.11.2026): Dieses Dokument beschreibt noch Hetzner und Coolify. Neu ist Hostinger mit Docker Compose und Sicherung bei IONOS; Neufassung mit Etappe 8 des Bauplans (`docs/bauplan-levarex-os.md`).
 
 Was jede Meldung bedeutet und was du tust. Meldungen erscheinen unter **System → Meldungen** und, mit `NTFY_URL`, als Push auf dem Handy.
 
@@ -23,7 +25,7 @@ Was jede Meldung bedeutet und was du tust. Meldungen erscheinen unter **System �
 
 ## Kunden-Domains (Umzug bestehender Websites)
 
-Nexova OS liefert Kunden-Websites unter ihrer eigenen Domain aus: Jeder Host, der nicht Nexova OS selbst ist (`BASE_URL`, `NEXOVA_HOSTS`), bekommt die passende Kunden-Website. `www.` leitet auf die Domain ohne `www` um, alte Adressen der früheren Website per 301 auf die neuen Seiten.
+Levarex OS liefert Kunden-Websites unter ihrer eigenen Domain aus: Jeder Host, der nicht Levarex OS selbst ist (`BASE_URL`, `LEVAREX_HOSTS`), bekommt die passende Kunden-Website. `www.` leitet auf die Domain ohne `www` um, alte Adressen der früheren Website per 301 auf die neuen Seiten.
 
 **Was einmal eingerichtet werden muss (vor dem ersten Umzug testen):**
 
@@ -40,7 +42,7 @@ https:// {
   tls { on_demand }
   reverse_proxy app:3000
 }
-nexova.de, os.nexova.de {
+levarex-consulting.de, os.levarex-consulting.de {
   reverse_proxy app:3000
 }
 ```
@@ -55,7 +57,7 @@ nexova.de, os.nexova.de {
 1. Neuen Server bei Hetzner anlegen, Coolify installieren (Modul 2 und 3).
 2. Repo verbinden, Umgebungsvariablen aus dem Passwortmanager eintragen.
 3. Neuestes Backup von der Storage Box holen und einspielen:
-   `pg_restore --clean --no-owner --dbname="$DATABASE_URL" nexova-JJJJ-MM-TT-HH-MM.dump`
+   `pg_restore --clean --no-owner --dbname="$DATABASE_URL" levarex-JJJJ-MM-TT-HH-MM.dump`
 4. Ordner `/data/sites` und `/data/uploads` von der Storage Box zurückkopieren.
 5. Anmelden, unter System prüfen, ob alles grün ist. Dauer notieren (Ziel: unter 2 Stunden).
 

@@ -24,7 +24,7 @@ export default async function Logs({ searchParams }: { searchParams: Promise<{ q
   ]);
   return (
     <>
-      <div className="kopfzeile"><div><h1>Protokoll</h1><p>Alles, was in Nexova OS passiert: wer, wann, was. Automatisch, nicht änderbar, nach 3 Jahren gelöscht.</p></div></div>
+      <div className="kopfzeile"><div><h1>Protokoll</h1><p>Alles, was in Levarex OS passiert: wer, wann, was. Automatisch, nicht änderbar, nach 3 Jahren gelöscht.</p></div></div>
       <form method="get" className="knopfreihe" role="search" style={{ marginBottom: 16 }}>
         <input name="q" defaultValue={q} placeholder="Suchen: Person, Betrieb, Aktion" aria-label="Protokoll durchsuchen" style={{ maxWidth: 320 }} />
         <select name="tage" defaultValue={tage} aria-label="Zeitraum" style={{ width: "auto" }}><option value="1">Heute</option><option value="7">7 Tage</option><option value="30">30 Tage</option><option value="365">1 Jahr</option></select>

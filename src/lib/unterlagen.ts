@@ -6,7 +6,7 @@ import { getDb, schema } from "./db";
 import { datenOrdner } from "./pfade";
 import { protokolliere } from "./protokoll";
 
-// Unterlagen-Register aus dem Bericht „Dokumente für die Nexova GmbH“ (docs/unterlagen-bericht.md).
+// Unterlagen-Register aus dem Bericht „Dokumente für die Levarex GmbH“ (docs/unterlagen-bericht.md).
 // Keine Rechtsberatung: Wo Anwalt, Steuerberater oder Notar steht, prüfen diese.
 
 export type Unterlage = (typeof daten)[number];
@@ -18,11 +18,11 @@ export const ETAPPEN: { nr: number; name: string; bis: string }[] = [
   { nr: 3, name: "Vor dem ersten Brief und Kunden", bis: "2027-01-15" },
   { nr: 4, name: "Innerhalb von 3 Monaten", bis: "2027-04-15" },
   { nr: 5, name: "Später, mit Anlass", bis: "2028-11-30" },
-  { nr: 0, name: "Entfällt für Nexova", bis: "" },
+  { nr: 0, name: "Entfällt für Levarex", bis: "" },
 ];
 
-// Was Nexova OS bereits technisch abdeckt (rechtliche Prüfung bleibt offen)
-export const IN_NEXOVA_OS: Record<string, string> = {
+// Was Levarex OS bereits technisch abdeckt (rechtliche Prüfung bleibt offen)
+export const IN_LEVAREX_OS: Record<string, string> = {
   "Werbe-Sperrliste": "Sperrliste mit automatischem Abgleich vor jedem Versand (Leads → Widerspruch)",
   "Art.-14/21-Hinweis im Akquisebrief": "Steht in jedem Akquise-Brief (Vorlage Brief)",
   "Protokoll der Datenquelle je Lead": "Quelle und Datenquelle beim Lead gespeichert",
@@ -49,9 +49,9 @@ export const IN_NEXOVA_OS: Record<string, string> = {
   "Briefbogen, E-Mail-Signatur": "Pflichtangaben nach § 35a GmbHG in Fußzeile und Mail-Signatur (brand/tokens.json)",
 };
 
-export function inNexovaOs(u: Unterlage): string | null {
-  const treffer = Object.keys(IN_NEXOVA_OS).find((k) => u.titel.startsWith(k) || u.titel.includes(k));
-  return treffer ? IN_NEXOVA_OS[treffer] : null;
+export function inLevarexOs(u: Unterlage): string | null {
+  const treffer = Object.keys(IN_LEVAREX_OS).find((k) => u.titel.startsWith(k) || u.titel.includes(k));
+  return treffer ? IN_LEVAREX_OS[treffer] : null;
 }
 
 export const FRISTEN: { datum: string; was: string; quelle: string }[] = [
@@ -78,7 +78,7 @@ export const ENTSCHEIDUNGEN: { titel: string; text: string; wer: string }[] = [
   { titel: "Keine KI-Rangfolge von Bewerbern", text: "Karriereseiten: KI fasst zusammen und strukturiert, sortiert nicht, rankt nicht, lehnt nicht ab.", wer: "Produktregel" },
   { titel: "USt-Voranmeldung 2027", text: "Neugründer-Aussetzung über 2026 hinaus verlängert? Monatlich ohnehin sinnvoll.", wer: "Steuerberater" },
   { titel: "Website-Anfragen sofort an den Kunden weiterleiten?", text: "Heute nur im Kundenportal sichtbar. Automatische Weiterleitung per Mail ginge am Postausgang vorbei: als Ausnahme erlauben?", wer: "Gründer" },
-  { titel: "Datenbank und Speicherort", text: "PostgreSQL auf Hetzner (Deutschland) oder Supabase; Kundendaten, Belege und Archiv-PDFs gehören in die EU mit AV-Vertrag.", wer: "Gründer" },
+  { titel: "Datenbank und Speicherort", text: "PostgreSQL auf dem Server bei Hostinger (Standort EU prüfen); Kundendaten, Belege und Archiv-PDFs gehören in die EU mit AV-Vertrag.", wer: "Gründer" },
 ];
 
 export async function stand() {

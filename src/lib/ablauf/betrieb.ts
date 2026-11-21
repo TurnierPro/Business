@@ -23,17 +23,17 @@ function backupOrdner() {
   return datenOrdner("backups");
 }
 
-/** Format: „NXV1“ | Salz (16) | IV (12) | Tag (16) | Daten. Schlüssel aus Passphrase per scrypt. */
+/** Format: „LVX1“ | Salz (16) | IV (12) | Tag (16) | Daten. Schlüssel aus Passphrase per scrypt. */
 export function verschluesseleBackup(daten: Buffer, passphrase: string): Buffer {
   const salz = crypto.randomBytes(16);
   const iv = crypto.randomBytes(12);
   const c = crypto.createCipheriv("aes-256-gcm", crypto.scryptSync(passphrase, salz, 32), iv);
   const inhalt = Buffer.concat([c.update(daten), c.final()]);
-  return Buffer.concat([Buffer.from("NXV1"), salz, iv, c.getAuthTag(), inhalt]);
+  return Buffer.concat([Buffer.from("LVX1"), salz, iv, c.getAuthTag(), inhalt]);
 }
 
 export function entschluesseleBackup(daten: Buffer, passphrase: string): Buffer {
-  if (daten.subarray(0, 4).toString() !== "NXV1") throw new Error("Keine Nexova-Backup-Datei");
+  if (daten.subarray(0, 4).toString() !== "LVX1") throw new Error("Keine Levarex-Backup-Datei");
   const salz = daten.subarray(4, 20), iv = daten.subarray(20, 32), tag = daten.subarray(32, 48);
   const d = crypto.createDecipheriv("aes-256-gcm", crypto.scryptSync(passphrase, salz, 32), iv);
   d.setAuthTag(tag);
@@ -46,10 +46,10 @@ export async function backup(): Promise<string> {
   const pg = await eingebauteDb();
   if (pg) {
     const dump = await pg.dumpDataDir("gzip");
-    datei = path.join(backupOrdner(), `nexova-${stempel}.tar.gz`);
+    datei = path.join(backupOrdner(), `levarex-${stempel}.tar.gz`);
     fs.writeFileSync(datei, Buffer.from(await dump.arrayBuffer()));
   } else {
-    datei = path.join(backupOrdner(), `nexova-${stempel}.dump`);
+    datei = path.join(backupOrdner(), `levarex-${stempel}.dump`);
     await run("pg_dump", ["--format=custom", `--file=${datei}`, process.env.DATABASE_URL!]);
   }
   // Alte Backups löschen
@@ -57,7 +57,8 @@ export async function backup(): Promise<string> {
     const voll = path.join(backupOrdner(), f);
     if (Date.now() - fs.statSync(voll).mtimeMs > AUFBEWAHRUNG_TAGE * 864e5) fs.rmSync(voll);
   }
-  // Kopie außerhalb des Servers (Hetzner Storage Box), nur verschlüsselt (AES-256-GCM, Schlüssel nur im Passwortmanager und in Coolify)
+  // Kopie außerhalb des Servers, nur verschlüsselt (AES-256-GCM, Schlüssel nur in Bitwarden und in der Server-Umgebung).
+  // Heute per rsync; Umstellung auf IONOS Object Storage (30 Tage) mit Etappe 8 des Bauplans.
   let extern = "nur lokal (BACKUP_ZIEL fehlt)";
   if (process.env.BACKUP_ZIEL) {
     if (!process.env.BACKUP_SCHLUESSEL || process.env.BACKUP_SCHLUESSEL.length < 32) throw new Error("BACKUP_SCHLUESSEL fehlt (mindestens 32 Zeichen). Ohne Verschlüsselung verlässt kein Backup den Server.");
@@ -65,7 +66,7 @@ export async function backup(): Promise<string> {
     fs.writeFileSync(path.join(ausgang, `${path.basename(datei)}.enc`), verschluesseleBackup(fs.readFileSync(datei), process.env.BACKUP_SCHLUESSEL));
     for (const f of fs.readdirSync(ausgang)) if (!fs.existsSync(path.join(backupOrdner(), f.replace(/\.enc$/, "")))) fs.rmSync(path.join(ausgang, f));
     await run("rsync", ["-a", "--delete", "-e", "ssh -p 23", `${ausgang}/`, process.env.BACKUP_ZIEL]);
-    extern = "verschlüsselt auf Storage Box kopiert";
+    extern = "verschlüsselt extern kopiert";
   }
   const kb = Math.round(fs.statSync(datei).size / 1024);
   await melde("backup", !!process.env.BACKUP_ZIEL || process.env.NODE_ENV !== "production", process.env.BACKUP_ZIEL ? "Backup erstellt" : "Backup erstellt, nur lokal", `${path.basename(datei)}, ${kb} KB, ${extern}`);
@@ -74,7 +75,7 @@ export async function backup(): Promise<string> {
 
 /** Spielt das neueste Backup in eine leere Datenbank ein und zählt nach. */
 export async function ruecksicherung(): Promise<string> {
-  const dateien = fs.readdirSync(backupOrdner()).filter((f) => f.startsWith("nexova-")).sort();
+  const dateien = fs.readdirSync(backupOrdner()).filter((f) => f.startsWith("levarex-")).sort();
   const neuestes = dateien.at(-1);
   if (!neuestes) {
     await melde("ruecksicherung", false, "Probe-Rücksicherung fehlgeschlagen", "Kein Backup gefunden.");

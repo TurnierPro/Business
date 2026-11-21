@@ -15,7 +15,7 @@ import { inPostausgang } from "./postausgang";
 import { hakeAb } from "./checkliste";
 import { anschrift, betrieb, neuesDokument, SYSTEM } from "./gemeinsam";
 
-// Umzug einer bestehenden Website zu Nexova. Grundsatz: Der Kunde bleibt Inhaber seiner Domain,
+// Umzug einer bestehenden Website zu Levarex. Grundsatz: Der Kunde bleibt Inhaber seiner Domain,
 // seine E-Mail läuft unverändert weiter. Standard ist Weg A: Der Kunde (oder seine IT) ändert nur die
 // Einträge für die Website. Weg B: Providerwechsel der Domain zu uns (AuthInfo), dann pflegen wir die ganze Zone.
 
@@ -118,7 +118,7 @@ async function alteSeiteSichern(projektId: number, domain: string): Promise<{ se
   } else {
     const holen = async (url: string) => {
       try {
-        const r = await sicheresFetch(url, { headers: { "User-Agent": "NexovaOS-Umzug/1.0" } });
+        const r = await sicheresFetch(url, { headers: { "User-Agent": "LevarexOS-Umzug/1.0" } });
         return r.ok ? await r.text() : null;
       } catch {
         return null;
@@ -161,7 +161,7 @@ export function zielFuer(alt: string): string {
   return "";
 }
 
-/** Beim Livegang: Weg A → Anleitung an den Kunden; Weg B → Aufgabe für Max (Providerwechsel). */
+/** Beim Livegang: Weg A → Anleitung an den Kunden; Weg B → Aufgabe für Maximilian (Providerwechsel). */
 export async function umstellungStarten(projektId: number): Promise<void> {
   const p = await projekt(projektId);
   const u = umzugVon(p);
@@ -169,7 +169,7 @@ export async function umstellungStarten(projektId: number): Promise<void> {
   const b = await betrieb(p.betriebId);
   if (u.weg === "uebernehmen") {
     await speichern(projektId, { ...u, status: "providerwechsel" });
-    await melde("job", false, `Providerwechsel: ${u.domain}`, `${b.name}: Zone bei Hetzner mit allen Einträgen aus der Bestandsaufnahme anlegen, dann Providerwechsel mit der AuthInfo beauftragen. Danach im Projekt „Providerwechsel erledigt“ klicken.`);
+    await melde("job", false, `Providerwechsel: ${u.domain}`, `${b.name}: Zone beim DNS-Anbieter (netcup) mit allen Einträgen aus der Bestandsaufnahme anlegen, dann Providerwechsel mit der AuthInfo beauftragen. Danach im Projekt „Providerwechsel erledigt“ klicken.`);
     await protokolliere(SYSTEM, `Providerwechsel für ${u.domain} vorbereitet`, b.id);
     return;
   }
@@ -190,14 +190,14 @@ export async function umstellungStarten(projektId: number): Promise<void> {
     zweck: "umzug_anleitung",
     empfaenger: b.email ?? "(E-Mail-Adresse fehlt)",
     betreff: `Ihre neue Website: ein letzter Schritt für ${u.domain}`,
-    text: `Guten Tag,\n\nIhre neue Website ist fertig. Damit sie unter ${u.domain} erscheint, muss bei ${u.stand?.dnsAnbieter ?? u.anbieterAngabe ?? "Ihrem Domain-Anbieter"} ein Eintrag geändert werden. Das dauert etwa 5 Minuten. Die Anleitung im Anhang zeigt genau, was zu tun ist. Gern machen wir das auch gemeinsam am Telefon.\n\n${mail ? "Ihre E-Mail bleibt davon unberührt. Bitte ändern Sie nur die beiden genannten Einträge.\n\n" : ""}Sobald die Umstellung greift, merken wir das automatisch und melden uns. Bitte kündigen Sie Ihr altes Paket erst nach unserer Nachricht.\n\nMit freundlichen Grüßen\nMax Steiner\nNexova Consulting`,
+    text: `Guten Tag,\n\nIhre neue Website ist fertig. Damit sie unter ${u.domain} erscheint, muss bei ${u.stand?.dnsAnbieter ?? u.anbieterAngabe ?? "Ihrem Domain-Anbieter"} ein Eintrag geändert werden. Das dauert etwa 5 Minuten. Die Anleitung im Anhang zeigt genau, was zu tun ist. Gern machen wir das auch gemeinsam am Telefon.\n\n${mail ? "Ihre E-Mail bleibt davon unberührt. Bitte ändern Sie nur die beiden genannten Einträge.\n\n" : ""}Sobald die Umstellung greift, merken wir das automatisch und melden uns. Bitte kündigen Sie Ihr altes Paket erst nach unserer Nachricht.\n\nMit freundlichen Grüßen\nMaximilian Steiner\nLevarex Consulting`,
     anhaenge: [dokId],
     hinweise: [...(u.warnungen ?? []), ...(process.env.SERVER_IP ? [] : ["SERVER_IP ist nicht gesetzt: Die Anleitung enthält keine echte Adresse."])],
     meta: { projektId },
   });
 }
 
-/** Nach Weg B: Max hat die Domain zu uns geholt. AuthInfo löschen, dann wie Weg A auf die Umstellung warten. */
+/** Nach Weg B: Maximilian hat die Domain zu uns geholt. AuthInfo löschen, dann wie Weg A auf die Umstellung warten. */
 export async function providerwechselErledigt(projektId: number, wer: string): Promise<void> {
   const p = await projekt(projektId);
   const u = umzugVon(p);
@@ -224,7 +224,7 @@ export async function umstellungPruefen(jetzt = new Date()): Promise<string> {
     }
     await speichern(p.id, { ...u, status: "umgestellt", umgestelltAm: jetzt.toISOString(), letztePruefung: { am: jetzt.toISOString(), detail: r.detail } });
     const b = await betrieb(p.betriebId);
-    await protokolliere(SYSTEM, `Domain ${u.domain} zeigt auf Nexova`, b.id, r.detail);
+    await protokolliere(SYSTEM, `Domain ${u.domain} zeigt auf Levarex`, b.id, r.detail);
     await hakeAb(p.id, "domain");
     await inPostausgang({
       betriebId: b.id,
@@ -233,7 +233,7 @@ export async function umstellungPruefen(jetzt = new Date()): Promise<string> {
       zweck: "umzug_fertig",
       empfaenger: b.email ?? "(E-Mail-Adresse fehlt)",
       betreff: `${u.domain} zeigt jetzt Ihre neue Website`,
-      text: `Guten Tag,\n\ndie Umstellung hat geklappt: Unter ${u.domain} erscheint jetzt Ihre neue Website. Alte Adressen leiten wir automatisch auf die passenden neuen Seiten weiter, damit Google-Treffer und Lesezeichen weiter funktionieren.\n\nIhr altes Webhosting können Sie jetzt kündigen. Wichtig: Kündigen Sie nur das Webhosting, nicht die Domain${u.stand?.mailAnbieter && !/Microsoft|Google/.test(u.stand.mailAnbieter) ? ` und nicht Ihre E-Mail-Postfächer bei ${u.stand.mailAnbieter}` : ""}. Einen Mustertext finden Sie unten. Wenn Sie unsicher sind, rufen Sie uns vor der Kündigung an.\n\nMustertext:\n„Hiermit kündige ich das Webhosting zur Domain ${u.domain} zum nächstmöglichen Zeitpunkt. Die Domain${u.weg === "selbst" ? " und alle E-Mail-Postfächer" : ""} sind ausdrücklich nicht von der Kündigung erfasst. Bitte bestätigen Sie mir das Vertragsende.“\n\nMit freundlichen Grüßen\nMax Steiner\nNexova Consulting\n\nIhr Kundenportal: ${await portalLink(b.id)}`,
+      text: `Guten Tag,\n\ndie Umstellung hat geklappt: Unter ${u.domain} erscheint jetzt Ihre neue Website. Alte Adressen leiten wir automatisch auf die passenden neuen Seiten weiter, damit Google-Treffer und Lesezeichen weiter funktionieren.\n\nIhr altes Webhosting können Sie jetzt kündigen. Wichtig: Kündigen Sie nur das Webhosting, nicht die Domain${u.stand?.mailAnbieter && !/Microsoft|Google/.test(u.stand.mailAnbieter) ? ` und nicht Ihre E-Mail-Postfächer bei ${u.stand.mailAnbieter}` : ""}. Einen Mustertext finden Sie unten. Wenn Sie unsicher sind, rufen Sie uns vor der Kündigung an.\n\nMustertext:\n„Hiermit kündige ich das Webhosting zur Domain ${u.domain} zum nächstmöglichen Zeitpunkt. Die Domain${u.weg === "selbst" ? " und alle E-Mail-Postfächer" : ""} sind ausdrücklich nicht von der Kündigung erfasst. Bitte bestätigen Sie mir das Vertragsende.“\n\nMit freundlichen Grüßen\nMaximilian Steiner\nLevarex Consulting\n\nIhr Kundenportal: ${await portalLink(b.id)}`,
       meta: { projektId: p.id },
     });
     if (!p.abnahmeStatus) {

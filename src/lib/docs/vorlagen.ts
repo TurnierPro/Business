@@ -15,7 +15,7 @@ import {
   kopf,
 } from "./basis";
 
-// Alle Druckvorlagen. Jede Vorlage bekommt nur Daten und liefert fertiges HTML im Nexova-Design.
+// Alle Druckvorlagen. Jede Vorlage bekommt nur Daten und liefert fertiges HTML im Levarex-Design.
 
 export type BriefDaten = { an: Anschrift; betreff: string; text: string; datum: string; demoUrl?: string; qr?: string; quelle?: string };
 export type AngebotDaten = {
@@ -151,7 +151,7 @@ ${d.anmerkungen?.trim() ? `<h2>Anmerkungen</h2>${absaetze(d.anmerkungen)}` : ""}
 <li>Livegang ${p.wochen <= 4 ? "30 Tage" : `${p.wochen} Wochen`} nach Erhalt Ihrer Inhalte. Klappt das nicht, ist ein Monat Betreuung kostenlos.</li>
 <li>Beim Livegang: Lighthouse ≥ 95 und Barrierefreiheit nach WCAG 2.2 AA, sonst bessern wir kostenlos nach.</li>
 <li>Die Domain läuft auf Ihren Namen. Nach 12 Monaten gehören Ihnen Inhalte und Code.</li>
-<li>Website, Formulare und Kundendaten liegen in Deutschland (Hetzner).</li></ul>
+<li>Wo Website, Formulare und Kundendaten liegen, steht in der Liste der Unterauftragsverarbeiter im AV-Vertrag.</li></ul>
 <div class="box"><b>Allgemeine Geschäftsbedingungen</b><br>Es gelten unsere AGB für Unternehmer, Version ${esc(d.agbVersion ?? AGB_VERSION)}, abrufbar unter <span class="mono">${esc(AGB_URL)}</span>. Dieses Angebot richtet sich nur an Unternehmer (§ 14 BGB). Mit der Annahme bestätigen Sie, dass Sie für Ihren Betrieb handeln und nicht als Verbraucher.</div>
 <div class="box"><b>Annehmen</b><br><span class="leise">Sie nehmen dieses Angebot in Ihrem Kundenportal an (Link in unserer E-Mail). ${d.zahlweg === "stripe" ? "Danach zahlen Sie die Anzahlung direkt online." : "Danach bekommen Sie die Rechnung über die Anzahlung."} Anlage: Leistungsbeschreibung.</span></div>
 ${fuss()}</div>
@@ -198,7 +198,7 @@ ${fuss()}</div>
 <h2 style="margin-top:0">Die drei wichtigsten Schritte</h2>
 <ol>${d.prioritaeten.map((p) => `<li style="margin-bottom:3mm">${esc(p)}</li>`).join("")}</ol>
 <div class="box"><b>Gern zeigen wir Ihnen das vor Ort.</b><br><span class="leise">Daniel Lück kommt für 20 Minuten vorbei und bringt eine Vorschau Ihrer neuen Seite mit. Tel. ${esc(marke.absender.telefon)}</span></div>
-<p class="ki-hinweis">Hinweis: Dieser Bericht wurde mit Unterstützung von KI erstellt und von Nexova geprüft (Art. 50 KI-Verordnung). Grundlage ist eine automatische Prüfung der öffentlich erreichbaren Startseite am ${esc(d.datum)}.</p>
+<p class="ki-hinweis">Hinweis: Dieser Bericht wurde mit Unterstützung von KI erstellt und von Levarex geprüft (Art. 50 KI-Verordnung). Grundlage ist eine automatische Prüfung der öffentlich erreichbaren Startseite am ${esc(d.datum)}.</p>
 ${fuss()}</div>`,
   });
 }
@@ -210,7 +210,7 @@ export function leitfaden(d: LeitfadenDaten): string {
 <h1>Gesprächsleitfaden: ${esc(d.an.name)}</h1>
 <h2>Vorab wissen</h2><ul>${d.hinweise.map((h) => `<li>${esc(h)}</li>`).join("")}</ul>
 <h2>Fragen</h2><ol>${d.fragen.map((f) => `<li style="margin-bottom:2.5mm">${esc(f)}</li>`).join("")}</ol>
-<div class="box">Aufnahme nur mit Einwilligung. In Nexova OS vor dem Start bestätigen lassen.</div>${fuss()}</div>`,
+<div class="box">Aufnahme nur mit Einwilligung. In Levarex OS vor dem Start bestätigen lassen.</div>${fuss()}</div>`,
   });
 }
 
@@ -230,7 +230,7 @@ ${fuss()}</div>
 ${d.massnahmen.map((m) => `<tr><td>${esc(m.was)}</td><td>${esc(m.wann)}</td><td>${esc(m.wer)}</td></tr>`).join("")}
 </tbody></table>
 ${d.offeneFragen.length ? `<h2>Noch offen</h2>${liste(d.offeneFragen)}` : ""}
-<p class="ki-hinweis">Dieses Protokoll wurde aus der Gesprächsaufnahme mit Unterstützung von KI erstellt und von Nexova geprüft. Die Aufnahme wird nach Freigabe gelöscht.</p>
+<p class="ki-hinweis">Dieses Protokoll wurde aus der Gesprächsaufnahme mit Unterstützung von KI erstellt und von Levarex geprüft. Die Aufnahme wird nach Freigabe gelöscht.</p>
 ${fuss()}</div>`,
   });
 }

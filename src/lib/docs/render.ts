@@ -40,14 +40,14 @@ export function dokumentHtml(d: Dok): string {
   }
 }
 
-const g = globalThis as unknown as { __nexovaBrowser?: Promise<Browser> };
+const g = globalThis as unknown as { __levarexBrowser?: Promise<Browser> };
 
 function browser(): Promise<Browser> {
-  g.__nexovaBrowser ??= chromium.launch({
+  g.__levarexBrowser ??= chromium.launch({
     executablePath: process.env.CHROMIUM_PATH || undefined,
     args: ["--no-sandbox", "--font-render-hinting=none"],
   });
-  return g.__nexovaBrowser;
+  return g.__levarexBrowser;
 }
 
 let umbruchSkript: string | undefined;
@@ -62,7 +62,7 @@ export async function htmlZuPdf(html: string): Promise<Buffer> {
   try {
     await seite.setContent(html, { waitUntil: "load" });
     await seite.evaluate(() => document.fonts.ready);
-    const probleme = (await seite.evaluate(`${umbruch()}; window.nexovaUmbruch ? window.nexovaUmbruch() : []`)) as string[];
+    const probleme = (await seite.evaluate(`${umbruch()}; window.levarexUmbruch ? window.levarexUmbruch() : []`)) as string[];
     if (probleme.length) throw new Error(`PDF-Layout nicht sauber: ${probleme.join(" · ")}`);
     return Buffer.from(await seite.pdf({ format: "A4", printBackground: true, preferCSSPageSize: true }));
   } finally {

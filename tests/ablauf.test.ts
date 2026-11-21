@@ -6,7 +6,7 @@ import path from "node:path";
 
 // Spielt den kompletten Ablauf mit Simulatoren durch: Lead → Brief → Termin → Angebot → Zahlung → Livegang.
 process.env.DATABASE_URL = "memory://";
-process.env.DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "nexova-test-"));
+process.env.DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "levarex-test-"));
 delete process.env.ANTHROPIC_API_KEY;
 delete process.env.SMTP_HOST;
 
@@ -101,7 +101,7 @@ test("Kompletter Ablauf von Lead bis Livegang", async () => {
   assert.equal(await verkauf.zahlungEingegangen(angebotId, "Simulator"), projektId, "doppelte Zahlungsmeldung legt nichts doppelt an");
   await abarbeiten();
   const kickoff = await offeneFreigabe("kickoff");
-  await post.freigeben(kickoff.id, "Max Steiner");
+  await post.freigeben(kickoff.id, "Maximilian Steiner");
 
   // Inhalte über das Portal → Bau → Prüfung
   const [p] = await db.select().from(schema.projekte).where(eq(schema.projekte.id, projektId));
@@ -117,7 +117,7 @@ test("Kompletter Ablauf von Lead bis Livegang", async () => {
 
   // Livegang freigeben → live; Betreuung wartet als Zahlung auf Freigabe, Kunde wird um Abnahme gebeten
   const live = await offeneFreigabe("livegang");
-  await post.freigeben(live.id, "Max Steiner");
+  await post.freigeben(live.id, "Maximilian Steiner");
   await abarbeiten();
   const [fertig] = await db.select().from(schema.projekte).where(eq(schema.projekte.id, projektId));
   assert.equal(fertig.status, "live");
@@ -126,7 +126,7 @@ test("Kompletter Ablauf von Lead bis Livegang", async () => {
   assert.equal((await db.select().from(schema.postausgang).where(eq(schema.postausgang.zweck, "schlusszahlung"))).length, 0, "keine Schlusszahlung vor der Abnahme");
   const betreuung = await offeneFreigabe("betreuung_start");
   const aufforderung = await offeneFreigabe("abnahme_aufforderung");
-  await post.freigeben(aufforderung.id, "Max Steiner");
+  await post.freigeben(aufforderung.id, "Maximilian Steiner");
   await abarbeiten();
   const [mitFrist] = await db.select().from(schema.projekte).where(eq(schema.projekte.id, projektId));
   assert.ok(mitFrist.abnahmeFrist && mitFrist.abnahmeFrist > new Date(Date.now() + 13 * 864e5));
@@ -137,12 +137,12 @@ test("Kompletter Ablauf von Lead bis Livegang", async () => {
   await vertrag.abnahmeErklaeren(projektId, { ergebnis: "vorbehalt", name: "Thomas Muster", maengel: "Telefonnummer im Kopf fehlt" });
   await abarbeiten();
   const protokollMail = await offeneFreigabe("abnahme_bestaetigung");
-  await post.freigeben(protokollMail.id, "Max Steiner");
+  await post.freigeben(protokollMail.id, "Maximilian Steiner");
   const schlusszahlung = await offeneFreigabe("schlusszahlung");
   const vorFreigabe = await db.select().from(schema.rechnungen);
   assert.deepEqual(vorFreigabe.map((r) => r.art), ["anzahlung"], "ohne Freigabe wird nichts eingezogen");
-  await post.freigeben(schlusszahlung.id, "Max Steiner");
-  await post.freigeben(betreuung.id, "Max Steiner");
+  await post.freigeben(schlusszahlung.id, "Maximilian Steiner");
+  await post.freigeben(betreuung.id, "Maximilian Steiner");
   const bestaetigung = await offeneFreigabe("auftragsbestaetigung");
   await post.freigeben(bestaetigung.id, "Daniel Lück");
   await abarbeiten();
@@ -184,7 +184,7 @@ test("Resend: Mail mit Anhang über die API", async () => {
     return new Response(JSON.stringify({ id: "test-123" }), { status: 200 });
   }) as typeof fetch;
   process.env.RESEND_API_KEY = "re_test";
-  process.env.MAIL_FROM = "Nexova Consulting <hallo@nexova.example>";
+  process.env.MAIL_FROM = "Levarex Consulting <hallo@levarex.example>";
   try {
     const r = await sendeMail({ an: "kunde@example.com", betreff: "Test", text: "Hallo", anhaenge: [{ name: "a.pdf", inhalt: Buffer.from("PDF") }] });
     assert.match(r, /test-123/);
@@ -201,7 +201,7 @@ test("Resend: Mail mit Anhang über die API", async () => {
 test("Qualitätskontrolle muss vor der Freigabe gelaufen sein", async () => {
   const { id } = await akquise.legeBetriebAn({ name: "QK GmbH", gewerk: "SHK", score: 50, scoreGrund: "Test", website: "qk.example" }, "Test", "Test");
   const e = await post.inPostausgang({ betriebId: id, kanal: "mail", zweck: "test", empfaenger: "chef@qk.example", betreff: "Hallo", text: "Guten Tag, wir garantiert Ihnen 50 % mehr Anfragen. Viele Grüße" });
-  await assert.rejects(() => post.freigeben(e, "Max Steiner"), /Qualitätskontrolle läuft/);
+  await assert.rejects(() => post.freigeben(e, "Maximilian Steiner"), /Qualitätskontrolle läuft/);
   await abarbeiten();
   const [x] = await db.select().from(schema.postausgang).where(eq(schema.postausgang.id, e));
   assert.equal(x.qkStatus, "hinweise");
@@ -225,7 +225,7 @@ test("Finanz-Agenten: Mahnstufen und Betreuungsrechnung", async () => {
   assert.match(await agenten.zahlungserinnerungen(tag(4)), /^0 /, "keine doppelte Erinnerung");
   const erinnerung = await offeneFreigabe("zahlungserinnerung");
   await post.qualitaetskontrolle(erinnerung.id);
-  await post.freigeben(erinnerung.id, "Max Steiner");
+  await post.freigeben(erinnerung.id, "Maximilian Steiner");
   await post.versende(erinnerung.id);
   const [nach1] = await db.select().from(schema.rechnungen).where(eq(schema.rechnungen.id, r.id));
   assert.equal(nach1.mahnstufe, 1, "Stufe erst nach Versand hochgezählt");
@@ -323,7 +323,7 @@ test("Domain-Umzug: Auftrag, Bestandsaufnahme, Anleitung, Umstellung, Auslieferu
 
   // Livegang: statt Abnahme kommt zuerst die Anleitung
   const live = (await db.select().from(schema.postausgang).where(eq(schema.postausgang.projektId, p.id))).find((e) => e.zweck === "livegang")!;
-  await post.freigeben(live.id, "Max Steiner");
+  await post.freigeben(live.id, "Maximilian Steiner");
   await abarbeiten();
   const zwecke = async () => (await db.select().from(schema.postausgang).where(eq(schema.postausgang.projektId, p.id))).map((e) => e.zweck);
   assert.ok((await zwecke()).includes("umzug_anleitung"));
@@ -375,7 +375,7 @@ test("CRM: Zwei-Faktor, Schnittstelle, Import, Kalender, Tickets, Pipeline, Kenn
   assert.equal(neu.status, 201);
   assert.equal((await route.POST(anfrage("POST", { name: "API Elektro GmbH", website: "api-elektro.example" }))).status, 409, "Doppelte abgelehnt");
   assert.equal((await route.GET(anfrage("GET"))).status, 403);
-  assert.equal((await route.GET(anfrage("GET", undefined, "nxv_falsch"))).status, 401);
+  assert.equal((await route.GET(anfrage("GET", undefined, "lvx_falsch"))).status, 401);
 
   // CSV-Import mit Semikolon, Anführungszeichen und Doppeltem
   const imp = await import("../src/lib/import");
@@ -401,11 +401,11 @@ test("CRM: Zwei-Faktor, Schnittstelle, Import, Kalender, Tickets, Pipeline, Kenn
   const tickets = await import("../src/lib/ablauf/tickets");
   const [kp] = await db.insert(schema.projekte).values({ betriebId: pinsel.id, paket: "S", portalToken: "ticket-token-1234567890", status: "live" }).returning();
   const tid = await tickets.ticketAnlegen({ betriebId: pinsel.id, betreff: "Neue Öffnungszeiten", beschreibung: "Ab November Mo–Fr 7–16 Uhr", quelle: "portal" }, "Kunde (Portal)");
-  await tickets.ticketZeit(tid, 20, "Öffnungszeiten geändert", "Max Steiner");
-  await tickets.ticketZeit(tid, 20, "Handy-Ansicht geprüft", "Max Steiner");
+  await tickets.ticketZeit(tid, 20, "Öffnungszeiten geändert", "Maximilian Steiner");
+  await tickets.ticketZeit(tid, 20, "Handy-Ansicht geprüft", "Maximilian Steiner");
   const k = await tickets.kontingent(pinsel.id);
   assert.deepEqual([k.enthalten, k.verbraucht, k.ueber], [30, 40, 10]);
-  await tickets.ticketAntworten(tid, "Die neuen Öffnungszeiten stehen jetzt auf Ihrer Website.", true, "Max Steiner");
+  await tickets.ticketAntworten(tid, "Die neuen Öffnungszeiten stehen jetzt auf Ihrer Website.", true, "Maximilian Steiner");
   const [t] = await db.select().from(schema.tickets).where(eq(schema.tickets.id, tid));
   assert.equal(t.status, "erledigt");
   assert.equal(t.projektId, kp.id);
@@ -432,13 +432,13 @@ test("Stammdaten: Katalog ändern wirkt auf neue Angebote, verschickte bleiben; 
   const vorher = PAKETE.S.einmalig;
   const { id } = await akquise.legeBetriebAn({ name: "Katalog GmbH", gewerk: "SHK", score: 60, scoreGrund: "Test", website: "katalog.example", email: "a@katalog.example" }, "Test", "Test");
   const alt = await verkauf.erstelleAngebot({ betriebId: id!, auswahl: { paket: "S", module: [], zusaetze: [] }, wer: "Test" });
-  await kdb.paketSpeichern("S", { name: "S – Anfragen Plus", einmalig: "3.990,00", monatlich: "159,00", wochen: "4", inklusiveModule: "0", inhalt: "Website\nGoogle-Profil", nichtEnthalten: "Shop", aenderungsMinuten: "45", zielStunden: "10", aktiv: "ja" }, "Max Steiner");
+  await kdb.paketSpeichern("S", { name: "S – Anfragen Plus", einmalig: "3.990,00", monatlich: "159,00", wochen: "4", inklusiveModule: "0", inhalt: "Website\nGoogle-Profil", nichtEnthalten: "Shop", aenderungsMinuten: "45", zielStunden: "10", aktiv: "ja" }, "Maximilian Steiner");
   assert.equal(PAKETE.S.einmalig, 399000);
   assert.equal(berechne({ paket: "S", module: [], zusaetze: [] }).einmalig, 399000);
-  await assert.rejects(() => kdb.paketSpeichern("S", { name: "", einmalig: "1", monatlich: "1" }, "Max"), /Name/);
-  await assert.rejects(() => kdb.paketSpeichern("S", { name: "X", einmalig: "-5", monatlich: "1" }, "Max"), /Betrag/);
+  await assert.rejects(() => kdb.paketSpeichern("S", { name: "", einmalig: "1", monatlich: "1" }, "Maximilian"), /Name/);
+  await assert.rejects(() => kdb.paketSpeichern("S", { name: "X", einmalig: "-5", monatlich: "1" }, "Maximilian"), /Betrag/);
   // Neues Modul und Kombi-Regel aus den Daten
-  const neu = await kdb.modulSpeichern(null, { name: "Bewertungs-Erinnerung", text: "Bittet zufriedene Kunden um eine Bewertung", einmalig: "290", monatlich: "19", stufe: "1", aktiv: "ja" }, "Max Steiner");
+  const neu = await kdb.modulSpeichern(null, { name: "Bewertungs-Erinnerung", text: "Bittet zufriedene Kunden um eine Bewertung", einmalig: "290", monatlich: "19", stufe: "1", aktiv: "ja" }, "Maximilian Steiner");
   const r = berechne({ paket: "M", module: ["m1", "m2", neu], zusaetze: [] });
   assert.ok(r.positionen.some((x) => x.text.includes("Bewertungs-Erinnerung") && x.einmalig === 29000));
   assert.ok(r.positionen.some((x) => x.text.includes("Modul 2") && x.einmalig === 49000), "Kombi-Preis Modul 2 mit Modul 1");
@@ -449,16 +449,16 @@ test("Stammdaten: Katalog ändern wirkt auf neue Angebote, verschickte bleiben; 
   assert.equal(daten(n.nummer).paketName, "S – Anfragen Plus");
   assert.equal(daten(alt.nummer).einmalig, vorher);
   assert.notEqual(daten(alt.nummer).paketName, "S – Anfragen Plus");
-  await kdb.zuruecksetzen("paket", "S", "Max Steiner");
-  await kdb.zuruecksetzen("modul", neu, "Max Steiner");
+  await kdb.zuruecksetzen("paket", "S", "Maximilian Steiner");
+  await kdb.zuruecksetzen("modul", neu, "Maximilian Steiner");
   assert.equal(PAKETE.S.einmalig, vorher, "Werkseinstellung wiederhergestellt");
 
   const soll = await import("../src/lib/soll");
   const werte = await soll.sollwerte();
   assert.equal(werte.length, 24);
-  assert.equal(await soll.sollSpeichern([{ monat: "2027-03", umsatz: 2_000_000, auftraege: 5 }], "Max Steiner"), 1);
+  assert.equal(await soll.sollSpeichern([{ monat: "2027-03", umsatz: 2_000_000, auftraege: 5 }], "Maximilian Steiner"), 1);
   assert.equal((await soll.sollwerte()).find((x) => x.monat === "2027-03")?.umsatz, 2_000_000);
-  await assert.rejects(() => soll.sollSpeichern([{ monat: "2030-01", umsatz: 1, auftraege: 1 }], "Max"), /Planzeitraum/);
+  await assert.rejects(() => soll.sollSpeichern([{ monat: "2030-01", umsatz: 1, auftraege: 1 }], "Maximilian"), /Planzeitraum/);
   const si = await soll.sollIst(new Date(2027, 2, 15));
   assert.equal(si.zeitraeume[0].soll.umsatz, 2_000_000);
 
@@ -483,7 +483,7 @@ test("Kundenportal: Zugang per E-Mail anfordern, Link erneuern sperrt den alten"
   assert.equal(await zaehle(), vorher + 1, "eine Mail, nicht doppelt");
   const token = link.split("/").pop()!;
   assert.ok(await kp.betriebPerPortal(token));
-  const neu = await kp.portalLinkErneuern(id!, "Max Steiner");
+  const neu = await kp.portalLinkErneuern(id!, "Maximilian Steiner");
   assert.equal(await kp.betriebPerPortal(token), null, "alter Link gesperrt");
   assert.ok(await kp.betriebPerPortal(neu.split("/").pop()!));
 });
@@ -511,11 +511,11 @@ test("Unterlagen-Register: Status speichern, nur bekannte Werte", async () => {
   const u = await import("../src/lib/unterlagen");
   assert.ok(u.UNTERLAGEN.length > 100);
   const key = u.UNTERLAGEN[0].key;
-  await u.speichern(key, { status: "erledigt", notiz: "vom Anwalt", datei: new File([Buffer.from("pdf")], "agb.pdf") }, "Max Steiner");
+  await u.speichern(key, { status: "erledigt", notiz: "vom Anwalt", datei: new File([Buffer.from("pdf")], "agb.pdf") }, "Maximilian Steiner");
   assert.equal((await u.stand()).get(key)?.status, "erledigt");
   assert.equal((await u.datei(key))?.name, "agb.pdf");
-  await assert.rejects(() => u.speichern(key, { status: "kaputt", notiz: "", datei: null }, "Max Steiner"), /Status/);
-  await assert.rejects(() => u.speichern("gibt-es-nicht", { status: "offen", notiz: "", datei: null }, "Max Steiner"), /Unbekannte/);
+  await assert.rejects(() => u.speichern(key, { status: "kaputt", notiz: "", datei: null }, "Maximilian Steiner"), /Status/);
+  await assert.rejects(() => u.speichern("gibt-es-nicht", { status: "offen", notiz: "", datei: null }, "Maximilian Steiner"), /Unbekannte/);
 });
 
 test("Angebot vor Ort: Paket L mit Modulen und Zusatzleistung", async () => {
@@ -561,7 +561,7 @@ test("Stripe-Webhook: echte Signatur nötig, Zahlung wird verbucht", async () =>
 test("Mail ohne gültige Adresse lässt sich nicht freigeben", async () => {
   const { id } = await akquise.legeBetriebAn({ name: "Ohne Mail GmbH", gewerk: "SHK", score: 50, scoreGrund: "Test", website: "ohne-mail.example" }, "Test", "Test");
   const e = await post.inPostausgang({ betriebId: id, kanal: "mail", zweck: "test", empfaenger: "(E-Mail-Adresse fehlt)", betreff: "x", text: "x" });
-  await assert.rejects(() => post.freigeben(e, "Max Steiner"), /E-Mail-Adresse/);
+  await assert.rejects(() => post.freigeben(e, "Maximilian Steiner"), /E-Mail-Adresse/);
 });
 
 test("Rechnung über 10.000 € braucht zwei verschiedene Personen", async () => {
@@ -574,14 +574,14 @@ test("Rechnung über 10.000 € braucht zwei verschiedene Personen", async () =>
   const alle = await db.select().from(schema.postausgang).where(eq(schema.postausgang.betriebId, id!));
   const r = alle.find((x) => x.zweck === "rechnung")!;
   assert.equal(r.noetigeFreigaben, 2);
-  assert.equal(await post.freigeben(r.id, "Max Steiner"), "weitere_freigabe_noetig");
-  await assert.rejects(() => post.freigeben(r.id, "Max Steiner"), /zweite Freigabe/);
+  assert.equal(await post.freigeben(r.id, "Maximilian Steiner"), "weitere_freigabe_noetig");
+  await assert.rejects(() => post.freigeben(r.id, "Maximilian Steiner"), /zweite Freigabe/);
   assert.equal(await post.freigeben(r.id, "Daniel Lück"), "freigegeben");
 });
 
 test("Backup und Probe-Rücksicherung", async () => {
   const b = await betrieb.backup();
-  assert.match(b, /nexova-/);
+  assert.match(b, /levarex-/);
   const r = await betrieb.ruecksicherung();
   assert.match(r, /Betriebe wiederhergestellt/);
 });
@@ -596,20 +596,20 @@ test("Microsoft 365: Anmeldung und Versand über Graph mit HTML und Anhang", asy
     if (url.includes("login.microsoftonline.com")) return new Response(JSON.stringify({ access_token: "ms-token" }), { status: 200 });
     return new Response(null, { status: 202 });
   }) as typeof fetch;
-  Object.assign(process.env, { MS_TENANT_ID: "tenant-1", MS_CLIENT_ID: "client-1", MS_CLIENT_SECRET: "geheim", MS_ABSENDER: "hallo@nexova.example", MAIL_ANTWORT_AN: "team@nexova.example" });
+  Object.assign(process.env, { MS_TENANT_ID: "tenant-1", MS_CLIENT_ID: "client-1", MS_CLIENT_SECRET: "geheim", MS_ABSENDER: "hallo@levarex.example", MAIL_ANTWORT_AN: "team@levarex.example" });
   try {
     assert.equal(aktiverMailDienst(), "microsoft");
     const r = await sendeMail({ an: "kunde@example.com", betreff: "Ihr Angebot", text: "Hallo", html: mailHtml({ betreff: "Ihr Angebot", text: "Hallo" }), anhaenge: [{ name: "Angebot.pdf", inhalt: Buffer.from("PDF") }] });
     assert.match(r, /Microsoft 365/);
     assert.equal(aufrufe[0].url, "https://login.microsoftonline.com/tenant-1/oauth2/v2.0/token");
     assert.match(aufrufe[0].body, /grant_type=client_credentials/);
-    assert.equal(aufrufe[1].url, "https://graph.microsoft.com/v1.0/users/hallo%40nexova.example/sendMail");
+    assert.equal(aufrufe[1].url, "https://graph.microsoft.com/v1.0/users/hallo%40levarex.example/sendMail");
     assert.equal(aufrufe[1].auth, "Bearer ms-token");
     const m = JSON.parse(aufrufe[1].body).message;
     assert.equal(m.body.contentType, "HTML");
-    assert.match(m.body.content, /NE.*X.*OVA/s);
+    assert.match(m.body.content, /levarex-logo-mail\.png/);
     assert.equal(m.toRecipients[0].emailAddress.address, "kunde@example.com");
-    assert.equal(m.replyTo[0].emailAddress.address, "team@nexova.example");
+    assert.equal(m.replyTo[0].emailAddress.address, "team@levarex.example");
     assert.equal(m.attachments[0].contentBytes, Buffer.from("PDF").toString("base64"));
     assert.equal(JSON.parse(aufrufe[1].body).saveToSentItems, true);
   } finally {
@@ -629,7 +629,7 @@ test("Google Workspace: signierte Anmeldung und Versand über die Gmail-API", as
     if (url.startsWith("https://oauth2.googleapis.com/token")) return new Response(JSON.stringify({ access_token: "g-token" }), { status: 200 });
     return new Response(JSON.stringify({ id: "gmail-42" }), { status: 200 });
   }) as typeof fetch;
-  Object.assign(process.env, { GOOGLE_CLIENT_EMAIL: "nexova@projekt.iam.gserviceaccount.com", GOOGLE_PRIVATE_KEY: privateKey.export({ type: "pkcs8", format: "pem" }).toString().replace(/\n/g, "\\n"), GOOGLE_ABSENDER: "hallo@nexova.example" });
+  Object.assign(process.env, { GOOGLE_CLIENT_EMAIL: "levarex@projekt.iam.gserviceaccount.com", GOOGLE_PRIVATE_KEY: privateKey.export({ type: "pkcs8", format: "pem" }).toString().replace(/\n/g, "\\n"), GOOGLE_ABSENDER: "hallo@levarex.example" });
   try {
     assert.equal(aktiverMailDienst(), "google");
     const r = await sendeMail({ an: "kunde@example.com", betreff: "Rechnung", text: "Nur Text", html: "<p>HTML-Fassung</p>", anhaenge: [{ name: "Rechnung.pdf", inhalt: Buffer.from("PDF") }] });
@@ -640,9 +640,9 @@ test("Google Workspace: signierte Anmeldung und Versand über die Gmail-API", as
     assert.ok(crypto.createVerify("RSA-SHA256").update(`${k}.${i}`).verify(publicKey, Buffer.from(sig, "base64url")));
     const inhalt = JSON.parse(Buffer.from(i, "base64url").toString());
     assert.equal(inhalt.scope, "https://www.googleapis.com/auth/gmail.send");
-    assert.equal(inhalt.sub, "hallo@nexova.example");
+    assert.equal(inhalt.sub, "hallo@levarex.example");
     // Versand: fertige MIME-Nachricht mit Text, HTML und Anhang
-    assert.equal(aufrufe[1].url, "https://gmail.googleapis.com/gmail/v1/users/hallo%40nexova.example/messages/send");
+    assert.equal(aufrufe[1].url, "https://gmail.googleapis.com/gmail/v1/users/hallo%40levarex.example/messages/send");
     const mime = Buffer.from(JSON.parse(aufrufe[1].body).raw, "base64url").toString();
     assert.match(mime, /To: kunde@example.com/);
     assert.match(mime, /text\/plain/);
@@ -656,10 +656,10 @@ test("Google Workspace: signierte Anmeldung und Versand über die Gmail-API", as
 
 test("Mail-Design: Text wird maskiert, Links klickbar, Pflichtangaben im Fuß", async () => {
   const { mailHtml } = await import("../src/lib/docs/mailvorlage");
-  const html = mailHtml({ betreff: "Test <b>", text: "Hallo <script>alert(1)</script>\n\nPortal: https://os.nexova.example/portal/k/abc." });
+  const html = mailHtml({ betreff: "Test <b>", text: "Hallo <script>alert(1)</script>\n\nPortal: https://os.levarex.example/portal/k/abc." });
   assert.ok(!html.includes("<script>"), "kein Skript");
   assert.match(html, /&lt;script&gt;/);
-  assert.match(html, /<a href="https:\/\/os.nexova.example\/portal\/k\/abc"/);
+  assert.match(html, /<a href="https:\/\/os.levarex.example\/portal\/k\/abc"/);
   assert.match(html, /Handelsregister|Amtsgericht|Geschäftsführ/);
   assert.ok(!/<svg|<style|class=/.test(html), "nur Inline-Styles, keine SVG (Gmail, Outlook)");
 });

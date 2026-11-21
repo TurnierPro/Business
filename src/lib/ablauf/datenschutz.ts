@@ -112,7 +112,7 @@ export async function verarbeitungen() {
     .from(schema.projekte)
     .innerJoin(schema.betriebe, eq(schema.projekte.betriebId, schema.betriebe.id))
     .where(inArray(schema.projekte.status, ["inhalte", "bau", "pruefung", "bereit", "live"]));
-  const unter = ["Hetzner Online GmbH (Hosting, Deutschland)"];
+  const unter = ["Hostinger (Server, Standort laut AV-Vertrag)"];
   if (process.env.RESEND_API_KEY) unter.push("Resend (E-Mail-Versand)");
   if (process.env.ANTHROPIC_API_KEY) unter.push("Anthropic (KI, nur für Entwürfe)");
   return zeilen.map(({ p, name }) => {

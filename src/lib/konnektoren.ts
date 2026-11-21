@@ -33,7 +33,7 @@ export async function konnektoren(): Promise<Konnektor[]> {
     key: `mail-${k}`,
     kategorie: "E-Mail",
     name: MAIL_DIENSTE[k].name,
-    zweck: "Mails aus dem Postausgang im Nexova-Design (HTML und Text, PDFs im Anhang)",
+    zweck: "Mails aus dem Postausgang im Levarex-Design (HTML und Text, PDFs im Anhang)",
     status: mail === k ? "aktiv" : gesetzt(MAIL_DIENSTE[k].braucht) ? "bereit" : "simulator",
     braucht: MAIL_DIENSTE[k].braucht,
     schritte,
@@ -42,10 +42,10 @@ export async function konnektoren(): Promise<Konnektor[]> {
 
   return [
     mailKonnektor("microsoft", [
-      "Im Microsoft Entra Admin Center: App-Registrierung „Nexova OS“ anlegen.",
+      "Im Microsoft Entra Admin Center: App-Registrierung „Levarex OS“ anlegen.",
       "API-Berechtigungen → Microsoft Graph → Anwendungsberechtigung „Mail.Send“ → Administratorzustimmung erteilen.",
       "Zertifikate & Geheimnisse → Neuer geheimer Clientschlüssel. Wert sofort in den Passwortmanager.",
-      "Mit einer Application Access Policy (Exchange Online PowerShell) den Zugriff auf das Absender-Postfach beschränken, z. B. hallo@nexova…",
+      "Mit einer Application Access Policy (Exchange Online PowerShell) den Zugriff auf das Absender-Postfach beschränken, z. B. hallo@levarex…",
       "MS_TENANT_ID, MS_CLIENT_ID, MS_CLIENT_SECRET, MS_ABSENDER setzen. Gesendete Mails liegen danach auch in Outlook unter „Gesendete Elemente“.",
     ], "Microsoft 365 mit EU-Datengrenze; Auftragsverarbeitung über die Microsoft-Produktbedingungen (DPA)."),
     mailKonnektor("google", [
@@ -55,7 +55,7 @@ export async function konnektoren(): Promise<Konnektor[]> {
       "GOOGLE_CLIENT_EMAIL, GOOGLE_PRIVATE_KEY, GOOGLE_ABSENDER setzen.",
     ], "Google Workspace: Auftragsverarbeitung (Cloud Data Processing Addendum) in der Admin-Konsole annehmen."),
     mailKonnektor("smtp", [
-      "Zugangsdaten beim Mail-Anbieter (IONOS, STRATO, Hetzner, mailbox.org …) nachsehen.",
+      "Zugangsdaten beim Mail-Anbieter (netcup, IONOS, STRATO, mailbox.org …) nachsehen.",
       "Bei Outlook.com oder Gmail per SMTP: App-Passwort erzeugen, nie das Hauptpasswort.",
       "SMTP_HOST, SMTP_PORT (587 oder 465), SMTP_USER, SMTP_PASS, SMTP_FROM setzen.",
     ], "Am einfachsten mit einem deutschen Anbieter, AV-Vertrag abschließen."),
@@ -86,7 +86,7 @@ export async function konnektoren(): Promise<Konnektor[]> {
       schritte: [
         "Unter Stammdaten → Benutzer und Sicherheit einen API-Schlüssel mit Recht „Nachrichten einliefern“ erzeugen.",
         "In n8n: Auslöser „Microsoft Outlook Trigger“ oder „Gmail Trigger“.",
-        "HTTP-Knoten: POST <BASE_URL>/api/v1/nachrichten, Kopfzeile Authorization: Bearer nxv_…, Inhalt { kanal: \"mail\", absender, betreff, inhalt, externeId: Message-ID }.",
+        "HTTP-Knoten: POST <BASE_URL>/api/v1/nachrichten, Kopfzeile Authorization: Bearer lvx_…, Inhalt { kanal: \"mail\", absender, betreff, inhalt, externeId: Message-ID }.",
       ],
     },
     {
@@ -124,6 +124,6 @@ export async function konnektoren(): Promise<Konnektor[]> {
     { key: "whisper", kategorie: "KI und Sprache", name: "Transkription (Whisper, eigener Server)", zweck: "Vor-Ort-Gespräche zu Text", status: s(["WHISPER_URL"]), braucht: ["WHISPER_URL"], schritte: ["faster-whisper-server auf dem eigenen Server starten, WHISPER_URL setzen."] },
     { key: "dns", kategorie: "Technik", name: "Server und Domain-Umzug", zweck: "Kunden-Domains prüfen und umziehen, Zertifikate", status: s(["SERVER_IP"]), braucht: ["SERVER_IP"], schritte: ["Öffentliche IPv4 des Servers als SERVER_IP setzen."] },
     { key: "ntfy", kategorie: "Technik", name: "Push aufs Handy (ntfy)", zweck: "Warnungen und Tagesbericht", status: s(["NTFY_URL"]), braucht: ["NTFY_URL"], schritte: ["ntfy selbst betreiben oder ntfy.sh, Thema als NTFY_URL setzen."] },
-    { key: "api", kategorie: "Schnittstelle", name: "Nexova-API und n8n", zweck: "Beliebige Werkzeuge anbinden: Leads, Tickets, Nachrichten einliefern; Betriebe und Projekte lesen", status: schluessel.length ? "aktiv" : "bereit", braucht: [], schritte: ["API-Schlüssel mit genau den nötigen Rechten erzeugen.", "Endpunkte: /api/v1/betriebe, /api/v1/projekte, /api/v1/tickets, /api/v1/nachrichten (Authorization: Bearer nxv_…)."] },
+    { key: "api", kategorie: "Schnittstelle", name: "Levarex-API und n8n", zweck: "Beliebige Werkzeuge anbinden: Leads, Tickets, Nachrichten einliefern; Betriebe und Projekte lesen", status: schluessel.length ? "aktiv" : "bereit", braucht: [], schritte: ["API-Schlüssel mit genau den nötigen Rechten erzeugen.", "Endpunkte: /api/v1/betriebe, /api/v1/projekte, /api/v1/tickets, /api/v1/nachrichten (Authorization: Bearer lvx_…)."] },
   ];
 }

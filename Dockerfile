@@ -1,4 +1,4 @@
-# Nexova OS für Coolify auf Hetzner
+# Levarex OS (Docker), Betrieb bei Hostinger
 FROM node:22-bookworm-slim
 
 WORKDIR /app

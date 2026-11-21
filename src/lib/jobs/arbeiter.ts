@@ -2,12 +2,12 @@ import { naechsterJob } from "./warteschlange";
 import { zeitplanPruefen } from "./zeitplan";
 import { HANDLER } from "./handler";
 
-const g = globalThis as unknown as { __nexovaArbeiter?: boolean };
+const g = globalThis as unknown as { __levarexArbeiter?: boolean };
 
 /** Startet die Hintergrund-Abarbeitung einmal pro Serverprozess. */
 export function starteArbeiter(): void {
-  if (g.__nexovaArbeiter || process.env.NEXOVA_ARBEITER === "aus") return;
-  g.__nexovaArbeiter = true;
+  if (g.__levarexArbeiter || process.env.LEVAREX_ARBEITER === "aus") return;
+  g.__levarexArbeiter = true;
   let laeuft = false;
   let katalogAm = 0;
   setInterval(async () => {
@@ -27,5 +27,5 @@ export function starteArbeiter(): void {
     }
   }, 2000);
   setInterval(() => zeitplanPruefen().catch((e) => console.error("[zeitplan]", e)), 60_000);
-  console.log("Nexova OS: Hintergrund-Arbeiter gestartet");
+  console.log("Levarex OS: Hintergrund-Arbeiter gestartet");
 }

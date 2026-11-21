@@ -2,7 +2,7 @@
 // 1. Passt Inhalt nicht mehr über die Fußzeile, kommt er auf eine Folgeseite (Tabellen und Listen zeilenweise).
 // 2. Danach wird geprüft: nichts ragt in die Fußzeile, nichts über den rechten Rand, kein Text wird abgeschnitten.
 // Rückgabe: Liste der Probleme (leer = sauber).
-window.nexovaUmbruch = function () {
+window.levarexUmbruch = function () {
   var MM = 96 / 25.4;
   var SEITE = 297 * MM;
   var probleme = [];

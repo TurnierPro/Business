@@ -1,25 +1,25 @@
-# Für Coolify: App + PostgreSQL. Umgebungsvariablen in Coolify setzen, nicht hier.
+# Server (Hostinger): App + PostgreSQL. Umgebungsvariablen in der .env auf dem Server setzen, nicht hier. n8n und Caddy folgen mit Etappe 8.
 services:
   app:
     build: .
     restart: unless-stopped
     environment:
-      DATABASE_URL: postgres://nexova:${POSTGRES_PASSWORD}@db:5432/nexova
+      DATABASE_URL: postgres://levarex:${POSTGRES_PASSWORD}@db:5432/levarex
       BASE_URL: ${BASE_URL}
       SESSION_SECRET: ${SESSION_SECRET}
     volumes:
-      - nexova-daten:/data
+      - levarex-daten:/data
     depends_on:
       - db
   db:
     image: postgres:17
     restart: unless-stopped
     environment:
-      POSTGRES_USER: nexova
+      POSTGRES_USER: levarex
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: nexova
+      POSTGRES_DB: levarex
     volumes:
-      - nexova-db:/var/lib/postgresql/data
+      - levarex-db:/var/lib/postgresql/data
 volumes:
-  nexova-daten:
-  nexova-db:
+  levarex-daten:
+  levarex-db:

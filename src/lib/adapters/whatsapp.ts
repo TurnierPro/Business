@@ -4,7 +4,7 @@ import { getDb, schema } from "../db";
 // WhatsApp über die offizielle WhatsApp Business Cloud API (Meta).
 // Echt nur mit WHATSAPP_TOKEN und WHATSAPP_TELEFON_ID, sonst Simulator-Postfach.
 // Wichtig: Freie Texte erlaubt WhatsApp nur innerhalb von 24 Stunden nach der letzten Nachricht des Kunden.
-// Das prüft die Qualitätskontrolle im Postausgang. Erstkontakt per WhatsApp gibt es bei Nexova nicht (§ 7 UWG).
+// Das prüft die Qualitätskontrolle im Postausgang. Erstkontakt per WhatsApp gibt es bei Levarex nicht (§ 7 UWG).
 // Die Dienst-Adresse ist fest (keine Eingaben von außen), deshalb hier normales fetch.
 
 export const WHATSAPP_BRAUCHT = ["WHATSAPP_TOKEN", "WHATSAPP_TELEFON_ID", "WHATSAPP_APP_SECRET", "WHATSAPP_VERIFY_TOKEN"];

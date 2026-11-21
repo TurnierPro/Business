@@ -1,6 +1,6 @@
-# Nexova OS im Vergleich zu großen CRM- und Branchen-Systemen (Stand 20.10.2026)
+# Levarex OS im Vergleich zu großen CRM- und Branchen-Systemen (Stand 20.10.2026)
 
-Ziel: Nexova OS bildet unsere gesamte Lieferung ab, wird bei uns erprobt und später an Kunden verkauft, die nur noch ihre Schnittstellen anbinden.
+Ziel: Levarex OS bildet unsere gesamte Lieferung ab, wird bei uns erprobt und später an Kunden verkauft, die nur noch ihre Schnittstellen anbinden.
 
 Verglichen mit: Salesforce, HubSpot, Pipedrive (Vertrieb), MOCO und awork (Agenturen: Projekt, Zeit, Abrechnung), HERO (Handwerk: Projektmappe, Plantafel, mobile Zeiterfassung). Quellen am Ende.
 
@@ -8,7 +8,7 @@ Verglichen mit: Salesforce, HubSpot, Pipedrive (Vertrieb), MOCO und awork (Agent
 
 ## 1. Kontakte und Firmen
 
-| Funktion | Große Systeme | Nexova OS |
+| Funktion | Große Systeme | Levarex OS |
 |---|---|---|
 | Firmen mit Stammdaten, Status, Quelle | alle | ✅ Betriebe, Quelle nach Art. 14 DSGVO |
 | Mehrere Ansprechpartner je Firma, Hauptkontakt | alle | ✅ |
@@ -20,7 +20,7 @@ Verglichen mit: Salesforce, HubSpot, Pipedrive (Vertrieb), MOCO und awork (Agent
 
 ## 2. Vertrieb
 
-| Funktion | Große Systeme | Nexova OS |
+| Funktion | Große Systeme | Levarex OS |
 |---|---|---|
 | Pipeline als Spalten (Kanban) mit Wert je Stufe | Pipedrive (Kern), HubSpot | ✅ |
 | Prognose aus Wert × Wahrscheinlichkeit | alle | ✅ Wahrscheinlichkeit „Termin“ aus dem Business Case (40 %) |
@@ -33,7 +33,7 @@ Verglichen mit: Salesforce, HubSpot, Pipedrive (Vertrieb), MOCO und awork (Agent
 
 ## 3. Aktivitäten und Aufgaben
 
-| Funktion | Große Systeme | Nexova OS |
+| Funktion | Große Systeme | Levarex OS |
 |---|---|---|
 | Notizen, Anrufe, Termine, Aufgaben je Firma | alle | ✅ Chronik auf der Betriebsseite |
 | „Meine Aufgaben“, überfällig, heute, Woche | alle | ✅ Seite Aufgaben, Startseite, Zähler im Menü |
@@ -43,9 +43,9 @@ Verglichen mit: Salesforce, HubSpot, Pipedrive (Vertrieb), MOCO und awork (Agent
 
 ## 4. Lieferung und Projekte
 
-| Funktion | Große Systeme | Nexova OS |
+| Funktion | Große Systeme | Levarex OS |
 |---|---|---|
-| Projekt mit Phasen und Checkliste | awork, HERO | ✅ Vorlage je Paket, Nexova OS hakt Ereignisse selbst ab |
+| Projekt mit Phasen und Checkliste | awork, HERO | ✅ Vorlage je Paket, Levarex OS hakt Ereignisse selbst ab |
 | Projektmappe (Dokumente, Fotos, Verlauf) | HERO | ✅ Unterlagen, Archiv-PDFs, Verlauf |
 | Zeiterfassung je Projekt und Tätigkeit | MOCO, awork, HERO | ✅ mit Ziel aus dem Business Case |
 | Kunden-Einbindung (Portal) | awork Connect, HERO | ✅ Portal: Fortschritt, Unterlagen, Rechnungen, Abnahme, Wünsche, Anfragen |
@@ -56,7 +56,7 @@ Verglichen mit: Salesforce, HubSpot, Pipedrive (Vertrieb), MOCO und awork (Agent
 
 ## 5. Betreuung und Service
 
-| Funktion | Große Systeme | Nexova OS |
+| Funktion | Große Systeme | Levarex OS |
 |---|---|---|
 | Tickets mit Status, Priorität, Zuständigkeit | HubSpot Service, Salesforce Service | ✅ |
 | Tickets vom Kunden im Portal | HubSpot Kundenportal | ✅ |
@@ -68,7 +68,7 @@ Verglichen mit: Salesforce, HubSpot, Pipedrive (Vertrieb), MOCO und awork (Agent
 
 ## 6. Finanzen
 
-| Funktion | Große Systeme | Nexova OS |
+| Funktion | Große Systeme | Levarex OS |
 |---|---|---|
 | Rechnungen, Abos, Mahnwesen | MOCO, HERO (mit lexoffice) | ✅ inkl. Mahnstufen, Stripe |
 | Ausgaben mit Belegen, Berichte | MOCO (teilweise) | ✅ inkl. Plan-Ist aus dem Business Case |
@@ -76,7 +76,7 @@ Verglichen mit: Salesforce, HubSpot, Pipedrive (Vertrieb), MOCO und awork (Agent
 
 ## 7. Auswertungen
 
-| Funktion | Große Systeme | Nexova OS |
+| Funktion | Große Systeme | Levarex OS |
 |---|---|---|
 | Vertriebstrichter und Umwandlungsraten | alle | ✅ |
 | Kennzahlen-Dashboard | alle | ✅ Messgrößen aus dem Business Case |
@@ -84,7 +84,7 @@ Verglichen mit: Salesforce, HubSpot, Pipedrive (Vertrieb), MOCO und awork (Agent
 
 ## 8. Automatisierung, Schnittstellen, Sicherheit
 
-| Funktion | Große Systeme | Nexova OS |
+| Funktion | Große Systeme | Levarex OS |
 |---|---|---|
 | Automatische Abläufe (Workflows) | Salesforce Flow, HubSpot Workflows | ✅ 18 Agenten mit Zeitplan; alles nach außen nur nach Freigabe |
 | Qualitätskontrolle vor dem Versand | – | ✅ eigene Stärke |

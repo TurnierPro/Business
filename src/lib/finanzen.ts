@@ -15,7 +15,7 @@ import { UST } from "./pakete";
 // Planwerte je Monat aus dem Business Case (Fixkosten 3.900 €), in Cent.
 export const KATEGORIEN: { key: string; name: string; planMonat: number }[] = [
   { key: "steuerberater", name: "Steuerberater", planMonat: 50000 },
-  { key: "software", name: "Software, Hetzner, KI", planMonat: 55000 },
+  { key: "software", name: "Software, Server, KI", planMonat: 55000 },
   { key: "rechtstexte", name: "Rechtstexte", planMonat: 5000 },
   { key: "versicherungen", name: "Versicherungen", planMonat: 25000 },
   { key: "marketing", name: "Marketing und Briefe", planMonat: 80000 },

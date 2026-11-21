@@ -74,7 +74,7 @@ export default async function Kundenportal({ params, searchParams }: { params: P
   return (
     <>
       <h1>{b.name}</h1>
-      <p className="leise" style={{ marginTop: 8 }}>Ihr Kundenportal bei Nexova. Hier sehen Sie, wo Ihr Projekt steht, und finden alle Unterlagen.</p>
+      <p className="leise" style={{ marginTop: 8 }}>Ihr Kundenportal bei Levarex. Hier sehen Sie, wo Ihr Projekt steht, und finden alle Unterlagen.</p>
       {danke ? <div className="hinweis ok abstand" role="status">Vielen Dank. Ihr Angebot ist angenommen. Die Rechnung über die Anzahlung bekommen Sie in Kürze.</div> : null}
       {bezahlt ? <div className="hinweis ok abstand" role="status">Vielen Dank für Ihre Zahlung. Die Rechnung kommt per E-Mail, und wir melden uns mit den nächsten Schritten.</div> : null}
       {abnahme ? <div className="hinweis ok abstand" role="status">{abnahme === "verweigert" ? "Danke für Ihre Rückmeldung. Wir beheben die Mängel und melden uns." : "Vielen Dank für die Abnahme. Das Protokoll bekommen Sie per E-Mail."}</div> : null}
@@ -219,7 +219,7 @@ export default async function Kundenportal({ params, searchParams }: { params: P
 
       <section className="karte abstand">
         <h2>Ihre Ansprechpartner</h2>
-        <p>Daniel Lück (Beratung) und Max Steiner (Technik)<br />Tel. <a href={`tel:${marke.absender.telefon.replace(/\s/g, "")}`}>{marke.absender.telefon}</a> · <a href={`mailto:${marke.absender.email}`}>{marke.absender.email}</a></p>
+        <p>Daniel Lück (Beratung) und Maximilian Steiner (Technik)<br />Tel. <a href={`tel:${marke.absender.telefon.replace(/\s/g, "")}`}>{marke.absender.telefon}</a> · <a href={`mailto:${marke.absender.email}`}>{marke.absender.email}</a></p>
         <p className="leise klein">Dieser Link ist nur für Sie. Bitte nicht weitergeben.</p>
       </section>
     </>

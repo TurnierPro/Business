@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { datenOrdner } from "../pfade";
 
-// Qualitätsprüfung vor dem Livegang. Nur wenn alles grün ist, darf Max den Livegang freigeben.
+// Qualitätsprüfung vor dem Livegang. Nur wenn alles grün ist, darf Maximilian den Livegang freigeben.
 // Lighthouse und axe-core ergänzen diese Prüfung in Modul 11; die Ergebnisliste bleibt gleich aufgebaut.
 
 export type Pruefung = { name: string; ok: boolean; detail: string };

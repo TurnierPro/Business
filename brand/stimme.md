@@ -1,6 +1,6 @@
-# Nexova-Stimme
+# Levarex-Stimme
 
-Jeder Text, den Nexova OS schreibt, folgt diesen Regeln. Diese Datei wird bei jedem KI-Aufruf mitgeschickt.
+Jeder Text, den Levarex OS schreibt, folgt diesen Regeln. Diese Datei wird bei jedem KI-Aufruf mitgeschickt.
 
 ## Haltung
 - Wir verkaufen mehr Anfragen, mehr Bewerbungen und weniger Büroarbeit. Nie „KI“, „Digitalisierung“ oder „Website“ als Produkt.
@@ -22,4 +22,4 @@ Jeder Text, den Nexova OS schreibt, folgt diesen Regeln. Diese Datei wird bei je
 | Livegang 30 Tage nach Erhalt der Inhalte. | Blitzschnell online! |
 
 ## Unterschrift
-Briefe unterschreibt Daniel Lück. Technische Mails unterschreibt Max Steiner.
+Briefe unterschreibt Daniel Lück. Technische Mails unterschreibt Maximilian Steiner.

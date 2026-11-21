@@ -1,8 +1,8 @@
 {
-  "name": "nexova-os",
+  "name": "levarex-os",
   "version": "0.1.0",
   "private": true,
-  "description": "Nexova OS: Leads, Freigaben, Dokumente, Lieferung und Überwachung für Nexova Consulting",
+  "description": "Levarex OS: Leads, Freigaben, Dokumente, Lieferung und Überwachung für Levarex Consulting",
   "scripts": {
     "dev": "next dev -p 3000",
     "build": "next build",

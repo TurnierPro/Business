@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { marke } from "../marke";
-import { logoSvg } from "./logo";
+import { logo } from "./logo";
 import { pflichtangaben } from "../recht";
 
 // Gemeinsamer Rahmen für alle gedruckten Dokumente: helles Thema, A4, Marken-Schriften eingebettet.
@@ -72,7 +72,7 @@ ${o.extraCss ?? ""}
 }
 
 export function kopf(): string {
-  return `<div class="kopf"><div>${logoSvg({ text: t.text, akzent: t.akzent, consulting: true, hoehe: 40 })}<div class="slogan">${esc(marke.slogan)}</div></div></div>`;
+  return `<div class="kopf"><div>${logo({ art: "lockup", thema: "hell", hoehe: 40 })}<div class="slogan">${esc(marke.slogan)}</div></div></div>`;
 }
 
 export function fuss(): string {

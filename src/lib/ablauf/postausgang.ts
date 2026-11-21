@@ -62,7 +62,7 @@ export async function inPostausgang(e: NeuerEintrag): Promise<number> {
       meta: { ...(e.meta ?? {}), vorab: e.hinweise ?? [], erlaubteZahlen: e.erlaubteZahlen ?? [] },
     })
     .returning({ id: schema.postausgang.id });
-  await protokolliere("Nexova OS", `Erstellt, Qualitätskontrolle läuft: ${e.betreff}`, e.betriebId);
+  await protokolliere("Levarex OS", `Erstellt, Qualitätskontrolle läuft: ${e.betreff}`, e.betriebId);
   await einreihen("qualitaetskontrolle", { eintragId: neu.id });
   return neu.id;
 }
@@ -144,7 +144,7 @@ export async function qualitaetskontrolle(id: number): Promise<string> {
       modell: "schnell",
       betriebId: e.betriebId,
       aufgabe:
-        "Du bist die Qualitätskontrolle von Nexova. Prüfe den Text auf: Verstöße gegen die Nexova-Stimme, erfundene Fakten oder Zahlen, falsche Anrede, Tippfehler, unklare nächste Schritte, rechtlich heikle Aussagen (Garantien, Druck). Antworte nur mit einem JSON-Array von höchstens 5 kurzen deutschen Sätzen. Leeres Array, wenn alles in Ordnung ist.",
+        "Du bist die Qualitätskontrolle von Levarex. Prüfe den Text auf: Verstöße gegen die Levarex-Stimme, erfundene Fakten oder Zahlen, falsche Anrede, Tippfehler, unklare nächste Schritte, rechtlich heikle Aussagen (Garantien, Druck). Antworte nur mit einem JSON-Array von höchstens 5 kurzen deutschen Sätzen. Leeres Array, wenn alles in Ordnung ist.",
       daten: { kanal: e.kanal, zweck: e.zweck, empfaenger: e.empfaenger, betreff: e.betreff, text: e.text, erlaubteZahlen: e.meta.erlaubteZahlen ?? [] },
       ersatz: "[]",
     });
@@ -211,7 +211,7 @@ export async function versende(id: number): Promise<string> {
     // Genau die versendeten PDFs werden eingefroren und liegen danach unverändert im Kundenportal
     const anhaenge = await Promise.all(doks.map(async (d) => ({ name: `${d.titel}.pdf`, inhalt: await archivieren(d) })));
     // Pflichtangaben nach § 35a GmbHG hängen an jeder Mail
-    // Immer zwei Fassungen: Nur-Text (mit Signatur) und HTML im Nexova-Design
+    // Immer zwei Fassungen: Nur-Text (mit Signatur) und HTML im Levarex-Design
     ergebnis = await sendeMail({ an: e.empfaenger, betreff: e.betreff, text: e.text + mailSignatur(), html: mailHtml({ betreff: e.betreff, text: e.text }), anhaenge });
   } else if (e.kanal === "whatsapp") {
     // Das 24-Stunden-Fenster kann sich seit der Qualitätskontrolle geschlossen haben
@@ -225,7 +225,7 @@ export async function versende(id: number): Promise<string> {
     ergebnis = "Livegang freigegeben";
   }
   await db.update(schema.postausgang).set({ status: "versendet", versendetAm: new Date(), fehler: null }).where(and(eq(schema.postausgang.id, id), eq(schema.postausgang.status, "freigegeben")));
-  await protokolliere("Nexova OS", `Versendet (${e.kanal}): ${e.betreff}`, e.betriebId, ergebnis);
+  await protokolliere("Levarex OS", `Versendet (${e.kanal}): ${e.betreff}`, e.betriebId, ergebnis);
   await (await import("./nachrichten")).ausgangFesthalten(e, externeId);
   await nachVersand(e);
   return ergebnis;
