@@ -1,6 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { betriebPerPortal, portalDaten, zugangPerPortal } from "@/lib/kundenportal";
 import { PAKETE, PaketKey, euro, UST } from "@/lib/pakete";
+import { MailSymbol, TelefonSymbol } from "@/components/Symbole";
 import { marke } from "@/lib/marke";
 import { DOKART } from "@/lib/format";
 import { abnahmeErklaeren } from "@/lib/ablauf/vertrag";
@@ -214,11 +215,21 @@ export default async function Kundenportal({ params, searchParams }: { params: P
       <section className="karte">
         <h2>Ihre Ansprechpartner</h2>
         <div className="portal-personen">
-          {[["DL", "Daniel Lück", "Beratung und Angebot"], ["MS", "Maximilian Steiner", "Website und Technik"]].map(([k, n, r]) => (
-            <div key={n} className="portal-person"><span className="initialen" aria-hidden="true">{k}</span><div><div style={{ fontWeight: 600 }}>{n}</div><div className="leise klein">{r}</div></div></div>
+          {marke.personen.map((p) => (
+            <div key={p.name} className="portal-person">
+              {p.foto ? <img className="foto" src={p.foto} alt={p.name} width={72} height={72} /> : <span className="foto platzhalter" role="img" aria-label={`Foto von ${p.name} folgt`}><span>{p.kurz}</span><small>Foto folgt</small></span>}
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontWeight: 600 }}>{p.name}</div>
+                <a className="kontaktzeile" href={`mailto:${p.email}`}><MailSymbol /><span>{p.email}</span></a>
+                <a className="kontaktzeile" href={`tel:${p.telefon.replace(/\s/g, "")}`}><TelefonSymbol /><span>{p.telefon}</span></a>
+              </div>
+            </div>
           ))}
         </div>
-        <p style={{ marginTop: 16 }}>Tel. <a href={`tel:${marke.absender.telefon.replace(/\s/g, "")}`}>{marke.absender.telefon}</a> · <a href={`mailto:${marke.absender.email}`}>{marke.absender.email}</a></p>
+        <div className="kontakt-allgemein">
+          <a className="kontaktzeile" href={`tel:${marke.absender.telefon.replace(/\s/g, "")}`}><TelefonSymbol /><span>{marke.absender.telefon}</span></a>
+          <a className="kontaktzeile" href={`mailto:${marke.absender.email}`}><MailSymbol /><span>{marke.absender.email}</span></a>
+        </div>
         <p className="leise klein">Dieser Link ist nur für Sie. Bitte nicht weitergeben.</p>
       </section>
     </>

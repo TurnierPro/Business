@@ -21,7 +21,7 @@ import { ERGEBNISSE, KONTAKT } from "@/lib/ablauf/vertrieb";
 const PROJEKT_TEXT: Record<string, string> = { inhalte: "wartet auf Inhalte", bau: "wird gebaut", pruefung: "Prüfung nicht bestanden", bereit: "Vorschau beim Kunden", live: "live, Betreuung läuft", beendet: "beendet" };
 const ANGEBOT_TEXT: Record<string, string> = { entwurf: "erstellt", versendet: "beim Kunden", unterschrieben: "unterschrieben", angezahlt: "erste Rate bezahlt", abgeschlossen: "abgeschlossen", abgelehnt: "abgelehnt" };
 
-const REITER = [["ueberblick", "Überblick"], ["aktivitaeten", "Aktivitäten"], ["dokumente", "Unterlagen und Post"], ["portal", "Kundenportal"], ["daten", "Daten"]] as const;
+const REITER = [["ueberblick", "Überblick"], ["stammdaten", "Stammdaten"], ["aktivitaeten", "Aktivitäten"], ["dokumente", "Unterlagen"], ["portal", "Kundenportal"]] as const;
 
 export default async function Lead({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ tab?: string }> }) {
   const id = Number((await params).id);
@@ -124,6 +124,7 @@ export default async function Lead({ params, searchParams }: { params: Promise<{
 
       {tab === "ueberblick" ? (
         <>
+          {!b.email && !gesperrt ? <Link className="hinweis" href={`/leads/${id}?tab=stammdaten`} style={{ display: "block", textDecoration: "none" }}>E-Mail-Adresse fehlt noch. Für Angebot und Kundenportal wird sie gebraucht: in den Stammdaten nachtragen →</Link> : null}
           <div className="akte-raster">
             <section className="karte" aria-labelledby="ablauf">
               <div className="kopfzeile" style={{ marginBottom: 12 }}>
@@ -255,19 +256,6 @@ export default async function Lead({ params, searchParams }: { params: Promise<{
               </section>
             </div>
           </div>
-
-          <div className="abstand">
-            <form action={betriebSpeichern} className="karte" aria-labelledby="stammdaten">
-              <div className="kopfzeile" style={{ marginBottom: 12 }}>
-                <h2 id="stammdaten" style={{ margin: 0 }}>Stammdaten</h2>
-                <button className="knopf klein">Speichern</button>
-              </div>
-              <input type="hidden" name="id" value={id} />
-              <BetriebFelder b={b} />
-              <button className="knopf">Stammdaten speichern</button>
-            </form>
-
-          </div>
         </>
       ) : null}
 
@@ -374,9 +362,44 @@ export default async function Lead({ params, searchParams }: { params: Promise<{
       ) : null}
 
       {tab === "dokumente" ? (
+        <>
+        <div className="raster zwei" style={{ alignItems: "start", marginBottom: 12 }}>
+          <section className="karte">
+            <h2>Angebote</h2>
+            {angebote.length ? (
+              <ul className="liste">
+                {angebote.map((a) => {
+                  const dok = doks.find((d) => d.art === "angebot" && (d.daten as { angebotId?: number }).angebotId === a.id) ?? (a.id === angebot?.id ? doks.find((d) => d.art === "angebot") : null) ?? null;
+                  return (
+                    <li key={a.id}>
+                      <div><div className="titel">{PAKETE[a.paket as PaketKey]?.name ?? a.paket}{(a.module ?? []).length ? ` + ${(a.module ?? []).length} Modul${(a.module ?? []).length > 1 ? "e" : ""}` : ""}</div><div className="unter">{euro(a.einmalig)} einmalig · {euro(a.monatlich)} im Monat · {datum(a.erstelltAm)}</div></div>
+                      <div className="knopfreihe" style={{ gap: 8 }}><span className="status">{ANGEBOT_TEXT[a.status] ?? a.status}</span>{dok ? <a className="knopf klein" href={`/dokument/${dok.id}`} target="_blank">PDF</a> : null}</div>
+                    </li>
+                  );
+                })}
+              </ul>
+            ) : <p className="leise klein">Noch kein Angebot.</p>}
+          </section>
+          <section className="karte">
+            <h2>Rechnungen</h2>
+            {rechnungen.length ? (
+              <ul className="liste">
+                {rechnungen.map((r) => {
+                  const dok = doks.find((d) => d.art === "rechnung" && (d.daten as { nummer?: string }).nummer === r.nummer);
+                  return (
+                    <li key={r.id}>
+                      <div><div className="titel">{r.nummer} · {r.art === "anzahlung" ? "Erste Rate" : r.art === "schluss" ? "Schlussrechnung" : "Monatsbeitrag"}</div><div className="unter">{euro(Math.round(r.netto * 1.19))} brutto · {datum(r.erstelltAm)}{r.faelligAm ? ` · fällig ${datum(r.faelligAm)}` : ""}</div></div>
+                      <div className="knopfreihe" style={{ gap: 8 }}><Status wert={r.status} />{dok ? <a className="knopf klein" href={`/dokument/${dok.id}`} target="_blank">PDF</a> : null}</div>
+                    </li>
+                  );
+                })}
+              </ul>
+            ) : <p className="leise klein">Noch keine Rechnungen.</p>}
+          </section>
+        </div>
         <div className="raster zwei" style={{ alignItems: "start" }}>
         <section className="karte">
-          <h2>Unterlagen</h2>
+          <h2>Alle Unterlagen</h2>
           {doks.length || demos.length ? (
             <ul className="liste">
               {demos.map((d) => (
@@ -410,10 +433,24 @@ export default async function Lead({ params, searchParams }: { params: Promise<{
           ) : <p className="leise">Noch nichts.</p>}
         </section>
         </div>
+        </>
       ) : null}
 
-      {tab === "daten" ? (
+      {tab === "stammdaten" ? (
         <>
+          <div>
+            <form action={betriebSpeichern} className="karte" aria-labelledby="stammdaten">
+              <div className="kopfzeile" style={{ marginBottom: 12 }}>
+                <h2 id="stammdaten" style={{ margin: 0 }}>Stammdaten</h2>
+                <button className="knopf klein">Speichern</button>
+              </div>
+              <input type="hidden" name="id" value={id} />
+              <BetriebFelder b={b} />
+              <button className="knopf">Stammdaten speichern</button>
+            </form>
+
+          </div>
+          <h2 className="katalog-titel">Zuständigkeit, Tickets, Verlauf und Datenschutz</h2>
           <div className="raster zwei" style={{ alignItems: "start" }}>
             <div>
           <form action={betriebZuweisen} className="karte abstand">
@@ -430,8 +467,8 @@ export default async function Lead({ params, searchParams }: { params: Promise<{
             {tickets.length ? <ul className="liste">{tickets.map((t) => <li key={t.id}><div><div className="titel"><Link href={`/tickets/${t.id}`}>{ticketNummer(t.id)} {t.betreff}</Link></div><div className="unter">{datum(t.erstelltAm)}</div></div><Status wert={t.status === "in_arbeit" ? "in_arbeit_ticket" : t.status === "erledigt" ? "fertig" : t.status} /></li>)}</ul> : <p className="leise klein">Keine Tickets.</p>}
           </section>
             </div>
-        <section className="karte">
-          <h2>Verlauf</h2>
+        <details className="karte">
+          <summary className="aufklapp-titel">Verlauf ({verlauf.length})</summary>
           {verlauf.length ? (
             <ul className="liste">
               {verlauf.map((v) => (
@@ -439,7 +476,7 @@ export default async function Lead({ params, searchParams }: { params: Promise<{
               ))}
             </ul>
           ) : <p className="leise">Noch nichts.</p>}
-        </section>
+        </details>
           </div>
 
       {!gesperrt ? (

@@ -8,7 +8,7 @@ export default function NeuerLead() {
   return (
     <>
       <Link href="/leads" className="zurueck">← Leads</Link>
-      <div className="kopfzeile"><div><h1>Lead anlegen</h1><p>Zum Beispiel eine Empfehlung oder ein Betrieb, der selbst angefragt hat. Nur der Name ist Pflicht; den Rest kannst du später ergänzen.</p></div></div>
+      <div className="kopfzeile"><div><h1>Lead anlegen</h1><p>Zum Beispiel eine Empfehlung oder ein Betrieb, der selbst angefragt hat. Pflicht sind Name und Website (oder „Keine Website vorhanden“); den Rest kannst du später ergänzen.</p></div></div>
       <form action={leadAnlegen} className="karte">
         <BetriebFelder />
         <div className="knopfreihe">

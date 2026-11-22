@@ -63,8 +63,16 @@ function geburtsdatumAus(f: FormData): string | null {
   return t;
 }
 
+/** Website ist Pflicht, außer „Keine Website vorhanden“ ist angekreuzt. */
+function websiteAus(f: FormData): string | null {
+  const w = text(f, "website");
+  if (!w && f.get("keineWebsite") !== "ja") throw new Error("Bitte die Website eintragen oder „Keine Website vorhanden“ ankreuzen.");
+  return f.get("keineWebsite") === "ja" ? null : w;
+}
+
 export async function leadAnlegen(f: FormData) {
-  await ausfuehren("/leads", "Lead angelegt", async (wer) => {
+  await ausfuehren("/leads/neu", "Lead angelegt", async (wer) => {
+    const website = websiteAus(f);
     const r = await akquise.legeBetriebAn(
       {
         name: text(f, "name"),
@@ -76,7 +84,7 @@ export async function leadAnlegen(f: FormData) {
         ort: text(f, "ort"),
         telefon: text(f, "telefon"),
         email: text(f, "email"),
-        website: text(f, "website"),
+        website: website ?? undefined,
         datenquelle: text(f, "datenquelle") || undefined,
         mitarbeiter: f.get("mitarbeiter") ? zahl(f, "mitarbeiter") : undefined,
         score: f.get("score") ? zahl(f, "score") : 50,
@@ -110,7 +118,7 @@ export async function betriebSpeichern(f: FormData) {
         ort: text(f, "ort") || null,
         telefon: text(f, "telefon") || null,
         email: text(f, "email") || null,
-        website: text(f, "website") || null,
+        website: websiteAus(f),
         datenquelle: text(f, "datenquelle") || null,
         notizen: text(f, "notizen") || null,
         letzteAktivitaet: new Date(),

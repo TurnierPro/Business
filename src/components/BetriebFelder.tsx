@@ -16,7 +16,8 @@ export function BetriebFelder({ b = {} }: { b?: B }) {
           <label className="feld"><span>Straße und Nr. <em>für Brief und Besuch</em></span><input name="strasse" defaultValue={b.strasse ?? ""} autoComplete="street-address" /></label>
           <label className="feld"><span>PLZ</span><input name="plz" defaultValue={b.plz ?? ""} inputMode="numeric" /></label>
           <label className="feld"><span>Ort</span><input name="ort" defaultValue={b.ort ?? ""} /></label>
-          <label className="feld" style={{ gridColumn: "1 / -1" }}><span>Website <em>optional, daraus entsteht der Online-Check</em></span><input name="website" defaultValue={b.website ?? ""} placeholder="beispiel.de" /></label>
+          <label className="feld" style={{ gridColumn: "span 2" }}><span>Website <em className="pflicht">Pflicht</em></span><input name="website" defaultValue={b.website ?? ""} placeholder="beispiel.de" /></label>
+          <label className="haken" style={{ alignSelf: "end", marginBottom: 12 }}><input type="checkbox" name="keineWebsite" value="ja" defaultChecked={b.name !== undefined && !b.website} /><span>Keine Website vorhanden</span></label>
         </div>
       </fieldset>
 
@@ -29,18 +30,16 @@ export function BetriebFelder({ b = {} }: { b?: B }) {
             </label>
             <label className="feld"><span>Inhaber <em>optional</em></span><input name="inhaber" defaultValue={b.inhaber ?? ""} placeholder="Vorname Nachname" /></label>
           </div>
-          <label className="feld"><span>Geburtsdatum Inhaber <em>optional</em></span><input name="geburtsdatum" type="date" defaultValue={b.inhaberGeburtsdatum ?? ""} max={new Date().toISOString().slice(0, 10)} /><small>Nur, wenn der Inhaber es uns selbst gibt. Dient nur dem Geburtstagsgruß (Aufgabe 3 Tage vorher).</small></label>
+          <label className="feld"><span>Geburtsdatum Inhaber <em>optional</em></span><input name="geburtsdatum" type="date" defaultValue={b.inhaberGeburtsdatum ?? ""} max={new Date().toISOString().slice(0, 10)} /></label>
           <label className="feld"><span>Telefon <em>optional</em></span><input name="telefon" type="tel" defaultValue={b.telefon ?? ""} placeholder="0721 …" /></label>
-          <label className="feld" style={{ gridColumn: "1 / -1" }}><span>E-Mail <em>optional</em></span><input name="email" type="email" defaultValue={b.email ?? ""} /><small>Nur, wenn der Betrieb sie uns gegeben hat. Kein Erstkontakt per E-Mail.</small></label>
+          <label className="feld" style={{ gridColumn: "1 / -1" }}><span>E-Mail <em>optional</em></span><input name="email" type="email" defaultValue={b.email ?? ""} /><small>Kann später nachgetragen werden; für Angebot und Kundenportal wird sie gebraucht.</small></label>
         </div>
       </fieldset>
 
       <fieldset className="gruppe ganz">
-        <legend><span className="nr">3</span> Herkunft und Notizen</legend>
-        <div className="raster zwei" style={{ gap: 12 }}>
-        <label className="feld"><span>Woher stammen die Daten?</span><input name="datenquelle" defaultValue={b.datenquelle ?? ""} placeholder="z. B. Empfehlung von Herrn Beispiel, oder Impressum beispiel.de, abgerufen am 19.10.2026" /><small>Steht im Akquise-Brief (Art. 14 DSGVO). Leer lassen: Levarex OS trägt die Website bzw. „manuell erfasst“ ein.</small></label>
+        <legend><span className="nr">3</span> Notizen</legend>
         <label className="feld"><span>Notizen <em>optional</em></span><textarea name="notizen" defaultValue={b.notizen ?? ""} style={{ minHeight: 80 }} placeholder="Was wissen wir schon? z. B. drei offene Stellen, Website von 2015" /></label>
-        </div>
+        {b.datenquelle ? <input type="hidden" name="datenquelle" value={b.datenquelle} /> : null}
       </fieldset>
     </div>
   );
