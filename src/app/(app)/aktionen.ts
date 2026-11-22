@@ -159,8 +159,9 @@ export async function eintragSpeichern(f: FormData) {
   await ausfuehren(`/freigaben/${id}`, "Text gespeichert. Bitte jetzt prüfen und freigeben.", async (wer) => {
     const db = await getDb();
     const empfaenger = text(f, "empfaenger");
-    if (empfaenger) await db.update(schema.postausgang).set({ empfaenger }).where(eq(schema.postausgang.id, id));
+    // Erst der Text (prüft den Status), dann der Empfänger: Versendetes bleibt unverändert
     await post.bearbeiten(id, text(f, "betreff"), String(f.get("text") ?? ""), wer);
+    if (empfaenger) await db.update(schema.postausgang).set({ empfaenger }).where(eq(schema.postausgang.id, id));
   });
 }
 
@@ -787,4 +788,15 @@ export async function beitragVeroeffentlicht(f: FormData) {
 export async function beitragLoeschen(f: FormData) {
   const id = zahl(f, "betriebId");
   await ausfuehren(`/leads/${id}?tab=dokumente#beitraege`, "Entwurf gelöscht.", async (wer) => (await import("@/lib/beitraege")).beitragLoeschen(zahl(f, "beitragId"), wer));
+}
+
+export async function protokollAusfuellen(f: FormData) {
+  const id = zahl(f, "eintragId");
+  const zeilen = (k: string) => text(f, k).split(/\r?\n/);
+  await ausfuehren(`/freigaben/${id}`, "Protokoll ergänzt. Die Prüfung läuft neu.", (wer) => post.protokollAusfuellen(id, zahl(f, "dokumentId"), { ziele: zeilen("ziele"), probleme: zeilen("probleme") }, wer));
+}
+
+export async function anhangEntfernen(f: FormData) {
+  const id = zahl(f, "eintragId");
+  await ausfuehren(`/freigaben/${id}`, "Anhang entfernt. Die Prüfung läuft neu.", (wer) => post.anhangEntfernen(id, zahl(f, "dokumentId"), wer));
 }

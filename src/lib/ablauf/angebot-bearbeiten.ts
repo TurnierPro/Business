@@ -27,9 +27,13 @@ export type AngebotAenderung = z.infer<typeof AngebotAenderung>;
 
 export function mitSummen(alt: AngebotDaten, a: AngebotAenderung): AngebotDaten {
   const positionen = a.positionen.map((p) => ({ ...p, hinweis: p.hinweis || undefined }));
+  // Bausteine (Anlage 1) nur für Positionen, die es noch gibt: gestrichenes Modul verschwindet auch aus der Leistungsbeschreibung
+  const noch = (name: string) => positionen.some((p) => p.text.startsWith(name));
+  const bausteine = alt.bausteine?.filter((b) => noch(b.name));
   return {
     ...alt,
     positionen,
+    ...(alt.bausteine ? { bausteine, mitKi: (bausteine ?? []).some((b) => /Marketing|Kundenmanagement/.test(b.name)) } : {}),
     einleitung: a.einleitung,
     anmerkungen: a.anmerkungen ?? "",
     einmalig: positionen.reduce((s, p) => s + p.einmalig, 0),
@@ -53,13 +57,24 @@ export async function angebotAendern(eintragId: number, roh: unknown, wer: strin
   if (e.status !== "zur_freigabe" || d.archivPfad) throw new Error("Das Angebot ist schon verschickt und kann nicht mehr geändert werden.");
   const neu = mitSummen(d.daten as AngebotDaten, aenderung);
   if (neu.einmalig < 0) throw new Error("Die Summe darf nicht negativ sein.");
+  if (neu.einmalig === 0 && neu.monatlich === 0) throw new Error("Ein Angebot über 0 € ergibt keinen Sinn. Bitte Positionen prüfen.");
   const db = await getDb();
   await db.update(schema.dokumente).set({ daten: neu }).where(eq(schema.dokumente.id, d.id));
   const angebotId = Number(e.meta.angebotId);
-  if (angebotId) await db.update(schema.angebote).set({ positionen: neu.positionen ?? [], einmalig: neu.einmalig, monatlich: neu.monatlich }).where(eq(schema.angebote.id, angebotId));
+  if (angebotId) {
+    // Gebuchte Module und Zusätze folgen den Positionen (für Verträge, Checkliste, Portal)
+    const [a] = await db.select().from(schema.angebote).where(eq(schema.angebote.id, angebotId));
+    const { MODULE, ZUSAETZE } = await import("../katalog");
+    const drin = (name: string) => (neu.positionen ?? []).some((p) => p.text.startsWith(name));
+    const module = (a?.module ?? []).filter((k) => { const m = MODULE.find((x) => x.key === k); return !m || drin(m.name); });
+    const zusaetze = (a?.zusaetze ?? []).filter((k) => { const z = ZUSAETZE.find((x) => x.key === k); return !z || drin(z.name); });
+    await db.update(schema.angebote).set({ positionen: neu.positionen ?? [], einmalig: neu.einmalig, monatlich: neu.monatlich, module, zusaetze }).where(eq(schema.angebote.id, angebotId));
+  }
   const erlaubteZahlen = [euro(neu.einmalig), euro(neu.monatlich), ...(neu.positionen ?? []).flatMap((p) => [euro(p.einmalig), euro(p.monatlich)])];
   await db.update(schema.postausgang).set({ meta: { ...e.meta, erlaubteZahlen } }).where(eq(schema.postausgang.id, eintragId));
   await protokolliere(wer, `Angebot angepasst: ${euro(neu.einmalig)} + ${euro(neu.monatlich)}/Monat`, e.betriebId);
-  // Freigaben zurücksetzen und Qualitätskontrolle neu starten
-  await bearbeiten(eintragId, e.betreff, e.text, wer);
+  // Neuer Einstieg auch in der Begleit-Mail; Freigaben zurücksetzen und Qualitätskontrolle neu starten
+  const altEinleitung = (d.daten as AngebotDaten).einleitung;
+  const text = altEinleitung && e.text.includes(altEinleitung) ? e.text.replace(altEinleitung, neu.einleitung) : e.text;
+  await bearbeiten(eintragId, e.betreff, text, wer);
 }

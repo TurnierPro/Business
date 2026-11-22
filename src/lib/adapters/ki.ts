@@ -94,12 +94,19 @@ export function pruefeText(text: string, erlaubt: string[] = []): string[] {
     .replace(/19\s?%\s?(USt|Umsatzsteuer|MwSt|Mehrwertsteuer)/gi, "")
     .replace(/(Umsatzsteuer|USt|MwSt)\s*\(?19\s?%\)?/gi, "");
   const zahlen = ohneKonditionen.match(/\d[\d.,]*\s?(€|Euro|%|Prozent)/g) ?? [];
-  const norm = (s: string) => s.replace(/[\s.]/g, "").replace("Euro", "€").replace("Prozent", "%");
-  const erlaubtNorm = erlaubt.map(norm);
+  // Genau vergleichen (Betrag in Cent bzw. Prozentwert), nicht als Teilstring: „500,00 €“ ist nicht „0,00 €“
+  const wert = (s: string): string | null => {
+    const m = /(\d[\d.,]*)\s?(€|Euro|%|Prozent)/.exec(s);
+    if (!m) return null;
+    const zahl = Number(m[1].replace(/\.(?=\d{3}(\D|$))/g, "").replace(",", "."));
+    if (!Number.isFinite(zahl)) return null;
+    return /€|Euro/.test(m[2]) ? `${Math.round(zahl * 100)}€` : `${zahl}%`;
+  };
+  // Erlaubte Angaben ohne Einheit (z. B. Zinssatz „10,52“) gelten als Prozentwert
+  const erlaubteWerte = new Set(erlaubt.map((e) => wert(/^\s*\d[\d.,]*\s*$/.test(e) ? `${e.trim()} %` : e)).filter((w): w is string => !!w));
   for (const z of zahlen) {
-    if (!erlaubtNorm.some((e) => e.includes(norm(z).replace(/,00/, "")) || norm(z).includes(e))) {
-      hinweise.push(`Zahl „${z}“ steht nicht in den Daten. Bitte prüfen.`);
-    }
+    const w = wert(z);
+    if (!w || !erlaubteWerte.has(w)) hinweise.push(`Zahl „${z}“ steht nicht in den Daten. Bitte prüfen.`);
   }
   for (const wort of ["garantiert", "Garantie", "KI-gestützt", "Digitalisierung", "nur heute", "jetzt zugreifen"]) {
     if (text.includes(wort)) hinweise.push(`Wort „${wort}“ passt nicht zur Levarex-Stimme.`);

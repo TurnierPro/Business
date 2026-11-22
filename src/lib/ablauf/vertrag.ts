@@ -5,7 +5,7 @@ import { melde } from "../adapters/push";
 import { portalLink } from "../kundenportal";
 import { datumDe } from "../docs/basis";
 import { PAKETE, PaketKey, euro, UST } from "../pakete";
-import { ABNAHME_FRIST_TAGE, KUENDIGUNG_MONATE_VOR_ENDE, LAUFZEIT_MONATE, VERLAENGERUNG_MONATE, VERTRAGSWERK_VERSION, PILOT_BINDUNG_MONATE } from "../recht";
+import { ABNAHME_FRIST_TAGE, KUENDIGUNG_MONATE_VOR_ENDE, LAUFZEIT_MONATE, VERLAENGERUNG_MONATE, VERTRAGSWERK_VERSION, PILOT_BINDUNG_MONATE, LASTSCHRIFT_ENDE_VORLAUF_TAGE } from "../recht";
 import { inPostausgang } from "./postausgang";
 import { hakeAb } from "./checkliste";
 import { basisUrl, anschrift, betrieb, neuesDokument, SYSTEM } from "./gemeinsam";
@@ -162,7 +162,7 @@ export async function schlussrechnungStellen(projektId: number): Promise<void> {
     netto: a.einmalig - anzNetto,
     positionstext: `Schlussrechnung ${name}`,
     positionen: [
-      { text: `${name}, Gesamtleistung laut Angebot A-${a.erstelltAm.getFullYear()}-${String(a.id).padStart(4, "0")}`, netto: a.einmalig },
+      { text: `${name}${a.positionen.length > 1 ? ` und ${a.positionen.length - 1} weitere Position${a.positionen.length > 2 ? "en" : ""}` : ""}, Gesamtleistung laut Angebot A-${a.erstelltAm.getFullYear()}-${String(a.id).padStart(4, "0")}`, netto: a.einmalig },
       { text: `abzüglich erste Rate${anz ? `, Rechnung ${anz.nummer} vom ${datumDe(anz.erstelltAm)}` : ""} (darauf entfallende USt ${euro(Math.round(anzNetto * UST))})`, netto: -anzNetto },
     ],
     leistung: `Abnahme am ${am}, Livegang am ${datumDe()}`,
@@ -173,10 +173,21 @@ export async function schlussrechnungStellen(projektId: number): Promise<void> {
  * Vertragsende nach Baukasten: Laufzeit 24 Monate ab Livegang, danach Verlängerung um je 12 Monate;
  * Kündigung bis 3 Monate vor Ende in Textform. Die Kündigung wirkt zum Ende der laufenden Periode.
  */
+/** Monate addieren, ohne über das Monatsende zu springen (31.05. + 9 Monate = 28./29.02.). */
+function plusMonate(d: Date, m: number): Date {
+  const z = new Date(d.getFullYear(), d.getMonth() + m, 1, 23, 59);
+  z.setDate(Math.min(d.getDate(), new Date(z.getFullYear(), z.getMonth() + 1, 0).getDate()));
+  return z;
+}
+
 export function laufzeitEnde(start: Date, eingang: Date): Date {
   let monate = LAUFZEIT_MONATE;
-  const ende = (m: number) => new Date(start.getFullYear(), start.getMonth() + m, start.getDate() - 1, 23, 59);
-  const frist = (m: number) => new Date(start.getFullYear(), start.getMonth() + m - KUENDIGUNG_MONATE_VOR_ENDE, start.getDate() - 1, 23, 59);
+  const ende = (m: number) => {
+    const e = plusMonate(start, m);
+    e.setDate(e.getDate() - 1);
+    return e;
+  };
+  const frist = (m: number) => plusMonate(ende(m), -KUENDIGUNG_MONATE_VOR_ENDE);
   while (eingang > frist(monate)) monate += VERLAENGERUNG_MONATE;
   return ende(monate);
 }
@@ -185,12 +196,17 @@ export function laufzeitEnde(start: Date, eingang: Date): Date {
 export async function kuendigungErfassen(projektId: number, wer: string, eingang = new Date()): Promise<Date> {
   const p = await projekt(projektId);
   if (p.gekuendigtAm) throw new Error("Die Kündigung ist schon erfasst.");
-  const start = p.liveAm ?? p.aboAb ?? new Date();
+  // Die Laufzeit beginnt erst mit dem Livegang. Vorher ist es eine Kündigung des Werkvertrags (§ 648 BGB): mit Daniel und ggf. Anwalt klären.
+  if (!p.liveAm && !p.aboAb) throw new Error("Vor dem Livegang läuft noch keine Betreuung. Eine Kündigung des Auftrags bitte persönlich klären (§ 648 BGB) und als Notiz festhalten.");
+  const start = p.liveAm ?? p.aboAb!;
   const ende = laufzeitEnde(start, eingang);
   const db = await getDb();
   await db.update(schema.projekte).set({ gekuendigtAm: eingang, endeAm: ende }).where(eq(schema.projekte.id, projektId));
   const b = await betrieb(p.betriebId);
-  const [pilot] = await db.select({ id: schema.dokumente.id }).from(schema.dokumente).where(and(eq(schema.dokumente.betriebId, b.id), eq(schema.dokumente.art, "pilotvereinbarung")));
+  // Nur eine unterschriebene Pilotvereinbarung zu genau diesem Auftrag zählt
+  const pilot = (await db.select().from(schema.dokumente).where(and(eq(schema.dokumente.betriebId, b.id), eq(schema.dokumente.art, "pilotvereinbarung")))).find(
+    (d) => (d.daten as { angebotId?: number }).angebotId === p.angebotId && ((d.daten as { unterschriften?: { rolle: string }[] }).unterschriften ?? []).some((u) => u.rolle === "kunde"),
+  );
   await protokolliere(wer, `Kündigung erfasst, Ende ${datumDe(ende)}`, b.id);
   await inPostausgang({
     betriebId: b.id,
@@ -206,30 +222,36 @@ export async function kuendigungErfassen(projektId: number, wer: string, eingang
     ],
     meta: { projektId },
   });
-  if (p.qontoAboId) {
-    await inPostausgang({
-      betriebId: b.id,
-      projektId,
-      kanal: "lastschrift",
-      zweck: "lastschrift_ende",
-      empfaenger: b.email ?? "(E-Mail-Adresse fehlt)",
-      betreff: `Lastschrift beenden: ${b.name}`,
-      text: `Qonto-Einzug ${p.qontoAboId} zum Vertragsende am ${datumDe(ende)} beenden. Danach wird nichts mehr eingezogen.`,
-      meta: { projektId, aboId: p.qontoAboId, endeAm: ende.toISOString() },
-    });
-  }
-
+  // Den Einzug beendet der Agent „vertragsende“ kurz vor dem Ende (sonst fehlen bis dahin die Monatsbeiträge)
   return ende;
 }
 
 /** Agent (täglich): Verträge, deren Ende erreicht ist, beenden und das Team an die Übergabe erinnern. */
 export async function vertragsende(jetzt = new Date()): Promise<string> {
   const db = await getDb();
+  // Einzug beenden: Eintrag zur Freigabe frühestens LASTSCHRIFT_ENDE_VORLAUF_TAGE vor dem Ende, einmal je Projekt
+  const bald = await db.select().from(schema.projekte).where(and(eq(schema.projekte.status, "live"), isNotNull(schema.projekte.endeAm), isNotNull(schema.projekte.qontoAboId), lte(schema.projekte.endeAm, new Date(jetzt.getTime() + LASTSCHRIFT_ENDE_VORLAUF_TAGE * 864e5))));
+  for (const p of bald) {
+    const schon = (await db.select().from(schema.postausgang).where(and(eq(schema.postausgang.projektId, p.id), eq(schema.postausgang.zweck, "lastschrift_ende")))).some((e) => e.status !== "abgelehnt");
+    if (schon) continue;
+    const b = await betrieb(p.betriebId);
+    await inPostausgang({
+      betriebId: b.id,
+      projektId: p.id,
+      kanal: "lastschrift",
+      zweck: "lastschrift_ende",
+      empfaenger: b.email ?? "(E-Mail-Adresse fehlt)",
+      betreff: `Lastschrift beenden: ${b.name}`,
+      text: `Qonto-Einzug ${p.qontoAboId} zum Vertragsende am ${datumDe(p.endeAm!)} beenden. Der letzte Monatsbeitrag ist eingezogen; danach wird nichts mehr eingezogen.`,
+      meta: { projektId: p.id, aboId: p.qontoAboId, endeAm: p.endeAm!.toISOString() },
+    });
+  }
   const ende = await db.select().from(schema.projekte).where(and(eq(schema.projekte.status, "live"), isNotNull(schema.projekte.endeAm), lte(schema.projekte.endeAm, jetzt)));
   for (const p of ende) {
     await db.update(schema.projekte).set({ status: "beendet" }).where(eq(schema.projekte.id, p.id));
     const b = await betrieb(p.betriebId);
     await protokolliere(SYSTEM, "Vertrag beendet", b.id);
+    if (p.qontoAboId) await melde("job", false, `Einzug läuft noch: ${b.name}`, `Vertrag beendet, aber der Qonto-Einzug ${p.qontoAboId} ist noch aktiv. Eintrag „Lastschrift beenden“ in den Freigaben freigeben.`);
     await melde("job", false, `Vertrag beendet: ${b.name}`, "Exit-Paket übergeben (Domain, Inhalte, Code), dann Hosting abschalten. Rechnungen bleiben 8 Jahre im Archiv.");
   }
   return `${ende.length} Verträge beendet`;

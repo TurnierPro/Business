@@ -16,7 +16,7 @@ import { NICHT_ENTHALTEN, PAKETE, PaketKey, euro, paketVorschlag, UST } from "..
 import { katalogLaden } from "../katalog-db";
 import { AGB_VERSION, ZAHLUNGSZIEL_TAGE } from "../recht";
 import type { ProtokollDaten } from "../docs/vorlagen";
-import { inPostausgang } from "./postausgang";
+import { inPostausgang, istGesperrt } from "./postausgang";
 import { systemAufgabeErledigt } from "./crm";
 import { checklisteSicherstellen } from "./checkliste";
 import { anschrift, basisUrl, betrieb, neuesDokument, setzeStatus, SYSTEM } from "./gemeinsam";
@@ -76,13 +76,15 @@ export async function transkription(terminId: number): Promise<string> {
 
 type Auswertung = Omit<ProtokollDaten, "an" | "datum"> & { einleitung: string };
 
+// Ohne KI (oder wenn Feldern fehlen): keine erfundenen Inhalte. Ziele und Probleme bleiben leer, das Protokoll ist als
+// unvollständig markiert und die Qualitätskontrolle hält die Mail an, bis jemand es ausgefüllt oder entfernt hat.
 function ersatzAuswertung(b: { name: string; gewerk: string; mitarbeiter: number | null }): Auswertung {
   const paket: PaketKey = paketVorschlag(b.mitarbeiter);
   return {
-    ziele: ["Zwei neue Gesellen und einen Azubi gewinnen", "Weniger Zettelwirtschaft im Büro", "Anfragen mit Fotos statt unnötiger Anfahrten"],
-    probleme: ["Website von 2014, auf dem Handy schlecht lesbar", "Anfragen kommen über Telefon, Mail und WhatsApp durcheinander", "Stellenanzeige in der Zeitung bringt kaum Bewerbungen"],
-    empfehlung: { paket, begruendung: `Der ${PAKETE[paket].name} bringt Anfragen mit Fotos an eine Stelle. Für die offenen Stellen passt danach das Modul Personal & Bewerbung.` },
-    offeneFragen: ["Wer liefert die Fotos vom Team?", "Gibt es ein Logo als Datei?"],
+    ziele: [],
+    probleme: [],
+    empfehlung: { paket, begruendung: `Vorschlag nach Betriebsgröße: ${PAKETE[paket].name}.` },
+    offeneFragen: [],
     massnahmen: [
       { was: "Angebot prüfen und unterschreiben", wann: "diese Woche", wer: b.name },
       { was: "Texte, Fotos und Logo im Kundenportal hochladen", wann: "nach Auftrag", wer: b.name },
@@ -107,13 +109,16 @@ export async function auswertung(terminId: number): Promise<string> {
     daten: { betrieb: b.name, gewerk: b.gewerk, mitarbeiter: b.mitarbeiter, gespraech: t.transkript },
     ersatz: JSON.stringify(ersatz),
   });
-  const a = { ...ersatz, ...jsonAus<Partial<Auswertung>>(ki.text, {}) };
-  if (!PAKETE[a.empfehlung.paket]) a.empfehlung = ersatz.empfehlung;
+  const ausKi = ki.simuliert ? {} : jsonAus<Partial<Auswertung>>(ki.text, {});
+  const a = { ...ersatz, ...ausKi };
+  if (!PAKETE[a.empfehlung?.paket]) a.empfehlung = ersatz.empfehlung;
+  // Unvollständig, wenn Ziele oder Probleme fehlen (nichts erfinden, lieber anhalten)
+  const unvollstaendig = !a.ziele?.length || !a.probleme?.length;
   await db.update(schema.termine).set({ auswertung: a, status: "ausgewertet" }).where(eq(schema.termine.id, terminId));
 
   const an = anschrift(b);
   const heute = datumDe();
-  const protokollId = await neuesDokument({ betriebId: b.id, art: "protokoll", titel: `Protokoll ${b.name}`, daten: { an, datum: heute, ...a } });
+  const protokollId = await neuesDokument({ betriebId: b.id, art: "protokoll", titel: `Protokoll ${b.name}`, daten: { an, datum: heute, ...a, quelle: t.audioPfad ? "aufnahme" : "mitschrift", ...(unvollstaendig ? { unvollstaendig: true } : {}) } });
   const { nummer } = await erstelleAngebot({
     betriebId: b.id,
     auswahl: { paket: a.empfehlung.paket, module: [], zusaetze: [] },
@@ -132,6 +137,8 @@ export async function auswertung(terminId: number): Promise<string> {
 export async function erstelleAngebot(o: { betriebId: number; auswahl: Auswahl; einleitung?: string; vorAnhaenge?: number[]; meta?: Record<string, unknown>; wer: string }): Promise<{ angebotId: number; nummer: string; eintragId: number }> {
   const db = await getDb();
   const b = await betrieb(o.betriebId);
+  // Sperrliste zuerst: dann entsteht gar nichts (kein Angebot, keine Nummer, kein Portal-Link)
+  if (await istGesperrt(b.id)) throw new Error("Betrieb steht auf der Sperrliste. Es wird nichts erstellt.");
   const an = anschrift(b);
   await katalogLaden(); // aktuelle Stammdaten
   const r = berechne(o.auswahl);
@@ -151,23 +158,31 @@ export async function erstelleAngebot(o: { betriebId: number; auswahl: Auswahl; 
     titel: `Angebot ${nummer}`,
     daten: { an, nummer, datum: datumDe(), paket: o.auswahl.paket, einleitung, einmalig: r.einmalig, monatlich: r.monatlich, positionen: r.positionen, zahlweg: "ueberweisung", agbVersion: AGB_VERSION,
       // Eingefroren: spätere Änderungen in den Stammdaten ändern kein verschicktes Angebot
-      paketName: p.name, paketProblem: p.problem, paketInhalt: [...p.inhalt], nichtEnthalten: [...NICHT_ENTHALTEN[o.auswahl.paket]], wochen: p.wochen,
+      paketName: p.name, paketProblem: p.problem, paketInhalt: [...p.inhalt], nichtEnthalten: NICHT_ENTHALTEN[o.auswahl.paket].filter((x) => !katalog.module.some((m) => o.auswahl.module.includes(m.key) && x.includes(m.name))), wochen: p.wochen,
       bausteine, mitKi: o.auswahl.module.some((m) => m === "marketing" || m === "kundenmanagement"), vorlage },
   });
-  const anrede = an.inhaber ? (an.anrede === "Frau" ? `Sehr geehrte Frau ${an.inhaber.split(" ").slice(-1)[0]},` : `Sehr geehrter Herr ${an.inhaber.split(" ").slice(-1)[0]},`) : "Guten Tag,";
-  const zahlen = "";
+  const nachname = an.inhaber?.split(" ").slice(-1)[0];
+  const anrede = !an.inhaber ? "Guten Tag," : an.anrede === "Frau" ? `Sehr geehrte Frau ${nachname},` : an.anrede === "Herr" ? `Sehr geehrter Herr ${nachname},` : `Guten Tag ${an.inhaber},`;
   const eintragId = await inPostausgang({
     betriebId: b.id,
     kanal: "mail",
     zweck: "angebot",
     empfaenger: b.email ?? "(E-Mail-Adresse fehlt)",
     betreff: `Ihr Angebot von Levarex: ${p.name}`,
-    text: fuelle(vorlage.mail, { anrede, einstieg: einleitung, anhaenge: o.vorAnhaenge?.length ? "das Protokoll mit Maßnahmenplan und das Angebot" : "das Angebot", portallink: await portalLink(b.id) }) + zahlen,
+    text: fuelle(vorlage.mail, { anrede, einstieg: einleitung, anhaenge: o.vorAnhaenge?.length ? "das Protokoll mit Maßnahmenplan und das Angebot" : "das Angebot", portallink: await portalLink(b.id) }),
     anhaenge: [...(o.vorAnhaenge ?? []), angebotDokId],
     erlaubteZahlen: [euro(r.einmalig), euro(r.monatlich), ...r.positionen.flatMap((x) => [euro(x.einmalig), euro(x.monatlich)])],
     hinweise: [...(b.email ? [] : ["E-Mail-Adresse fehlt. Beim Betrieb ergänzen und Empfänger anpassen."]), ...r.hinweise],
     meta: { ...(o.meta ?? {}), angebotId: angebot.id },
   });
+  // Ältere, noch offene Angebote sind überholt: Mail nicht mehr senden, nicht mehr unterschreiben
+  const alt = (await db.select().from(schema.angebote).where(eq(schema.angebote.betriebId, b.id))).filter((x) => x.id !== angebot.id && ["entwurf", "versendet"].includes(x.status));
+  for (const x of alt) {
+    await db.update(schema.angebote).set({ status: "ueberholt" }).where(eq(schema.angebote.id, x.id));
+    const mails = (await db.select().from(schema.postausgang).where(and(eq(schema.postausgang.betriebId, b.id), eq(schema.postausgang.zweck, "angebot"), inArray(schema.postausgang.status, ["zur_freigabe", "freigegeben"])))).filter((m) => Number(m.meta.angebotId) === x.id);
+    for (const m of mails) await db.update(schema.postausgang).set({ status: "abgelehnt", ablehnGrund: `Durch Angebot ${nummer} ersetzt` }).where(eq(schema.postausgang.id, m.id));
+  }
+  if (alt.length) await protokolliere(o.wer, `${alt.length} älteres Angebot durch ${nummer} ersetzt`, b.id);
   // Bestandskunden (Nachtrag, weiteres Modul) bleiben Kunden
   if (b.status !== "kunde") await setzeStatus(b.id, "angebot");
   await protokolliere(o.wer, `Angebot ${nummer} erstellt (${euro(r.einmalig)} + ${euro(r.monatlich)}/Monat)`, b.id);
@@ -257,7 +272,9 @@ export async function unterschriftEingegangen(angebotId: number, wer: string, an
   await protokolliere(wer, `Angebot angenommen (${PAKETE[a.paket as PaketKey].name}, AGB ${nachweis.agbVersion}${nachweis.unternehmer ? ", Unternehmer bestätigt" : ""})`, a.betriebId);
 
   const b = await betrieb(a.betriebId);
-  const mitMandat = vertragsDokumente.length ? (await db.select({ art: schema.dokumente.art }).from(schema.dokumente).where(inArray(schema.dokumente.id, vertragsDokumente))).some((d) => d.art === "sepa_mandat") : false;
+  const arten = vertragsDokumente.length ? (await db.select({ art: schema.dokumente.art }).from(schema.dokumente).where(inArray(schema.dokumente.id, vertragsDokumente))).map((d) => d.art) : [];
+  const mitMandat = arten.includes("sepa_mandat");
+  const mitPilot = arten.includes("pilotvereinbarung");
   const nummer = `AB-${a.erstelltAm.getFullYear()}-${String(a.id).padStart(4, "0")}`;
   const angebotNummer = `A-${a.erstelltAm.getFullYear()}-${String(a.id).padStart(4, "0")}`;
   const positionen = a.positionen.length ? a.positionen : [{ text: PAKETE[a.paket as PaketKey].name, einmalig: a.einmalig, monatlich: a.monatlich }];
@@ -273,13 +290,13 @@ export async function unterschriftEingegangen(angebotId: number, wer: string, an
     zweck: "auftragsbestaetigung",
     empfaenger: b.email ?? "(E-Mail-Adresse fehlt)",
     betreff: `Auftragsbestätigung ${nummer}`,
-    text: `Guten Tag,\n\nvielen Dank für Ihren Auftrag. Im Anhang finden Sie die Auftragsbestätigung zu unserem Angebot ${angebotNummer}${vertragsDokumente.length ? ` und die unterschriebenen Verträge (Rahmenvertrag, Leistungsscheine und Vertrag zur Auftragsverarbeitung${mitMandat ? ", dazu Ihr SEPA-Lastschriftmandat" : ""})` : ""}. Alles liegt auch in Ihrem Kundenportal:\n${await portalLink(b.id)}\n\nDie Rechnung über die erste Rate (50 %) kommt in einer eigenen E-Mail. Danach geht es los.\n\nMit freundlichen Grüßen\nDaniel Lück\nLevarex Consulting`,
+    text: `Guten Tag,\n\nvielen Dank für Ihren Auftrag. Im Anhang finden Sie die Auftragsbestätigung zu unserem Angebot ${angebotNummer}${vertragsDokumente.length ? ` und die unterschriebenen Verträge (Rahmenvertrag, Leistungsscheine${mitPilot ? ", Pilotvereinbarung" : ""} und Vertrag zur Auftragsverarbeitung${mitMandat ? ", dazu Ihr SEPA-Lastschriftmandat" : ""})` : ""}. Alles liegt auch in Ihrem Kundenportal:\n${await portalLink(b.id)}\n\nDie Rechnung über die erste Rate (50 %) kommt in einer eigenen E-Mail. Danach geht es los.\n\nMit freundlichen Grüßen\nDaniel Lück\nLevarex Consulting`,
     anhaenge: [dokId, ...vertragsDokumente],
     erlaubteZahlen: [euro(a.einmalig), euro(a.monatlich), ...positionen.flatMap((x) => [euro(x.einmalig), euro(x.monatlich)])],
     hinweise: nachweis.unternehmer ? [] : ["Annahme ohne Unternehmer-Bestätigung (intern erfasst). Bitte mit dem Kunden klären."],
     meta: { angebotId },
   });
-  await erstelleRechnung({ betriebId: a.betriebId, angebotId, art: "anzahlung", netto: Math.round(a.einmalig / 2), positionstext: `Anzahlung 50 % ${PAKETE[a.paket as PaketKey].name} laut Angebot ${angebotNummer}` });
+  await erstelleRechnung({ betriebId: a.betriebId, angebotId, art: "anzahlung", netto: Math.round(a.einmalig / 2), positionstext: `Anzahlung 50 % laut Angebot ${angebotNummer} (${PAKETE[a.paket as PaketKey].name}${a.positionen.length > 1 ? ` und ${a.positionen.length - 1} weitere Position${a.positionen.length > 2 ? "en" : ""}` : ""})` });
 }
 
 /** Erste Rate ist bezahlt (Lexware-Abgleich oder von Hand gebucht): Projekt anlegen und Start-Mail vorbereiten. */

@@ -21,11 +21,16 @@ const MAX_BILD = 400_000; // Zeichen der data-URL (etwa 300 KB)
 const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 
 const nr = (jahr: number, id: number) => `${jahr}-${String(id).padStart(4, "0")}`;
-const ohneUnterschriften = (d: Record<string, unknown>) => {
-  const { unterschriften: _u, ...rest } = d;
-  return rest;
-};
-export const pruefsumme = (daten: Record<string, unknown>) => crypto.createHash("sha256").update(JSON.stringify(ohneUnterschriften(daten))).digest("hex");
+// Felder, die nach der Unterschrift dazukommen dürfen (Unterschriften, Widerruf, Ersetzung), zählen nicht zur Prüfsumme
+const NACHTRAEGE = new Set(["unterschriften", "widerrufenAm", "widerrufenVon", "ersetztAm", "ersetztDurch"]);
+/** JSON mit sortierten Feldern: gleiche Daten ergeben immer dieselbe Zeichenkette (auch nach dem Speichern in JSONB). */
+function kanonisch(v: unknown): string {
+  if (Array.isArray(v)) return `[${v.map(kanonisch).join(",")}]`;
+  if (v && typeof v === "object") return `{${Object.keys(v).filter((k) => (v as Record<string, unknown>)[k] !== undefined).sort().map((k) => `${JSON.stringify(k)}:${kanonisch((v as Record<string, unknown>)[k])}`).join(",")}}`;
+  return JSON.stringify(v ?? null);
+}
+export const pruefsumme = (daten: Record<string, unknown>) =>
+  crypto.createHash("sha256").update(kanonisch(Object.fromEntries(Object.entries(daten).filter(([k]) => !NACHTRAEGE.has(k))))).digest("hex");
 
 /** Nur echte PNG-Bilder als data-URL, nicht zu groß. Schutz vor eingeschleustem HTML oder Skript im Unterschriftsfeld. */
 export function unterschriftsbildOk(bild: unknown): bild is string {
@@ -44,7 +49,15 @@ export async function vertragsunterlagen(angebotId: number) {
   const vorhanden = (await db.select().from(schema.dokumente).where(and(eq(schema.dokumente.betriebId, a.betriebId), inArray(schema.dokumente.art, [...VERTRAGSARTEN])))).filter(
     (d) => (d.daten as { angebotId?: number }).angebotId === angebotId,
   );
-  if (vorhanden.length) return sortiert(vorhanden);
+  if (vorhanden.length) {
+    // Angebot nach dem Anlegen geändert und noch nichts unterschrieben: Unterlagen neu aufbauen, sonst passt der Vertrag nicht zur Rechnung
+    const rahmen = vorhanden.find((d) => d.art === "rahmenvertrag")?.daten as { einmalig?: number; monatlich?: number; positionen?: unknown } | undefined;
+    const passt = rahmen && rahmen.einmalig === a.einmalig && rahmen.monatlich === a.monatlich && JSON.stringify(rahmen.positionen) === JSON.stringify(a.positionen);
+    const unterschrieben = vorhanden.some((d) => ((d.daten as { unterschriften?: unknown[] }).unterschriften ?? []).length > 0);
+    if (passt || unterschrieben) return sortiert(vorhanden);
+    await db.delete(schema.dokumente).where(inArray(schema.dokumente.id, vorhanden.map((d) => d.id)));
+    await protokolliere("Levarex OS", "Vertragsunterlagen neu angelegt (Angebot wurde geändert)", a.betriebId);
+  }
 
   const b = await betrieb(a.betriebId);
   const jahr = a.erstelltAm.getFullYear();
@@ -147,7 +160,7 @@ export async function vertragUnterschreiben(e: UnterschriftEingabe): Promise<{ d
   const angebotDok = offen.flatMap((p) => p.anhaenge);
 
   await protokolliere(e.wer, `Verträge unterschrieben auf dem Tablet: ${name} (${doks.length} Dokumente)`, a.betriebId);
-  const mandatId = mandat ? await mandatErteilen({ ...mandat, betriebId: a.betriebId, angebotId: a.id, wer: e.wer }) : null;
+  const mandatId = mandat ? await mandatErteilen({ ...mandat, betriebId: a.betriebId, angebotId: a.id, wer: `${e.wer} (Tablet)` }) : null;
   const unterlagen = [...doks.map((d) => d.id), ...(mandatId ? [mandatId] : [])];
   await unterschriftEingegangen(a.id, `${name} (Unterschrift auf dem Tablet, erfasst von ${e.wer})`, { name, am: am.toISOString(), agbVersion: AGB_VERSION, unternehmer: true }, [...angebotDok, ...unterlagen]);
   return { dokumente: unterlagen };

@@ -46,6 +46,8 @@ export const GLAEUBIGER_ID = process.env.GLAEUBIGER_ID ?? "";
 export const VORABANKUENDIGUNG_TAGE = 5;
 /** SEPA: Erstattung ohne Angabe von Gründen (Basislastschrift), in Wochen ab Belastung. */
 export const ERSTATTUNG_WOCHEN = 8;
+/** Lastschrift: Eintrag „Einzug beenden“ entsteht so viele Tage vor dem Vertragsende (nicht schon bei der Kündigung). */
+export const LASTSCHRIFT_ENDE_VORLAUF_TAGE = 10;
 /** AV-Vertrag: Meldung einer Datenpanne an den Betrieb (Zusage im Service-Level), in Stunden. */
 export const DATENPANNE_MELDUNG_STUNDEN = 24;
 /** AV-Vertrag: Widerspruchsfrist des Betriebs gegen einen neuen Unterauftragsverarbeiter, in Tagen. */

@@ -21,6 +21,7 @@ const TEXTE: Record<string, [string, "" | "ok" | "warten" | "fehler"]> = {
   unterschrieben: ["unterschrieben", "ok"],
   angezahlt: ["angezahlt", "ok"],
   abgeschlossen: ["abgeschlossen", "ok"],
+  ueberholt: ["ersetzt", ""],
   inhalte: ["wartet auf Inhalte", "warten"],
   bau: ["wird gebaut", "warten"],
   pruefung: ["Prüfung nicht bestanden", "fehler"],

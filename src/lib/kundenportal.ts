@@ -95,7 +95,8 @@ export async function sichtbareDokumente(betriebId: number) {
   const ids = [...new Set(post.flatMap((p) => p.anhaenge))];
   const eigene = await db.select().from(schema.dokumente).where(and(eq(schema.dokumente.betriebId, betriebId), inArray(schema.dokumente.art, VOM_KUNDEN)));
   const gesendet = ids.length ? await db.select().from(schema.dokumente).where(and(inArray(schema.dokumente.id, ids), eq(schema.dokumente.betriebId, betriebId))) : [];
-  const doks = [...gesendet, ...eigene.filter((d) => !ids.includes(d.id))];
+  const imPortal = eigene.filter((d) => !ids.includes(d.id) && (d.art !== "sepa_mandat" || (d.daten as { kanal?: string }).kanal === "portal"));
+  const doks = [...gesendet, ...imPortal];
   if (!doks.length) return [];
   const versandAm = (id: number) => post.find((p) => p.anhaenge.includes(id))?.versendetAm ?? null;
   return doks
@@ -164,7 +165,8 @@ export async function portalDaten(betriebId: number) {
     rechnungen: rechnungen
       .filter((r) => verschickteNummern.has(r.nummer))
       .map((r) => ({ ...r, dokumentId: doks.find((d) => d.art === "rechnung" && (d.daten as { nummer?: string }).nummer === r.nummer)?.id ?? null })),
-    angebotOffen: angebot?.status === "versendet" ? angebot : null,
+    // Das zuletzt verschickte, noch offene Angebot (ein neuer Entwurf versteckt es nicht)
+    angebotOffen: angebote.find((x) => x.status === "versendet") ?? null,
     anzahlungOffen: null as typeof angebot | null,
     inhalteOffen: projekt?.status === "inhalte" ? projekt : null,
     // Abnahme erst, wenn die Aufforderung verschickt ist (dann läuft die Frist)

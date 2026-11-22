@@ -89,7 +89,11 @@ export async function allesLoeschen(betriebId: number, bestaetigung: string, wer
   for (const t of await db.select().from(schema.termine).where(eq(schema.termine.betriebId, betriebId))) if (t.audioPfad) fs.rmSync(t.audioPfad, { force: true });
   await (await import("../demos")).demoDateienLoeschen(betriebId);
   await db.delete(schema.demos).where(eq(schema.demos.betriebId, betriebId));
-  for (const p of await db.select().from(schema.projekte).where(eq(schema.projekte.betriebId, betriebId))) fs.rmSync(path.join(datenOrdner("uploads"), `projekt-${p.id}`), { recursive: true, force: true });
+  const projekte = await db.select().from(schema.projekte).where(eq(schema.projekte.betriebId, betriebId));
+  for (const p of projekte) {
+    fs.rmSync(path.join(datenOrdner("uploads"), `projekt-${p.id}`), { recursive: true, force: true });
+    fs.rmSync(path.join(datenOrdner("umzug"), `projekt-${p.id}`), { recursive: true, force: true }); // Sicherung der alten Website
+  }
   for (const s of await db.select().from(schema.seiten).where(eq(schema.seiten.betriebId, betriebId))) {
     loescheSeite(s.slug);
     fs.rmSync(path.join(datenOrdner("anfragen"), s.slug), { recursive: true, force: true });
@@ -119,12 +123,18 @@ export async function allesLoeschen(betriebId: number, bestaetigung: string, wer
   await db.delete(schema.seiten).where(eq(schema.seiten.betriebId, betriebId));
   await db.delete(schema.dokumente).where(and(eq(schema.dokumente.betriebId, betriebId), notInArray(schema.dokumente.art, AUFBEWAHREN)));
   await db.delete(schema.postausgang).where(and(eq(schema.postausgang.betriebId, betriebId), inArray(schema.postausgang.status, ["zur_freigabe", "abgelehnt", "freigegeben"])));
-  await db.update(schema.projekte).set({ inhalte: {}, onboarding: {}, status: "beendet" }).where(eq(schema.projekte.betriebId, betriebId));
+  await db.update(schema.projekte).set({ inhalte: {}, onboarding: {}, umzug: {}, status: "beendet" }).where(eq(schema.projekte.betriebId, betriebId));
   // Stammdaten auf das für Rechnungen Nötige beschränken und sperren (Art. 18)
   await db
     .update(schema.betriebe)
     .set({ status: "gesperrt", telefon: null, email: null, website: null, notizen: null, scoreGrund: null, inhaber: null, inhaberGeburtsdatum: null, datenquelle: null, portalToken: null })
     .where(eq(schema.betriebe.id, betriebId));
+  // Laufender Einzug darf nicht unbemerkt weiterlaufen: Aufgabe und Meldung (die Freigabe-Mail ging mit dem Postausgang weg)
+  for (const p of projekte.filter((x) => x.qontoAboId)) {
+    const { systemAufgabe } = await import("./crm");
+    await systemAufgabe({ betriebId, titel: `Qonto-Einzug ${p.qontoAboId} beenden (Löschung)`, text: "Daten wurden nach Art. 17 gelöscht. Den Einzug bei Qonto sofort beenden und die letzte Rechnung prüfen.", inTagen: 0, zustaendig: "Maximilian Steiner" });
+    await (await import("../adapters/push")).melde("job", false, "Einzug nach Löschung beenden", `Projekt ${p.id}: Qonto-Einzug ${p.qontoAboId} läuft noch.`);
+  }
   await protokolliere(wer, "Daten gelöscht, Rechnungen und Handelsbriefe bleiben (§ 147 AO, § 257 HGB)", betriebId);
   return `Gelöscht bis auf ${rechnungen.length} Rechnungen und die Vertragsunterlagen (Aufbewahrungspflicht)`;
 }

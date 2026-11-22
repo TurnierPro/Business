@@ -6,7 +6,7 @@ import { brauchtBenutzer } from "@/lib/auth";
 import { Status } from "@/components/Status";
 import { NeuLaden } from "@/components/NeuLaden";
 import { datumZeit, DOKART, KANAL, ZWECK } from "@/lib/format";
-import { ablehnen, angebotAendern, eintragSpeichern, freigeben } from "../../aktionen";
+import { ablehnen, angebotAendern, anhangEntfernen, eintragSpeichern, freigeben, protokollAusfuellen } from "../../aktionen";
 import { AngebotEditor } from "@/components/AngebotEditor";
 import type { AngebotDaten } from "@/lib/docs/vorlagen";
 import { mailSignatur } from "@/lib/recht";
@@ -74,6 +74,18 @@ export default async function Eintrag({ params }: { params: Promise<{ id: string
               {doks.map((d) => <a key={d.id} className="knopf klein" href={`/dokument/${d.id}`} target="_blank">{DOKART[d.art] ?? d.art} als PDF</a>)}
             </div>
           ) : null}
+          {offen ? doks.filter((d) => d.art === "protokoll" && (d.daten as { unvollstaendig?: boolean }).unvollstaendig).map((d) => (
+            <div key={d.id} className="hinweis" style={{ marginTop: 12 }}>
+              <b>Protokoll unvollständig:</b> Ziele und Probleme fehlen, weil keine KI-Auswertung lief. Bitte ausfüllen oder das Protokoll weglassen.
+              <form action={protokollAusfuellen} style={{ display: "grid", gap: 8, marginTop: 8 }}>
+                <input type="hidden" name="eintragId" value={e.id} /><input type="hidden" name="dokumentId" value={d.id} />
+                <label className="feld"><span>Ziele des Betriebs (eine Zeile je Ziel)</span><textarea name="ziele" rows={3} required /></label>
+                <label className="feld"><span>Was heute bremst (eine Zeile je Punkt)</span><textarea name="probleme" rows={3} required /></label>
+                <div className="knopfreihe"><button className="knopf klein">Protokoll speichern</button></div>
+              </form>
+              <form action={anhangEntfernen} style={{ marginTop: 8 }}><input type="hidden" name="eintragId" value={e.id} /><input type="hidden" name="dokumentId" value={d.id} /><button className="knopf klein">Ohne Protokoll senden</button></form>
+            </div>
+          )) : null}
         </section>
       ) : null}
 

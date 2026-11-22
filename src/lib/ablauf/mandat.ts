@@ -87,6 +87,8 @@ export async function mandatErteilen(e: MandatEingabe): Promise<number> {
   const { iban, bic } = mandatPruefen(e);
   const db = await getDb();
   const b = await betrieb(e.betriebId);
+  const [angebot] = await db.select({ id: schema.angebote.id }).from(schema.angebote).where(and(eq(schema.angebote.id, e.angebotId), eq(schema.angebote.betriebId, b.id)));
+  if (!angebot) throw new Error("Das Angebot gehört nicht zu diesem Betrieb.");
   const alt = await aktivesMandat(b.id);
   const am = new Date();
   // Mandatsreferenz: eindeutig, höchstens 35 Zeichen, nur erlaubte Zeichen
@@ -99,6 +101,8 @@ export async function mandatErteilen(e: MandatEingabe): Promise<number> {
     angebotId: e.angebotId,
     konto: { inhaber: e.kontoinhaber.trim(), iban, bic },
     ort: e.ort?.trim() || b.ort || null,
+    // Im Portal erteilt: sofort beim Kunden sichtbar. Auf dem Tablet: geht mit der Auftragsbestätigung raus.
+    kanal: e.wer.startsWith("Kundenportal") ? "portal" : "tablet",
   };
   const summe = pruefsumme(daten as unknown as Record<string, unknown>);
   daten.unterschriften = [{ rolle: "kunde", name: e.name.trim(), funktion: null, bild: e.bild, am: am.toISOString() }];
@@ -107,6 +111,18 @@ export async function mandatErteilen(e: MandatEingabe): Promise<number> {
   if (alt) await db.update(schema.dokumente).set({ daten: { ...alt.daten, ersetztAm: am.toISOString(), ersetztDurch: referenz } }).where(eq(schema.dokumente.id, alt.id));
   const { hakeAb } = await import("./checkliste");
   for (const pr of await db.select({ id: schema.projekte.id }).from(schema.projekte).where(eq(schema.projekte.betriebId, b.id))) await hakeAb(pr.id, "mandat");
+  // Liegt die Einrichtung des Einzugs schon zur Freigabe, dort das Mandat nachtragen
+  for (const l of await db.select().from(schema.postausgang).where(and(eq(schema.postausgang.betriebId, b.id), eq(schema.postausgang.zweck, "lastschrift_start"), eq(schema.postausgang.status, "zur_freigabe")))) {
+    const ohne = (h: string) => !h.startsWith("Kein SEPA-Mandat");
+    await db
+      .update(schema.postausgang)
+      .set({
+        text: l.text.replace(/Noch kein SEPA-Mandat im Kundenportal: Qonto schickt dem Kunden den Link zum Mandat\.|SEPA-Mandat liegt unterschrieben vor \(Mandatsreferenz [^)]*\)\./, `SEPA-Mandat liegt unterschrieben vor (Mandatsreferenz ${referenz}).`),
+        hinweise: l.hinweise.filter(ohne),
+        meta: { ...l.meta, mandatsreferenz: referenz, mandatDokumentId: id, vorab: ((l.meta.vorab as string[] | undefined) ?? []).filter(ohne) },
+      })
+      .where(eq(schema.postausgang.id, l.id));
+  }
   await protokolliere(e.wer, `SEPA-Mandat erteilt: ${referenz}, Konto ${ibanMaskiert(iban)}${alt ? ` (ersetzt ${alt.daten.nummer})` : ""}`, b.id);
   return id;
 }

@@ -24,7 +24,7 @@ export const WERK_ANGEBOT_VORLAGE: AngebotVorlage = {
     "Wo Website, Formulare und Kundendaten liegen, steht in der Liste der Unterauftragsverarbeiter im AV-Vertrag.",
   ],
   unterschreiben: "Den Rahmenvertrag und je Baustein einen Leistungsschein unterschreiben Sie beim Termin mit Daniel Lück auf dem Tablet. Danach bekommen Sie die Rechnung über die erste Rate. Anlage: Leistungsbeschreibung.",
-  mail: "{anrede}\n\n{einstieg}\n\nIm Anhang finden Sie {anhaenge}. Alles liegt auch in Ihrem Kundenportal. Dort nehmen Sie das Angebot mit zwei Klicks an und sehen jederzeit, wo Ihr Projekt steht.\n{portallink}\n\nBei Fragen rufen Sie mich gern an.\n\nMit freundlichen Grüßen\nDaniel Lück\nLevarex Consulting",
+  mail: "{anrede}\n\n{einstieg}\n\nIm Anhang finden Sie {anhaenge}. Alles liegt auch in Ihrem Kundenportal. Dort sehen Sie jederzeit, wo Ihr Projekt steht. Unterschrieben wird beim Termin mit Daniel Lück auf dem Tablet.\n{portallink}\n\nBei Fragen rufen Sie mich gern an.\n\nMit freundlichen Grüßen\nDaniel Lück\nLevarex Consulting",
 };
 
 /** Aktuelle Vorlage (wird von katalogLaden() mit den Stammdaten überschrieben). */

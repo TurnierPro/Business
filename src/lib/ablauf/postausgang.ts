@@ -90,6 +90,35 @@ export async function bearbeiten(id: number, betreff: string, text: string, wer:
   await einreihen("qualitaetskontrolle", { eintragId: id });
 }
 
+/** Protokoll im Anhang von Hand ausfüllen (z. B. ohne KI-Auswertung). Setzt Freigaben zurück und prüft neu. */
+export async function protokollAusfuellen(id: number, dokumentId: number, o: { ziele: string[]; probleme: string[] }, wer: string): Promise<void> {
+  const e = await eintrag(id);
+  if (e.status !== "zur_freigabe" || !e.anhaenge.includes(dokumentId)) throw new Error("Nur Anhänge von Einträgen, die auf Freigabe warten.");
+  const ziele = o.ziele.map((x) => x.trim()).filter(Boolean).slice(0, 10);
+  const probleme = o.probleme.map((x) => x.trim()).filter(Boolean).slice(0, 10);
+  if (!ziele.length || !probleme.length) throw new Error("Bitte mindestens ein Ziel und ein Problem eintragen (je Zeile eins).");
+  const db = await getDb();
+  const [d] = await db.select().from(schema.dokumente).where(eq(schema.dokumente.id, dokumentId));
+  if (d?.art !== "protokoll") throw new Error("Kein Protokoll");
+  const { unvollstaendig: _u, ...rest } = d.daten as Record<string, unknown>;
+  await db.update(schema.dokumente).set({ daten: { ...rest, ziele, probleme } }).where(eq(schema.dokumente.id, d.id));
+  await db.update(schema.postausgang).set({ freigaben: [], qkStatus: "ausstehend", qkAm: null }).where(eq(schema.postausgang.id, id));
+  await protokolliere(wer, "Protokoll von Hand ergänzt", e.betriebId);
+  await einreihen("qualitaetskontrolle", { eintragId: id });
+}
+
+/** Anhang aus einem wartenden Eintrag nehmen (z. B. unvollständiges Protokoll). Das Angebot selbst bleibt immer dran. */
+export async function anhangEntfernen(id: number, dokumentId: number, wer: string): Promise<void> {
+  const e = await eintrag(id);
+  if (e.status !== "zur_freigabe") throw new Error("Nur bei Einträgen, die auf Freigabe warten.");
+  const db = await getDb();
+  const [d] = await db.select().from(schema.dokumente).where(eq(schema.dokumente.id, dokumentId));
+  if (!d || d.art === "angebot" || ["rahmenvertrag", "auftragsbestaetigung", "rechnung"].includes(d.art)) throw new Error("Dieser Anhang gehört fest dazu.");
+  await db.update(schema.postausgang).set({ anhaenge: e.anhaenge.filter((x) => x !== dokumentId), freigaben: [], qkStatus: "ausstehend", qkAm: null, text: e.zweck === "angebot" ? e.text.replace("das Protokoll mit Maßnahmenplan und das Angebot", "das Angebot") : e.text }).where(eq(schema.postausgang.id, id));
+  await protokolliere(wer, `Anhang entfernt: ${d.titel}`, e.betriebId);
+  await einreihen("qualitaetskontrolle", { eintragId: id });
+}
+
 const MAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 /**
@@ -137,6 +166,11 @@ export async function qualitaetskontrolle(id: number): Promise<string> {
       if (VERTRAGSWERK_VERSION.startsWith("Entwurf")) hinweise.push("Vertragstexte sind noch ein Entwurf (Dok. 21 fehlt). Vor dem ersten echten Kunden vom Anwalt prüfen lassen.");
     }
     if (d.art === "sepa_mandat" && !((d.daten as { unterschriften?: { rolle: string }[] }).unterschriften ?? []).some((x) => x.rolle === "kunde")) blocker.push(`${d.titel}: Unterschrift fehlt.`);
+    if (d.art === "protokoll" && (d.daten as { unvollstaendig?: boolean }).unvollstaendig) blocker.push(`${d.titel}: Ziele und Probleme fehlen (keine KI-Auswertung). Protokoll ausfüllen oder den Anhang entfernen.`);
+    if (d.art === "angebot" && e.kanal === "mail") {
+      const an = (d.daten as { an?: { strasse?: string | null; plz?: string | null } }).an;
+      if (!an?.strasse || !an?.plz) hinweise.push(`${d.titel}: Anschrift unvollständig. Bitte Straße und PLZ beim Betrieb ergänzen.`);
+    }
     const an = (d.daten as { an?: { strasse?: string | null; plz?: string | null } }).an;
     if (e.kanal === "brief" && (!an?.strasse || !an?.plz)) blocker.push("Anschrift im Brief unvollständig.");
   }
@@ -194,6 +228,11 @@ export async function ablehnen(id: number, grund: string, wer: string): Promise<
   const db = await getDb();
   await db.update(schema.postausgang).set({ status: "abgelehnt", ablehnGrund: grund || "ohne Grund" }).where(eq(schema.postausgang.id, id));
   await protokolliere(wer, `Abgelehnt: ${e.betreff}`, e.betriebId, grund);
+  // Folgen der Ablehnung: Beiträge werden wieder bearbeitbar
+  if (e.zweck === "beitraege_vorlage" && Array.isArray(e.meta.beitragIds)) {
+    await db.update(schema.beitraege).set({ status: "entwurf", eintragId: null }).where(and(inArray(schema.beitraege.id, (e.meta.beitragIds as unknown[]).map(Number)), eq(schema.beitraege.status, "zur_vorlage")));
+  }
+  // Eine abgelehnte Angebots-Mail lässt das Angebot bewusst im Entwurf: Unterschrieben werden kann es weiter beim Termin auf dem Tablet.
 }
 
 /** Der einzige Ort, an dem etwas nach draußen geht. */
@@ -204,7 +243,8 @@ export async function versende(id: number): Promise<string> {
   if (await istGesperrt(e.betriebId)) {
     const db = await getDb();
     await db.update(schema.postausgang).set({ status: "abgelehnt", ablehnGrund: "Sperrliste" }).where(eq(schema.postausgang.id, id));
-    throw new Error("Versand verweigert: Betrieb steht auf der Sperrliste.");
+    await protokolliere("Levarex OS", `Nicht versendet (Sperrliste): ${e.betreff}`, e.betriebId);
+    return "Nicht versendet: Betrieb steht auf der Sperrliste"; // kein Fehler, damit der Job nicht wiederholt wird
   }
   if (e.zweck === "akquise_brief" && process.env.BRIEFDIENST_API_KEY && process.env.AKQUISE_FREIGESCHALTET !== "ja") {
     throw new Error("Versand verweigert: Akquise ist noch nicht freigeschaltet (AKQUISE_FREIGESCHALTET=ja erst nach Notartermin).");
@@ -213,6 +253,7 @@ export async function versende(id: number): Promise<string> {
   const doks = e.anhaenge.length ? await db.select().from(schema.dokumente).where(inArray(schema.dokumente.id, e.anhaenge)) : [];
   let ergebnis = "";
   let externeId: string | null = null;
+  try {
   if (e.kanal === "brief") {
     const d = doks[0];
     if (!d) throw new Error("Brief ohne Dokument");
@@ -243,6 +284,11 @@ export async function versende(id: number): Promise<string> {
     ergebnis = await lastschriftAusfuehren(e);
   } else {
     ergebnis = "Livegang freigegeben";
+  }
+  } catch (err) {
+    // Fehler am Eintrag festhalten, damit er in den Freigaben sichtbar ist (der Job versucht es noch einmal)
+    await db.update(schema.postausgang).set({ fehler: (err instanceof Error ? err.message : String(err)).slice(0, 500) }).where(eq(schema.postausgang.id, id));
+    throw err;
   }
   await db.update(schema.postausgang).set({ status: "versendet", versendetAm: new Date(), fehler: null }).where(and(eq(schema.postausgang.id, id), eq(schema.postausgang.status, "freigegeben")));
   await protokolliere("Levarex OS", `Versendet (${e.kanal}): ${e.betreff}`, e.betriebId, ergebnis);

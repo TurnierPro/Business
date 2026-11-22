@@ -23,7 +23,7 @@ import { aktivesMandat, ibanMaskiert } from "@/lib/ablauf/mandat";
 import { BEITRAG_ARTEN, BEITRAG_STATUS, KANAELE as BEITRAG_KANAELE, beitraegeVon } from "@/lib/beitraege";
 
 const PROJEKT_TEXT: Record<string, string> = { inhalte: "wartet auf Inhalte", bau: "wird gebaut", pruefung: "Prüfung nicht bestanden", bereit: "Vorschau beim Kunden", live: "live, Betreuung läuft", beendet: "beendet" };
-const ANGEBOT_TEXT: Record<string, string> = { entwurf: "erstellt", versendet: "beim Kunden", unterschrieben: "unterschrieben", angezahlt: "erste Rate bezahlt", abgeschlossen: "abgeschlossen", abgelehnt: "abgelehnt" };
+const ANGEBOT_TEXT: Record<string, string> = { entwurf: "erstellt", versendet: "beim Kunden", unterschrieben: "unterschrieben", angezahlt: "erste Rate bezahlt", abgeschlossen: "abgeschlossen", abgelehnt: "abgelehnt", ueberholt: "durch neues Angebot ersetzt" };
 
 const REITER = [["ueberblick", "Überblick"], ["stammdaten", "Stammdaten"], ["aktivitaeten", "Aktivitäten"], ["dokumente", "Unterlagen"], ["portal", "Kundenportal"]] as const;
 // Seltener gebraucht: über das Menü „Mehr“ oben rechts

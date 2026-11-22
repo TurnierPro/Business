@@ -109,6 +109,7 @@ export async function beitragUeberarbeiten(id: number, text: string, wer: string
   if (!text.trim() || text.length > MAX_TEXT) throw new Error("Text fehlt oder ist zu lang.");
   await db.update(schema.beitraege).set({ text: text.trim(), status: "entwurf", eintragId: null }).where(eq(schema.beitraege.id, id));
   await protokolliere(wer, `${BEITRAG_ARTEN[x.art]} überarbeitet`, x.betriebId);
+  if (!(await beitraegeVon(x.betriebId)).some((y) => y.status === "abgelehnt")) await (await import("./ablauf/crm")).systemAufgabeErledigt(x.betriebId, "Beitrag nach Wunsch des Betriebs überarbeiten");
 }
 
 /** Levarex hat den freigegebenen Beitrag veröffentlicht (über die offizielle Schnittstelle bzw. von Hand). */
@@ -118,6 +119,8 @@ export async function beitragVeroeffentlicht(id: number, wer: string): Promise<v
   if (!x || x.status !== "freigegeben") throw new Error("Veröffentlichen geht nur nach Freigabe durch den Betrieb.");
   await db.update(schema.beitraege).set({ status: "veroeffentlicht", veroeffentlichtAm: new Date() }).where(eq(schema.beitraege.id, id));
   await protokolliere(wer, `${BEITRAG_ARTEN[x.art]} veröffentlicht`, x.betriebId);
+  // Aufgabe erledigt, sobald nichts Freigegebenes mehr wartet
+  if (!(await beitraegeVon(x.betriebId)).some((y) => y.status === "freigegeben")) await (await import("./ablauf/crm")).systemAufgabeErledigt(x.betriebId, "Freigegebene Beiträge veröffentlichen");
 }
 
 export async function beitragLoeschen(id: number, wer: string): Promise<void> {

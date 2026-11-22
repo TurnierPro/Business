@@ -53,6 +53,10 @@ export type ProtokollDaten = {
   empfehlung: { paket: PaketKey; begruendung: string };
   offeneFragen: string[];
   massnahmen: { was: string; wann: string; wer: string }[];
+  /** aufnahme = Audio, mitschrift = Text (z. B. Meeting-Zusammenfassung aus Claude) */
+  quelle?: "aufnahme" | "mitschrift";
+  /** Ziele oder Probleme fehlen (keine KI-Auswertung): darf so nicht raus */
+  unvollstaendig?: boolean;
 };
 export type RechnungDaten = {
   an: Anschrift;
@@ -126,6 +130,12 @@ function paketFuer(d: AngebotDaten) {
   return { name: d.paketName ?? k?.name ?? d.paket, problem: d.paketProblem ?? k?.problem, inhalt: d.paketInhalt ?? k?.inhalt ?? [], wochen: d.wochen ?? k?.wochen ?? 6, nicht: d.nichtEnthalten ?? NICHT_ENTHALTEN[d.paket] ?? [] };
 }
 
+/** „22.11.2026“ → Date (12 Uhr, damit keine Zeitzone den Tag verschiebt). Unlesbar: heute. */
+function ausDatumDe(s: string): Date {
+  const m = /^(\d{1,2})\.(\d{1,2})\.(\d{4})$/.exec(s?.trim() ?? "");
+  return m ? new Date(Number(m[3]), Number(m[2]) - 1, Number(m[1]), 12) : new Date();
+}
+
 export function angebot(d: AngebotDaten): string {
   const p = paketFuer(d);
   const ust = Math.round(d.einmalig * UST);
@@ -136,7 +146,7 @@ export function angebot(d: AngebotDaten): string {
     titel: `Angebot ${d.nummer}`,
     extraCss: dinCss,
     inhalt: `<div class="seite din">${falzmarken}${kopf()}${anschriftfeld(d.an)}
-<div class="infoblock">Angebot<br><b class="mono">${esc(d.nummer)}</b><br><br>Datum<br><b class="mono">${esc(d.datum)}</b><br><br>Gültig bis<br><b class="mono">${esc(datumDe(new Date(Date.now() + v.gueltigTage * 864e5)))}</b></div>
+<div class="infoblock">Angebot<br><b class="mono">${esc(d.nummer)}</b><br><br>Datum<br><b class="mono">${esc(d.datum)}</b><br><br>Gültig bis<br><b class="mono">${esc(datumDe(new Date(ausDatumDe(d.datum).getTime() + v.gueltigTage * 864e5)))}</b></div>
 <div class="briefkoerper"><h1>Angebot: ${esc(p.name)}${d.bausteine?.length ? ` und ${d.bausteine.length === 1 ? "ein weiterer Baustein" : `${d.bausteine.length} weitere Bausteine`}` : ""}</h1>${absaetze(d.einleitung)}
 <div class="box"><b>Ihre zwei Zahlen</b><br>Einmalig <b class="mono">${euro(d.einmalig)}</b> netto · Monatsbeitrag <b class="mono">${euro(d.monatlich)}</b> netto<br><span class="leise">Gesamt über ${LAUFZEIT_MONATE} Monate ${euro(laufzeitSumme(d.einmalig, d.monatlich).gesamt)} netto, im Schnitt ${euro(laufzeitSumme(d.einmalig, d.monatlich).schnitt)} im Monat. Details auf der nächsten Seite.</span></div>
 <p>Die Leistungsbeschreibung mit allen Bausteinen finden Sie in Anlage 1.</p>
@@ -228,8 +238,8 @@ export function protokoll(d: ProtokollDaten): string {
     titel: `Gesprächsprotokoll ${d.an.name}`,
     inhalt: `<div class="seite">${kopf()}<p class="leise mono">GESPRÄCH VOR ORT · ${esc(d.datum)}</p>
 <h1>Protokoll und Maßnahmenplan</h1><p>${esc(d.an.name)}${d.an.inhaber ? `, ${esc(d.an.inhaber)}` : ""}</p>
-<h2>Ihre Ziele</h2>${liste(d.ziele)}
-<h2>Was heute bremst</h2>${liste(d.probleme)}
+${d.ziele.length ? `<h2>Ihre Ziele</h2>${liste(d.ziele)}` : ""}
+${d.probleme.length ? `<h2>Was heute bremst</h2>${liste(d.probleme)}` : ""}
 <h2>Unsere Empfehlung: ${esc(PAKETE[d.empfehlung.paket].name)}</h2><p>${esc(d.empfehlung.begruendung)}</p>
 ${fuss()}</div>
 <div class="seite">${kopf()}
@@ -238,7 +248,7 @@ ${fuss()}</div>
 ${d.massnahmen.map((m) => `<tr><td>${esc(m.was)}</td><td>${esc(m.wann)}</td><td>${esc(m.wer)}</td></tr>`).join("")}
 </tbody></table>
 ${d.offeneFragen.length ? `<h2>Noch offen</h2>${liste(d.offeneFragen)}` : ""}
-<p class="ki-hinweis">Dieses Protokoll wurde aus der Gesprächsaufnahme mit Unterstützung von KI erstellt und von Levarex geprüft. Die Aufnahme wird nach Freigabe gelöscht.</p>
+<p class="ki-hinweis">${d.quelle === "mitschrift" ? "Dieses Protokoll wurde aus unserer Gesprächsnotiz mit Unterstützung von KI erstellt und von Levarex geprüft. Die Notiz wird nach Freigabe gelöscht." : "Dieses Protokoll wurde aus der Gesprächsaufnahme mit Unterstützung von KI erstellt und von Levarex geprüft. Die Aufnahme wird nach Freigabe gelöscht."}</p>
 ${fuss()}</div>`,
   });
 }
@@ -452,6 +462,7 @@ export type SepaMandatDaten = {
   angebotId: number;
   konto: { inhaber: string; iban: string; bic: string | null };
   ort: string | null;
+  kanal?: "tablet" | "portal";
   unterschriften?: VertragUnterschrift[];
   ersetztAm?: string;
   ersetztDurch?: string;

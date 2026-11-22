@@ -77,8 +77,15 @@ test("Kompletter Ablauf von Lead bis Livegang", async () => {
   await abarbeiten();
 
   // Angebot freigeben → Aufnahme gelöscht
-  const angebotMail = await offeneFreigabe("angebot");
+  let angebotMail = await offeneFreigabe("angebot");
   assert.equal(angebotMail.empfaenger, "thomas@sanitaer-muster.example");
+  // Ohne KI erfindet das System keine Ziele: Das Protokoll ist unvollständig und hält die Mail an, bis es ergänzt ist
+  assert.equal(angebotMail.qkStatus, "blockiert", angebotMail.hinweise.join(" | "));
+  const protokollId = angebotMail.anhaenge[0];
+  await post.protokollAusfuellen(angebotMail.id, protokollId, { ziele: ["Mehr Anfragen aus der Region"], probleme: ["Website auf dem Handy schlecht lesbar"] }, "Daniel Lück");
+  await abarbeiten();
+  angebotMail = await offeneFreigabe("angebot");
+  assert.notEqual(angebotMail.qkStatus, "blockiert", angebotMail.hinweise.join(" | "));
   await post.freigeben(angebotMail.id, "Daniel Lück");
   await abarbeiten();
   const [t] = await db.select().from(schema.termine).where(eq(schema.termine.id, terminId));
@@ -1051,6 +1058,86 @@ test("Portal-Erklärungen: AV-Vertrag und Pilotvereinbarung, Foto-Einwilligung m
   assert.ok(j.beitraege.every((x: { status: string }) => x.status !== "entwurf"), "Entwürfe nicht im Export");
   const csv = await (await holen(token, "?format=csv")).text();
   assert.match(csv, /"'=HYPERLINK/, "Formel entschärft");
+});
+
+test("Korrekturen aus den Testrunden: Verträge folgen dem Angebot, Fristen am Monatsende, Lastschrift-Ende, überholte Angebote, Zahlenprüfung", async () => {
+  const fs = await import("node:fs");
+  const bild = `data:image/png;base64,${fs.readFileSync(new URL("./unterschrift-muster.b64", import.meta.url), "utf8").trim()}`;
+  const vt = await import("../src/lib/ablauf/vertraege");
+  const vertrag = await import("../src/lib/ablauf/vertrag");
+  const { pruefeText } = await import("../src/lib/adapters/ki");
+  const { angebotAendern } = await import("../src/lib/ablauf/angebot-bearbeiten");
+
+  // Zahlenprüfung exakt: „0,00 €“ erlaubt nicht jede Zahl auf ,00 €; „1.490 €“ = „1.490,00 €“
+  assert.equal(pruefeText("Sonderpreis 500,00 €", ["0,00 €"]).length, 1);
+  assert.deepEqual(pruefeText("nur 1.490 € einmalig", ["1.490,00 €"]), []);
+  assert.deepEqual(pruefeText("Zinssatz 10,52 %", ["10,52"]), []);
+
+  // Kündigungsfrist am Monatsende: Start 31.05.2027, Kündigung am 01.03.2029 ist zu spät (Frist 28.02.2029)
+  const ende = vertrag.laufzeitEnde(new Date(2027, 4, 31, 12), new Date(2029, 2, 1, 12));
+  assert.equal(ende.toLocaleDateString("de-DE"), "30.5.2030");
+  assert.equal(vertrag.laufzeitEnde(new Date(2027, 4, 31, 12), new Date(2029, 1, 27, 12)).toLocaleDateString("de-DE"), "30.5.2029");
+
+  // Sperrliste: es entsteht gar nichts
+  const g = await akquise.legeBetriebAn({ name: "Gesperrt Korrektur GmbH", gewerk: "SHK", score: 50, scoreGrund: "Test", website: "gesperrt-k.example", email: "a@gesperrt-k.example" }, "Test", "Test");
+  await db.update(schema.betriebe).set({ status: "gesperrt" }).where(eq(schema.betriebe.id, g.id!));
+  await assert.rejects(() => verkauf.erstelleAngebot({ betriebId: g.id!, auswahl: { paket: "KOMPAKT", module: [], zusaetze: [] }, wer: "Test" }), /Sperrliste/);
+  assert.equal((await db.select().from(schema.angebote).where(eq(schema.angebote.betriebId, g.id!))).length, 0);
+
+  // Angebot nach dem Öffnen der Tablet-Seite geändert: Verträge werden neu aufgebaut und passen zur Rechnung
+  const { id } = await akquise.legeBetriebAn({ name: "Korrektur Elektro GmbH", gewerk: "Elektro", score: 70, scoreGrund: "Test", website: "korrektur.example", email: "chef@korrektur.example", strasse: "Weg 9", plz: "76297", ort: "Stutensee" }, "Test", "Test");
+  const r1 = await verkauf.erstelleAngebot({ betriebId: id!, auswahl: { paket: "PROFESSIONAL", module: ["personal", "marketing"], zusaetze: [] }, wer: "Daniel Lück" });
+  await abarbeiten();
+  await vt.vertragsunterlagen(r1.angebotId);
+  const [doc] = await db.select().from(schema.dokumente).where(eq(schema.dokumente.betriebId, id!));
+  const angebotDok = (await db.select().from(schema.dokumente).where(eq(schema.dokumente.betriebId, id!))).find((d) => d.art === "angebot")!;
+  const pos = (angebotDok.daten as { positionen: { text: string; einmalig: number; monatlich: number }[] }).positionen.filter((x) => !x.text.startsWith("Marketing"));
+  await angebotAendern(r1.eintragId, { positionen: pos, einleitung: "Neuer Einstieg für den Betrieb." }, "Daniel Lück");
+  const [a1] = await db.select().from(schema.angebote).where(eq(schema.angebote.id, r1.angebotId));
+  assert.deepEqual(a1.module, ["personal"], "gestrichenes Modul ist nicht mehr gebucht");
+  const nachher = await db.select().from(schema.dokumente).where(eq(schema.dokumente.id, angebotDok.id));
+  assert.ok(!(nachher[0].daten as { bausteine: { name: string }[] }).bausteine.some((b) => b.name.startsWith("Marketing")), "auch nicht in Anlage 1");
+  const [mail] = await db.select().from(schema.postausgang).where(eq(schema.postausgang.id, r1.eintragId));
+  assert.match(mail.text, /Neuer Einstieg/);
+  const doks = await vt.vertragsunterlagen(r1.angebotId);
+  const rahmen = doks.find((d) => d.art === "rahmenvertrag")!.daten as { einmalig: number; monatlich: number };
+  assert.equal(rahmen.einmalig, a1.einmalig, "Rahmenvertrag folgt dem geänderten Angebot");
+  assert.ok(doc, "vorher gab es Unterlagen");
+
+  // Ein neues Angebot ersetzt das alte: alte Mail abgelehnt, altes Angebot nicht mehr unterschreibbar, Portal zeigt das richtige
+  const r2 = await verkauf.erstelleAngebot({ betriebId: id!, auswahl: { paket: "KOMPAKT", module: [], zusaetze: [] }, wer: "Daniel Lück" });
+  const [alt] = await db.select().from(schema.angebote).where(eq(schema.angebote.id, r1.angebotId));
+  assert.equal(alt.status, "ueberholt");
+  assert.equal((await db.select().from(schema.postausgang).where(eq(schema.postausgang.id, r1.eintragId)))[0].status, "abgelehnt");
+  await assert.rejects(() => vt.vertragUnterschreiben({ angebotId: r1.angebotId, kunde: { name: "Kai Korrektur", unternehmer: true }, bilder: {}, levarex: { name: "Daniel Lück", bild }, wer: "Daniel Lück" }), /Status/);
+
+  // Unterschreiben, Mandat beim Termin: vor der Auftragsbestätigung nicht im Portal; Prüfsumme lässt sich aus der DB nachrechnen
+  const d2 = await vt.vertragsunterlagen(r2.angebotId);
+  await vt.vertragUnterschreiben({ angebotId: r2.angebotId, kunde: { name: "Kai Korrektur", unternehmer: true }, bilder: Object.fromEntries(d2.map((d) => [d.id, bild])), levarex: { name: "Daniel Lück", bild }, wer: "Daniel Lück", mandat: { kontoinhaber: "Korrektur Elektro GmbH", iban: "DE89370400440532013000", bild } });
+  const portal = await import("../src/lib/kundenportal");
+  assert.ok(!(await portal.sichtbareDokumente(id!)).some((d) => d.art === "sepa_mandat"), "Tablet-Mandat erst mit der Auftragsbestätigung");
+  const [md] = await db.select().from(schema.dokumente).where(eq(schema.dokumente.betriebId, id!)).then((x) => x.filter((d) => d.art === "sepa_mandat"));
+  const [u] = await db.select().from(schema.unterschriften).where(eq(schema.unterschriften.dokumentId, md.id));
+  assert.equal(vt.pruefsumme(md.daten as Record<string, unknown>), u.pruefsumme, "Prüfsumme stimmt nach dem Speichern");
+
+  // Lastschrift-Ende: nicht bei der Kündigung, sondern erst kurz vor dem Vertragsende
+  const [pr] = await db.insert(schema.projekte).values({ betriebId: id!, angebotId: r2.angebotId, paket: "KOMPAKT", status: "live", portalToken: "korrektur-projekt-token-1", liveAm: new Date(Date.now() - 400 * 864e5), qontoAboId: "sim_abo_korrektur" }).returning();
+  const endeAm = await vertrag.kuendigungErfassen(pr.id, "Test");
+  const ls = async () => (await db.select().from(schema.postausgang).where(eq(schema.postausgang.projektId, pr.id))).filter((e) => e.zweck === "lastschrift_ende");
+  assert.equal((await ls()).length, 0, "kein sofortiges Ende des Einzugs");
+  await vertrag.vertragsende(new Date(endeAm.getTime() - 30 * 864e5));
+  assert.equal((await ls()).length, 0, "einen Monat vorher noch nicht");
+  await vertrag.vertragsende(new Date(endeAm.getTime() - 5 * 864e5));
+  await vertrag.vertragsende(new Date(endeAm.getTime() - 4 * 864e5));
+  assert.equal((await ls()).length, 1, "kurz vor dem Ende genau ein Eintrag");
+
+  // Abgelehnte Vorlage-Mail: Beiträge sind wieder Entwürfe
+  const bt = await import("../src/lib/beitraege");
+  const b1 = await bt.beitragAnlegen({ betriebId: id!, art: "beitrag", kanaele: ["instagram"], text: "Neues Werkzeug in der Werkstatt." }, "Test");
+  const ein = await bt.beitraegeVorlegen(id!, "Test");
+  await abarbeiten();
+  await post.ablehnen(ein, "Text passt nicht", "Test");
+  assert.equal((await bt.beitraegeVon(id!)).find((x) => x.id === b1)!.status, "entwurf");
 });
 
 async function post_freigeben(id: number) {
