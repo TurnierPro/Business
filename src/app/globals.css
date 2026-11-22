@@ -763,3 +763,6 @@ fieldset { min-width: 0; }
 .tag-block[open] > summary .gruppe-titel::before { content: "▾ "; }
 .tag-block[open] > summary { margin-bottom: 8px; }
 .protokoll-tabelle td.wer { white-space: normal; overflow-wrap: anywhere; }
+/* Beträge brechen nicht um; am Handy untereinander */
+.geldzeile b { white-space: nowrap; }
+@media (max-width: 560px) { .geldzeile { grid-template-columns: 1fr; } .geldzeile > div { display: flex; justify-content: space-between; align-items: baseline; } }

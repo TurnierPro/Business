@@ -86,7 +86,7 @@ export default async function Eintrag({ params }: { params: Promise<{ id: string
                 <h3 style={{ marginTop: 0 }}>So kommt sie an</h3>
                 <p><b>Betreff:</b> {e.betreff}</p>
                 {/* sandbox: keine Skripte, keine Formulare, Links öffnen nichts im System */}
-                <iframe className="vorschau mailvorschau" sandbox="" srcDoc={mailHtml({ betreff: e.betreff, text: e.text })} title="Vorschau der E-Mail" />
+                <iframe className="vorschau mailvorschau" sandbox="" srcDoc={mailHtml({ betreff: e.betreff, text: e.text, vorschau: true })} title="Vorschau der E-Mail" />
                 {e.anhaenge.length ? <p className="klein" style={{ marginTop: 8 }}><b>Anhang:</b> {doks.map((d) => DOKART[d.art] ?? d.art).join(", ")}</p> : null}
                 <details style={{ marginTop: 8 }}>
                   <summary className="leise klein" style={{ cursor: "pointer" }}>Nur-Text-Fassung (für alte Mail-Programme)</summary>

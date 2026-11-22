@@ -109,7 +109,8 @@ export default async function ZuTun() {
             { id: "freigeben", etikett: "Freigeben", n: zahlen.freigaben, unter: "wartet auf dein OK" },
             { id: "einstufen", etikett: "Einstufen", n: zahlen.einstufen, unter: "neue Leads" },
             { id: "tickets", etikett: "Tickets", n: zahlen.tickets, unter: "von Kunden offen" },
-          ].map((k) => (
+            { id: "unbekannt", etikett: "Nachrichten", n: zahlen.unbekannt, unter: "ohne Betrieb" },
+          ].filter((k) => k.n || k.etikett === "Aufgaben").map((k) => (
             <a key={k.etikett} className="blick" href={k.n ? `#${k.id}` : undefined} aria-disabled={!k.n} style={k.n ? undefined : { opacity: 0.55 }}>
               <span className="etikett">{k.etikett}</span>
               <span className="wert" style={{ fontFamily: "var(--mono)", fontSize: 26 }}>{k.n}</span>
