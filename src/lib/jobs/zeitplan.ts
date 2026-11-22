@@ -29,7 +29,7 @@ const monatsanfangAb = (stunde: number, nurQuartal = false) => (jetzt: Date, zul
 const alleMinuten = (min: number) => (jetzt: Date, zuletzt: Date | null) => !zuletzt || jetzt.getTime() - zuletzt.getTime() >= min * 60_000;
 
 export const REGELN: Regel[] = [
-  { name: "Wochenlauf Leads (Mo 6 Uhr)", art: "wochenlauf", faellig: woechentlichAb("Mo", 6) },
+  // Wochenlauf (automatische Lead-Suche) ist aus: Leads tragen Daniel und Maximilian selbst ein. Code bleibt für später.
   { name: "Backup (täglich 2 Uhr)", art: "backup", faellig: taeglichAb(2) },
   { name: "Aufräumen (täglich 3 Uhr)", art: "aufraeumen", faellig: taeglichAb(3) },
   { name: "Probe-Rücksicherung (So 4 Uhr)", art: "ruecksicherung", faellig: woechentlichAb("So", 4) },

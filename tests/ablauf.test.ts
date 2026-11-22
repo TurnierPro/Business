@@ -986,3 +986,37 @@ test("Geburtstagsgruß: Aufgabe 3 Tage vorher, nichts wird verschickt", async ()
   assert.match(aufg[0].titel, /Paul Test am 12\.03\./);
   assert.equal((await db.select().from(schema.postausgang)).length, vorher, "nichts im Postausgang");
 });
+
+test("Gespräch aus Claude importieren: Protokoll und Angebot zur Freigabe, Mitschrift wird gelöscht", async () => {
+  const verkauf = await import("../src/lib/ablauf/verkauf");
+  const { id } = await akquise.legeBetriebAn({ name: "Import Elektro GmbH", gewerk: "Elektro", score: 70, scoreGrund: "Test", email: "chef@import-elektro.example", strasse: "Weg 1", plz: "76297", ort: "Stutensee" }, "Test", "Test");
+  await assert.rejects(() => verkauf.gespraechImportieren({ betriebId: id!, text: "Kurz", einwilligung: true, quelle: "Test", wer: "Daniel Lück" }), /zu kurz/);
+  await assert.rejects(() => verkauf.gespraechImportieren({ betriebId: id!, text: "x".repeat(100), einwilligung: false, quelle: "Test", wer: "Daniel Lück" }), /einverstanden/);
+  const terminId = await verkauf.gespraechImportieren({ betriebId: id!, text: "Gespräch mit dem Inhaber: Website ist alt, Anfragen kommen per Telefon durcheinander, zwei Stellen offen.", einwilligung: true, quelle: "Test", wer: "Daniel Lück" });
+  await abarbeiten();
+  const [t] = await db.select().from(schema.termine).where(eq(schema.termine.id, terminId));
+  assert.ok(t.auswertung, "Auswertung erstellt");
+  assert.equal(t.audioPfad, null, "keine Audiodatei");
+  const doks = await db.select().from(schema.dokumente).where(eq(schema.dokumente.betriebId, id!));
+  assert.ok(doks.some((d) => d.art === "protokoll"), "Protokoll erstellt");
+  const angebot = (await db.select().from(schema.postausgang).where(eq(schema.postausgang.betriebId, id!))).find((e) => e.zweck === "angebot");
+  assert.ok(angebot, "Angebot liegt in den Freigaben");
+  assert.equal(angebot!.status, "zur_freigabe");
+  // Nach Versand des Angebots (mit Protokoll) ist die Mitschrift weg, die Zusammenfassung bleibt
+  if (angebot!.qkStatus !== "blockiert") {
+    await post.freigeben(angebot!.id, "Daniel Lück");
+    await abarbeiten();
+    const [nachher] = await db.select().from(schema.termine).where(eq(schema.termine.id, terminId));
+    assert.equal(nachher.transkript, null);
+    assert.ok(nachher.auswertung);
+  }
+});
+
+test("Qualitätskontrolle: feste Konditionen sind belegt, erfundene Zahlen nicht", async () => {
+  const { pruefeText } = await import("../src/lib/adapters/ki");
+  assert.deepEqual(pruefeText("Die erste Rate (50 %) kommt bei Unterschrift, zuzüglich 19 % Umsatzsteuer."), []);
+  assert.deepEqual(pruefeText("Zahlung: 50 % bei Unterschrift, 50 % beim Livegang."), []);
+  assert.equal(pruefeText("Sie sparen 30 % Bürozeit.").length, 1);
+  assert.equal(pruefeText("Wir garantieren 50 % mehr Anfragen.").length, 1, "50 % ohne Zahlungsbezug bleibt verdächtig");
+  assert.equal(pruefeText("Das ist garantiert günstig.").length, 1);
+});

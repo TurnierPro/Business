@@ -3,7 +3,6 @@ import { notFound } from "next/navigation";
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { getDb, schema } from "@/lib/db";
 import { Status } from "@/components/Status";
-import { Aufnahme } from "@/components/Aufnahme";
 import { BetriebFelder } from "@/components/BetriebFelder";
 import { datum, datumZeit, DOKART, ZWECK } from "@/lib/format";
 import { PAKETE, PaketKey, euro } from "@/lib/pakete";
@@ -11,7 +10,7 @@ import { istEcht } from "@/lib/adapters/dienste";
 import { basisUrl } from "@/lib/ablauf/gemeinsam";
 import { portalBasis } from "@/lib/kundenportal";
 import { BesuchBerichtFelder } from "@/components/BesuchBericht";
-import { besuchErfassen, aktivitaetAnlegen, antwortEntwerfen, nachrichtErledigt, portalLinkErneuern, portalZugangAnlegen, portalZugangSperren, betriebSpeichern, betriebZuweisen, datenLoeschen, einstufen, kontaktLoeschen, kontaktSpeichern, terminHochladen, widerspruch, zahlungSimulieren } from "../../aktionen";
+import { gespraechImportieren, besuchErfassen, aktivitaetAnlegen, antwortEntwerfen, nachrichtErledigt, portalLinkErneuern, portalZugangAnlegen, portalZugangSperren, betriebSpeichern, betriebZuweisen, datenLoeschen, einstufen, kontaktLoeschen, kontaktSpeichern, widerspruch, zahlungSimulieren } from "../../aktionen";
 import { AufgabenListe } from "@/components/AufgabenListe";
 import { ARTEN } from "@/lib/ablauf/crm";
 import { ticketNummer } from "@/lib/ablauf/tickets";
@@ -25,7 +24,7 @@ const ANGEBOT_TEXT: Record<string, string> = { entwurf: "erstellt", versendet: "
 const REITER = [["ueberblick", "Überblick"], ["stammdaten", "Stammdaten"], ["aktivitaeten", "Aktivitäten"], ["dokumente", "Unterlagen"], ["portal", "Kundenportal"]] as const;
 // Seltener gebraucht: über das Menü „Mehr“ oben rechts
 const MEHR = [["zustaendig", "Zuständig und Schlagworte"], ["tickets", "Tickets"], ["log", "Änderungsprotokoll"], ["datenschutz", "Datenschutz und Zugänge"]] as const;
-const ERFASSEN = [["notiz", "Notiz, Anruf, Aufgabe"], ["besuch", "Besuch vor Ort"], ["gespraech", "Gespräch aufnehmen"]] as const;
+const ERFASSEN = [["notiz", "Notiz, Anruf, Aufgabe"], ["besuch", "Besuch vor Ort"], ["gespraech", "Gespräch importieren"]] as const;
 type Auswertung = { ziele?: string[]; probleme?: string[]; empfehlung?: { paket?: string; begruendung?: string }; offeneFragen?: string[]; massnahmen?: { was: string; wann: string; wer: string }[] };
 
 export default async function Lead({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ tab?: string; erfassen?: string }> }) {
@@ -55,7 +54,7 @@ export default async function Lead({ params, searchParams }: { params: Promise<{
     db.select().from(schema.projekte).where(eq(schema.projekte.betriebId, id)),
     db.select().from(schema.seiten).where(and(eq(schema.seiten.betriebId, id), eq(schema.seiten.art, "demo"))),
     db.select().from(schema.jobs).where(and(inArray(schema.jobs.status, ["wartet", "laeuft"]), inArray(schema.jobs.art, ["vorbereitung", "transkription", "auswertung"]))),
-    db.select().from(schema.protokoll).where(eq(schema.protokoll.betriebId, id)).orderBy(desc(schema.protokoll.am)).limit(20),
+    db.select().from(schema.protokoll).where(eq(schema.protokoll.betriebId, id)).orderBy(desc(schema.protokoll.am)).limit(200),
   ]);
   const besuche = await db.select().from(schema.besuche).where(eq(schema.besuche.betriebId, id)).orderBy(desc(schema.besuche.am));
   const rechnungen = await db.select().from(schema.rechnungen).where(eq(schema.rechnungen.betriebId, id)).orderBy(desc(schema.rechnungen.erstelltAm));
@@ -103,11 +102,13 @@ export default async function Lead({ params, searchParams }: { params: Promise<{
   const protokolle = doks.filter((d) => d.art === "protokoll");
   const zeitleiste: Eintrag[] = [
     ...besuche.map((v) => ({ key: `b${v.id}`, am: v.am, typ: "besuch", etikett: "Besuch", titel: ERGEBNISSE[v.ergebnis] ?? v.ergebnis, wer: v.erstelltVon, text: [v.inhaberAngetroffen ? "Inhaber angetroffen" : "Inhaber nicht angetroffen", v.dauerMin ? `${v.dauerMin} Min.` : null, v.paket ? `Paket ${v.paket === "KOMPAKT" ? "Kompakt" : "Professional"}` : null, v.variante ? `Variante ${v.variante}` : null, v.einwand ? `Einwand: „${v.einwand}“` : null, v.art14Info ? "Art.-14-Info dagelassen" : "Art.-14-Info fehlt", v.einwilligungKontakt && v.einwilligungKontakt !== "keine" ? KONTAKT[v.einwilligungKontakt] : null].filter(Boolean).join(" · ") })),
-    ...termine.map((t) => ({ key: `t${t.id}`, am: t.datum, typ: "gespraech", etikett: "Gespräch", titel: "Gespräch vor Ort aufgenommen", wer: t.einwilligungVon ? `Einwilligung ${t.einwilligungVon}` : null, text: t.audioGeloeschtAm ? `Aufnahme gelöscht am ${datum(t.audioGeloeschtAm)}` : "Aufnahme gespeichert, wird nach dem Versand gelöscht", extra: <>{t.auswertung ? <Zusammenfassung a={t.auswertung as Auswertung} /> : <p className="leise klein">Noch keine Zusammenfassung: Die Aufnahme wird gerade ausgewertet.</p>}{protokolle.length ? <div className="knopfreihe" style={{ marginTop: 8 }}>{protokolle.map((d) => <a key={d.id} className="knopf klein" href={`/dokument/${d.id}`} target="_blank">Protokoll als PDF ({datum(d.erstelltAm)})</a>)}</div> : null}</> })),
+    ...termine.map((t) => ({ key: `t${t.id}`, am: t.datum, typ: "gespraech", etikett: "Gespräch", titel: t.audioPfad ? "Gespräch vor Ort aufgenommen" : "Gespräch (aus Claude übernommen)", wer: t.einwilligungVon ? `Einwilligung ${t.einwilligungVon}` : null, text: t.audioPfad ? (t.audioGeloeschtAm ? `Aufnahme gelöscht am ${datum(t.audioGeloeschtAm)}` : "Aufnahme gespeichert, wird nach dem Versand gelöscht") : null, extra: <>{t.auswertung ? <Zusammenfassung a={t.auswertung as Auswertung} /> : <p className="leise klein">Noch keine Zusammenfassung: Das Gespräch wird gerade ausgewertet.</p>}{protokolle.length ? <div className="knopfreihe" style={{ marginTop: 8 }}>{protokolle.map((d) => <a key={d.id} className="knopf klein" href={`/dokument/${d.id}`} target="_blank">Protokoll als PDF ({datum(d.erstelltAm)})</a>)}</div> : null}</> })),
     ...nachrichten.map((n) => ({ key: `n${n.id}`, am: n.zeit, typ: n.richtung === "ein" ? "ein" : "aus", etikett: KANAELE[n.kanal] ?? n.kanal, titel: `${n.richtung === "ein" ? "Von" : "An"} ${n.richtung === "ein" ? n.absender : n.empfaenger}${n.betreff ? `: ${n.betreff}` : ""}`, text: n.richtung === "aus" ? (n.inhalt.length > 160 ? `${n.inhalt.replace(/\s+/g, " ").slice(0, 160)} …` : n.inhalt) : n.inhalt.length > 500 ? `${n.inhalt.slice(0, 500)} …` : n.inhalt, extra: n.richtung === "ein" && n.status === "neu" ? <div className="knopfreihe" style={{ marginTop: 8 }}>{n.kanal === "mail" || n.kanal === "whatsapp" ? <form action={antwortEntwerfen}><input type="hidden" name="id" value={n.id} /><input type="hidden" name="zurueck" value={`/leads/${id}?tab=aktivitaeten`} /><button className="knopf klein">Antwort entwerfen</button></form> : null}<form action={nachrichtErledigt}><input type="hidden" name="id" value={n.id} /><input type="hidden" name="zurueck" value={`/leads/${id}?tab=aktivitaeten`} /><button className="knopf klein">Erledigt</button></form></div> : null })),
     ...chronik.map((a) => ({ key: `a${a.id}`, am: a.erledigtAm ?? a.erstelltAm, typ: "notiz", etikett: ARTEN[a.art] ?? a.art, titel: `${a.titel}${a.erledigtAm && a.faelligAm ? " (erledigt)" : ""}`, wer: a.erstelltVon, text: a.text })),
     ...post.filter((p) => p.versendetAm && p.kanal !== "mail" && p.kanal !== "whatsapp").map((p) => ({ key: `p${p.id}`, am: p.versendetAm!, typ: "aus", etikett: "Versendet", titel: ZWECK[p.zweck] ?? p.zweck, text: p.betreff })),
-  ].sort((x, y) => y.am.getTime() - x.am.getTime()).slice(0, 60);
+    // Änderungsprotokoll: angelegt, eingestuft, Angebot erstellt, freigegeben … (Nachrichten und Notizen stehen schon oben)
+    ...verlauf.filter((v) => !/^(E-Mail|WhatsApp|Telefon|Kundenportal|Website-Formular) von |^Erledigt: |^Nachricht \d+ erledigt/.test(v.aktion)).map((v) => ({ key: `l${v.id}`, am: v.am, typ: "log", etikett: "Log", titel: v.aktion, wer: v.wer, text: v.detail })),
+  ].sort((x, y) => y.am.getTime() - x.am.getTime()).slice(0, 120);
 
   // Datum je Schritt (wie im Kundenportal), soweit bekannt
   const brief = post.find((p) => p.zweck === "akquise_brief" && p.versendetAm);
@@ -282,7 +283,19 @@ export default async function Lead({ params, searchParams }: { params: Promise<{
             </section>
               <section className="karte">
                 <h2>Offene Aufgaben</h2>
-                {offeneAufgaben.length ? <AufgabenListe eintraege={offeneAufgaben.map((a) => ({ a, betrieb: null }))} zurueck={`/leads/${id}`} mitBetrieb={false} /> : <p className="leise klein">Keine. Neue Aufgabe unter „Aktivitäten“.</p>}
+                {offeneAufgaben.length ? <AufgabenListe eintraege={offeneAufgaben.map((a) => ({ a, betrieb: null }))} zurueck={`/leads/${id}`} mitBetrieb={false} /> : <p className="leise klein">Keine offenen Aufgaben.</p>}
+                <details className="schnell-aufgabe">
+                  <summary className="knopf klein">+ Aufgabe hinzufügen</summary>
+                  <form action={aktivitaetAnlegen} className="schnell-form">
+                    <input type="hidden" name="betriebId" value={id} />
+                    <input type="hidden" name="art" value="aufgabe" />
+                    <input type="hidden" name="zurueck" value={`/leads/${id}`} />
+                    <input name="titel" required placeholder="Was ist zu tun?" aria-label="Aufgabe" />
+                    <input type="date" name="faellig" defaultValue={heuteIso} aria-label="Fällig am" required />
+                    <select name="zustaendig" defaultValue="" aria-label="Wer"><option value="">ich</option>{benutzer.map((x) => <option key={x.name}>{x.name}</option>)}</select>
+                    <button className="knopf klein">Anlegen</button>
+                  </form>
+                </details>
               </section>
             </div>
           </div>
@@ -310,16 +323,17 @@ export default async function Lead({ params, searchParams }: { params: Promise<{
                 </>
               ) : erfassen === "gespraech" ? (
                 <>
-                  <p className="leise klein" style={{ marginTop: 0 }}>Aus der Aufnahme entstehen Protokoll, Maßnahmenplan, Angebot und Begleit-Mail. Alles geht vorher durch die Freigabe. Die Aufnahme wird nach dem Versand gelöscht.</p>
-                <form action={terminHochladen}>
-                  <input type="hidden" name="id" value={id} />
-                  <label className="haken" style={{ marginBottom: 16 }}>
-                    <input type="checkbox" name="einwilligung" value="ja" required />
-                    <span><b>Einwilligung liegt vor.</b> {b.inhaber ?? "Der Inhaber"} ist mit der Aufnahme einverstanden. Ohne Haken wird nichts gespeichert.</span>
-                  </label>
-                  <Aufnahme />
-                  <button className="knopf">Aufnahme speichern</button>
-                </form>
+                  <p className="leise klein" style={{ marginTop: 0 }}>Zusammenfassung oder Mitschrift des Gesprächs aus Claude hier einfügen. Daraus entstehen Protokoll, Maßnahmenplan und Angebotsentwurf, alles zur Freigabe. Automatisch geht das auch über n8n (Stammdaten → Konnektoren → „Gespräche aus Claude“).</p>
+                  <form action={gespraechImportieren}>
+                    <input type="hidden" name="id" value={id} />
+                    <label className="feld"><span>Gespräch aus Claude</span><textarea name="text" required rows={8} placeholder="Zusammenfassung oder Mitschrift einfügen …" style={{ minHeight: 180 }} /></label>
+                    <label className="feld" style={{ maxWidth: 220 }}><span>Datum des Gesprächs</span><input type="date" name="datum" defaultValue={heuteIso} /></label>
+                    <label className="haken" style={{ marginBottom: 12 }}>
+                      <input type="checkbox" name="einwilligung" value="ja" required />
+                      <span><b>Einwilligung liegt vor.</b> {b.inhaber ?? "Der Inhaber"} war einverstanden, dass das Gespräch mitgeschrieben wird.</span>
+                    </label>
+                    <button className="knopf">Gespräch übernehmen</button>
+                  </form>
                 </>
               ) : (
                 <form action={aktivitaetAnlegen}>
@@ -343,6 +357,18 @@ export default async function Lead({ params, searchParams }: { params: Promise<{
             <section className="karte">
               <h2>Offene Aufgaben</h2>
               {offeneAufgaben.length ? <AufgabenListe eintraege={offeneAufgaben.map((a) => ({ a, betrieb: null }))} zurueck={`/leads/${id}?tab=aktivitaeten`} mitBetrieb={false} /> : <p className="leise klein">Kein nächster Schritt geplant.</p>}
+              <details className="schnell-aufgabe">
+                  <summary className="knopf klein">+ Aufgabe hinzufügen</summary>
+                  <form action={aktivitaetAnlegen} className="schnell-form">
+                    <input type="hidden" name="betriebId" value={id} />
+                    <input type="hidden" name="art" value="aufgabe" />
+                    <input type="hidden" name="zurueck" value={`/leads/${id}?tab=aktivitaeten`} />
+                    <input name="titel" required placeholder="Was ist zu tun?" aria-label="Aufgabe" />
+                    <input type="date" name="faellig" defaultValue={heuteIso} aria-label="Fällig am" required />
+                    <select name="zustaendig" defaultValue="" aria-label="Wer"><option value="">ich</option>{benutzer.map((x) => <option key={x.name}>{x.name}</option>)}</select>
+                    <button className="knopf klein">Anlegen</button>
+                  </form>
+                </details>
             </section>
           </div>
 

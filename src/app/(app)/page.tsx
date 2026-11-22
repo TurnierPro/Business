@@ -10,6 +10,7 @@ import { ETAPPEN, FRISTEN, stand, UNTERLAGEN } from "@/lib/unterlagen";
 import { offeneAufgaben } from "@/lib/ablauf/crm";
 import { AufgabenListe } from "@/components/AufgabenListe";
 import { ticketNummer } from "@/lib/ablauf/tickets";
+import { zuTunZahlen } from "@/lib/zutun";
 import { FREIGABE_GRUPPEN, gruppeVon, gruppenName, QK_REIHENFOLGE } from "@/lib/freigabe-gruppen";
 
 export const metadata = { title: "Zu tun" };
@@ -48,6 +49,7 @@ export default async function ZuTun() {
     db.select({ n: sql<number>`count(*)::int` }).from(schema.jobs).where(and(eq(schema.jobs.art, "beispieldaten"), inArray(schema.jobs.status, ["wartet", "laeuft"]))),
   ]);
   const unbekannt = await unbekannteNachrichten();
+  const zahlen = await zuTunZahlen(b.name, jetzt); // gleiche Zählung wie im Menü
   // „Mein Tag“: heute und überfällig; die nächsten 7 Tage kompakt darunter
   const morgenFrueh = inTagen(1, "00:00");
   const heuteFaellig = meineAufgaben.filter((x) => x.a.faelligAm && x.a.faelligAm < morgenFrueh);
@@ -102,11 +104,11 @@ export default async function ZuTun() {
       {!nichts ? (
         <div className="auf-einen-blick" style={{ marginBottom: 16 }} aria-label="Überblick">
           {[
-            { id: "aufgaben", etikett: "Mein Tag", n: heuteFaellig.length, unter: "Aufgaben heute" },
-            { id: "aufgaben", etikett: "Besuche", n: besuche.length, unter: "fällig" },
-            { id: "freigeben", etikett: "Freigeben", n: freigaben.length, unter: "wartet auf dein OK" },
-            { id: "einstufen", etikett: "Einstufen", n: neueLeads.length, unter: "neue Leads" },
-            { id: "tickets", etikett: "Tickets", n: tickets.length, unter: "von Kunden offen" },
+            { id: "aufgaben", etikett: "Aufgaben", n: zahlen.aufgaben, unter: "heute fällig" },
+            { id: "aufgaben", etikett: "Besuche", n: zahlen.besuche, unter: "fällig" },
+            { id: "freigeben", etikett: "Freigeben", n: zahlen.freigaben, unter: "wartet auf dein OK" },
+            { id: "einstufen", etikett: "Einstufen", n: zahlen.einstufen, unter: "neue Leads" },
+            { id: "tickets", etikett: "Tickets", n: zahlen.tickets, unter: "von Kunden offen" },
           ].map((k) => (
             <a key={k.etikett} className="blick" href={k.n ? `#${k.id}` : undefined} aria-disabled={!k.n} style={k.n ? undefined : { opacity: 0.55 }}>
               <span className="etikett">{k.etikett}</span>
@@ -121,7 +123,7 @@ export default async function ZuTun() {
 
       <section className="karte mein-tag" id="aufgaben" aria-labelledby="meintag">
         <div className="kopfzeile" style={{ marginBottom: 4 }}>
-          <h2 id="meintag" style={{ margin: 0 }}>Mein Tag <span className="anzahl-pille">{heuteFaellig.length + besuche.length + (freigaben.length ? 1 : 0) + (neueLeads.length ? 1 : 0) + (tickets.length ? 1 : 0) + (unbekannt.length ? 1 : 0)}</span></h2>
+          <h2 id="meintag" style={{ margin: 0 }}>Mein Tag <span className="anzahl-pille" title="Gleiche Zahl wie im Menü: Aufgaben, Besuche, Freigaben, Leads, Tickets und Nachrichten zusammen">{zahlen.gesamt}</span></h2>
           <Link className="knopf klein" href="/aufgaben">Alle Aufgaben</Link>
         </div>
         <p className="leise klein" style={{ marginBottom: 8 }}>Alles, was heute auf dich wartet. Abhaken, wenn erledigt; „Morgen“ schiebt um einen Tag.</p>

@@ -78,6 +78,7 @@ export const LOESCHFRISTEN: { was: string; tage: number | null; grund: string; a
   { was: "Leads ohne Reaktion", tage: 182, grund: "Zusage im Akquise-Brief (6 Monate)", automatisch: true },
   { was: "Angebote ohne Auftrag (samt Betrieb)", tage: ANGEBOT_LOESCHEN_TAGE, grund: "Zweck entfallen", automatisch: true },
   { was: "Gesprächsaufnahmen", tage: 30, grund: "Löschung nach Versand des Protokolls, spätestens nach 30 Tagen", automatisch: true },
+  { was: "Gesprächsmitschriften (Text, auch aus Claude)", tage: 30, grund: "Wie Aufnahmen: nach Versand des Protokolls, spätestens nach 30 Tagen; Zusammenfassung und Protokoll bleiben", automatisch: true },
   { was: "Anfragen über Kunden-Websites", tage: 365, grund: "Annahme, im AV-Vertrag mit dem Kunden festlegen", automatisch: true },
   { was: "Sicherung alter Kunden-Websites (Umzug)", tage: 180, grund: "Nur für Weiterleitungen und Rückfragen nötig", automatisch: true },
   { was: "Nachrichten ohne Zuordnung", tage: 90, grund: "Kein Betrieb erkennbar, Zweck entfallen", automatisch: true },

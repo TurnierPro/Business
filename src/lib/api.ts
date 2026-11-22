@@ -11,6 +11,7 @@ export const RECHTE: Record<string, string> = {
   leads: "Leads anlegen",
   tickets: "Tickets anlegen",
   nachrichten: "Nachrichten einliefern (Mail, WhatsApp, Telefon)",
+  gespraeche: "Gespräche einliefern (Meeting-Zusammenfassungen aus Claude)",
   kontakte: "Ansprechpartner anlegen",
   aktivitaeten: "Notizen und Aufgaben anlegen",
   dokumente: "Unterlagen lesen (PDF)",

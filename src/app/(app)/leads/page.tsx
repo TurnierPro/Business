@@ -3,7 +3,6 @@ import { and, desc, eq, ilike, inArray, lte, or, SQL, sql } from "drizzle-orm";
 import { getDb, schema } from "@/lib/db";
 import { Status } from "@/components/Status";
 import { datum } from "@/lib/format";
-import { wochenlaufStarten } from "../aktionen";
 import { wegIndex, wegProzent, wegText } from "@/lib/weg";
 
 export const metadata = { title: "Betriebe" };
@@ -60,12 +59,11 @@ export default async function Leads({ searchParams }: { searchParams: Promise<{ 
           <details className="mehr">
             <summary className="knopf klein">Mehr</summary>
             <div className="mehr-menue">
-              <form action={wochenlaufStarten}><button className="knopf klein">Wochenlauf jetzt starten</button></form>
               <a className="knopf klein" href="/betriebe-export">Export (CSV)</a>
-              <Link className="knopf klein" href="/einstellungen">Import (CSV)</Link>
+              <Link className="knopf klein" href="/einstellungen?reiter=import">Import (CSV)</Link>
             </div>
           </details>
-          <Link className="knopf haupt" href="/leads/neu">Lead anlegen</Link>
+          <Link className="knopf klein haupt" href="/leads/neu">+ Lead anlegen</Link>
         </div>
       </div>
       <div className="knopfreihe" style={{ marginBottom: 16, justifyContent: "space-between" }}>
@@ -106,7 +104,7 @@ export default async function Leads({ searchParams }: { searchParams: Promise<{ 
           })}
         </ul>
       ) : (
-        <div className="karte leer"><strong>Hier ist gerade niemand.</strong>{q ? "Anders suchen." : "Lead anlegen oder unter „Mehr“ den Wochenlauf starten."}</div>
+        <div className="karte leer"><strong>Hier ist gerade niemand.</strong>{q ? "Anders suchen." : "Oben rechts „+ Lead anlegen“."}</div>
       )}
     </>
   );

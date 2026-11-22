@@ -2,6 +2,7 @@ import { marke } from "../marke";
 import { NICHT_ENTHALTEN, PAKETE, PaketKey, euro, UST } from "../pakete";
 import { ABNAHME_FRIST_TAGE, AENDERUNG_STUNDENSATZ, AGB_URL, AGB_VERSION, ERSTE_RATE_FAELLIG_TAGE, HAFTUNG_JE_FALL, HAFTUNG_JE_JAHR, KUENDIGUNG_MONATE_VOR_ENDE, LAUFZEIT_MONATE, VERFUEGBARKEIT_PROZENT, VERLAENGERUNG_MONATE } from "../recht";
 import { laufzeitSumme } from "../katalog";
+import { ANGEBOT_VORLAGE, fuelle, type AngebotVorlage } from "../angebot-vorlage";
 import type { Pruefpunkt } from "../adapters/websitecheck";
 import {
   Anschrift,
@@ -20,6 +21,7 @@ import {
 
 export type BriefDaten = { an: Anschrift; betreff: string; text: string; datum: string; demoUrl?: string; qr?: string; quelle?: string };
 export type AngebotDaten = {
+  vorlage?: AngebotVorlage;
   an: Anschrift;
   nummer: string;
   datum: string;
@@ -127,11 +129,14 @@ function paketFuer(d: AngebotDaten) {
 export function angebot(d: AngebotDaten): string {
   const p = paketFuer(d);
   const ust = Math.round(d.einmalig * UST);
+  // Vorlage aus dem Angebot (eingefroren); ältere Angebote ohne Vorlage nutzen die aktuelle
+  const v = d.vorlage ?? ANGEBOT_VORLAGE;
+  const platz = { wochen: String(p.wochen), erste_rate_tage: String(ERSTE_RATE_FAELLIG_TAGE), stundensatz: euro(AENDERUNG_STUNDENSATZ), laufzeit: String(LAUFZEIT_MONATE) };
   return druckSeite({
     titel: `Angebot ${d.nummer}`,
     extraCss: dinCss,
     inhalt: `<div class="seite din">${falzmarken}${kopf()}${anschriftfeld(d.an)}
-<div class="infoblock">Angebot<br><b class="mono">${esc(d.nummer)}</b><br><br>Datum<br><b class="mono">${esc(d.datum)}</b><br><br>Gültig bis<br><b class="mono">${esc(datumDe(new Date(Date.now() + 30 * 864e5)))}</b></div>
+<div class="infoblock">Angebot<br><b class="mono">${esc(d.nummer)}</b><br><br>Datum<br><b class="mono">${esc(d.datum)}</b><br><br>Gültig bis<br><b class="mono">${esc(datumDe(new Date(Date.now() + v.gueltigTage * 864e5)))}</b></div>
 <div class="briefkoerper"><h1>Angebot: ${esc(p.name)}${d.bausteine?.length ? ` und ${d.bausteine.length === 1 ? "ein weiterer Baustein" : `${d.bausteine.length} weitere Bausteine`}` : ""}</h1>${absaetze(d.einleitung)}
 <div class="box"><b>Ihre zwei Zahlen</b><br>Einmalig <b class="mono">${euro(d.einmalig)}</b> netto · Monatsbeitrag <b class="mono">${euro(d.monatlich)}</b> netto<br><span class="leise">Gesamt über ${LAUFZEIT_MONATE} Monate ${euro(laufzeitSumme(d.einmalig, d.monatlich).gesamt)} netto, im Schnitt ${euro(laufzeitSumme(d.einmalig, d.monatlich).schnitt)} im Monat. Details auf der nächsten Seite.</span></div>
 <p>Die Leistungsbeschreibung mit allen Bausteinen finden Sie in Anlage 1.</p>
@@ -150,14 +155,9 @@ ${(d.positionen?.length ? d.positionen : [{ text: p.name, einmalig: d.einmalig, 
 <p class="leise" style="font-size:8.5pt">Der Monatsbeitrag bezahlt Hosting, Wartung, Sicherheit, Rechtstexte und Änderungen im vereinbarten Umfang. Laufzeit ${LAUFZEIT_MONATE} Monate ab Livegang, danach jeweils ${VERLAENGERUNG_MONATE} Monate; Kündigung ${KUENDIGUNG_MONATE_VOR_ENDE} Monate vor Ende in Textform. Später gebuchte Module laufen ${LAUFZEIT_MONATE} Monate ab ihrem Livegang.</p>
 ${d.anmerkungen?.trim() ? `<h2>Anmerkungen</h2>${absaetze(d.anmerkungen)}` : ""}
 <h2>So läuft es ab</h2>
-<ul><li>Zahlung: 50 % bei Unterschrift, fällig ${ERSTE_RATE_FAELLIG_TAGE} Tage nach Vertragsschluss und nicht vor Arbeitsbeginn; 50 % beim Livegang nach Ihrer Abnahme. Keine Ratenzahlung.</li><li>Monatsbeitrag per SEPA-Lastschrift mit Vorabankündigung 5 Kalendertage vor dem Einzug; bis der Einzug eingerichtet ist, per Überweisung.</li>
-<li>Online ${p.wochen} Wochen nach Erhalt Ihrer vollständigen Inhalte. Klappt das nicht, ist ein Monatsbeitrag kostenlos.</li>
-<li>Beim Livegang: Lighthouse ≥ 95 und Barrierefreiheit nach WCAG 2.2 AA, sonst bessern wir kostenlos nach.</li>
-<li>Änderungen vor der Abnahme und über das monatliche Kontingent hinaus: ${euro(AENDERUNG_STUNDENSATZ)} netto je Stunde, nur nach Ihrer Freigabe in Textform.</li>
-<li>Die Domain gehört Ihnen, den Auth-Code halten wir nie zurück. Texte und Fotos gehören Ihnen ab Zahlung, Code und Design nach ${LAUFZEIT_MONATE} Monaten.</li>
-<li>Wo Website, Formulare und Kundendaten liegen, steht in der Liste der Unterauftragsverarbeiter im AV-Vertrag.</li></ul>
+<ul>${v.ablauf.map((x) => `<li>${esc(fuelle(x, platz))}</li>`).join("")}</ul>
 <div class="box"><b>Allgemeine Geschäftsbedingungen</b><br>Es gelten unsere AGB für Unternehmer, Version ${esc(d.agbVersion ?? AGB_VERSION)}, abrufbar unter <span class="mono">${esc(AGB_URL)}</span>. Dieses Angebot richtet sich nur an Unternehmer (§ 14 BGB). Mit der Annahme bestätigen Sie, dass Sie für Ihren Betrieb handeln und nicht als Verbraucher.</div>
-<div class="box"><b>Unterschreiben</b><br><span class="leise">Den Rahmenvertrag und je Baustein einen Leistungsschein unterschreiben Sie beim Termin mit Daniel Lück auf dem Tablet. Danach bekommen Sie die Rechnung über die erste Rate. Anlage: Leistungsbeschreibung.</span></div>
+<div class="box"><b>Unterschreiben</b><br><span class="leise">${esc(fuelle(v.unterschreiben, platz))}</span></div>
 ${fuss()}</div>
 ${leistungsbeschreibung(d)}`,
   });

@@ -171,6 +171,13 @@ export async function terminHochladen(f: FormData) {
   );
 }
 
+export async function gespraechImportieren(f: FormData) {
+  const id = zahl(f, "id");
+  await ausfuehren(`/leads/${id}?tab=aktivitaeten`, "Gespräch übernommen. Protokoll und Angebotsentwurf werden erstellt und landen in den Freigaben.", (wer) =>
+    verkauf.gespraechImportieren({ betriebId: id, text: text(f, "text"), datum: datumAus(f, "datum"), einwilligung: f.get("einwilligung") === "ja", quelle: "Claude, eingefügt", wer }),
+  );
+}
+
 export async function vertragUnterschreiben(f: FormData) {
   const angebotId = zahl(f, "angebotId");
   await ausfuehren(`/unterschrift/${angebotId}`, "Verträge unterschrieben. Die Auftragsbestätigung mit allen Unterlagen liegt in den Freigaben.", async (wer) => {
@@ -604,6 +611,11 @@ export async function zusatzSpeichern(f: FormData) {
 export async function katalogZuruecksetzen(f: FormData) {
   const art = text(f, "art");
   await ausfuehren(`/stammdaten?reiter=${art === "paket" ? "webauftritt" : art === "modul" ? "module" : "zusatz"}`, "Auf Werkseinstellung zurückgesetzt", async (wer) => (await import("@/lib/katalog-db")).zuruecksetzen(art, text(f, "key"), wer), "verwalten");
+}
+
+export async function angebotVorlageSpeichern(f: FormData) {
+  await ausfuehren("/stammdaten/angebot", "Angebotsvorlage gespeichert. Gilt für neue Angebote.", async (wer) =>
+    (await import("@/lib/katalog-db")).angebotVorlageSpeichern({ gueltigTage: f.get("gueltigTage"), einstieg: f.get("einstieg"), ablauf: f.get("ablauf"), unterschreiben: f.get("unterschreiben"), mail: f.get("mail") }, wer), "verwalten");
 }
 
 export async function sollSpeichern(f: FormData) {

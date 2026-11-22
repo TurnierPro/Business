@@ -86,7 +86,14 @@ export function jsonAus<T>(text: string, ersatz: T): T {
  */
 export function pruefeText(text: string, erlaubt: string[] = []): string[] {
   const hinweise: string[] = [];
-  const zahlen = text.match(/\d[\d.,]*\s?(€|Euro|%|Prozent)/g) ?? [];
+  // Feste Konditionen sind belegt, aber nur im passenden Zusammenhang (Zahlung 50/50, Umsatzsteuer 19 %).
+  // „50 % mehr Anfragen“ bleibt eine Zahl, die geprüft werden muss.
+  const ohneKonditionen = text
+    .replace(/\(?50\s?%\)?\s?(bei|beim|nach|der|des)\s+(Unterschrift|Livegang|Auftrag|Abnahme|Rechnung|Einmal)/gi, "")
+    .replace(/(erste|zweite)\s+Rate\s*\(50\s?%\)/gi, "")
+    .replace(/19\s?%\s?(USt|Umsatzsteuer|MwSt|Mehrwertsteuer)/gi, "")
+    .replace(/(Umsatzsteuer|USt|MwSt)\s*\(?19\s?%\)?/gi, "");
+  const zahlen = ohneKonditionen.match(/\d[\d.,]*\s?(€|Euro|%|Prozent)/g) ?? [];
   const norm = (s: string) => s.replace(/[\s.]/g, "").replace("Euro", "€").replace("Prozent", "%");
   const erlaubtNorm = erlaubt.map(norm);
   for (const z of zahlen) {

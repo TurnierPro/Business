@@ -32,6 +32,8 @@ export async function nachVersand(e: Eintrag): Promise<void> {
     const terminId = Number(e.meta.terminId);
     if (terminId) {
       const [t] = await db.select().from(schema.termine).where(eq(schema.termine.id, terminId));
+      // Mitschrift (Text) löschen, sobald das Protokoll raus ist; die Zusammenfassung bleibt
+      if (t?.transkript) await db.update(schema.termine).set({ transkript: null }).where(eq(schema.termine.id, terminId));
       if (t?.audioPfad) {
         fs.rmSync(t.audioPfad, { force: true });
         await db.update(schema.termine).set({ audioPfad: null, audioGeloeschtAm: new Date() }).where(eq(schema.termine.id, terminId));

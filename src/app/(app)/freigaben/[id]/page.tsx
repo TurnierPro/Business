@@ -32,122 +32,137 @@ export default async function Eintrag({ params }: { params: Promise<{ id: string
   const vorschauDok = editorZeigtAngebot ? doks.find((d) => d.id !== angebotDok!.id) : doks[0];
   const vorschauUrl = e.kanal === "livegang" && slug ? `/vorschau/${slug}${seite?.zugangscode ? `?code=${seite.zugangscode}` : ""}` : !editorZeigtAngebot && vorschauDok ? `/dokument/${vorschauDok.id}/ansicht` : null;
 
+  const hatDokument = (offen && !!angebotDok) || !!vorschauUrl;
+  const nachricht = e.kanal === "mail" || e.kanal === "whatsapp";
+  const n = { dok: 1, msg: hatDokument ? 2 : 1, ok: (hatDokument ? 1 : 0) + (nachricht ? 1 : 0) + 1 };
+  const qk = (
+    <div className={`hinweis ${e.qkStatus === "bestanden" ? "ok" : e.qkStatus === "blockiert" ? "fehler" : ""}`} role="note" style={{ marginBottom: 12 }}>
+      <b>Qualitätskontrolle: </b><Status wert={e.qkStatus} />
+      {e.qkStatus === "ausstehend" ? <><span className="leise"> Läuft gerade, die Seite aktualisiert sich selbst.</span><NeuLaden /></> : null}
+      {e.qkStatus === "bestanden" ? <span className="leise"> Keine Auffälligkeiten.</span> : null}
+      {e.hinweise.length ? <ul>{e.hinweise.map((h) => <li key={h}>{h}</li>)}</ul> : null}
+    </div>
+  );
+
   return (
     <>
       <Link href="/freigaben" className="zurueck">← Freigaben</Link>
       <div className="kopfzeile">
         <div>
-          <h1>{ZWECK[e.zweck] ?? e.zweck}</h1>
-          <p>{KANAL[e.kanal]} an {e.empfaenger}{betrieb ? <> · <Link href={`/leads/${betrieb.id}`}>{betrieb.name}</Link></> : null}</p>
+          <h1>{ZWECK[e.zweck] ?? e.zweck}{betrieb ? ` · ${betrieb.name}` : ""}</h1>
+          <p>{KANAL[e.kanal]} an {e.empfaenger}{betrieb ? <> · <Link href={`/leads/${betrieb.id}`}>zur Kundenakte</Link></> : null}</p>
         </div>
-        <Status wert={e.status} />
+        <div className="knopfreihe"><Status wert={e.qkStatus} /><Status wert={e.status} /></div>
       </div>
-
-      <div className={`hinweis ${e.qkStatus === "bestanden" ? "ok" : e.qkStatus === "blockiert" ? "fehler" : ""}`} role="note">
-        <b>Qualitätskontrolle: </b><Status wert={e.qkStatus} />
-        {e.qkStatus === "ausstehend" ? <><span className="leise"> Läuft gerade, die Seite aktualisiert sich selbst.</span><NeuLaden /></> : null}
-        {e.qkStatus === "bestanden" ? <span className="leise"> Keine Auffälligkeiten.</span> : null}
-        {e.hinweise.length ? <ul>{e.hinweise.map((h) => <li key={h}>{h}</li>)}</ul> : null}
-      </div>
+      {offen ? <nav className="schrittleiste" aria-label="Ablauf">{hatDokument ? <a href="#schritt-dokument"><span className="nr">{n.dok}</span> {angebotDok ? "Angebot" : "Dokument"}</a> : null}{nachricht ? <a href="#schritt-nachricht"><span className="nr">{n.msg}</span> {e.kanal === "mail" ? "E-Mail" : "WhatsApp"}</a> : null}<a href="#schritt-freigeben"><span className="nr">{n.ok}</span> Prüfen und freigeben</a></nav> : null}
       {e.status === "abgelehnt" ? <div className="hinweis fehler">Abgelehnt: {e.ablehnGrund}</div> : null}
       {e.fehler ? <div className="hinweis fehler">Fehler beim Versand: {e.fehler}</div> : null}
 
-      {offen && angebotDok ? (
-        <div style={{ marginBottom: 24 }}>
-          <AngebotEditor
-            dokumentId={angebotDok.id}
-            eintragId={e.id}
-            start={{ positionen: (angebotDok.daten as AngebotDaten).positionen?.length ? (angebotDok.daten as AngebotDaten).positionen! : [{ text: "Paket", einmalig: (angebotDok.daten as AngebotDaten).einmalig, monatlich: (angebotDok.daten as AngebotDaten).monatlich }], einleitung: (angebotDok.daten as AngebotDaten).einleitung, anmerkungen: (angebotDok.daten as AngebotDaten).anmerkungen ?? "" }}
-            speichern={angebotAendern}
-          />
-        </div>
-      ) : null}
-
-      <div className="raster zwei" style={{ alignItems: "start" }}>
-        <section>
-          {vorschauUrl ? <iframe className="vorschau" src={vorschauUrl} title="Vorschau" /> : null}
-          {e.kanal === "mail" ? (
-            <div className="karte" style={{ marginTop: vorschauUrl ? 16 : 0 }}>
-              <h2>E-Mail, so wie sie ankommt</h2>
-              <p><b>Betreff:</b> {e.betreff}</p>
-              {/* sandbox: keine Skripte, keine Formulare, Links öffnen nichts im System */}
-              <iframe className="vorschau mailvorschau" sandbox="" srcDoc={mailHtml({ betreff: e.betreff, text: e.text })} title="Vorschau der E-Mail" />
-              <details style={{ marginTop: 8 }}>
-                <summary className="leise klein" style={{ cursor: "pointer" }}>Nur-Text-Fassung (für alte Mail-Programme)</summary>
-                <div className="textblock">{e.text}<span className="leise">{mailSignatur()}</span></div>
-              </details>
-              <p className="leise klein" style={{ marginTop: 8 }}>Logo, Design und Signatur mit den Pflichtangaben (§ 35a GmbHG) setzt Levarex OS automatisch. Du prüfst nur den Text.</p>
-            </div>
-          ) : null}
-          {e.kanal === "whatsapp" ? (
-            <div className="karte">
-              <h2>WhatsApp, so wie sie ankommt</h2>
-              <div style={{ background: "#e7ddd0", borderRadius: 8, padding: 16 }}>
-                <div style={{ background: "#dcf8c6", color: "#1b1b1b", borderRadius: 8, padding: "8px 12px", marginLeft: "auto", maxWidth: "85%", whiteSpace: "pre-wrap", fontSize: 14, lineHeight: 1.45 }}>{e.text}</div>
-              </div>
-              <p className="leise klein" style={{ marginTop: 8 }}>Geht nur raus, wenn der Kunde in den letzten 24 Stunden selbst geschrieben hat (Regel von WhatsApp). Keine Signatur, darum Absender im Text nennen.</p>
-            </div>
-          ) : null}
+      {hatDokument ? (
+        <section className="schritt" id="schritt-dokument">
+          <h2 className="schritt-titel"><span className="nr">{n.dok}</span> {angebotDok ? "Das Angebot" : e.kanal === "livegang" ? "Die Website" : "Das Dokument"}</h2>
+          {offen && angebotDok ? (
+            <AngebotEditor
+              dokumentId={angebotDok.id}
+              eintragId={e.id}
+              start={{ positionen: (angebotDok.daten as AngebotDaten).positionen?.length ? (angebotDok.daten as AngebotDaten).positionen! : [{ text: "Paket", einmalig: (angebotDok.daten as AngebotDaten).einmalig, monatlich: (angebotDok.daten as AngebotDaten).monatlich }], einleitung: (angebotDok.daten as AngebotDaten).einleitung, anmerkungen: (angebotDok.daten as AngebotDaten).anmerkungen ?? "" }}
+              speichern={angebotAendern}
+            />
+          ) : vorschauUrl ? <iframe className="vorschau" src={vorschauUrl} title="Vorschau" /> : null}
           {doks.length ? (
             <div className="knopfreihe" style={{ marginTop: 12 }}>
               {doks.map((d) => <a key={d.id} className="knopf klein" href={`/dokument/${d.id}`} target="_blank">{DOKART[d.art] ?? d.art} als PDF</a>)}
             </div>
           ) : null}
-          {e.kanal === "livegang" || e.kanal === "lastschrift" ? <div className="karte" style={{ marginTop: e.kanal === "livegang" ? 16 : 0 }}>{e.kanal === "lastschrift" ? <h2>SEPA-Lastschrift über Qonto</h2> : null}<div className="textblock">{e.text}</div></div> : null}
         </section>
+      ) : null}
 
-        <section>
-          {offen ? (
-            <div className="karte">
-              <h2>Entscheiden</h2>
-              {e.noetigeFreigaben > 1 ? <p className="leise">Braucht {e.noetigeFreigaben} Freigaben von verschiedenen Personen. Bisher: {e.freigaben.map((f) => f.name).join(", ") || "keine"}.</p> : null}
-              {schonFreigegeben ? (
-                <p>Du hast schon freigegeben. Jetzt fehlt die andere Person.</p>
-              ) : e.qkStatus === "ausstehend" ? (
-                <p className="leise">Freigeben geht, sobald die Qualitätskontrolle fertig ist.</p>
-              ) : e.qkStatus === "blockiert" ? (
-                <p>Die Qualitätskontrolle hat Fehler gefunden. Bitte zuerst beheben (Text ändern oder Unterlagen beim Betrieb ergänzen).</p>
-              ) : (
-                <form action={freigeben}>
-                  <input type="hidden" name="id" value={e.id} />
-                  {e.kanal === "livegang" ? (
-                    <label className="feld"><span>Code aus der Authenticator-App</span><input name="code" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" required /></label>
-                  ) : null}
-                  <button className="knopf haupt" style={{ width: "100%" }}>{e.kanal === "livegang" ? "Livegang freigeben" : e.kanal === "lastschrift" ? "Lastschrift freigeben" : e.kanal === "brief" ? "Brief freigeben und versenden" : e.kanal === "whatsapp" ? "WhatsApp freigeben und senden" : "Freigeben und senden"}</button>
-                </form>
-              )}
-              <form action={ablehnen} style={{ marginTop: 16 }}>
+      {nachricht ? (
+        <section className="schritt" id="schritt-nachricht">
+          <h2 className="schritt-titel"><span className="nr">{n.msg}</span> {e.kanal === "mail" ? "Die E-Mail an den Kunden" : "Die WhatsApp an den Kunden"}</h2>
+          <div className="raster zwei" style={{ alignItems: "start" }}>
+            {e.kanal === "mail" ? (
+              <div className="karte">
+                <h3 style={{ marginTop: 0 }}>So kommt sie an</h3>
+                <p><b>Betreff:</b> {e.betreff}</p>
+                {/* sandbox: keine Skripte, keine Formulare, Links öffnen nichts im System */}
+                <iframe className="vorschau mailvorschau" sandbox="" srcDoc={mailHtml({ betreff: e.betreff, text: e.text })} title="Vorschau der E-Mail" />
+                {e.anhaenge.length ? <p className="klein" style={{ marginTop: 8 }}><b>Anhang:</b> {doks.map((d) => DOKART[d.art] ?? d.art).join(", ")}</p> : null}
+                <details style={{ marginTop: 8 }}>
+                  <summary className="leise klein" style={{ cursor: "pointer" }}>Nur-Text-Fassung (für alte Mail-Programme)</summary>
+                  <div className="textblock">{e.text}<span className="leise">{mailSignatur()}</span></div>
+                </details>
+                <p className="leise klein" style={{ marginTop: 8 }}>Logo, Design und Signatur mit den Pflichtangaben setzt Levarex OS automatisch.</p>
+              </div>
+            ) : (
+              <div className="karte">
+                <h3 style={{ marginTop: 0 }}>So kommt sie an</h3>
+                <div style={{ background: "#e7ddd0", borderRadius: 8, padding: 16 }}>
+                  <div style={{ background: "#dcf8c6", color: "#1b1b1b", borderRadius: 8, padding: "8px 12px", marginLeft: "auto", maxWidth: "85%", whiteSpace: "pre-wrap", fontSize: 14, lineHeight: 1.45 }}>{e.text}</div>
+                </div>
+                <p className="leise klein" style={{ marginTop: 8 }}>Geht nur raus, wenn der Kunde in den letzten 24 Stunden selbst geschrieben hat (Regel von WhatsApp).</p>
+              </div>
+            )}
+            {offen ? (
+              <form action={eintragSpeichern} className="karte">
+                <h3 style={{ marginTop: 0 }}>Text ändern</h3>
                 <input type="hidden" name="id" value={e.id} />
-                <label className="feld"><span>Oder ablehnen</span><input name="grund" placeholder="Grund (optional)" /></label>
+                <label className="feld"><span>Empfänger</span><input name="empfaenger" defaultValue={e.empfaenger} /></label>
+                <label className="feld"><span>Betreff</span><input name="betreff" defaultValue={e.betreff} required /></label>
+                <label className="feld"><span>Text</span><textarea name="text" defaultValue={e.text} style={{ minHeight: 300 }} required /></label>
+                <button className="knopf">Änderung speichern</button>
+                <p className="leise klein" style={{ marginTop: 8 }}>Nach einer Änderung prüft die Qualitätskontrolle neu.</p>
+              </form>
+            ) : null}
+          </div>
+        </section>
+      ) : null}
+
+      {!nachricht && (e.kanal === "livegang" || e.kanal === "lastschrift" || e.kanal === "brief") && !vorschauUrl ? (
+        <div className="karte abstand-klein">{e.kanal === "lastschrift" ? <h2>SEPA-Lastschrift über Qonto</h2> : null}<div className="textblock">{e.text}</div></div>
+      ) : null}
+
+      <section className="schritt" id="schritt-freigeben">
+        <h2 className="schritt-titel"><span className="nr">{n.ok}</span> {offen ? "Prüfen und freigeben" : "Verlauf"}</h2>
+        {qk}
+        {offen ? (
+          <div className="karte">
+            {e.noetigeFreigaben > 1 ? <p className="leise">Braucht {e.noetigeFreigaben} Freigaben von verschiedenen Personen. Bisher: {e.freigaben.map((f) => f.name).join(", ") || "keine"}.</p> : null}
+            <div className="raster" style={{ gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: 24, alignItems: "end" }}>
+              <div>
+                {schonFreigegeben ? (
+                  <p>Du hast schon freigegeben. Jetzt fehlt die andere Person.</p>
+                ) : e.qkStatus === "ausstehend" ? (
+                  <p className="leise">Freigeben geht, sobald die Qualitätskontrolle fertig ist.</p>
+                ) : e.qkStatus === "blockiert" ? (
+                  <p>Die Qualitätskontrolle hat Fehler gefunden. Bitte zuerst beheben (Text ändern oder Unterlagen beim Betrieb ergänzen).</p>
+                ) : (
+                  <form action={freigeben}>
+                    <input type="hidden" name="id" value={e.id} />
+                    {e.kanal === "livegang" ? (
+                      <label className="feld"><span>Code aus der Authenticator-App</span><input name="code" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" required /></label>
+                    ) : null}
+                    <button className="knopf haupt" style={{ width: "100%" }}>{e.kanal === "livegang" ? "Livegang freigeben" : e.kanal === "lastschrift" ? "Lastschrift freigeben" : e.kanal === "brief" ? "Brief freigeben und versenden" : e.kanal === "whatsapp" ? "WhatsApp freigeben und senden" : "Freigeben und senden"}</button>
+                  </form>
+                )}
+              </div>
+              <form action={ablehnen} className="knopfreihe" style={{ alignItems: "end" }}>
+                <input type="hidden" name="id" value={e.id} />
+                <label className="feld" style={{ flex: 1, margin: 0 }}><span>Oder ablehnen</span><input name="grund" placeholder="Grund (optional)" /></label>
                 <button className="knopf gefahr klein">Ablehnen</button>
               </form>
             </div>
-          ) : (
-            <div className="karte">
-              <h2>Verlauf</h2>
-              <ul className="liste">
-                <li><span>Erstellt</span><span className="leise">{datumZeit(e.erstelltAm)}</span></li>
-                {e.freigaben.map((f) => <li key={f.am}><span>Freigegeben von {f.name}</span><span className="leise">{datumZeit(f.am)}</span></li>)}
-                {e.versendetAm ? <li><span>Versendet</span><span className="leise">{datumZeit(e.versendetAm)}</span></li> : null}
-              </ul>
-            </div>
-          )}
-
-          {offen && e.kanal !== "livegang" && e.kanal !== "lastschrift" ? (
-            <details className="karte" open={e.qkStatus === "blockiert"}>
-              <summary style={{ cursor: "pointer", fontWeight: 600, fontSize: 19 }}>Text ändern</summary>
-            <form action={eintragSpeichern} style={{ marginTop: 12 }}>
-              <input type="hidden" name="id" value={e.id} />
-              <label className="feld"><span>Empfänger</span><input name="empfaenger" defaultValue={e.empfaenger} /></label>
-              <label className="feld"><span>Betreff</span><input name="betreff" defaultValue={e.betreff} required /></label>
-              <label className="feld"><span>Text</span><textarea name="text" defaultValue={e.text} style={{ minHeight: 320 }} required /></label>
-              <button className="knopf">Änderung speichern</button>
-              <p className="leise klein" style={{ marginTop: 8 }}>Nach einer Änderung muss neu freigegeben werden.</p>
-            </form>
-            </details>
-          ) : null}
-        </section>
-      </div>
+          </div>
+        ) : (
+          <div className="karte">
+            <ul className="liste">
+              <li><span>Erstellt</span><span className="leise">{datumZeit(e.erstelltAm)}</span></li>
+              {e.freigaben.map((f) => <li key={f.am}><span>Freigegeben von {f.name}</span><span className="leise">{datumZeit(f.am)}</span></li>)}
+              {e.versendetAm ? <li><span>Versendet</span><span className="leise">{datumZeit(e.versendetAm)}</span></li> : null}
+            </ul>
+          </div>
+        )}
+      </section>
     </>
   );
 }

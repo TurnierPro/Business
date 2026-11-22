@@ -739,3 +739,18 @@ fieldset { min-width: 0; }
 .tag-sammel > li::before { content: ""; position: absolute; left: 4px; top: 14px; width: 18px; height: 18px; border-radius: 50%; border: 1.5px dashed var(--rahmen); }
 .demnaechst { margin-top: 8px; border-top: 1px solid var(--linie); padding-top: 8px; }
 .demnaechst > summary { cursor: pointer; color: var(--leise); }
+/* Kundenakte: Aufgabe direkt hinzufügen; Log-Einträge im Verlauf zurückhaltend */
+.schnell-aufgabe { margin-top: 10px; }
+.schnell-aufgabe > summary { list-style: none; display: inline-flex; }
+.schnell-aufgabe > summary::-webkit-details-marker { display: none; }
+.schnell-form { display: grid; grid-template-columns: minmax(0, 1fr) 150px 140px auto; gap: 8px; margin-top: 10px; align-items: center; }
+@media (max-width: 700px) { .schnell-form { grid-template-columns: 1fr 1fr; } .schnell-form input[name=titel] { grid-column: 1 / -1; } }
+.zeitleiste .art-log { opacity: 0.75; }
+
+/* Freigabe in Schritten: Dokument → Nachricht → Prüfen und freigeben */
+.schrittleiste { display: flex; gap: 8px; flex-wrap: wrap; margin: 0 0 16px; }
+.schrittleiste a { display: inline-flex; align-items: center; gap: 8px; padding: 6px 14px 6px 6px; border: 1px solid var(--rand-weich, var(--linie)); border-radius: 999px; text-decoration: none; color: var(--text); font-size: 14px; }
+.schrittleiste a:hover { background: rgba(255,255,255,0.04); }
+.schrittleiste .nr, .schritt-titel .nr { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; border: 1px solid var(--rahmen); font-family: var(--mono); font-size: 12px; }
+.schritt { margin-bottom: 28px; scroll-margin-top: 16px; }
+.schritt-titel { display: flex; align-items: center; gap: 10px; margin: 0 0 12px; }

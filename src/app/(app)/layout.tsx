@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { and, eq, isNull, lte, ne, sql } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import { brauchtBenutzer, zweiFaktorPflichtFehlt } from "@/lib/auth";
+import { zuTunZahlen } from "@/lib/zutun";
 import { getDb, schema } from "@/lib/db";
 import { inTagen } from "@/lib/format";
 import { Logo } from "@/components/Logo";
@@ -21,10 +22,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   if (ich && zweiFaktorPflichtFehlt(ich)) redirect("/zwei-faktor");
   // Fehlt der zweite Faktor (nur lokal möglich, auf dem Server ist er Pflicht), erinnert „Zu tun“ unten daran.
   await katalogLaden(); // Stammdaten aktuell halten (eine kleine Abfrage)
-  const heuteEnde = inTagen(1, "00:00"); // Mitternacht deutsche Zeit
-  const [[offen], [aufgaben], [tickets]] = await Promise.all([
-    db.select({ n: sql<number>`count(*)::int` }).from(schema.postausgang).where(eq(schema.postausgang.status, "zur_freigabe")),
-    db.select({ n: sql<number>`count(*)::int` }).from(schema.aktivitaeten).where(and(isNull(schema.aktivitaeten.erledigtAm), eq(schema.aktivitaeten.zustaendig, b.name), lte(schema.aktivitaeten.faelligAm, heuteEnde))),
+  const [zutun, [tickets]] = await Promise.all([
+    zuTunZahlen(b.name),
     db.select({ n: sql<number>`count(*)::int` }).from(schema.tickets).where(ne(schema.tickets.status, "erledigt")),
   ]);
   return (
@@ -34,7 +33,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           <a href="/" className="logo"><Logo hoehe={20} /></a>
           <div className="slogan">{marke.slogan}</div>
         </div>
-        <Navigation zahlen={{ zutun: offen.n + aufgaben.n, projekte: tickets.n }} />
+        <Navigation zahlen={{ zutun: zutun.gesamt, projekte: tickets.n }} />
         <div className="fuss">
           {b.name}
           <br />

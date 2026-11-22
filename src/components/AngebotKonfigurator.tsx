@@ -100,13 +100,16 @@ export function AngebotKonfigurator({ gewerk, startPaket, katalog, email = "", i
       </section>
 
       <section className="karte" id="pruefen">
-        <h2><span className="nr">4</span> Prüfen und erstellen</h2>
-        <div className="raster zwei" style={{ alignItems: "start", gap: 24 }}>
+        <h2><span className="nr">4</span> Zusammenfassung</h2>
+        <div className="raster" style={{ gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1.6fr)", gap: 24, alignItems: "start" }}>
           <div>
             <div className="raster zwei" style={{ gap: 10, marginBottom: 12 }}>
               <div className="kennzahl"><div className="wert">{euro(r.einmalig)}</div><div className="name">einmalig netto</div></div>
               <div className="kennzahl"><div className="wert">{euro(r.monatlich)}</div><div className="name">Monatsbeitrag netto</div></div>
             </div>
+            <p className="klein">Über {summe.monate} Monate: <b>{euro(summe.gesamt)}</b> netto, im Schnitt <b>{euro(summe.schnitt)}</b> im Monat. Erste Rate bei Unterschrift (50 %): <b>{euro(Math.round((r.einmalig / 2) * (1 + UST)))}</b> brutto, zweite beim Livegang.</p>
+          </div>
+          <div>
             <table className="tabelle">
               <thead><tr><th>Baustein</th><th className="zahl">Einmalig</th><th className="zahl">Monatlich</th></tr></thead>
               <tbody>
@@ -116,15 +119,20 @@ export function AngebotKonfigurator({ gewerk, startPaket, katalog, email = "", i
                 <tr><td className="leise klein">Brutto (mit 19 % USt)</td><td className="zahl leise klein">{euro(Math.round(r.einmalig * (1 + UST)))}</td><td className="zahl leise klein">{euro(Math.round(r.monatlich * (1 + UST)))}</td></tr>
               </tbody>
             </table>
-            <p className="klein" style={{ marginTop: 12 }}>Über {summe.monate} Monate: <b>{euro(summe.gesamt)}</b> netto, im Schnitt <b>{euro(summe.schnitt)}</b> im Monat. Erste Rate bei Unterschrift (50 %): <b>{euro(Math.round((r.einmalig / 2) * (1 + UST)))}</b> brutto, zweite beim Livegang.</p>
-            {r.hinweise.length ? <div className="hinweis"><ul>{r.hinweise.map((h) => <li key={h}>{h}</li>)}</ul></div> : null}
+            {r.hinweise.length ? <div className="hinweis" style={{ marginTop: 12 }}><ul>{r.hinweise.map((h) => <li key={h}>{h}</li>)}</ul></div> : null}
           </div>
-          <div>
-            <label className="feld"><span>E-Mail-Adresse {inhaber ? `von ${inhaber}` : "des Kunden"}</span><input name="email" type="email" required defaultValue={email} placeholder="name@betrieb.de" /><small>Dorthin gehen Angebot und Link zum Kundenportal.</small></label>
-            <label className="feld"><span>Persönlicher Einstieg <em>optional</em></span><textarea name="einleitung" style={{ minHeight: 110 }} placeholder="z. B. vielen Dank für das gute Gespräch heute. Wie besprochen …" /></label>
-            <SendenKnopf text="Angebot erstellen" warten="Angebot und PDF werden erstellt …" style={{ width: "100%" }} />
-            <p className="leise klein" style={{ marginTop: 8 }}>Danach prüft die Qualitätskontrolle. Erst mit deiner Freigabe geht es an den Kunden.</p>
-          </div>
+        </div>
+      </section>
+
+      <section className="karte" id="senden">
+        <h2><span className="nr">5</span> An wen geht das Angebot?</h2>
+        <div className="raster" style={{ gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1.6fr)", gap: 24, alignItems: "start" }}>
+          <label className="feld"><span>E-Mail-Adresse {inhaber ? `von ${inhaber}` : "des Kunden"}</span><input name="email" type="email" required defaultValue={email} placeholder="name@betrieb.de" /><small>Dorthin gehen Angebot und Link zum Kundenportal.</small></label>
+          <label className="feld"><span>Persönlicher Einstieg <em>optional</em></span><textarea name="einleitung" style={{ minHeight: 100 }} placeholder="z. B. vielen Dank für das gute Gespräch heute. Wie besprochen … (leer: Standardtext aus der Angebotsvorlage)" /></label>
+        </div>
+        <div className="knopfreihe" style={{ marginTop: 4 }}>
+          <SendenKnopf text="Angebot erstellen" warten="Angebot und PDF werden erstellt …" />
+          <span className="leise klein">Als Nächstes siehst du das fertige Angebot und die E-Mail dazu. Die Qualitätskontrolle prüft beides; erst mit deiner Freigabe geht es an den Kunden.</span>
         </div>
       </section>
 
@@ -132,7 +140,7 @@ export function AngebotKonfigurator({ gewerk, startPaket, katalog, email = "", i
         <span><span className="leise klein">einmalig</span> <b>{euro(r.einmalig)}</b></span>
         <span><span className="leise klein">monatlich</span> <b>{euro(r.monatlich)}</b></span>
         <span className="weg-schmal"><span className="leise klein">{summe.monate} Monate</span> <b>{euro(summe.gesamt)}</b></span>
-        <a className="knopf klein" href="#pruefen">Zur Zusammenfassung</a>
+        <button type="button" className="knopf klein" onClick={() => document.getElementById("pruefen")?.scrollIntoView({ behavior: "smooth", block: "start" })}>Zur Zusammenfassung</button>
       </div>
     </div>
   );

@@ -171,6 +171,8 @@ export async function aufraeumen(): Promise<string> {
     fs.rmSync(t.audioPfad!, { force: true });
     await db.update(schema.termine).set({ audioPfad: null, audioGeloeschtAm: jetzt }).where(eq(schema.termine.id, t.id));
   }
+  // Gesprächsmitschriften (Text) ebenso nach 30 Tagen; die Auswertung (Zusammenfassung) bleibt
+  await db.update(schema.termine).set({ transkript: null }).where(and(isNotNull(schema.termine.transkript), lt(schema.termine.erstelltAm, vor(frist("Gesprächsmitschriften (Text, auch aus Claude)")))));
   // Sicherungen alter Websites aus dem Umzug
   const umzugOrdner = datenOrdner("umzug");
   for (const o of fs.readdirSync(umzugOrdner)) {

@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
+import { ANGEBOT_VORLAGE, fuelle } from "../angebot-vorlage";
 import { and, eq, max } from "drizzle-orm";
 import { getDb, schema } from "../db";
 import { einreihen } from "../jobs/warteschlange";
@@ -37,6 +38,28 @@ export async function terminAufnehmen(o: { betriebId: number; datei: File; einwi
   await systemAufgabeErledigt(o.betriebId, "Besuch vor Ort");
   await protokolliere(o.wer, "Termin aufgenommen (Einwilligung bestätigt)", o.betriebId);
   await einreihen("transkription", { terminId: t.id });
+  return t.id;
+}
+
+/**
+ * Gespräch aus Claude (Meeting-Zusammenfassung oder Mitschrift) übernehmen: statt Aufnahme direkt Text.
+ * Danach wie bei einer Aufnahme: Auswertung → Protokoll, Angebotsentwurf und Begleit-Mail zur Freigabe.
+ */
+export async function gespraechImportieren(o: { betriebId: number; text: string; datum?: Date | null; einwilligung: boolean; quelle: string; wer: string }): Promise<number> {
+  if (!o.einwilligung) throw new Error("Bitte bestätigen, dass der Betrieb mit dem Mitschreiben des Gesprächs einverstanden war.");
+  const text = o.text.trim();
+  if (text.length < 40) throw new Error("Der Gesprächstext ist zu kurz. Bitte die Zusammenfassung oder Mitschrift aus Claude einfügen.");
+  await betrieb(o.betriebId); // wirft, wenn es den Betrieb nicht gibt
+  const db = await getDb();
+  const [t] = await db
+    .insert(schema.termine)
+    .values({ betriebId: o.betriebId, datum: o.datum ?? new Date(), einwilligung: true, einwilligungAm: new Date(), einwilligungVon: o.wer, transkript: text.slice(0, 200000), status: "transkribiert" })
+    .returning({ id: schema.termine.id });
+  const [b] = await db.select({ status: schema.betriebe.status }).from(schema.betriebe).where(eq(schema.betriebe.id, o.betriebId));
+  if (b && ["neu", "interessant", "angeschrieben"].includes(b.status)) await setzeStatus(o.betriebId, "termin");
+  await systemAufgabeErledigt(o.betriebId, "Besuch vor Ort");
+  await protokolliere(o.wer, `Gespräch importiert (${o.quelle})`, o.betriebId);
+  await einreihen("auswertung", { terminId: t.id });
   return t.id;
 }
 
@@ -120,7 +143,8 @@ export async function erstelleAngebot(o: { betriebId: number; auswahl: Auswahl; 
     ...katalog.zusaetze.filter((z) => o.auswahl.zusaetze.includes(z.key) && z.key !== "prozesscheck").map((z) => ({ name: z.name, punkte: [z.individuell && o.auswahl.individuell?.text ? o.auswahl.individuell.text : z.text ?? z.name] })),
   ];
   const nummer = `A-${new Date().getFullYear()}-${String(angebot.id).padStart(4, "0")}`;
-  const einleitung = o.einleitung || `vielen Dank für das Gespräch bei ${b.name}. Wie besprochen erhalten Sie unser Angebot mit den Bausteinen, die wir gemeinsam ausgewählt haben.`;
+  const vorlage = structuredClone(ANGEBOT_VORLAGE); // eingefroren: spätere Änderungen an der Vorlage ändern kein Angebot
+  const einleitung = o.einleitung || fuelle(vorlage.einstieg, { betrieb: b.name });
   const angebotDokId = await neuesDokument({
     betriebId: b.id,
     art: "angebot",
@@ -128,7 +152,7 @@ export async function erstelleAngebot(o: { betriebId: number; auswahl: Auswahl; 
     daten: { an, nummer, datum: datumDe(), paket: o.auswahl.paket, einleitung, einmalig: r.einmalig, monatlich: r.monatlich, positionen: r.positionen, zahlweg: "ueberweisung", agbVersion: AGB_VERSION,
       // Eingefroren: spätere Änderungen in den Stammdaten ändern kein verschicktes Angebot
       paketName: p.name, paketProblem: p.problem, paketInhalt: [...p.inhalt], nichtEnthalten: [...NICHT_ENTHALTEN[o.auswahl.paket]], wochen: p.wochen,
-      bausteine, mitKi: o.auswahl.module.some((m) => m === "marketing" || m === "kundenmanagement") },
+      bausteine, mitKi: o.auswahl.module.some((m) => m === "marketing" || m === "kundenmanagement"), vorlage },
   });
   const anrede = an.inhaber ? (an.anrede === "Frau" ? `Sehr geehrte Frau ${an.inhaber.split(" ").slice(-1)[0]},` : `Sehr geehrter Herr ${an.inhaber.split(" ").slice(-1)[0]},`) : "Guten Tag,";
   const zahlen = "";
@@ -138,7 +162,7 @@ export async function erstelleAngebot(o: { betriebId: number; auswahl: Auswahl; 
     zweck: "angebot",
     empfaenger: b.email ?? "(E-Mail-Adresse fehlt)",
     betreff: `Ihr Angebot von Levarex: ${p.name}`,
-    text: `${anrede}\n\n${einleitung}\n\nIm Anhang finden Sie ${o.vorAnhaenge?.length ? "das Protokoll mit Maßnahmenplan und " : ""}das Angebot. Alles liegt auch in Ihrem Kundenportal. Dort nehmen Sie das Angebot mit zwei Klicks an und sehen jederzeit, wo Ihr Projekt steht.${zahlen}\n${await portalLink(b.id)}\n\nBei Fragen rufen Sie mich gern an.\n\nMit freundlichen Grüßen\nDaniel Lück\nLevarex Consulting`,
+    text: fuelle(vorlage.mail, { anrede, einstieg: einleitung, anhaenge: o.vorAnhaenge?.length ? "das Protokoll mit Maßnahmenplan und das Angebot" : "das Angebot", portallink: await portalLink(b.id) }) + zahlen,
     anhaenge: [...(o.vorAnhaenge ?? []), angebotDokId],
     erlaubteZahlen: [euro(r.einmalig), euro(r.monatlich), ...r.positionen.flatMap((x) => [euro(x.einmalig), euro(x.monatlich)])],
     hinweise: [...(b.email ? [] : ["E-Mail-Adresse fehlt. Beim Betrieb ergänzen und Empfänger anpassen."]), ...r.hinweise],

@@ -4,6 +4,7 @@ import { protokolliere } from "./protokoll";
 import { AENDERUNGS_MINUTEN, NICHT_ENTHALTEN, PAKETE, type Paket, type PaketKey } from "./pakete";
 import { MODULE, ZUSAETZE, type Katalog, type Modul, type Zusatz } from "./katalog";
 import { ZIEL_STUNDEN } from "./ablauf/zeiten";
+import { setzeAngebotVorlage, type AngebotVorlage } from "./angebot-vorlage";
 
 // Stammdaten: Werkseinstellung aus dem Code, darüber die Änderungen aus der Datenbank.
 // katalogLaden() baut den Katalog bei jedem Aufruf neu auf (die Tabelle ist winzig), damit alle Teile
@@ -30,6 +31,7 @@ export async function katalogLaden(): Promise<Katalog> {
     ...werk.map((w) => ({ ...structuredClone(w), ...((ueber(art, w.key) ?? {}) as Partial<T>) })),
     ...zeilen.filter((z) => z.art === art && !werk.some((w) => `${art}:${w.key}` === z.key)).map((z) => z.daten as T),
   ];
+  setzeAngebotVorlage(ueber("vorlage", "angebot") as Partial<AngebotVorlage> | undefined);
   MODULE.splice(0, MODULE.length, ...neu<Modul>("modul", WERK.MODULE).sort((a, b) => a.nr - b.nr));
   ZUSAETZE.splice(0, ZUSAETZE.length, ...neu<Zusatz>("zusatz", WERK.ZUSAETZE));
   return { pakete: structuredClone(PAKETE), module: structuredClone(MODULE), zusaetze: structuredClone(ZUSAETZE) };
@@ -123,5 +125,28 @@ export async function zuruecksetzen(art: string, key: string, wer: string) {
 
 export async function geaendert(): Promise<Set<string>> {
   const db = await getDb();
-  return new Set((await db.select({ key: schema.katalogEintraege.key }).from(schema.katalogEintraege)).map((z) => z.key));
+  // Nur Bausteine (Pakete, Module, Zusätze); Kostenplan und Vorlagen zählen hier nicht
+  return new Set((await db.select({ key: schema.katalogEintraege.key, art: schema.katalogEintraege.art }).from(schema.katalogEintraege)).filter((z) => ["paket", "modul", "zusatz"].includes(z.art)).map((z) => z.key));
+}
+
+/** Angebotsvorlage speichern (Stammdaten). Leere Felder bedeuten: Werkseinstellung. */
+export async function angebotVorlageSpeichern(f: { gueltigTage: unknown; einstieg: unknown; ablauf: unknown; unterschreiben: unknown; mail: unknown }, wer: string): Promise<void> {
+  const { WERK_ANGEBOT_VORLAGE } = await import("./angebot-vorlage");
+  const text = (v: unknown, max: number) => String(v ?? "").trim().slice(0, max);
+  const daten: Partial<AngebotVorlage> = {};
+  const tage = ganz(f.gueltigTage, "Gültig (Tage)", 120);
+  if (tage && tage !== WERK_ANGEBOT_VORLAGE.gueltigTage) daten.gueltigTage = tage;
+  for (const [k, max] of [["einstieg", 600], ["unterschreiben", 800], ["mail", 3000]] as const) {
+    const t = text(f[k], max);
+    if (t && t !== WERK_ANGEBOT_VORLAGE[k]) daten[k] = t;
+  }
+  if (daten.mail && !daten.mail.includes("{portallink}")) throw new Error("Die Mail braucht den Platzhalter {portallink}, sonst fehlt dem Kunden der Weg ins Portal.");
+  const ablauf = zeilenListe(f.ablauf);
+  if (ablauf.length && ablauf.join("\n") !== WERK_ANGEBOT_VORLAGE.ablauf.join("\n")) daten.ablauf = ablauf;
+  const db = await getDb();
+  const key = "vorlage:angebot";
+  if (!Object.keys(daten).length) await db.delete(schema.katalogEintraege).where(eq(schema.katalogEintraege.key, key));
+  else await db.insert(schema.katalogEintraege).values({ key, art: "vorlage", daten, geaendertVon: wer }).onConflictDoUpdate({ target: schema.katalogEintraege.key, set: { daten, geaendertVon: wer, geaendertAm: new Date() } });
+  await protokolliere(wer, "Angebotsvorlage gespeichert");
+  await katalogLaden();
 }
