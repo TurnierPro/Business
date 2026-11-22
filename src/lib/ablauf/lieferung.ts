@@ -31,9 +31,12 @@ export async function inhalteEinreichen(token: string, form: FormData): Promise<
   const bilder: { datei: string; alt: string }[] = [];
   const ordner = datenOrdner("uploads", `projekt-${p.id}`);
   const dateien = form.getAll("fotos").filter((f): f is File => f instanceof File && f.size > 0);
+  // Erst alle Fotos prüfen: Ist eins kein echtes Bild, wird nichts gespeichert und der Kunde erfährt, welches
+  const geprueftAlle = await Promise.all(dateien.slice(0, 40).map((f) => pruefeDatei(f, ["bild"]).catch(() => null)));
+  const kaputt = dateien.slice(0, 40).filter((_, i) => !geprueftAlle[i]).map((f) => f.name);
+  if (kaputt.length) throw new Error(`Diese Dateien sind keine Fotos (JPG, PNG, WEBP oder HEIC) oder zu groß: ${kaputt.join(", ")}. Bitte ohne sie noch einmal senden.`);
   for (const [i, f] of dateien.slice(0, 40).entries()) {
-    // Nur echte Fotos (Inhalt geprüft); alles andere wird still übersprungen
-    const geprueft = await pruefeDatei(f, ["bild"]).catch(() => null);
+    const geprueft = geprueftAlle[i];
     if (!geprueft) continue;
     const name = `foto-${i + 1}.${geprueft.endung}`;
     fs.writeFileSync(path.join(ordner, name), geprueft.daten);

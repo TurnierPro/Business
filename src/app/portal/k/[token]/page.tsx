@@ -10,6 +10,8 @@ import { kontingent, ticketNummer, TICKET_STATUS } from "@/lib/ablauf/tickets";
 import { aktivesMandat, ibanMaskiert, mandatErteilen, mandatOffen } from "@/lib/ablauf/mandat";
 import { ERSTATTUNG_WOCHEN, VORABANKUENDIGUNG_TAGE } from "@/lib/recht";
 import { UnterschriftFeld } from "@/components/UnterschriftFeld";
+import { UnterschriftPruefung } from "@/components/UnterschriftPruefung";
+import { ZumAnker } from "@/components/ZumAnker";
 import { fotoEinwilligungen, fotoEinwilligungErteilen, fotoEinwilligungWiderrufen, ENTFERNEN_TAGE } from "@/lib/ablauf/einwilligungen";
 import { FOTO_ZWECKE } from "@/lib/docs/vorlagen";
 import { BEITRAG_ARTEN, KANAELE, beitraegeVon, beitragEntscheiden } from "@/lib/beitraege";
@@ -82,7 +84,7 @@ async function fotoEinwilligungPortal(f: FormData) {
   } catch (e) {
     fehler = e instanceof Error ? e.message : "Das hat nicht geklappt.";
   }
-  redirect(`/portal/k/${token}?${fehler ? `fotofehler=${encodeURIComponent(fehler.slice(0, 200))}` : "foto=1"}#fotos`);
+  redirect(`/portal/k/${token}?${fehler ? `fotofehler=${encodeURIComponent(fehler.slice(0, 200))}` : Number(f.get("widerruf")) ? "foto=widerrufen" : "foto=1"}#fotos`);
 }
 
 // Betrieb gibt Beiträge und Bewertungsantworten frei oder wünscht eine Änderung
@@ -136,6 +138,24 @@ async function modulInteresse(f: FormData) {
   redirect(`/portal/k/${token}?interesse=${encodeURIComponent(m.key)}#module`);
 }
 
+// Änderung oder Frage als Ticket (kein Versand, nur intern; Antwort kommt über die Freigabe)
+async function ticketPortal(f: FormData) {
+  "use server";
+  const token = String(f.get("token"));
+  const zugang = await zugangPerPortal(token);
+  if (!zugang) notFound();
+  const ip = clientIp(await headers());
+  if (!(await erlaubt("portal-ticket", ip, GRENZEN.formularJeIp))) redirect(`/portal/k/${token}?ticketfehler=${encodeURIComponent("Zu viele Anfragen. Bitte später noch einmal oder per E-Mail.")}#wunsch`);
+  await versuchMerken("portal-ticket", ip);
+  const betreff = String(f.get("betreff") ?? "").trim().slice(0, 120);
+  const beschreibung = String(f.get("beschreibung") ?? "").trim().slice(0, 4000);
+  if (betreff.length < 3 || beschreibung.length < 5) redirect(`/portal/k/${token}?ticketfehler=${encodeURIComponent("Bitte kurz Betreff und Beschreibung eintragen.")}#wunsch`);
+  const daten = await portalDaten(zugang.betrieb.id);
+  const { ticketAnlegen } = await import("@/lib/ablauf/tickets");
+  await ticketAnlegen({ betriebId: zugang.betrieb.id, projektId: daten.projekt?.id ?? null, betreff, beschreibung, kategorie: String(f.get("kategorie") ?? "aenderung"), quelle: "portal" }, `Kundenportal (${zugang.person ?? zugang.betrieb.name})`);
+  redirect(`/portal/k/${token}?ticket=1#wunsch`);
+}
+
 export default async function Kundenportal({ params, searchParams }: { params: Promise<{ token: string }>; searchParams: Promise<{ fehler?: string; danke?: string; bezahlt?: string; abgebrochen?: string; abnahme?: string; abnahmefehler?: string; ticket?: string; ticketfehler?: string; mandat?: string; mandatfehler?: string; foto?: string; fotofehler?: string; beitrag?: string; beitragfehler?: string; gekuendigt?: string; kuendigungfehler?: string; interesse?: string }> }) {
   const { token } = await params;
   const zugang = await zugangPerPortal(token);
@@ -165,7 +185,7 @@ export default async function Kundenportal({ params, searchParams }: { params: P
   const handlung = d.angebotOffen
     ? { was: "Angebot ansehen; unterschrieben wird beim Termin", href: "#angebot", knopf: "Zum Angebot" }
     : d.anzahlungOffen
-      ? { was: "Anzahlung bezahlen", href: `/portal/k/${token}/zahlen`, knopf: "Jetzt bezahlen" }
+      ? { was: `Erste Rate überweisen: ${euro(Math.round(d.anzahlungOffen.netto * (1 + UST)))}, Verwendungszweck ${d.anzahlungOffen.nummer}`, href: "#rechnungen", knopf: "Zur Rechnung" }
       : d.inhalteOffen
         ? { was: "Texte und Fotos hochladen", href: `/portal/${d.inhalteOffen.portalToken}`, knopf: "Inhalte hochladen" }
         : d.abnahmeOffen
@@ -176,8 +196,13 @@ export default async function Kundenportal({ params, searchParams }: { params: P
               ? { was: `${zuEntscheiden.length === 1 ? "Ein Beitrag wartet" : `${zuEntscheiden.length} Beiträge warten`} auf Ihre Freigabe`, href: "#beitraege", knopf: "Beiträge ansehen" }
               : null;
 
+  // Nach einer Aktion zum passenden Abschnitt springen (der #anker geht bei der Weiterleitung verloren)
+  const sp = await searchParams;
+  const anker = sp.mandatfehler || sp.mandat ? "mandat" : sp.fotofehler || sp.foto ? "fotos" : sp.beitragfehler || sp.beitrag ? "beitraege" : sp.abnahmefehler ? "abnahme" : sp.interesse ? "module" : sp.gekuendigt || sp.kuendigungfehler ? "vertrag" : sp.ticket || sp.ticketfehler ? "wunsch" : null;
+
   return (
     <>
+      <ZumAnker id={anker} />
       <section className="portal-held" aria-labelledby="betrieb-name">
         <div>
           <p className="gruss">{gruss}{zugang.person ? `, ${zugang.person}` : ""}</p>
@@ -198,7 +223,7 @@ export default async function Kundenportal({ params, searchParams }: { params: P
       </section>
       {d.mitwirkung.length ? (
         <section className="karte" aria-labelledby="mitwirkung">
-          <h2 id="mitwirkung">Was wir von Ihnen brauchen</h2>
+          <h2 id="mitwirkung">Für Ihre Website fehlt noch</h2>
           <ul className="liste-schlicht">
             {d.mitwirkung.map((m) => (
               <li key={m.titel}><span className={`status ${m.erledigt ? "ok" : "warten"}`}>{m.erledigt ? "da" : "fehlt"}</span> {m.titel}{m.hinweis ? <span className="leise klein"> · {m.hinweis}</span> : null}</li>
@@ -211,17 +236,17 @@ export default async function Kundenportal({ params, searchParams }: { params: P
       {abnahme ? <div className="hinweis ok" role="status">{abnahme === "verweigert" ? "Danke für Ihre Rückmeldung. Wir beheben die Mängel und melden uns." : "Vielen Dank für die Abnahme. Das Protokoll bekommen Sie per E-Mail."}</div> : null}
       {abgebrochen ? <div className="hinweis" role="status">Die Zahlung wurde abgebrochen. Sie können sie jederzeit hier fortsetzen.</div> : null}
 
-      {[d.angebotOffen, d.anzahlungOffen, d.inhalteOffen, d.abnahmeOffen, mandatFehlt, zuEntscheiden.length ? 1 : null].filter(Boolean).length + offeneRechnungen.length > 1 ? (
+      {[d.angebotOffen, d.anzahlungOffen, d.inhalteOffen, d.abnahmeOffen, mandatFehlt, zuEntscheiden.length ? 1 : null].filter(Boolean).length + offeneRechnungen.filter((r) => r.id !== d.anzahlungOffen?.id).length > 1 ? (
         <section className="karte">
-          <h2>Was wir gerade von Ihnen brauchen</h2>
+          <h2>Ihre offenen Punkte</h2>
           <ul className="liste">
             {d.angebotOffen ? <li><div><div className="titel">Angebot ansehen</div><div className="unter">{PAKETE[d.angebotOffen.paket as PaketKey].name}</div></div><a className="knopf klein" href="#angebot">Zum Angebot</a></li> : null}
-            {d.anzahlungOffen ? <li><div><div className="titel">Anzahlung bezahlen</div><div className="unter">{euro(Math.round((d.anzahlungOffen.einmalig / 2) * (1 + UST)))} brutto, per Überweisung</div></div><a className="knopf haupt klein" href={`/portal/k/${token}/zahlen`}>Jetzt bezahlen</a></li> : null}
-            {d.inhalteOffen ? <li><div><div className="titel">Texte und Fotos hochladen</div><div className="unter">Damit wir Ihre Seite bauen können</div></div><a className="knopf haupt klein" href={`/portal/${d.inhalteOffen.portalToken}`}>Inhalte hochladen</a></li> : null}
+            {d.anzahlungOffen ? <li><div><div className="titel">Erste Rate überweisen</div><div className="unter">{euro(Math.round(d.anzahlungOffen.netto * (1 + UST)))} an {marke.absender.firma}, IBAN <span className="mono">{marke.absender.iban}</span>, Verwendungszweck {d.anzahlungOffen.nummer}</div></div><a className="knopf klein" href="#rechnungen">Zur Rechnung</a></li> : null}
+            {d.inhalteOffen ? <li><div><div className="titel">Texte und Fotos hochladen</div><div className="unter">Damit wir Ihre Seite bauen können</div></div><a className="knopf klein" href={`/portal/${d.inhalteOffen.portalToken}`}>Inhalte hochladen</a></li> : null}
             {d.abnahmeOffen ? <li><div><div className="titel">Website prüfen und abnehmen</div><div className="unter">Bitte bis {tag(d.abnahmeOffen.abnahmeFrist)}</div></div><a className="knopf klein" href="#abnahme">Zur Abnahme</a></li> : null}
-            {zuEntscheiden.length ? <li><div><div className="titel">Beiträge freigeben</div><div className="unter">{zuEntscheiden.length} Entwurf{zuEntscheiden.length > 1 ? "e" : ""} für Instagram, Facebook oder Google</div></div><a className="knopf klein" href="#beitraege">Zu den Beiträgen</a></li> : null}
+            {zuEntscheiden.length ? <li><div><div className="titel">Beiträge freigeben</div><div className="unter">{zuEntscheiden.length === 1 ? "Ein Entwurf" : `${zuEntscheiden.length} Entwürfe`} für Instagram, Facebook oder Google</div></div><a className="knopf klein" href="#beitraege">Zu den Beiträgen</a></li> : null}
             {mandatFehlt ? <li><div><div className="titel">SEPA-Mandat erteilen</div><div className="unter">Für den Einzug des Monatsbeitrags</div></div><a className="knopf klein" href="#mandat">Zum Mandat</a></li> : null}
-            {offeneRechnungen.map((r) => <li key={r.id}><div><div className="titel">Rechnung {r.nummer} begleichen</div><div className="unter">{euro(Math.round(r.netto * (1 + UST)))} brutto{r.faelligAm ? `, zahlbar bis ${tag(r.faelligAm)}` : ""}, Verwendungszweck {r.nummer}</div></div>{r.dokumentId ? <a className="knopf klein" href={`/portal/k/${token}/dokument/${r.dokumentId}`} target="_blank">Rechnung</a> : null}</li>)}
+            {offeneRechnungen.filter((r) => r.id !== d.anzahlungOffen?.id).map((r) => <li key={r.id}><div><div className="titel">Rechnung {r.nummer} begleichen</div><div className="unter">{euro(Math.round(r.netto * (1 + UST)))} brutto{r.faelligAm ? `, zahlbar bis ${tag(r.faelligAm)}` : ""}, Verwendungszweck {r.nummer}</div></div>{r.dokumentId ? <a className="knopf klein" href={`/portal/k/${token}/dokument/${r.dokumentId}`} target="_blank">Rechnung</a> : null}</li>)}
           </ul>
         </section>
       ) : null}
@@ -233,7 +258,7 @@ export default async function Kundenportal({ params, searchParams }: { params: P
             <li key={s.titel} className={s.erledigt ? "erledigt" : i === naechster ? "aktuell" : ""}>
               <span className="punkt" aria-hidden="true">{s.erledigt ? "✓" : i + 1}</span>
               <div>
-                <div className="titel">{s.titel}{s.erledigt ? <span className="sr-only"> (erledigt)</span> : i === naechster ? <span className="leise klein"> · als Nächstes</span> : null}</div>
+                <div className="titel">{s.titel}{s.erledigt ? <span className="leise klein"> · erledigt</span> : i === naechster ? <span className="leise klein"> · als Nächstes</span> : null}</div>
                 <div className="unter">{s.text}{s.datum ? ` · ${tag(s.datum)}` : ""}</div>
               </div>
             </li>
@@ -267,7 +292,7 @@ export default async function Kundenportal({ params, searchParams }: { params: P
         <section id="angebot" className="karte">
           <h2>Ihr Angebot</h2>
           <p>{PAKETE[d.angebotOffen.paket as PaketKey]?.name ?? "Webauftritt"}{d.angebotOffen.module.length ? " mit Modulen" : ""}: {euro(d.angebotOffen.einmalig)} netto einmalig und {euro(d.angebotOffen.monatlich)} netto Monatsbeitrag, Laufzeit 24 Monate ab Livegang. Alle Details stehen im Angebot bei Ihren Unterlagen.</p>
-          <p className="leise">Unterschrieben wird beim Termin mit Daniel Lück: Er bringt die Verträge auf dem Tablet mit. Fragen vorab? Rufen Sie uns an.</p>
+          <p className="leise">Unterschrieben wird beim Termin mit Daniel Lück: Er bringt die Verträge auf dem Tablet mit. Fragen vorab? Rufen Sie uns an: <a href={`tel:${marke.absender.telefon.replace(/\s/g, "")}`}>{marke.absender.telefon}</a>.</p>
         </section>
       ) : null}
 
@@ -286,7 +311,7 @@ export default async function Kundenportal({ params, searchParams }: { params: P
           </fieldset>
           <label className="feld"><span>Mängel</span><textarea name="maengel" rows={3} placeholder="Nur bei Vorbehalt oder Verweigerung: Was passt nicht? Auf welcher Seite?" /></label>
           <label className="feld"><span>Ihr vollständiger Name</span><input name="name" autoComplete="name" required /></label>
-          <button className="knopf haupt">Erklärung abschicken</button>
+          <button className="knopf">Erklärung abschicken</button>
         </form>
       ) : null}
 
@@ -304,8 +329,19 @@ export default async function Kundenportal({ params, searchParams }: { params: P
       {mitBetreuung ? (
         <section id="wunsch" className="karte">
           <h2>Änderung oder Frage</h2>
-          <p>Schreiben Sie uns einfach eine E-Mail an <a href={`mailto:${marke.absender.email}`}>{marke.absender.email}</a> oder rufen Sie an: <a href={`tel:${marke.absender.telefon.replace(/\s/g, "")}`}>{marke.absender.telefon}</a>. Wir melden uns und tragen den Stand hier ein.</p>
-          {k && k.enthalten ? <p className="leise klein">In Ihrem Monatsbeitrag sind {k.enthalten} Minuten Änderungen im Monat enthalten. Diesen Monat genutzt: {k.verbraucht} Minuten.</p> : null}
+          {sp.ticket ? <div className="hinweis ok" role="status">Danke, ist angekommen. Den Stand sehen Sie unten.</div> : null}
+          {sp.ticketfehler ? <div className="hinweis fehler" role="alert">{sp.ticketfehler}</div> : null}
+          <form action={ticketPortal} style={{ display: "grid", gap: 10 }}>
+            <input type="hidden" name="token" value={token} />
+            <div className="raster zwei">
+              <label className="feld"><span>Worum geht es?</span><input name="betreff" required minLength={3} maxLength={120} placeholder="z. B. Neue Öffnungszeiten" /></label>
+              <label className="feld"><span>Art</span><select name="kategorie"><option value="aenderung">Änderung an der Website</option><option value="frage">Frage</option><option value="fehler">Etwas funktioniert nicht</option><option value="wunsch">Wunsch für später</option></select></label>
+            </div>
+            <label className="feld"><span>Beschreibung</span><textarea name="beschreibung" rows={3} required /></label>
+            <div className="knopfreihe"><button className="knopf">Absenden</button></div>
+          </form>
+          <p className="leise klein" style={{ marginTop: 8 }}>Lieber direkt? E-Mail an <a className="knopf klein" href={`mailto:${marke.absender.email}`}>{marke.absender.email}</a> oder Telefon <a className="knopf klein" href={`tel:${marke.absender.telefon.replace(/\s/g, "")}`}>{marke.absender.telefon}</a></p>
+          {k && k.enthalten && d.projekt?.liveAm ? <p className="leise klein">In Ihrem Monatsbeitrag sind {k.enthalten} Minuten Änderungen im Monat enthalten. Diesen Monat genutzt: {k.verbraucht} Minuten.</p> : null}
           {d.tickets.length ? (
             <ul className="liste" style={{ marginTop: 12 }}>
               {d.tickets.map((t) => <li key={t.id}><div><div className="titel">{ticketNummer(t.id)} {t.betreff}</div><div className="unter">{tag(t.erstelltAm)}{t.erledigtAm ? ` · erledigt ${tag(t.erledigtAm)}` : ""}</div></div><span className={`status ${t.status === "erledigt" ? "ok" : "warten"}`}>{TICKET_STATUS[t.status]}</span></li>)}
@@ -318,12 +354,12 @@ export default async function Kundenportal({ params, searchParams }: { params: P
         <h2>Ihre Unterlagen</h2>
         {d.dokumente.length ? (
           <div className="portal-kacheln">
-            {d.dokumente.map((x) => (
+            {d.dokumente.filter((x) => x.art !== "foto_einwilligung").map((x) => (
               <a key={x.id} className="portal-kachel" href={`/portal/k/${token}/dokument/${x.id}`} target="_blank">
                 <span className="symbol" aria-hidden="true">
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" /><path d="M14 3v5h5M9 13h6M9 17h6" /></svg>
                 </span>
-                <span><span className="titel" style={{ display: "block" }}>{DOKART[x.art] ?? x.art}</span><span className="unter" style={{ display: "block" }}>{tag(x.versendetAm)} · PDF öffnen</span></span>
+                <span><span className="titel" style={{ display: "block" }}>{x.art.startsWith("leistungsschein") ? x.titel : DOKART[x.art] ?? x.art}</span><span className="unter" style={{ display: "block" }}>{tag(x.versendetAm)} · PDF öffnen</span></span>
               </a>
             ))}
           </div>
@@ -336,9 +372,9 @@ export default async function Kundenportal({ params, searchParams }: { params: P
           {mandatDanke ? <div className="hinweis ok" role="status">Vielen Dank. Ihr Mandat ist gespeichert und liegt bei Ihren Unterlagen.</div> : null}
           {mandatfehler ? <div className="hinweis fehler" role="alert">{mandatfehler}</div> : null}
           {mandat ? (
-            <p>Erteilt am {tag(new Date(mandat.daten.unterschriften?.[0]?.am ?? mandat.erstelltAm))} für das Konto <b className="mono">{ibanMaskiert(mandat.daten.konto.iban)}</b>, Mandatsreferenz <span className="mono">{mandat.daten.nummer}</span>. Möchten Sie das Konto ändern? Schreiben Sie uns unten unter „Änderung oder Frage“.</p>
+            <p>Erteilt am {tag(new Date(mandat.daten.unterschriften?.[0]?.am ?? mandat.erstelltAm))} für das Konto <b className="mono">{ibanMaskiert(mandat.daten.konto.iban)}</b>, Mandatsreferenz <span className="mono">{mandat.daten.nummer}</span>. Möchten Sie das Konto ändern? Schreiben Sie uns kurz an <a href={`mailto:${marke.absender.email}`}>{marke.absender.email}</a>.</p>
           ) : mandatFehlt ? (
-            <form action={mandatErteilenPortal} style={{ display: "grid", gap: 12 }}>
+            <form id="mandat-form" action={mandatErteilenPortal} style={{ display: "grid", gap: 12 }}>
               <input type="hidden" name="token" value={token} />
               <p className="leise">Damit ziehen wir Ihren Monatsbeitrag ein. Jeden Einzug kündigen wir {VORABANKUENDIGUNG_TAGE} Tage vorher mit Betrag und Datum an. Ihre Bank erstattet eine Lastschrift auf Wunsch binnen {ERSTATTUNG_WOCHEN} Wochen.</p>
               <div className="raster drei">
@@ -349,6 +385,7 @@ export default async function Kundenportal({ params, searchParams }: { params: P
               <label className="feld"><span>Ihr vollständiger Name</span><input name="name" required minLength={3} autoComplete="name" defaultValue={zugang.person ?? ""} /></label>
               <UnterschriftFeld name="mandatBild" beschriftung="Unterschrift Kontoinhaber bzw. Vertretung" />
               <label className="haken"><input type="checkbox" name="einverstanden" value="ja" required /><span>Ich ermächtige {marke.absender.firma}, die Monatsbeiträge und fällige Rechnungen aus unserem Vertrag per SEPA-Basislastschrift von diesem Konto einzuziehen, und weise meine Bank an, die Lastschriften einzulösen.</span></label>
+              <UnterschriftPruefung formId="mandat-form" zaehler={false} />
               <button className="knopf">Mandat erteilen</button>
             </form>
           ) : null}
@@ -359,7 +396,7 @@ export default async function Kundenportal({ params, searchParams }: { params: P
         <section id="beitraege" className="karte">
           <h2>Beiträge und Antworten auf Bewertungen</h2>
           <p className="leise">Wir veröffentlichen nur, was Sie freigegeben haben. Passt etwas nicht, schreiben Sie kurz dazu, was wir ändern sollen.</p>
-          {beitragDanke ? <div className="hinweis ok" role="status">Danke, gespeichert.</div> : null}
+          {beitragDanke ? <div className="hinweis ok" role="status">Danke. Ihre Entscheidung ist gespeichert; wir kümmern uns um den Rest.</div> : null}
           {beitragfehler ? <div className="hinweis fehler" role="alert">{beitragfehler}</div> : null}
           <ul className="liste">
             {alleBeitraege.slice(0, 20).map((x) => (
@@ -380,7 +417,10 @@ export default async function Kundenportal({ params, searchParams }: { params: P
                     <button className="knopf klein" name="entscheidung" value="aendern">Änderung wünschen</button>
                   </form>
                 ) : (
-                  <span className={`status ${x.status === "abgelehnt" ? "warten" : "ok"}`}>{x.status === "abgelehnt" ? "Änderung gewünscht" : x.status === "veroeffentlicht" ? "veröffentlicht" : "freigegeben"}</span>
+                  <div style={{ display: "grid", gap: 6, justifyItems: "start" }}>
+                    <span className={`status ${x.status === "abgelehnt" ? "warten" : "ok"}`}>{x.status === "abgelehnt" ? "Änderung gewünscht" : x.status === "veroeffentlicht" ? "veröffentlicht" : "freigegeben"}</span>
+                    {x.kommentar ? <span className="leise klein">Ihr Wunsch: {x.kommentar}</span> : null}
+                  </div>
                 )}
               </li>
             ))}
@@ -392,27 +432,30 @@ export default async function Kundenportal({ params, searchParams }: { params: P
         <section id="fotos" className="karte">
           <h2>Fotos von Mitarbeitenden</h2>
           <p className="leise">Wer auf Fotos oder Videos für Ihre Website und Ihre Profile zu sehen ist, willigt hier selbst ein. Freiwillig und jederzeit widerrufbar; nach einem Widerruf entfernen wir die Fotos binnen {ENTFERNEN_TAGE} Tagen.</p>
-          {fotoDanke ? <div className="hinweis ok" role="status">Gespeichert. Danke.</div> : null}
+          {fotoDanke ? <div className="hinweis ok" role="status">{fotoDanke === "widerrufen" ? `Widerrufen. Wir entfernen die Fotos binnen ${ENTFERNEN_TAGE} Tagen.` : "Einwilligung gespeichert. Danke."}</div> : null}
           {fotofehler ? <div className="hinweis fehler" role="alert">{fotofehler}</div> : null}
           {einwilligungen.length ? (
             <ul className="liste">
               {einwilligungen.map((x) => (
                 <li key={x.id}>
-                  <div><div className="titel">{x.daten.person}</div><div className="unter">{x.daten.zwecke.map((z) => FOTO_ZWECKE[z] ?? z).join(", ")}{x.daten.video ? ", auch Video" : ""} · {tag(x.erstelltAm)}</div></div>
+                  <div><div className="titel">{x.daten.person}</div><div className="unter">{x.daten.zwecke.map((z) => FOTO_ZWECKE[z] ?? z).join(", ")}{x.daten.video ? ", auch Video" : ""} · erteilt {tag(x.erstelltAm)}{x.daten.widerrufenAm ? ` · widerrufen ${tag(new Date(x.daten.widerrufenAm))}` : ""}</div></div>
                   <div className="knopfreihe" style={{ gap: 8 }}>
                     {x.daten.widerrufenAm ? <span className="status fehler">widerrufen</span> : <span className="status ok">erteilt</span>}
-                    <a className="klein" href={`/portal/k/${token}/dokument/${x.id}`} target="_blank">PDF</a>
+                    <a className="knopf klein" href={`/portal/k/${token}/dokument/${x.id}`} target="_blank">PDF</a>
                     {x.daten.widerrufenAm ? null : (
-                      <form action={fotoEinwilligungPortal}><input type="hidden" name="token" value={token} /><input type="hidden" name="widerruf" value={x.id} /><button className="knopf klein">Widerrufen</button></form>
+                      <details>
+                        <summary className="knopf klein">Widerrufen</summary>
+                        <form action={fotoEinwilligungPortal} style={{ marginTop: 8 }}><input type="hidden" name="token" value={token} /><input type="hidden" name="widerruf" value={x.id} /><button className="knopf klein gefahr">Ja, Einwilligung widerrufen</button></form>
+                      </details>
                     )}
                   </div>
                 </li>
               ))}
             </ul>
           ) : null}
-          <details style={{ marginTop: 12 }}>
+          <details style={{ marginTop: 12 }} open={!!fotofehler}>
             <summary className="knopf klein">Einwilligung hinzufügen</summary>
-            <form action={fotoEinwilligungPortal} style={{ display: "grid", gap: 12, marginTop: 12 }}>
+            <form id="foto-form" action={fotoEinwilligungPortal} style={{ display: "grid", gap: 12, marginTop: 12 }}>
               <input type="hidden" name="token" value={token} />
               <label className="feld"><span>Name der Person auf den Fotos</span><input name="person" required minLength={3} autoComplete="off" /></label>
               <fieldset className="feld" style={{ border: 0, padding: 0, margin: 0 }}><legend style={{ padding: 0, marginBottom: 8 }}>Wofür dürfen die Fotos genutzt werden?</legend>
@@ -421,6 +464,7 @@ export default async function Kundenportal({ params, searchParams }: { params: P
               </fieldset>
               <UnterschriftFeld name="fotoBild" beschriftung="Unterschrift der Person auf den Fotos" />
               <p className="leise klein">Bitte die Person selbst unterschreiben lassen. Wer nicht einwilligt, hat keinen Nachteil.</p>
+              <UnterschriftPruefung formId="foto-form" zaehler={false} />
               <button className="knopf">Einwilligung speichern</button>
             </form>
           </details>
@@ -454,7 +498,7 @@ export default async function Kundenportal({ params, searchParams }: { params: P
               <p><span className="status warten">gekündigt</span> am {tag(liveProjekt.gekuendigtAm)}{liveProjekt.endeAm ? <>, Vertragsende <b>{tag(liveProjekt.endeAm)}</b></> : null}.</p>
             ) : (
               <details>
-                <summary className="klein">Vertrag kündigen</summary>
+                <summary className="knopf klein">Vertrag kündigen</summary>
                 <form action={kuendigenPortal} style={{ display: "grid", gap: 10, marginTop: 10 }}>
                   <input type="hidden" name="token" value={token} />
                   <p className="leise klein" style={{ margin: 0 }}>Kündigen Sie heute, endet der Vertrag am <b>{tag(laufzeitEnde(liveProjekt.liveAm!, new Date()))}</b>. Bis dahin kümmern wir uns wie gewohnt um alles. Domain, Inhalte und Code übergeben wir Ihnen zum Ende.</p>
@@ -467,12 +511,14 @@ export default async function Kundenportal({ params, searchParams }: { params: P
           </>
         ) : <p className="leise">Die Laufzeit beginnt mit dem Livegang Ihrer Website.</p>}
         <p style={{ marginTop: 12 }}>Ihre Daten gehören Ihnen. Sie können sie jederzeit herunterladen:</p>
-        <div className="knopfreihe"><a className="knopf klein" href={`/portal/k/${token}/export`}>Alle Daten (JSON)</a><a className="knopf klein" href={`/portal/k/${token}/export?format=csv`}>Anfragen als Tabelle (CSV)</a></div>
+        <div className="knopfreihe"><a className="knopf klein" href={`/portal/k/${token}/export`}>Alle Daten (JSON)</a>{d.anfragen.length ? <a className="knopf klein" href={`/portal/k/${token}/export?format=csv`}>Anfragen als Tabelle (CSV)</a> : null}</div>
       </section>
 
-      <section className="karte">
+      {d.rechnungen.length || d.projekt ? <section id="rechnungen" className="karte">
         <h2>Rechnungen</h2>
+        {d.anzahlungOffen ? <p>Bitte überweisen Sie <b className="mono">{euro(Math.round(d.anzahlungOffen.netto * (1 + UST)))}</b> an {marke.absender.firma}, IBAN <span className="mono">{marke.absender.iban}</span>, Verwendungszweck <span className="mono">{d.anzahlungOffen.nummer}</span>. Danach starten wir Ihr Projekt.</p> : null}
         {d.rechnungen.length ? (
+          <div style={{ overflowX: "auto" }}>
           <table className="tabelle">
             <thead><tr><th>Nummer</th><th className="weg-mobil">Datum</th><th className="zahl">Betrag</th><th>Status</th><th></th></tr></thead>
             <tbody>
@@ -482,13 +528,14 @@ export default async function Kundenportal({ params, searchParams }: { params: P
                   <td className="weg-mobil mono klein">{tag(r.erstelltAm)}</td>
                   <td className="zahl">{euro(Math.round(r.netto * (1 + UST)))}</td>
                   <td><span className={`status ${r.status === "bezahlt" ? "ok" : "warten"}`}>{r.status === "bezahlt" ? "bezahlt" : "offen"}</span></td>
-                  <td>{r.dokumentId ? <a className="klein" href={`/portal/k/${token}/dokument/${r.dokumentId}`} target="_blank">PDF</a> : null}</td>
+                  <td>{r.dokumentId ? <a className="knopf klein" href={`/portal/k/${token}/dokument/${r.dokumentId}`} target="_blank">PDF</a> : null}</td>
                 </tr>
               ))}
             </tbody>
           </table>
+          </div>
         ) : <p className="leise">Noch keine Rechnungen.</p>}
-      </section>
+      </section> : null}
 
       <section className="karte">
         <h2>Ihre Ansprechpartner</h2>

@@ -31,6 +31,12 @@ const MEHR = [["zustaendig", "Zuständig und Schlagworte"], ["tickets", "Tickets
 const ERFASSEN = [["notiz", "Notiz, Anruf, Aufgabe"], ["besuch", "Besuch vor Ort"], ["gespraech", "Gespräch importieren"]] as const;
 type Auswertung = { ziele?: string[]; probleme?: string[]; empfehlung?: { paket?: string; begruendung?: string }; offeneFragen?: string[]; massnahmen?: { was: string; wann: string; wer: string }[] };
 
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
+  const db = await getDb();
+  const [x] = await db.select({ name: schema.betriebe.name }).from(schema.betriebe).where(eq(schema.betriebe.id, Number((await params).id)));
+  return { title: x?.name ?? "Kundenakte" };
+}
+
 export default async function Lead({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ tab?: string; erfassen?: string }> }) {
   const id = Number((await params).id);
   const sp = await searchParams;
@@ -96,7 +102,16 @@ export default async function Lead({ params, searchParams }: { params: Promise<{
             : projekt
               ? { was: `Projekt: ${PROJEKT_TEXT[projekt.status] ?? projekt.status}`, unter: PAKETE[projekt.paket as PaketKey]?.name ?? projekt.paket, knopf: <Link className="knopf haupt" href={`/projekte/${projekt.id}`}>Projekt öffnen</Link> }
               : angebot?.status === "unterschrieben"
-                ? { was: `Unterschrieben am ${datum(angebot.unterschriebenAm)}: wir warten auf die erste Rate`, unter: `${euro(Math.round(angebot.einmalig / 2))} netto. ${lexwareAktiv ? "Lexware meldet Zahlungen täglich von selbst." : "Buchen, sobald das Geld auf dem Konto ist."}`, knopf: <form action={zahlungSimulieren}><input type="hidden" name="betriebId" value={id} /><input type="hidden" name="angebotId" value={angebot.id} /><button className="knopf haupt">Zahlung eingegangen</button></form> }
+                ? { was: `Unterschrieben am ${datum(angebot.unterschriebenAm)}: wir warten auf die erste Rate`, unter: `${euro(Math.round(angebot.einmalig / 2))} netto (${euro(Math.round(Math.round(angebot.einmalig / 2) * 1.19))} brutto). ${lexwareAktiv ? "Lexware meldet Zahlungen täglich von selbst." : "Buchen, sobald das Geld auf dem Konto ist."}`, knopf: (
+                    <details className="bestaetigen">
+                      <summary className="knopf haupt">Zahlung eingegangen</summary>
+                      <form action={zahlungSimulieren} style={{ marginTop: 8, display: "grid", gap: 8 }}>
+                        <input type="hidden" name="betriebId" value={id} /><input type="hidden" name="angebotId" value={angebot.id} />
+                        <p className="klein" style={{ margin: 0 }}>Ist die erste Rate über <b className="mono">{euro(Math.round(Math.round(angebot.einmalig / 2) * 1.19))}</b> brutto auf dem Konto? Danach startet das Projekt und die Start-Mail liegt zur Freigabe.</p>
+                        <button className="knopf klein">Ja, Geld ist da</button>
+                      </form>
+                    </details>
+                  ) }
                 : angebot && ["entwurf", "versendet"].includes(angebot.status)
                   ? { was: "Verträge auf dem Tablet unterschreiben", unter: `Angebot ${PAKETE[angebot.paket as PaketKey]?.name ?? angebot.paket} ${angebot.status === "versendet" ? "ist beim Kunden" : "ist erstellt"}. Beim Termin: Rahmenvertrag und je Baustein ein Leistungsschein.`, knopf: <Link className="knopf haupt" href={`/unterschrift/${angebot.id}`}>Unterschreiben lassen</Link> }
                   : b.status === "angeschrieben"
@@ -352,7 +367,7 @@ export default async function Lead({ params, searchParams }: { params: Promise<{
                 <form action={aktivitaetAnlegen}>
                 <input type="hidden" name="betriebId" value={id} />
                 <input type="hidden" name="zurueck" value={`/leads/${id}?tab=aktivitaeten`} />
-                <div className="raster" style={{ gridTemplateColumns: "minmax(0, 0.8fr) minmax(0, 1.6fr)", gap: 12 }}>
+                <div className="raster links-schmal" style={{ gap: 12 }}>
                   <label className="feld"><span>Was?</span><select name="art" defaultValue="aufgabe"><option value="aufgabe">Aufgabe (zu erledigen)</option><option value="termin">Termin</option><option value="anruf">Anruf (war schon)</option><option value="notiz">Notiz (nur festhalten)</option></select></label>
                   <label className="feld"><span>Kurz</span><input name="titel" required placeholder="z. B. Fotos beim Kunden abholen" /></label>
                 </div>
@@ -460,7 +475,7 @@ export default async function Lead({ params, searchParams }: { params: Promise<{
           <section className="karte abstand-klein" id="beitraege" aria-labelledby="beitraege-titel">
             <div className="kopfzeile" style={{ marginBottom: 4 }}>
               <h2 id="beitraege-titel" style={{ margin: 0 }}>Beiträge und Bewertungsantworten</h2>
-              {beitraege.some((x) => x.status === "entwurf") ? <form action={beitraegeVorlegen}><input type="hidden" name="betriebId" value={id} /><button className="knopf klein">{beitraege.filter((x) => x.status === "entwurf").length} Entwürfe dem Betrieb vorlegen</button></form> : null}
+              {beitraege.some((x) => x.status === "entwurf") ? <form action={beitraegeVorlegen}><input type="hidden" name="betriebId" value={id} /><button className="knopf klein">{beitraege.filter((x) => x.status === "entwurf").length === 1 ? "Entwurf dem Betrieb vorlegen" : `${beitraege.filter((x) => x.status === "entwurf").length} Entwürfe dem Betrieb vorlegen`}</button></form> : null}
             </div>
             <p className="leise klein">Entwürfe schreiben, dann gesammelt vorlegen: Die Mail mit allen Texten geht durch Qualitätskontrolle und Freigabe. Danach gibt der Betrieb jeden Entwurf im Portal frei. Veröffentlicht wird nur Freigegebenes.</p>
             {beitraege.length ? (
@@ -549,7 +564,7 @@ export default async function Lead({ params, searchParams }: { params: Promise<{
             <ul className="liste">
               {demos.map((d) => (
                 <li key={d.slug}>
-                  <div><div className="titel">Demo-Website</div><div className="unter">Code <span className="mono">{d.zugangscode}</span> · gelöscht am {datum(d.loeschenAm)}</div></div>
+                  <div><div className="titel">Demo-Website</div><div className="unter">Code <span className="mono">{d.zugangscode}</span> · {d.loeschenAm && new Date(d.loeschenAm) > new Date() ? "wird gelöscht am" : "gelöscht am"} {datum(d.loeschenAm)}</div></div>
                   <a className="knopf klein" href={`/vorschau/${d.slug}?code=${d.zugangscode}`} target="_blank">Öffnen</a>
                 </li>
               ))}

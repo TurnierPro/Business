@@ -168,7 +168,7 @@ export async function erstelleAngebot(o: { betriebId: number; auswahl: Auswahl; 
     kanal: "mail",
     zweck: "angebot",
     empfaenger: b.email ?? "(E-Mail-Adresse fehlt)",
-    betreff: `Ihr Angebot von Levarex: ${p.name}`,
+    betreff: `Ihr Angebot von Levarex: ${p.name}${bausteine.length ? ` und ${bausteine.length === 1 ? "ein weiterer Baustein" : `${bausteine.length} weitere Bausteine`}` : ""}`,
     text: fuelle(vorlage.mail, { anrede, einstieg: einleitung, anhaenge: o.vorAnhaenge?.length ? "das Protokoll mit Maßnahmenplan und das Angebot" : "das Angebot", portallink: await portalLink(b.id) }),
     anhaenge: [...(o.vorAnhaenge ?? []), angebotDokId],
     erlaubteZahlen: [euro(r.einmalig), euro(r.monatlich), ...r.positionen.flatMap((x) => [euro(x.einmalig), euro(x.monatlich)])],
@@ -183,6 +183,8 @@ export async function erstelleAngebot(o: { betriebId: number; auswahl: Auswahl; 
     for (const m of mails) await db.update(schema.postausgang).set({ status: "abgelehnt", ablehnGrund: `Durch Angebot ${nummer} ersetzt` }).where(eq(schema.postausgang.id, m.id));
   }
   if (alt.length) await protokolliere(o.wer, `${alt.length} älteres Angebot durch ${nummer} ersetzt`, b.id);
+  // Wer ein Angebot schreibt, war beim Betrieb: die Besuchsaufgabe ist erledigt
+  await systemAufgabeErledigt(b.id, "Besuch vor Ort");
   // Bestandskunden (Nachtrag, weiteres Modul) bleiben Kunden
   if (b.status !== "kunde") await setzeStatus(b.id, "angebot");
   await protokolliere(o.wer, `Angebot ${nummer} erstellt (${euro(r.einmalig)} + ${euro(r.monatlich)}/Monat)`, b.id);
@@ -268,6 +270,11 @@ export async function unterschriftEingegangen(angebotId: number, wer: string, an
   await db.update(schema.angebote).set({ status: "unterschrieben", unterschriebenAm: new Date(), annahme: nachweis }).where(eq(schema.angebote.id, angebotId));
   await setzeStatus(a.betriebId, "kunde");
   await systemAufgabeErledigt(a.betriebId, "Angebot nachfassen");
+  await systemAufgabeErledigt(a.betriebId, "Besuch vor Ort");
+  // Ein noch offener Akquise-Brief darf an einen Kunden nicht mehr raus
+  for (const m of await db.select().from(schema.postausgang).where(and(eq(schema.postausgang.betriebId, a.betriebId), eq(schema.postausgang.zweck, "akquise_brief"), inArray(schema.postausgang.status, ["zur_freigabe", "freigegeben"])))) {
+    await db.update(schema.postausgang).set({ status: "abgelehnt", ablehnGrund: "Betrieb ist jetzt Kunde (Auftrag unterschrieben)" }).where(eq(schema.postausgang.id, m.id));
+  }
   await (await import("../webhooks")).ereignis("angebot.unterschrieben", { angebotId, betriebId: a.betriebId });
   await protokolliere(wer, `Angebot angenommen (${PAKETE[a.paket as PaketKey].name}, AGB ${nachweis.agbVersion}${nachweis.unternehmer ? ", Unternehmer bestätigt" : ""})`, a.betriebId);
 

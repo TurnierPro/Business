@@ -25,6 +25,12 @@ const SCHRITTE = [
 
 const ABNAHME: Record<string, string> = { offen: "wartet auf Abnahme", abgenommen: "abgenommen", vorbehalt: "abgenommen mit Mängeln", verweigert: "Abnahme verweigert", fiktion: "abgenommen (Frist abgelaufen)" };
 
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
+  const db = await getDb();
+  const [x] = await db.select({ name: schema.betriebe.name }).from(schema.projekte).innerJoin(schema.betriebe, eq(schema.betriebe.id, schema.projekte.betriebId)).where(eq(schema.projekte.id, Number((await params).id)));
+  return { title: x ? `Projekt ${x.name}` : "Projekt" };
+}
+
 export default async function Projekt({ params }: { params: Promise<{ id: string }> }) {
   const id = Number((await params).id);
   const db = await getDb();

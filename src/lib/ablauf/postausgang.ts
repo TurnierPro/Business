@@ -174,6 +174,15 @@ export async function qualitaetskontrolle(id: number): Promise<string> {
     const an = (d.daten as { an?: { strasse?: string | null; plz?: string | null } }).an;
     if (e.kanal === "brief" && (!an?.strasse || !an?.plz)) blocker.push("Anschrift im Brief unvollständig.");
   }
+  // Platzhalter in Pflichtangaben und Links: auf dem eigenen Rechner nur ein Hinweis, auf dem Server eine Sperre
+  if (!nurIntern) {
+    const { marke } = await import("../marke");
+    const produktiv = (process.env.BASE_URL ?? "").startsWith("https://");
+    const platzhalter: string[] = [];
+    if (doks.length && /^DE00\s?0000/.test(marke.absender.iban)) platzhalter.push("IBAN im Fuß der PDFs ist noch ein Platzhalter (brand/tokens.json)");
+    if (/https?:\/\/(localhost|127\.0\.0\.1)/.test(e.text)) platzhalter.push("Link zeigt auf localhost: BASE_URL ist nicht gesetzt");
+    for (const x of platzhalter) (produktiv ? blocker : hinweise).push(`${x}.`);
+  }
   if (e.kanal === "livegang" && typeof e.meta.slug === "string") {
     const fehler = pruefeSeite(e.meta.slug).filter((x) => !x.ok);
     for (const f of fehler) blocker.push(`Website-Prüfung „${f.name}“: ${f.detail}`);
@@ -196,7 +205,7 @@ export async function qualitaetskontrolle(id: number): Promise<string> {
   const alle = [...blocker.map((b) => `Blockiert: ${b}`), ...hinweise];
   const qkStatus = blocker.length ? "blockiert" : hinweise.length ? "hinweise" : "bestanden";
   await db.update(schema.postausgang).set({ hinweise: [...new Set(alle)], qkStatus, qkAm: new Date() }).where(eq(schema.postausgang.id, id));
-  await protokolliere("Qualitätskontrolle", `${qkStatus === "bestanden" ? "Bestanden" : qkStatus === "hinweise" ? `${hinweise.length} Hinweise` : "Blockiert"}: ${e.betreff}`, e.betriebId);
+  await protokolliere("Qualitätskontrolle", `${qkStatus === "bestanden" ? "Bestanden" : qkStatus === "hinweise" ? `${hinweise.length} ${hinweise.length === 1 ? "Hinweis" : "Hinweise"}` : "Blockiert"}: ${e.betreff}`, e.betriebId);
   return qkStatus;
 }
 

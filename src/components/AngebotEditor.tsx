@@ -18,9 +18,11 @@ export function AngebotEditor({ dokumentId, eintragId, start, speichern }: { dok
   const [anmerkungen, setAnmerkungen] = useState(start.anmerkungen);
   const [ziehe, setZiehe] = useState<number | null>(null);
   const [html, setHtml] = useState("");
+  const anfang = useRef<string | null>(null);
   const naechster = useRef(start.positionen.length);
 
   const daten = { positionen: pos.map((p) => ({ text: p.text, einmalig: alsCent(p.e), monatlich: alsCent(p.m), hinweis: p.hinweis })), einleitung, anmerkungen };
+  anfang.current ??= JSON.stringify(daten); // Stand beim Öffnen: zeigt, ob schon etwas geändert wurde
   const json = JSON.stringify(daten);
   const summeE = daten.positionen.reduce((s, p) => s + p.einmalig, 0);
   const summeM = daten.positionen.reduce((s, p) => s + p.monatlich, 0);
@@ -69,7 +71,7 @@ export function AngebotEditor({ dokumentId, eintragId, start, speichern }: { dok
                   <label><span className="leise klein">Einmalig €</span><input inputMode="decimal" value={p.e} onChange={(e) => aendern(i, "e", e.target.value)} placeholder="0,00" /></label>
                   <label><span className="leise klein">Monatlich €</span><input inputMode="decimal" value={p.m} onChange={(e) => aendern(i, "m", e.target.value)} placeholder="0,00" /></label>
                 </div>
-                <input aria-label={`Hinweis Position ${i + 1}`} className="klein" value={p.hinweis ?? ""} onChange={(e) => aendern(i, "hinweis", e.target.value)} placeholder="Hinweis (optional), z. B. im Paket enthalten" />
+                <textarea aria-label={`Hinweis Position ${i + 1}`} className="klein" rows={Math.min(4, Math.max(1, Math.ceil((p.hinweis ?? "").length / 70)))} value={p.hinweis ?? ""} onChange={(e) => aendern(i, "hinweis", e.target.value)} placeholder="Hinweis (optional), z. B. im Paket enthalten" />
               </div>
               <div className="knoepfe">
                 <button type="button" className="knopf klein" onClick={() => verschieben(i, i - 1)} disabled={i === 0} aria-label="nach oben">↑</button>
@@ -88,7 +90,7 @@ export function AngebotEditor({ dokumentId, eintragId, start, speichern }: { dok
       </form>
       <section>
         <iframe className="vorschau" style={{ height: 900 }} srcDoc={html} title="Live-Vorschau des Angebots" />
-        <p className="leise klein">Live-Vorschau, noch nicht gespeichert.</p>
+        <p className="leise klein">{JSON.stringify(daten) === anfang.current ? "Vorschau des gespeicherten Angebots." : "Live-Vorschau mit deinen Änderungen, noch nicht gespeichert."}</p>
       </section>
     </div>
   );

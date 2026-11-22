@@ -19,7 +19,21 @@ export function UnterschriftFeld({ name, beschriftung }: { name: string; beschri
     g.lineCap = "round";
     g.lineJoin = "round";
     g.strokeStyle = "#151816"; // Druckfarbe: die Unterschrift erscheint im hellen PDF
+    // Nach einem Fehler beim Absenden (Seite mit ?fehler=) die Unterschrift wiederherstellen, damit niemand alles neu unterschreiben muss
+    try {
+      const gespeichert = sessionStorage.getItem(schluessel());
+      if (gespeichert && /fehler=/.test(location.search)) {
+        const img = new Image();
+        img.onload = () => g.drawImage(img, 0, 0, c.clientWidth, c.clientHeight);
+        img.src = gespeichert;
+        setBild(gespeichert);
+      } else if (gespeichert) sessionStorage.removeItem(schluessel());
+    } catch {
+      /* ohne Speicher geht es auch */
+    }
   }, []);
+
+  const schluessel = () => `unterschrift:${location.pathname}:${name}`;
 
   const punkt = (e: React.PointerEvent<HTMLCanvasElement>) => {
     const r = leinwand.current!.getBoundingClientRect();
@@ -43,12 +57,23 @@ export function UnterschriftFeld({ name, beschriftung }: { name: string; beschri
   const ende = () => {
     if (!zeichnet.current) return;
     zeichnet.current = false;
-    setBild(leinwand.current!.toDataURL("image/png"));
+    const url = leinwand.current!.toDataURL("image/png");
+    setBild(url);
+    try {
+      sessionStorage.setItem(schluessel(), url);
+    } catch {
+      /* egal */
+    }
   };
   const loeschen = () => {
     const c = leinwand.current!;
     c.getContext("2d")!.clearRect(0, 0, c.width, c.height);
     setBild("");
+    try {
+      sessionStorage.removeItem(schluessel());
+    } catch {
+      /* egal */
+    }
   };
 
   return (
@@ -56,7 +81,7 @@ export function UnterschriftFeld({ name, beschriftung }: { name: string; beschri
       <div className="unterschrift-kopf"><span>{beschriftung}</span>{bild ? <span className="status ok">unterschrieben</span> : <span className="status warten">fehlt</span>}</div>
       <canvas ref={leinwand} aria-label={`Unterschriftsfeld: ${beschriftung}`} onPointerDown={start} onPointerMove={ziehen} onPointerUp={ende} onPointerLeave={ende} />
       <input type="hidden" name={name} value={bild} />
-      <button type="button" className="knopf klein" onClick={loeschen}>Neu unterschreiben</button>
+      {bild ? <button type="button" className="knopf klein" onClick={loeschen}>Neu unterschreiben</button> : <span className="leise klein">Mit Finger, Stift oder Maus im hellen Feld unterschreiben.</span>}
     </div>
   );
 }

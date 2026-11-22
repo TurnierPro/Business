@@ -21,7 +21,11 @@ export default async function Eintrag({ params }: { params: Promise<{ id: string
   const [e] = await db.select().from(schema.postausgang).where(eq(schema.postausgang.id, id));
   if (!e) notFound();
   const [betrieb] = e.betriebId ? await db.select().from(schema.betriebe).where(eq(schema.betriebe.id, e.betriebId)) : [];
-  const doks = e.anhaenge.length ? await db.select().from(schema.dokumente).where(inArray(schema.dokumente.id, e.anhaenge)) : [];
+  // In der Reihenfolge der Anhänge; das Hauptdokument (z. B. Auftragsbestätigung) steht vorn
+  const HAUPT = ["auftragsbestaetigung", "rechnung", "angebot", "abnahmeprotokoll", "monatsreport", "brief"];
+  const doks = (e.anhaenge.length ? await db.select().from(schema.dokumente).where(inArray(schema.dokumente.id, e.anhaenge)) : [])
+    .sort((x, y) => e.anhaenge.indexOf(x.id) - e.anhaenge.indexOf(y.id))
+    .sort((x, y) => Number(HAUPT.includes(y.art)) - Number(HAUPT.includes(x.art)));
   const offen = e.status === "zur_freigabe";
   const angebotDok = e.zweck === "angebot" ? doks.find((d) => d.art === "angebot" && !d.archivPfad) : undefined;
   const schonFreigegeben = e.freigaben.some((f) => f.name === ich.name);
@@ -71,7 +75,7 @@ export default async function Eintrag({ params }: { params: Promise<{ id: string
           ) : vorschauUrl ? <iframe className="vorschau" src={vorschauUrl} title="Vorschau" /> : null}
           {doks.length ? (
             <div className="knopfreihe" style={{ marginTop: 12 }}>
-              {doks.map((d) => <a key={d.id} className="knopf klein" href={`/dokument/${d.id}`} target="_blank">{DOKART[d.art] ?? d.art} als PDF</a>)}
+              {doks.map((d) => <a key={d.id} className="knopf klein umbruch" href={`/dokument/${d.id}`} target="_blank" title={DOKART[d.art] ?? d.art}>{d.titel}</a>)}
             </div>
           ) : null}
           {offen ? doks.filter((d) => d.art === "protokoll" && (d.daten as { unvollstaendig?: boolean }).unvollstaendig).map((d) => (
@@ -99,7 +103,7 @@ export default async function Eintrag({ params }: { params: Promise<{ id: string
                 <p><b>Betreff:</b> {e.betreff}</p>
                 {/* sandbox: keine Skripte, keine Formulare, Links öffnen nichts im System */}
                 <iframe className="vorschau mailvorschau" sandbox="" srcDoc={mailHtml({ betreff: e.betreff, text: e.text, vorschau: true })} title="Vorschau der E-Mail" />
-                {e.anhaenge.length ? <p className="klein" style={{ marginTop: 8 }}><b>Anhang:</b> {doks.map((d) => DOKART[d.art] ?? d.art).join(", ")}</p> : null}
+                {e.anhaenge.length ? <p className="klein" style={{ marginTop: 8 }}><b>Anhang:</b> {doks.map((d) => d.titel).join(", ")}</p> : null}
                 <details style={{ marginTop: 8 }}>
                   <summary className="leise klein" style={{ cursor: "pointer" }}>Nur-Text-Fassung (für alte Mail-Programme)</summary>
                   <div className="textblock">{e.text}<span className="leise">{mailSignatur()}</span></div>

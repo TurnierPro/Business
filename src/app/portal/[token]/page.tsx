@@ -32,7 +32,8 @@ export default async function Portal({ params, searchParams }: { params: Promise
     return (
       <div className="karte">
         <h1>Danke, alles ist da.</h1>
-        <p style={{ marginTop: 12 }}>Wir bauen jetzt Ihre Seite und melden uns, sobald Sie sie ansehen können. Fragen? Rufen Sie uns einfach an.</p>
+        <p style={{ marginTop: 12 }}>Wir bauen jetzt Ihre Seite und melden uns, sobald Sie sie ansehen können. Etwas vergessen oder ein Foto nachreichen? Schreiben Sie uns im Kundenportal unter „Änderung oder Frage“ oder rufen Sie an.</p>
+        {b?.portalToken ? <p style={{ marginTop: 12 }}><a className="knopf" href={`/portal/k/${b.portalToken}`}>Zum Kundenportal</a></p> : null}
       </div>
     );
   }
@@ -41,7 +42,7 @@ export default async function Portal({ params, searchParams }: { params: Promise
       <h1>Inhalte für {b?.name}</h1>
       <p className="leise" style={{ marginTop: 8 }}>{PAKETE[p.paket as PaketKey]?.name ?? "Ihr Webauftritt"}. Füllen Sie aus, was Sie haben. Leere Felder füllen wir mit Vorschlägen, die Sie vor dem Livegang sehen.</p>
       {fehler ? <div className="hinweis fehler abstand" role="alert">{fehler}</div> : null}
-      <form action={senden} className="karte abstand" encType="multipart/form-data">
+      <form action={senden} className="karte abstand">
         <input type="hidden" name="token" value={token} />
         <label className="feld"><span>Ein Satz, der Ihren Betrieb beschreibt</span><input name="claim" placeholder="z. B. Bad und Heizung aus Karlsruhe, seit 1987." /></label>
         <label className="feld"><span>Kurze Vorstellung</span><textarea name="einleitung" placeholder="Was machen Sie, für wen, in welcher Gegend?" /></label>

@@ -95,7 +95,7 @@ export async function sichtbareDokumente(betriebId: number) {
   const ids = [...new Set(post.flatMap((p) => p.anhaenge))];
   const eigene = await db.select().from(schema.dokumente).where(and(eq(schema.dokumente.betriebId, betriebId), inArray(schema.dokumente.art, VOM_KUNDEN)));
   const gesendet = ids.length ? await db.select().from(schema.dokumente).where(and(inArray(schema.dokumente.id, ids), eq(schema.dokumente.betriebId, betriebId))) : [];
-  const imPortal = eigene.filter((d) => !ids.includes(d.id) && (d.art !== "sepa_mandat" || (d.daten as { kanal?: string }).kanal === "portal"));
+  const imPortal = eigene.filter((d) => !ids.includes(d.id) && (d.art !== "sepa_mandat" || (d.daten as { kanal?: string }).kanal !== "tablet"));
   const doks = [...gesendet, ...imPortal];
   if (!doks.length) return [];
   const versandAm = (id: number) => post.find((p) => p.anhaenge.includes(id))?.versendetAm ?? null;
@@ -124,10 +124,12 @@ export async function schritte(betriebId: number): Promise<Schritt[]> {
   // Fortschritt hängt am Angebot des laufenden Projekts; ein späterer Nachtrag setzt nichts zurück
   const a = (p && angebote.find((x) => x.id === p.angebotId)) || angebote[0];
   const angebotVersendet = post.find((e) => e.zweck === "angebot");
-  const nachBau = p && ["pruefung", "bereit", "live"].includes(p.status);
+  const nachBau = p && ["bereit", "live", "beendet"].includes(p.status);
+  const [besuch] = await db.select({ am: schema.besuche.am }).from(schema.besuche).where(eq(schema.besuche.betriebId, betriebId)).orderBy(desc(schema.besuche.am)).limit(1);
+  const protokollVersendet = angebotVersendet?.anhaenge.length ? (await db.select({ art: schema.dokumente.art }).from(schema.dokumente).where(inArray(schema.dokumente.id, angebotVersendet.anhaenge))).some((d) => d.art === "protokoll") : false;
   return [
-    { titel: "Gespräch vor Ort", text: "Wir haben Ihren Betrieb kennengelernt und Ziele festgehalten.", erledigt: termine.length > 0 || !!angebotVersendet, datum: termine[0]?.datum ?? a?.erstelltAm ?? null },
-    { titel: "Angebot erhalten", text: "Protokoll, Maßnahmenplan und Angebot liegen unten bei Ihren Unterlagen.", erledigt: !!angebotVersendet, datum: angebotVersendet?.versendetAm ?? null },
+    { titel: "Gespräch vor Ort", text: "Wir haben Ihren Betrieb kennengelernt und Ziele festgehalten.", erledigt: termine.length > 0 || !!besuch || !!a?.unterschriebenAm, datum: termine[0]?.datum ?? besuch?.am ?? null },
+    { titel: "Angebot erhalten", text: protokollVersendet ? "Protokoll, Maßnahmenplan und Angebot liegen unten bei Ihren Unterlagen." : "Das Angebot liegt unten bei Ihren Unterlagen.", erledigt: !!angebotVersendet || !!a?.unterschriebenAm, datum: angebotVersendet?.versendetAm ?? null },
     { titel: "Angebot angenommen", text: "Danke für Ihr Vertrauen.", erledigt: !!a?.unterschriebenAm, datum: a?.unterschriebenAm ?? null },
     { titel: "Anzahlung eingegangen", text: "Damit starten wir Ihr Projekt.", erledigt: !!a?.angezahltAm, datum: a?.angezahltAm ?? null },
     { titel: "Inhalte geliefert", text: "Texte und Fotos von Ihnen sind da.", erledigt: !!p?.inhalteAm, datum: p?.inhalteAm ?? null },
@@ -151,6 +153,9 @@ export async function portalDaten(betriebId: number) {
     db.select().from(schema.tickets).where(eq(schema.tickets.betriebId, betriebId)).orderBy(desc(schema.tickets.erstelltAm)).limit(20),
   ]);
   const verschickteNummern = new Set(post.map((p) => p.meta.rechnungsnummer).filter(Boolean));
+  const sichtbareRechnungen = rechnungen
+    .filter((r) => verschickteNummern.has(r.nummer))
+    .map((r) => ({ ...r, dokumentId: doks.find((d) => d.art === "rechnung" && (d.daten as { nummer?: string }).nummer === r.nummer)?.id ?? null }));
   const angebot = angebote[0];
   const projekt = projekte[0];
   const [seite] = projekt?.seitenSlug && projekt.status === "live" ? await db.select().from(schema.seiten).where(eq(schema.seiten.slug, projekt.seitenSlug)) : [];
@@ -162,21 +167,21 @@ export async function portalDaten(betriebId: number) {
     schritte: schr,
     dokumente: doks.filter((d) => d.art !== "rechnung"),
     // Rechnungen erst nach Freigabe und Versand (eigene und Lexware-Rechnungen)
-    rechnungen: rechnungen
-      .filter((r) => verschickteNummern.has(r.nummer))
-      .map((r) => ({ ...r, dokumentId: doks.find((d) => d.art === "rechnung" && (d.daten as { nummer?: string }).nummer === r.nummer)?.id ?? null })),
+    rechnungen: sichtbareRechnungen,
     // Das zuletzt verschickte, noch offene Angebot (ein neuer Entwurf versteckt es nicht)
     angebotOffen: angebote.find((x) => x.status === "versendet") ?? null,
-    anzahlungOffen: null as typeof angebot | null,
+    // Erste Rate: verschickte, noch offene Anzahlungsrechnung (der Kunde überweist; Zahlung per Karte gibt es nicht)
+    anzahlungOffen: sichtbareRechnungen.find((r) => r.art === "anzahlung" && r.status === "offen") ?? null,
     inhalteOffen: projekt?.status === "inhalte" ? projekt : null,
     // Abnahme erst, wenn die Aufforderung verschickt ist (dann läuft die Frist)
     abnahmeOffen: projekt?.abnahmeStatus === "offen" && projekt.abnahmeFrist ? projekt : null,
     anfragen,
     tickets,
     projekt,
-    vorschau: vorschauSeite ? `${basisUrl()}/vorschau/${vorschauSeite.slug}${vorschauSeite.zugangscode ? `?code=${vorschauSeite.zugangscode}` : ""}` : null,
+    vorschau: vorschauSeite ? `/vorschau/${vorschauSeite.slug}${vorschauSeite.zugangscode ? `?code=${vorschauSeite.zugangscode}` : ""}` : null,
     lieferfrist: projekt && !bereitgestellt(projekt) ? lieferfristBis(projekt) : null,
-    mitwirkung: projekt && ["inhalte", "bau", "pruefung"].includes(projekt.status) ? mitwirkungsliste(projekt) : [],
+    // Nur solange der Kunde noch etwas hochladen kann; danach würde „fehlt“ ohne Weg zum Nachreichen nur verunsichern
+    mitwirkung: projekt?.status === "inhalte" ? mitwirkungsliste(projekt) : [],
     website: seite ? { url: projekt!.domain ? `https://${projekt!.domain}` : `/vorschau/${seite.slug}`, domain: projekt!.domain } : null,
   };
 }

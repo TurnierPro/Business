@@ -29,12 +29,15 @@ export async function GET(req: Request, { params }: { params: Promise<{ token: s
   const datei = `levarex-${slugAus(b.name)}-${new Date().toISOString().slice(0, 10)}`;
   const kopf = { "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff" };
   if (format === "csv") {
-    const zeilen = [["Datum", "Name", "Kontakt", "Nachricht", "Seite", "Anhänge"].map(csvFeld).join(";"), ...anfragen.map((a) => [a.am.toISOString(), a.name, a.kontakt, a.nachricht, a.seitenSlug, a.dateien.length].map(csvFeld).join(";"))];
+    const datumZeit = (d: Date) => d.toLocaleString("de-DE", { timeZone: "Europe/Berlin", day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+  const zeilen = [["Datum", "Name", "Kontakt", "Nachricht", "Seite", "Anhänge"].map(csvFeld).join(";"), ...anfragen.map((a) => [datumZeit(a.am), a.name, a.kontakt, a.nachricht, a.seitenSlug, a.dateien.length].map(csvFeld).join(";"))];
     return new Response("﻿" + zeilen.join("\r\n"), { headers: { ...kopf, "Content-Type": "text/csv; charset=utf-8", "Content-Disposition": `attachment; filename="${datei}-anfragen.csv"` } });
   }
-  const [tickets, rechnungen, dokumente, beitraege, projekte] = await Promise.all([
+  // Nur verschickte Rechnungen (wie im Portal): Entwürfe in den Freigaben gehen den Kunden noch nichts an
+  const { portalDaten } = await import("@/lib/kundenportal");
+  const rechnungen = (await portalDaten(b.id)).rechnungen;
+  const [tickets, dokumente, beitraege, projekte] = await Promise.all([
     db.select().from(schema.tickets).where(eq(schema.tickets.betriebId, b.id)),
-    db.select().from(schema.rechnungen).where(eq(schema.rechnungen.betriebId, b.id)),
     db.select().from(schema.dokumente).where(eq(schema.dokumente.betriebId, b.id)),
     db.select().from(schema.beitraege).where(eq(schema.beitraege.betriebId, b.id)),
     db.select().from(schema.projekte).where(eq(schema.projekte.betriebId, b.id)),

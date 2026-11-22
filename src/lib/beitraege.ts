@@ -36,7 +36,9 @@ export async function beitragAnlegen(o: { betriebId: number; art: string; kanael
   if (!text) throw new Error("Text fehlt.");
   if (text.length > MAX_TEXT) throw new Error(`Text zu lang (höchstens ${MAX_TEXT} Zeichen).`);
   const art = o.art in BEITRAG_ARTEN ? o.art : "beitrag";
-  const kanaele = [...new Set(o.kanaele)].filter((k) => k in KANAELE);
+  let kanaele = [...new Set(o.kanaele)].filter((k) => k in KANAELE);
+  // Bewertungen gibt es nur bei Google und Facebook; ohne Auswahl dort antworten, wo die Bewertung meist steht
+  if (art === "bewertung_antwort") kanaele = kanaele.filter((k) => k !== "instagram").length ? kanaele.filter((k) => k !== "instagram") : ["google"];
   if (!kanaele.length) throw new Error("Bitte mindestens einen Kanal wählen.");
   if (art === "bewertung_antwort" && !o.bezug?.trim()) throw new Error("Bitte den Text der Bewertung angeben, auf die wir antworten.");
   const db = await getDb();

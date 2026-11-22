@@ -28,13 +28,16 @@ export function AngebotKonfigurator({ gewerk, startPaket, katalog, email = "", i
     setModule([...a.module]);
     setZusaetze([...a.zusaetze]);
   };
+  // Welche Bausteine eine Ausbaustufe wählt, in Klartext (damit „Kunden“ nicht mit „Kundenmanagement“ verwechselt wird)
+  const bausteineVon = (a: (typeof AUSBAUSTUFEN)[number]["auswahl"]) =>
+    [PAKETE[a.paket]?.name, ...a.module.map((k) => katalog.module.find((m) => m.key === k)?.name ?? k), ...a.zusaetze.map((k) => katalog.zusaetze.find((z) => z.key === k)?.name ?? k)].filter(Boolean).join(" + ");
   const preis = (einmalig: number | null, monatlich: number) => (einmalig === null ? "Preis individuell" : `${euro(einmalig)}${monatlich ? ` + ${euro(monatlich)}/Monat` : ""}`);
 
   return (
     <div className="angebot-ablauf">
       <nav className="reiter" aria-label="Schnellwahl Ausbaustufen" style={{ alignItems: "center" }}>
         <span className="leise klein" style={{ marginRight: 4 }}>Schnellwahl:</span>
-        {AUSBAUSTUFEN.map((s) => <a key={s.nr} href="#webauftritt" role="button" onClick={(e) => { e.preventDefault(); stufe(s.auswahl); }}>{s.nr}. {s.name}</a>)}
+        {AUSBAUSTUFEN.map((s) => <a key={s.nr} href="#webauftritt" role="button" title={bausteineVon(s.auswahl)} onClick={(e) => { e.preventDefault(); stufe(s.auswahl); }}>{s.nr}. {s.name}<span className="leise klein" style={{ display: "block", fontWeight: 400 }}>{bausteineVon(s.auswahl)}</span></a>)}
       </nav>
 
       <section className="karte" id="webauftritt">
@@ -101,7 +104,7 @@ export function AngebotKonfigurator({ gewerk, startPaket, katalog, email = "", i
 
       <section className="karte" id="pruefen">
         <h2><span className="nr">4</span> Zusammenfassung</h2>
-        <div className="raster" style={{ gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1.6fr)", gap: 24, alignItems: "start" }}>
+        <div className="raster links-schmal" style={{ gap: 24, alignItems: "start" }}>
           <div>
             <div className="raster zwei" style={{ gap: 10, marginBottom: 12 }}>
               <div className="kennzahl"><div className="wert">{euro(r.einmalig)}</div><div className="name">einmalig netto</div></div>
@@ -126,7 +129,7 @@ export function AngebotKonfigurator({ gewerk, startPaket, katalog, email = "", i
 
       <section className="karte" id="senden">
         <h2><span className="nr">5</span> An wen geht das Angebot?</h2>
-        <div className="raster" style={{ gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1.6fr)", gap: 24, alignItems: "start" }}>
+        <div className="raster links-schmal" style={{ gap: 24, alignItems: "start" }}>
           <label className="feld"><span>E-Mail-Adresse {inhaber ? `von ${inhaber}` : "des Kunden"}</span><input name="email" type="email" required defaultValue={email} placeholder="name@betrieb.de" /><small>Dorthin gehen Angebot und Link zum Kundenportal.</small></label>
           <label className="feld"><span>Persönlicher Einstieg <em>optional</em></span><textarea name="einleitung" style={{ minHeight: 100 }} placeholder="z. B. vielen Dank für das gute Gespräch heute. Wie besprochen … (leer: Standardtext aus der Angebotsvorlage)" /></label>
         </div>

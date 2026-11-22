@@ -5,6 +5,7 @@ import { brauchtBenutzer } from "@/lib/auth";
 import { getDb, schema } from "@/lib/db";
 import { Logo } from "@/components/Logo";
 import { UnterschriftFeld } from "@/components/UnterschriftFeld";
+import { UnterschriftPruefung } from "@/components/UnterschriftPruefung";
 import { vertragsunterlagen } from "@/lib/ablauf/vertraege";
 import { euro } from "@/lib/pakete";
 import { laufzeitSumme } from "@/lib/katalog";
@@ -37,9 +38,9 @@ export default async function Unterschrift({ params, searchParams }: { params: P
       <main className="portal">
         <Link href={`/leads/${b.id}`} className="zurueck">← zurück zu Levarex OS</Link>
         {!offen ? (
-          <div className="karte"><h1>Schon erledigt</h1><p>Dieses Angebot ist bereits unterschrieben ({a.status}).</p></div>
+          <div className="karte"><h1>Schon erledigt</h1><p>{a.status === "ueberholt" ? "Dieses Angebot wurde durch ein neueres ersetzt. Bitte das aktuelle Angebot in der Kundenakte öffnen." : "Dieses Angebot ist bereits unterschrieben."}</p></div>
         ) : (
-          <form action={vertragUnterschreiben} style={{ display: "grid", gap: 20 }}>
+          <form id="vertrag-form" action={vertragUnterschreiben} style={{ display: "grid", gap: 20 }}>
             <input type="hidden" name="angebotId" value={a.id} />
             <section className="portal-held">
               <div><p className="gruss">Ihr Auftrag an Levarex</p><h1>{b.name}</h1></div>
@@ -50,6 +51,7 @@ export default async function Unterschrift({ params, searchParams }: { params: P
               <p className="leise klein" style={{ margin: 0 }}>Gesamt {summe.monate} Monate {euro(summe.gesamt)} netto, im Schnitt {euro(summe.schnitt)} im Monat. Bitte jedes Dokument ansehen und einzeln unterschreiben.</p>
             </section>
             {fehler ? <div className="hinweis fehler" role="alert">{fehler}</div> : null}
+            {a.status === "entwurf" ? <div className="hinweis">Die Angebots-Mail liegt noch in den Freigaben. Unterschreiben vor Ort geht trotzdem; die Mail wird dann automatisch zurückgezogen.</div> : null}
 
             {doks.map((d) => (
               <section key={d.id} className="karte">
@@ -97,6 +99,7 @@ export default async function Unterschrift({ params, searchParams }: { params: P
               <UnterschriftFeld name="levarexBild" beschriftung="Unterschrift Levarex (Geschäftsführer)" />
             </section>
 
+            <UnterschriftPruefung formId="vertrag-form" />
             <button className="knopf haupt" style={{ width: "100%" }}>Verbindlich unterschreiben</button>
             <p className="leise klein">Danach erstellt Levarex OS die Auftragsbestätigung mit allen unterschriebenen Unterlagen. Sie geht nach Freigabe per E-Mail an {b.email ?? "den Kunden"} und liegt im Kundenportal.</p>
           </form>

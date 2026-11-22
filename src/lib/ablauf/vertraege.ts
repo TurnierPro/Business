@@ -128,12 +128,16 @@ export async function vertragUnterschreiben(e: UnterschriftEingabe): Promise<{ d
   if (!a) throw new Error("Angebot nicht gefunden");
   if (!["entwurf", "versendet"].includes(a.status)) throw new Error(`Angebot hat Status „${a.status}“ und kann nicht mehr unterschrieben werden.`);
   const name = e.kunde.name.trim();
-  if (name.length < 3) throw new Error("Bitte den vollständigen Namen der Person eintragen, die unterschreibt.");
-  if (!e.kunde.unternehmer) throw new Error("Bitte bestätigen, dass der Auftrag für den Betrieb erteilt wird (§ 14 BGB).");
-  if (!e.levarex.name.trim() || !unterschriftsbildOk(e.levarex.bild)) throw new Error("Unterschrift für Levarex fehlt.");
+  // Alle Lücken auf einmal nennen, nicht eine nach der anderen
   const doks = await vertragsunterlagen(e.angebotId);
   const fehlt = doks.filter((d) => !unterschriftsbildOk(e.bilder[d.id]));
-  if (fehlt.length) throw new Error(`Unterschrift fehlt: ${fehlt.map((d) => d.titel).join(", ")}`);
+  const luecken = [
+    ...(fehlt.length ? [`Unterschrift fehlt: ${fehlt.map((d) => d.titel).join(", ")}`] : []),
+    ...(name.length < 3 ? ["Bitte den vollständigen Namen der Person eintragen, die unterschreibt."] : []),
+    ...(!e.kunde.unternehmer ? ["Bitte bestätigen, dass der Auftrag für den Betrieb erteilt wird (§ 14 BGB)."] : []),
+    ...(!e.levarex.name.trim() || !unterschriftsbildOk(e.levarex.bild) ? ["Unterschrift für Levarex fehlt."] : []),
+  ];
+  if (luecken.length) throw new Error(luecken.join(" "));
   // Mandat vorab prüfen, damit nichts halb gespeichert wird
   const { mandatPruefen, mandatErteilen } = await import("./mandat");
   const mandat = e.mandat && a.monatlich > 0 ? { ...e.mandat, name } : null;

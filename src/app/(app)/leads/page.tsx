@@ -17,7 +17,7 @@ const FILTER: { key: string; text: string }[] = [
 // Was als Nächstes bei diesem Betrieb passiert, in einem Satz
 const NAECHSTER: Record<string, string> = {
   neu: "Einstufen: interessant oder nicht",
-  interessant: "Check, Demo und Brief werden vorbereitet",
+  interessant: "Check, Demo und Brief vorbereiten, Brief freigeben",
   angeschrieben: "Besuch vor Ort",
   termin: "Angebot wird erstellt",
   angebot: "Verträge unterschreiben lassen, nachfassen",
