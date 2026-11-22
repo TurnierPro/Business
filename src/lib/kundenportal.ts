@@ -102,8 +102,10 @@ export async function sichtbareDokumente(betriebId: number) {
   return doks
     .filter((d) => FUER_KUNDEN.includes(d.art))
     .map((d) => ({ ...d, versendetAm: versandAm(d.id) ?? (VOM_KUNDEN.includes(d.art) ? d.erstelltAm : null) }))
-    .sort((a, b) => (b.versendetAm?.getTime() ?? 0) - (a.versendetAm?.getTime() ?? 0));
+    // Neueste Sendung zuerst; innerhalb einer Sendung in fester Reihenfolge (Bestätigung, Rahmenvertrag, Leistungsscheine …)
+    .sort((a, b) => (b.versendetAm?.getTime() ?? 0) - (a.versendetAm?.getTime() ?? 0) || REIHENFOLGE.indexOf(a.art) - REIHENFOLGE.indexOf(b.art) || a.id - b.id);
 }
+const REIHENFOLGE = ["auftragsbestaetigung", "angebot", "protokoll", "rahmenvertrag", "leistungsschein_erstellung", "leistungsschein_betrieb", "av_vertrag", "pilotvereinbarung", "sepa_mandat", "rechnung", "abnahmeprotokoll", "monatsreport", "umzugsanleitung", "domain_vollmacht", "foto_einwilligung"];
 
 export async function darfDokumentSehen(betriebId: number, dokumentId: number): Promise<boolean> {
   return (await sichtbareDokumente(betriebId)).some((d) => d.id === dokumentId);
@@ -128,7 +130,7 @@ export async function schritte(betriebId: number): Promise<Schritt[]> {
   const [besuch] = await db.select({ am: schema.besuche.am }).from(schema.besuche).where(eq(schema.besuche.betriebId, betriebId)).orderBy(desc(schema.besuche.am)).limit(1);
   const protokollVersendet = angebotVersendet?.anhaenge.length ? (await db.select({ art: schema.dokumente.art }).from(schema.dokumente).where(inArray(schema.dokumente.id, angebotVersendet.anhaenge))).some((d) => d.art === "protokoll") : false;
   return [
-    { titel: "Gespräch vor Ort", text: "Wir haben Ihren Betrieb kennengelernt und Ziele festgehalten.", erledigt: termine.length > 0 || !!besuch || !!a?.unterschriebenAm, datum: termine[0]?.datum ?? besuch?.am ?? null },
+    { titel: "Gespräch vor Ort", text: "Wir haben Ihren Betrieb kennengelernt und Ziele festgehalten.", erledigt: termine.length > 0 || !!besuch || !!a?.unterschriebenAm || !!angebotVersendet, datum: termine[0]?.datum ?? besuch?.am ?? null },
     { titel: "Angebot erhalten", text: protokollVersendet ? "Protokoll, Maßnahmenplan und Angebot liegen unten bei Ihren Unterlagen." : "Das Angebot liegt unten bei Ihren Unterlagen.", erledigt: !!angebotVersendet || !!a?.unterschriebenAm, datum: angebotVersendet?.versendetAm ?? null },
     { titel: "Angebot angenommen", text: "Danke für Ihr Vertrauen.", erledigt: !!a?.unterschriebenAm, datum: a?.unterschriebenAm ?? null },
     { titel: "Anzahlung eingegangen", text: "Damit starten wir Ihr Projekt.", erledigt: !!a?.angezahltAm, datum: a?.angezahltAm ?? null },

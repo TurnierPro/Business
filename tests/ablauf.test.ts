@@ -1170,7 +1170,9 @@ test("Korrekturen Runde 2: Unterschrift nach Freigabe, Schaltjahr, Anhänge, Mod
   // Module über den Text: umformulierte Position bleibt gebucht
   const r2 = await verkauf.erstelleAngebot({ betriebId: id!, auswahl: { paket: "KOMPAKT", module: ["personal"], zusaetze: [] }, wer: "Daniel Lück" });
   const { angebotAendern } = await import("../src/lib/ablauf/angebot-bearbeiten");
-  const [ad] = (await db.select().from(schema.dokumente).where(eq(schema.dokumente.betriebId, id!))).filter((d) => d.art === "angebot").slice(-1);
+  // Genau das Angebotsdokument dieser Mail (nicht „irgendein letztes“: die Reihenfolge aus der Datenbank ist nicht fest)
+  const [e2] = await db.select().from(schema.postausgang).where(eq(schema.postausgang.id, r2.eintragId));
+  const [ad] = (await db.select().from(schema.dokumente).where(eq(schema.dokumente.betriebId, id!))).filter((d) => d.art === "angebot" && e2.anhaenge.includes(d.id));
   const pos = (ad.daten as { positionen: { text: string; einmalig: number; monatlich: number }[] }).positionen.map((x) => (x.text.startsWith("Personal") ? { ...x, text: "Modul Personal & Bewerbung (Karriereseite)" } : x));
   await angebotAendern(r2.eintragId, { positionen: pos, einleitung: "Preis: $& bleibt so." }, "Test");
   const [a2] = await db.select().from(schema.angebote).where(eq(schema.angebote.id, r2.angebotId));

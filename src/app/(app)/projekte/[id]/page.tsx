@@ -150,7 +150,7 @@ export default async function Projekt({ params }: { params: Promise<{ id: string
       <div className="raster zwei" style={{ alignItems: "start" }}>
         <section className="karte">
           <h2>Stand im Detail</h2>
-          {p.status === "inhalte" ? <><p>Wir warten auf Texte und Fotos. Der Kunde hat den Link mit der Start-Mail bekommen.</p><p className="leise klein mono" style={{ wordBreak: "break-all" }}>{portal}</p></> : null}
+          {p.status === "inhalte" ? <><p>Wir warten auf Texte und Fotos. {projektPost.some((x) => x.zweck === "kickoff" && x.status === "versendet") ? "Der Kunde hat den Link mit der Start-Mail bekommen." : <>Die Start-Mail mit dem Link liegt noch in den <a href="/freigaben">Freigaben</a>.</>}</p><p className="leise klein mono" style={{ wordBreak: "break-all" }}>{portal}</p></> : null}
           {p.status === "bau" ? <p>Die Seite wird gerade gebaut und geprüft. In einer Minute neu laden.</p> : null}
           {p.status === "pruefung" ? <><div className="hinweis fehler">Die Prüfung ist nicht bestanden. Der Livegang ist gesperrt, bis alles grün ist.</div></> : null}
           {p.status === "bereit" && !abgenommen ? <p>Alle Prüfungen bestanden. Die Vorschau liegt beim Kunden zur Abnahme{p.abnahmeFrist ? ` (Frist bis ${datum(p.abnahmeFrist)})` : ", die Bitte um Abnahme wartet auf Freigabe"}.</p> : null}

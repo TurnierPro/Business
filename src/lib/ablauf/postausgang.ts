@@ -203,10 +203,12 @@ export async function qualitaetskontrolle(id: number): Promise<string> {
     hinweise.push(...jsonAus<string[]>(ki.text, []).filter((x) => typeof x === "string").map((x) => `KI-Prüfer: ${x}`));
   }
 
-  const alle = [...blocker.map((b) => `Blockiert: ${b}`), ...hinweise];
+  // Doppelte Hinweise (z. B. je Anhang derselbe) nur einmal; gezählt wird die bereinigte Liste
+  const alle = [...new Set([...blocker.map((b) => `Blockiert: ${b}`), ...hinweise])];
+  const anzahlHinweise = new Set(hinweise).size;
   const qkStatus = blocker.length ? "blockiert" : hinweise.length ? "hinweise" : "bestanden";
   await db.update(schema.postausgang).set({ hinweise: [...new Set(alle)], qkStatus, qkAm: new Date() }).where(eq(schema.postausgang.id, id));
-  await protokolliere("Qualitätskontrolle", `${qkStatus === "bestanden" ? "Bestanden" : qkStatus === "hinweise" ? `${hinweise.length} ${hinweise.length === 1 ? "Hinweis" : "Hinweise"}` : "Blockiert"}: ${e.betreff}`, e.betriebId);
+  await protokolliere("Qualitätskontrolle", `${qkStatus === "bestanden" ? "Bestanden" : qkStatus === "hinweise" ? `${anzahlHinweise} ${anzahlHinweise === 1 ? "Hinweis" : "Hinweise"}` : "Blockiert"}: ${e.betreff}`, e.betriebId);
   return qkStatus;
 }
 
@@ -292,6 +294,8 @@ async function versendeIntern(id: number): Promise<string> {
     }
     const frisch = doks.length ? await db.select().from(schema.dokumente).where(inArray(schema.dokumente.id, e.anhaenge)) : [];
     // Genau die versendeten PDFs werden eingefroren und liegen danach unverändert im Kundenportal
+    // In der Reihenfolge der Anhänge im Eintrag (Hauptdokument zuerst), nicht in der Reihenfolge der Datenbank
+    frisch.sort((x, y) => e.anhaenge.indexOf(x.id) - e.anhaenge.indexOf(y.id));
     const anhaenge = await Promise.all(frisch.map(async (d) => ({ name: `${d.titel}.pdf`, inhalt: await archivieren(d) })));
     // Pflichtangaben nach § 35a GmbHG hängen an jeder Mail
     // Immer zwei Fassungen: Nur-Text (mit Signatur) und HTML im Levarex-Design

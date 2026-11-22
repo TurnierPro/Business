@@ -25,12 +25,12 @@ const BEREICHE: { key: string; name: string; muster: RegExp }[] = [
 const bereichVon = (aktion: string) => BEREICHE.find((b) => b.muster.test(aktion))?.key ?? "sonstiges";
 
 const WOCHENTAG = ["Sonntag", "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag"];
-const tagKey = (d: Date) => d.toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" });
-const uhrzeit = (d: Date) => d.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
+const tagKey = (d: Date) => d.toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Europe/Berlin" });
+const uhrzeit = (d: Date) => d.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Berlin" });
 function tagName(d: Date) {
   const heute = new Date();
   const gestern = new Date(Date.now() - 864e5);
-  const vorne = tagKey(d) === tagKey(heute) ? "Heute" : tagKey(d) === tagKey(gestern) ? "Gestern" : WOCHENTAG[d.getDay()];
+  const vorne = tagKey(d) === tagKey(heute) ? "Heute" : tagKey(d) === tagKey(gestern) ? "Gestern" : WOCHENTAG[new Date(d.toLocaleString("en-US", { timeZone: "Europe/Berlin" })).getDay()];
   return `${vorne} · ${tagKey(d)}`;
 }
 
