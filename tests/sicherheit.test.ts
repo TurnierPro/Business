@@ -392,3 +392,61 @@ test("Zwei-Faktor ist Pflicht auf dem Server, auf dem eigenen Rechner nur ein Hi
     if (vorher === undefined) delete env.BASE_URL; else env.BASE_URL = vorher;
   }
 });
+
+test("Demo-Pakete: ZIP nur mit Website-Dateien, keine Pfade nach außen, im Portal nur nach Freigabe und abgeschottet", async () => {
+  const demos = await import("../src/lib/demos");
+  const { zipSchreiben } = await import("../src/lib/zip");
+  const kp = await import("../src/lib/kundenportal");
+  const route = await import("../src/app/portal/k/[token]/demo/[id]/[[...pfad]]/route");
+  const [b] = await db.insert(schema.betriebe).values({ name: "Demo Sicher GmbH", gewerk: "SHK", email: "chef@demo-sicher.example" }).returning();
+  const [anderer] = await db.insert(schema.betriebe).values({ name: "Fremd GmbH", gewerk: "SHK", email: "chef@fremd.example" }).returning();
+  const datei = (dateien: { name: string; inhalt: string }[]) => new File([new Uint8Array(zipSchreiben(dateien.map((d) => ({ name: d.name, daten: Buffer.from(d.inhalt) }))))], "demo.zip", { type: "application/zip" });
+  const laden = (f: File) => demos.demoHochladen({ betriebId: b.id, titel: "Test", datei: f, wer: "Test" });
+  // Zip-Slip: Pfade nach oben oder absolut werden abgelehnt
+  await assert.rejects(() => laden(datei([{ name: "index.html", inhalt: "<p>x</p>" }, { name: "../../boese.html", inhalt: "x" }])), /Unzulässiger Pfad/);
+  await assert.rejects(() => laden(datei([{ name: "index.html", inhalt: "<p>x</p>" }, { name: "/etc/passwd.txt", inhalt: "x" }])), /Unzulässiger Pfad/);
+  // Nur Website-Dateien: kein Programm, kein Serverskript
+  await assert.rejects(() => laden(datei([{ name: "index.html", inhalt: "<p>x</p>" }, { name: "start.sh", inhalt: "rm -rf /" }])), /Dateityp nicht erlaubt/);
+  await assert.rejects(() => laden(datei([{ name: "seite.html", inhalt: "<p>x</p>" }])), /index.html/);
+  // Kein ZIP (z. B. umbenanntes HTML) wird schon vom Dateityp abgewiesen
+  await assert.rejects(() => demos.demoHochladen({ betriebId: b.id, titel: "x", datei: new File(["<html>"], "demo.zip"), wer: "Test" }), /Dateityp nicht erlaubt/);
+  // Gültig, mit gemeinsamem Oberordner und Mac-Beifang
+  const id = await laden(datei([{ name: "bauer/index.html", inhalt: "<h1>Demo</h1>" }, { name: "bauer/assets/app.css", inhalt: "h1{}" }, { name: "__MACOSX/bauer/._index.html", inhalt: "x" }]));
+  assert.ok(demos.demoDatei(id, ["index.html"]));
+  assert.ok(demos.demoDatei(id, ["assets", "app.css"]));
+  assert.equal(demos.demoDatei(id, ["..", "..", "pfade.ts"]), null, "kein Ausbruch beim Abruf");
+  assert.equal(demos.demoDatei(id, ["%2e%2e", "x.html"]), null, "auch nicht kodiert");
+  // Im Portal: erst nach Freigabe und Versand sichtbar, nur für den eigenen Betrieb
+  const token = (await kp.portalLink(b.id)).split("/").pop()!;
+  const tokenFremd = (await kp.portalLink(anderer.id)).split("/").pop()!;
+  const abruf = (t: string, pfad: string[]) => route.GET(new Request("https://x"), { params: Promise.resolve({ token: t, id: String(id), pfad }) });
+  assert.equal((await abruf(token, ["index.html"])).status, 404, "Entwurf ist nicht im Portal");
+  const eintragId = await demos.demoFreigabeAnfordern(id, "Test");
+  assert.equal((await abruf(token, ["index.html"])).status, 404, "wartet auf Freigabe: noch nicht sichtbar");
+  const [e] = await db.select().from(schema.postausgang).where(eq(schema.postausgang.id, eintragId));
+  assert.equal(e.zweck, "demo_portal");
+  assert.equal(e.status, "zur_freigabe", "geht nur über den Postausgang raus");
+  await (await import("../src/lib/ablauf/folgen")).nachVersand({ ...e, status: "versendet" });
+  const ok = await abruf(token, ["index.html"]);
+  assert.equal(ok.status, 200);
+  assert.match(ok.headers.get("content-security-policy") ?? "", /^sandbox allow-scripts/, "abgeschottet: eigene Herkunft, keine Cookies");
+  assert.match(ok.headers.get("content-security-policy") ?? "", /connect-src 'none'/);
+  assert.equal(ok.headers.get("x-robots-tag"), "noindex, nofollow");
+  assert.equal((await abruf(tokenFremd, ["index.html"])).status, 404, "fremder Portal-Link sieht die Demo nicht");
+  await demos.demoZurueckziehen(id, "Test");
+  assert.equal((await abruf(token, ["index.html"])).status, 404, "zurückgezogen: nicht mehr sichtbar");
+  // Middleware setzt dieselbe abgeschottete Regel
+  const { NextRequest } = await import("next/server");
+  const { middleware } = await import("../src/middleware");
+  const m = middleware(new NextRequest(`https://os.levarex.example/portal/k/${token}/demo/${id}/index.html`, { headers: { host: "os.levarex.example" } }));
+  assert.match(m.headers.get("content-security-policy") ?? "", /^sandbox /);
+  // Interne Ansicht nur mit signiertem Schlüssel aus der Kundenakte
+  const intern = await import("../src/app/demo-ansicht/[schluessel]/[[...pfad]]/route");
+  const { linkSchluessel } = await import("../src/lib/geheim");
+  const ansicht = (sch: string) => intern.GET(new Request("https://x"), { params: Promise.resolve({ schluessel: sch, pfad: ["index.html"] }) });
+  assert.equal((await ansicht(linkSchluessel("demo-intern", id))).status, 200);
+  assert.equal((await ansicht(`${id}-0000000000000000`)).status, 404, "erratener Schlüssel");
+  assert.equal((await ansicht(linkSchluessel("angebot", id))).status, 404, "Schlüssel für etwas anderes gilt nicht");
+  await demos.demoLoeschen(id, "Test");
+  assert.equal(demos.demoDatei(id, ["index.html"]), null, "Dateien gelöscht");
+});

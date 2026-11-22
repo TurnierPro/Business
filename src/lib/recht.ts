@@ -75,6 +75,7 @@ export function mailSignatur(): string {
  */
 export const LOESCHFRISTEN: { was: string; tage: number | null; grund: string; automatisch: boolean }[] = [
   { was: "Demo-Websites", tage: 60, grund: "Zusage im Akquise-Brief", automatisch: true },
+  { was: "Demo-Pakete (hochgeladen)", tage: 60, grund: "Wie Demo-Websites: 60 Tage ohne Auftrag; mit Auftrag bis zum Livegang", automatisch: true },
   { was: "Leads ohne Reaktion", tage: 182, grund: "Zusage im Akquise-Brief (6 Monate)", automatisch: true },
   { was: "Angebote ohne Auftrag (samt Betrieb)", tage: ANGEBOT_LOESCHEN_TAGE, grund: "Zweck entfallen", automatisch: true },
   { was: "Gesprächsaufnahmen", tage: 30, grund: "Löschung nach Versand des Protokolls, spätestens nach 30 Tagen", automatisch: true },

@@ -53,6 +53,7 @@ export async function datenauskunft(betriebId: number, wer: string) {
     unterschriften,
     portalZugaenge,
     termine: termine.map(({ audioPfad, ...t }) => ({ ...t, aufnahmeGespeichert: !!audioPfad })),
+    demoPakete: await (await import("../demos")).demosVon(betriebId),
     angebote,
     projekte: projekte.map(({ portalToken: _t, ...p }) => p),
     rechnungen,
@@ -76,6 +77,8 @@ export async function allesLoeschen(betriebId: number, bestaetigung: string, wer
 
   // Dateien zuerst: Aufnahmen, Uploads, Seiten, Anfragen-Fotos, archivierte PDFs (außer Rechnungen)
   for (const t of await db.select().from(schema.termine).where(eq(schema.termine.betriebId, betriebId))) if (t.audioPfad) fs.rmSync(t.audioPfad, { force: true });
+  await (await import("../demos")).demoDateienLoeschen(betriebId);
+  await db.delete(schema.demos).where(eq(schema.demos.betriebId, betriebId));
   for (const p of await db.select().from(schema.projekte).where(eq(schema.projekte.betriebId, betriebId))) fs.rmSync(path.join(datenOrdner("uploads"), `projekt-${p.id}`), { recursive: true, force: true });
   for (const s of await db.select().from(schema.seiten).where(eq(schema.seiten.betriebId, betriebId))) {
     loescheSeite(s.slug);

@@ -214,6 +214,22 @@ export const seiten = pgTable("seiten", {
   erstelltAm: timestamp("erstellt_am", { withTimezone: true }).defaultNow().notNull(),
 });
 
+// Demo-Pakete (Website und Instagram-Vorlagen als statische Dateien), hochgeladen als ZIP. Der Kunde sieht sie im Portal
+// erst, wenn die Mail „Ihre Demo liegt im Kundenportal“ freigegeben und versendet ist.
+export const demos = pgTable("demos", {
+  id: serial("id").primaryKey(),
+  betriebId: integer("betrieb_id").notNull().references(() => betriebe.id, { onDelete: "cascade" }),
+  titel: text("titel").notNull(),
+  dateien: integer("dateien").notNull(),
+  groesse: integer("groesse").notNull(), // Bytes entpackt
+  startseite: text("startseite").notNull().default("index.html"),
+  status: text("status").notNull().default("entwurf"), // entwurf | zur_freigabe | im_portal | zurueckgezogen
+  eintragId: integer("eintrag_id"), // Postausgang: Mail an den Kunden
+  imPortalAm: timestamp("im_portal_am", { withTimezone: true }),
+  erstelltVon: text("erstellt_von").notNull(),
+  erstelltAm: timestamp("erstellt_am", { withTimezone: true }).defaultNow().notNull(),
+});
+
 export const jobs = pgTable("jobs", {
   id: serial("id").primaryKey(),
   art: text("art").notNull(),

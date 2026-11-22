@@ -1,7 +1,7 @@
 // Freigaben nach Art, damit man gezielt z. B. alle Rechnungen am Stück prüfen kann.
 // Genutzt auf „Freigaben“ und „Zu tun“.
 export const FREIGABE_GRUPPEN: { key: string; name: string; zwecke: string[] }[] = [
-  { key: "akquise", name: "Akquise", zwecke: ["akquise_brief"] },
+  { key: "akquise", name: "Akquise", zwecke: ["akquise_brief", "demo_portal"] },
   { key: "verkauf", name: "Angebote und Verträge", zwecke: ["angebot", "auftragsbestaetigung", "portal_zugang"] },
   { key: "geld", name: "Rechnungen und Zahlungen", zwecke: ["rechnung", "schlussrechnung", "betreuungsrechnung", "zahlungserinnerung", "mahnung1", "mahnung2", "lastschrift_start", "lastschrift_ende", "kuendigung"] },
   { key: "projekt", name: "Projekte", zwecke: ["kickoff", "inhalte_eingang", "abnahme_aufforderung", "abnahme_bestaetigung", "livegang", "umzug_anleitung", "umzug_fertig", "monatsreport"] },

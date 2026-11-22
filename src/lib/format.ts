@@ -6,6 +6,7 @@ export const datumZeit = (d: Date | string | null | undefined) =>
 
 export const ZWECK: Record<string, string> = {
   akquise_brief: "Akquise-Brief",
+  demo_portal: "Demo ins Kundenportal",
   angebot: "Angebot",
   rechnung: "Rechnung (Anzahlung)",
   schlussrechnung: "Schlussrechnung",

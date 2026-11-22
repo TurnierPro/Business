@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 
 // Schneller Vorabcheck: ohne Sitzungs-Cookie direkt zur Anmeldung.
 // Die echte Prüfung der Signatur passiert serverseitig in jeder geschützten Seite.
-const OFFEN = ["/login", "/vorschau", "/portal", "/api/gesundheit", "/api/tls-erlaubt", "/api/v1", "/api/whatsapp", "/kalender", "/_next", "/favicon", "/marke"];
+const OFFEN = ["/login", "/vorschau", "/demo-ansicht", "/portal", "/api/gesundheit", "/api/tls-erlaubt", "/api/v1", "/api/whatsapp", "/kalender", "/_next", "/favicon", "/marke"];
 
 const hostVon = (url?: string) => (url ?? "").trim().replace(/^https?:\/\//, "").split("/")[0].split(":")[0].toLowerCase();
 // Eigene Adresse des Kundenportals (z. B. portal.levarex-consulting.de). Dort gibt es nur das Portal.
@@ -31,6 +31,9 @@ function grundHeader(res: NextResponse, o: { referrer?: string } = {}): NextResp
 }
 
 // Kunden-Websites haben kein JavaScript: alles verbieten, was nicht gebraucht wird
+// Demo-Pakete laufen abgeschottet (eigene Herkunft, keine Cookies); die Route setzt dieselbe Regel
+const CSP_DEMO = "sandbox allow-scripts allow-forms allow-popups allow-modals; default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; media-src 'self'; connect-src 'none'; form-action 'none'; base-uri 'self'; frame-ancestors 'self'";
+const istDemo = (p: string) => p.startsWith("/demo-ansicht/") || /^\/portal\/k\/[^/]+\/demo\//.test(p);
 const CSP_KUNDENSEITE = "default-src 'none'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'self'";
 
 // Das Kundenportal darf nur von Levarex OS selbst eingebettet werden (Reiter „Kundenportal“ beim Betrieb), von sonst niemandem
@@ -91,7 +94,7 @@ function pruefe(req: NextRequest): NextResponse {
   // Nonce je Aufruf: nur Skripte mit dieser Zufallszahl dürfen laufen (Next.js übernimmt sie selbst)
   const nonce = btoa(crypto.randomUUID());
   const imPortal = !!portalHost && host === portalHost;
-  const csp = pathname.startsWith("/vorschau") ? CSP_KUNDENSEITE : cspApp(nonce, imPortal);
+  const csp = istDemo(pathname) ? CSP_DEMO : pathname.startsWith("/vorschau") ? CSP_KUNDENSEITE : cspApp(nonce, imPortal);
   const kopf = new Headers(req.headers);
   kopf.set("x-nonce", nonce);
   kopf.set("Content-Security-Policy", csp);

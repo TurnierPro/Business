@@ -10,7 +10,9 @@ import { istEcht } from "@/lib/adapters/dienste";
 import { basisUrl } from "@/lib/ablauf/gemeinsam";
 import { portalBasis } from "@/lib/kundenportal";
 import { BesuchBerichtFelder } from "@/components/BesuchBericht";
-import { gespraechImportieren, besuchErfassen, aktivitaetAnlegen, antwortEntwerfen, nachrichtErledigt, portalLinkErneuern, portalZugangAnlegen, portalZugangSperren, betriebSpeichern, betriebZuweisen, datenLoeschen, einstufen, kontaktLoeschen, kontaktSpeichern, widerspruch, zahlungSimulieren } from "../../aktionen";
+import { DEMO_STATUS, demosVon } from "@/lib/demos";
+import { linkSchluessel } from "@/lib/geheim";
+import { demoFreigeben, demoHochladen, demoLoeschen, demoZurueckziehen, gespraechImportieren, besuchErfassen, aktivitaetAnlegen, antwortEntwerfen, nachrichtErledigt, portalLinkErneuern, portalZugangAnlegen, portalZugangSperren, betriebSpeichern, betriebZuweisen, datenLoeschen, einstufen, kontaktLoeschen, kontaktSpeichern, widerspruch, zahlungSimulieren } from "../../aktionen";
 import { AufgabenListe } from "@/components/AufgabenListe";
 import { ARTEN } from "@/lib/ablauf/crm";
 import { ticketNummer } from "@/lib/ablauf/tickets";
@@ -56,6 +58,7 @@ export default async function Lead({ params, searchParams }: { params: Promise<{
     db.select().from(schema.jobs).where(and(inArray(schema.jobs.status, ["wartet", "laeuft"]), inArray(schema.jobs.art, ["vorbereitung", "transkription", "auswertung"]))),
     db.select().from(schema.protokoll).where(eq(schema.protokoll.betriebId, id)).orderBy(desc(schema.protokoll.am)).limit(200),
   ]);
+  const demoPakete = await demosVon(id);
   const besuche = await db.select().from(schema.besuche).where(eq(schema.besuche.betriebId, id)).orderBy(desc(schema.besuche.am));
   const rechnungen = await db.select().from(schema.rechnungen).where(eq(schema.rechnungen.betriebId, id)).orderBy(desc(schema.rechnungen.erstelltAm));
   const inArbeit = laufend.filter((j) => Number(j.daten.betriebId) === id || termine.some((t) => t.id === Number(j.daten.terminId)));
@@ -407,6 +410,42 @@ export default async function Lead({ params, searchParams }: { params: Promise<{
 
       {tab === "dokumente" ? (
         <>
+        <section className="karte abstand-klein" id="demo" aria-labelledby="demo-titel">
+          <div className="kopfzeile" style={{ marginBottom: 4 }}>
+            <h2 id="demo-titel" style={{ margin: 0 }}>Demo-Paket</h2>
+            <span className="leise klein">Website und Instagram-Vorlagen zum Anklicken</span>
+          </div>
+          <p className="leise klein">Nach dem Besuch: Demo als ZIP hochladen (mit index.html auf oberster Ebene), intern ansehen, dann ins Kundenportal freigeben. Der Kunde sieht sie erst, wenn ihr die Mail dazu freigegeben habt.</p>
+          {demoPakete.length ? (
+            <ul className="zeilen">
+              {demoPakete.map((d) => (
+                <li key={d.id}>
+                  <div>
+                    <div className="titel">{d.titel}</div>
+                    <div className="unter">{d.dateien} Dateien · {(d.groesse / 1024 / 1024).toLocaleString("de-DE", { maximumFractionDigits: 1 })} MB · hochgeladen {datum(d.erstelltAm)} von {d.erstelltVon}{d.imPortalAm ? ` · im Portal seit ${datum(d.imPortalAm)}` : ""}</div>
+                  </div>
+                  <div className="knopfreihe" style={{ gap: 8 }}>
+                    <span className={`status ${d.status === "im_portal" ? "ok" : d.status === "zur_freigabe" ? "warten" : ""}`}>{DEMO_STATUS[d.status] ?? d.status}</span>
+                    <a className="knopf klein" href={`/demo-ansicht/${linkSchluessel("demo-intern", d.id)}/index.html`} target="_blank" rel="noopener">Ansehen</a>
+                    {d.status === "entwurf" || d.status === "zurueckgezogen" ? <form action={demoFreigeben}><input type="hidden" name="betriebId" value={id} /><input type="hidden" name="demoId" value={d.id} /><button className="knopf klein">Im Kundenportal freigeben</button></form> : null}
+                    {d.status === "zur_freigabe" && d.eintragId ? <Link className="knopf klein" href={`/freigaben/${d.eintragId}`}>Zur Freigabe</Link> : null}
+                    {d.status === "im_portal" ? <form action={demoZurueckziehen}><input type="hidden" name="betriebId" value={id} /><input type="hidden" name="demoId" value={d.id} /><button className="knopf klein">Aus dem Portal nehmen</button></form> : null}
+                    <form action={demoLoeschen}><input type="hidden" name="betriebId" value={id} /><input type="hidden" name="demoId" value={d.id} /><button className="knopf klein gefahr" aria-label={`Demo ${d.titel} löschen`}>Löschen</button></form>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          <details className="schnell-aufgabe" open={!demoPakete.length}>
+            <summary className="knopf klein">+ Demo-Paket hochladen</summary>
+            <form action={demoHochladen} className="schnell-form" style={{ gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr) auto" }}>
+              <input type="hidden" name="betriebId" value={id} />
+              <input name="titel" placeholder={`z. B. Demo für ${b.name}`} aria-label="Titel" defaultValue={`Demo für ${b.name}`} />
+              <input type="file" name="datei" accept=".zip,application/zip" required aria-label="ZIP-Datei" />
+              <button className="knopf klein">Hochladen</button>
+            </form>
+          </details>
+        </section>
         <div className="raster zwei" style={{ alignItems: "start", marginBottom: 12 }}>
           <section className="karte">
             <h2>Angebote</h2>

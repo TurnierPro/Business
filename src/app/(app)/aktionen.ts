@@ -178,6 +178,33 @@ export async function gespraechImportieren(f: FormData) {
   );
 }
 
+// ---------- Demo-Pakete (Website und Instagram-Vorlagen) ----------
+
+export async function demoHochladen(f: FormData) {
+  const id = zahl(f, "betriebId");
+  await ausfuehren(`/leads/${id}?tab=dokumente#demo`, "Demo-Paket hochgeladen. Intern ansehen, dann ins Kundenportal freigeben.", async (wer) => {
+    await (await import("@/lib/demos")).demoHochladen({ betriebId: id, titel: text(f, "titel"), datei: f.get("datei") as File, wer });
+  });
+}
+
+export async function demoFreigeben(f: FormData) {
+  const id = zahl(f, "betriebId");
+  await ausfuehren(`/leads/${id}?tab=dokumente#demo`, "Die Mail „Ihre Demo liegt im Kundenportal“ liegt in den Freigaben. Sichtbar wird die Demo nach Freigabe und Versand.", async (wer) => {
+    const eintragId = await (await import("@/lib/demos")).demoFreigabeAnfordern(zahl(f, "demoId"), wer);
+    return { ziel: `/freigaben/${eintragId}` };
+  });
+}
+
+export async function demoZurueckziehen(f: FormData) {
+  const id = zahl(f, "betriebId");
+  await ausfuehren(`/leads/${id}?tab=dokumente#demo`, "Demo aus dem Kundenportal genommen.", async (wer) => (await import("@/lib/demos")).demoZurueckziehen(zahl(f, "demoId"), wer));
+}
+
+export async function demoLoeschen(f: FormData) {
+  const id = zahl(f, "betriebId");
+  await ausfuehren(`/leads/${id}?tab=dokumente#demo`, "Demo gelöscht.", async (wer) => (await import("@/lib/demos")).demoLoeschen(zahl(f, "demoId"), wer));
+}
+
 export async function vertragUnterschreiben(f: FormData) {
   const angebotId = zahl(f, "angebotId");
   await ausfuehren(`/unterschrift/${angebotId}`, "Verträge unterschrieben. Die Auftragsbestätigung mit allen Unterlagen liegt in den Freigaben.", async (wer) => {

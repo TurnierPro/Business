@@ -1,5 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import { betriebPerPortal, portalDaten, zugangPerPortal } from "@/lib/kundenportal";
+import { demoDatei, demosVon } from "@/lib/demos";
 import { PAKETE, PaketKey, euro, UST } from "@/lib/pakete";
 import { MailSymbol, TelefonSymbol } from "@/components/Symbole";
 import { marke } from "@/lib/marke";
@@ -34,6 +35,8 @@ export default async function Kundenportal({ params, searchParams }: { params: P
   if (!zugang) notFound();
   const b = zugang.betrieb;
   const d = await portalDaten(b.id);
+  // Demo-Pakete, die nach Freigabe ins Portal gestellt wurden
+  const demoPakete = (await demosVon(b.id)).filter((x) => x.status === "im_portal");
   const { danke, bezahlt, abgebrochen, abnahme, abnahmefehler } = await searchParams;
   const mitBetreuung = d.projekt && ["live", "bereit", "bau", "pruefung"].includes(d.projekt.status);
   const k = mitBetreuung ? await kontingent(b.id) : null;
@@ -122,6 +125,20 @@ export default async function Kundenportal({ params, searchParams }: { params: P
           <h2>Ihre Website</h2>
           <p>Ihre Seite ist live{d.website.domain ? <> unter <b className="mono">{d.website.domain}</b></> : null}.</p>
           <a className="knopf" href={d.website.url} target="_blank">Website öffnen</a>
+        </section>
+      ) : null}
+
+      {demoPakete.length ? (
+        <section id="demo" className="karte">
+          <h2>Ihre Demo</h2>
+          <p>So könnte Ihr neuer Auftritt aussehen: Website und Instagram-Beiträge, gebaut aus Ihren Angaben. Jede Seite lässt sich anklicken. Die Demo ist nicht öffentlich.</p>
+          {demoPakete.map((x) => (
+            <div key={x.id} className="knopfreihe" style={{ marginTop: 12 }}>
+              <a className="knopf" href={`/portal/k/${token}/demo/${x.id}/index.html`} target="_blank" rel="noopener">{demoPakete.length > 1 ? x.titel : "Demo ansehen"}</a>
+              {demoDatei(x.id, ["instagram.html"]) ? <a className="klein" href={`/portal/k/${token}/demo/${x.id}/instagram.html`} target="_blank" rel="noopener">Instagram-Vorlagen</a> : null}
+            </div>
+          ))}
+          <p className="leise klein" style={{ marginTop: 12 }}>Texte und Fotos prüfen wir vor dem Start gemeinsam mit Ihnen. Formulare senden in der Demo noch nichts.</p>
         </section>
       ) : null}
 

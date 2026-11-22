@@ -147,6 +147,15 @@ export async function aufraeumen(): Promise<string> {
     loescheSeite(s.slug);
     await db.delete(schema.seiten).where(eq(schema.seiten.id, s.id));
   }
+  // Hochgeladene Demo-Pakete: 60 Tage ohne Auftrag (Betrieb ist noch kein Kunde) → löschen
+  const { demoLoeschen } = await import("../demos");
+  const demoGrenze = vor(frist("Demo-Pakete (hochgeladen)"));
+  for (const d of await db.select({ id: schema.demos.id, status: schema.betriebe.status, am: schema.demos.erstelltAm }).from(schema.demos).innerJoin(schema.betriebe, eq(schema.demos.betriebId, schema.betriebe.id))) {
+    if (d.status !== "kunde" && d.am < demoGrenze) await demoLoeschen(d.id, SYSTEM);
+  }
+  // Ordner ohne Eintrag (z. B. Betrieb gelöscht) entfernen
+  const demoIds = new Set((await db.select({ id: schema.demos.id }).from(schema.demos)).map((x) => String(x.id)));
+  for (const o of fs.readdirSync(datenOrdner("demos"))) if (!demoIds.has(o)) fs.rmSync(path.join(datenOrdner("demos"), o), { recursive: true, force: true });
   // Leads ohne Reaktion nach 6 Monaten löschen (laut Business Case)
   const grenze = new Date(Date.now() - 182 * 864e5);
   const leads = await db

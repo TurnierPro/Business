@@ -82,7 +82,7 @@ export async function sicheresFetch(url: string, o: { timeoutMs?: number; header
 // ---------- Dateien ----------
 
 /** Prüft den echten Dateityp anhand der ersten Bytes (der Name und der Browser-Typ können lügen). */
-export function dateiTyp(b: Uint8Array): "jpg" | "png" | "webp" | "gif" | "heic" | "pdf" | null {
+export function dateiTyp(b: Uint8Array): "jpg" | "png" | "webp" | "gif" | "heic" | "pdf" | "zip" | null {
   const s = (i: number, t: string) => [...t].every((c, k) => b[i + k] === c.charCodeAt(0));
   if (b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff) return "jpg";
   if (b[0] === 0x89 && s(1, "PNG")) return "png";
@@ -90,15 +90,16 @@ export function dateiTyp(b: Uint8Array): "jpg" | "png" | "webp" | "gif" | "heic"
   if (s(0, "GIF8")) return "gif";
   if (s(4, "ftyp") && (s(8, "heic") || s(8, "heix") || s(8, "mif1") || s(8, "heif"))) return "heic";
   if (s(0, "%PDF-")) return "pdf";
+  if (b[0] === 0x50 && b[1] === 0x4b && b[2] === 0x03 && b[3] === 0x04) return "zip";
   return null;
 }
 
-export async function pruefeDatei(f: File, erlaubt: ("bild" | "pdf")[], maxMb = 20): Promise<{ daten: Buffer; endung: string }> {
+export async function pruefeDatei(f: File, erlaubt: ("bild" | "pdf" | "zip")[], maxMb = 20): Promise<{ daten: Buffer; endung: string }> {
   if (f.size > maxMb * 1024 * 1024) throw new Error(`Datei zu groß (höchstens ${maxMb} MB)`);
   const daten = Buffer.from(await f.arrayBuffer());
   const typ = dateiTyp(daten);
-  const ok = typ && ((typ === "pdf" && erlaubt.includes("pdf")) || (typ !== "pdf" && erlaubt.includes("bild")));
-  if (!ok) throw new Error(`Dateityp nicht erlaubt (${erlaubt.includes("pdf") ? "PDF oder Foto" : "nur Fotos"})`);
+  const ok = typ && ((typ === "pdf" && erlaubt.includes("pdf")) || (typ === "zip" && erlaubt.includes("zip")) || (typ !== "pdf" && typ !== "zip" && erlaubt.includes("bild")));
+  if (!ok) throw new Error(`Dateityp nicht erlaubt (${erlaubt.includes("zip") ? "nur ZIP" : erlaubt.includes("pdf") ? "PDF oder Foto" : "nur Fotos"})`);
   return { daten, endung: typ };
 }
 
