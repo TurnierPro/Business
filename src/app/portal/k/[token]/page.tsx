@@ -10,6 +10,13 @@ import { kontingent, ticketNummer, TICKET_STATUS } from "@/lib/ablauf/tickets";
 import { aktivesMandat, ibanMaskiert, mandatErteilen, mandatOffen } from "@/lib/ablauf/mandat";
 import { ERSTATTUNG_WOCHEN, VORABANKUENDIGUNG_TAGE } from "@/lib/recht";
 import { UnterschriftFeld } from "@/components/UnterschriftFeld";
+import { fotoEinwilligungen, fotoEinwilligungErteilen, fotoEinwilligungWiderrufen, ENTFERNEN_TAGE } from "@/lib/ablauf/einwilligungen";
+import { FOTO_ZWECKE } from "@/lib/docs/vorlagen";
+import { BEITRAG_ARTEN, KANAELE, beitraegeVon, beitragEntscheiden } from "@/lib/beitraege";
+import { kuendigungErfassen, laufzeitEnde } from "@/lib/ablauf/vertrag";
+import { MODULE } from "@/lib/katalog";
+import { gebuchteModule } from "@/lib/bausteine";
+import { KUENDIGUNG_MONATE_VOR_ENDE, LAUFZEIT_MONATE, VERLAENGERUNG_MONATE } from "@/lib/recht";
 import { headers } from "next/headers";
 import { clientIp, erlaubt, GRENZEN, versuchMerken } from "@/lib/sicherheit";
 
@@ -57,7 +64,79 @@ async function mandatErteilenPortal(f: FormData) {
   redirect(`/portal/k/${token}?mandat=1#mandat`);
 }
 
-export default async function Kundenportal({ params, searchParams }: { params: Promise<{ token: string }>; searchParams: Promise<{ fehler?: string; danke?: string; bezahlt?: string; abgebrochen?: string; abnahme?: string; abnahmefehler?: string; ticket?: string; ticketfehler?: string; mandat?: string; mandatfehler?: string }> }) {
+// Mitarbeitende willigen in Fotos ein (unterschreiben selbst) oder widerrufen
+async function fotoEinwilligungPortal(f: FormData) {
+  "use server";
+  const token = String(f.get("token"));
+  const zugang = await zugangPerPortal(token);
+  if (!zugang) notFound();
+  const ip = clientIp(await headers());
+  if (!(await erlaubt("portal-foto", ip, GRENZEN.formularJeIp))) redirect(`/portal/k/${token}?fotofehler=${encodeURIComponent("Zu viele Versuche. Bitte in einer Stunde noch einmal.")}#fotos`);
+  await versuchMerken("portal-foto", ip);
+  const wer = `Kundenportal (${zugang.person ?? zugang.betrieb.name})`;
+  let fehler = "";
+  try {
+    const widerruf = Number(f.get("widerruf"));
+    if (widerruf) await fotoEinwilligungWiderrufen(widerruf, zugang.betrieb.id, wer);
+    else await fotoEinwilligungErteilen({ betriebId: zugang.betrieb.id, person: String(f.get("person") ?? ""), zwecke: f.getAll("zweck").map(String), video: f.get("video") === "ja", bild: String(f.get("fotoBild") ?? ""), wer });
+  } catch (e) {
+    fehler = e instanceof Error ? e.message : "Das hat nicht geklappt.";
+  }
+  redirect(`/portal/k/${token}?${fehler ? `fotofehler=${encodeURIComponent(fehler.slice(0, 200))}` : "foto=1"}#fotos`);
+}
+
+// Betrieb gibt Beiträge und Bewertungsantworten frei oder wünscht eine Änderung
+async function beitragPortal(f: FormData) {
+  "use server";
+  const token = String(f.get("token"));
+  const zugang = await zugangPerPortal(token);
+  if (!zugang) notFound();
+  const ip = clientIp(await headers());
+  if (!(await erlaubt("portal-beitrag", ip, { max: 60, minuten: 60 }))) redirect(`/portal/k/${token}?beitragfehler=${encodeURIComponent("Zu viele Versuche. Bitte später noch einmal.")}#beitraege`);
+  await versuchMerken("portal-beitrag", ip);
+  let fehler = "";
+  try {
+    await beitragEntscheiden(Number(f.get("beitragId")), zugang.betrieb.id, { freigeben: f.get("entscheidung") === "freigeben", kommentar: String(f.get("kommentar") ?? "") }, `Kundenportal (${zugang.person ?? zugang.betrieb.name})`);
+  } catch (e) {
+    fehler = e instanceof Error ? e.message : "Das hat nicht geklappt.";
+  }
+  redirect(`/portal/k/${token}?${fehler ? `beitragfehler=${encodeURIComponent(fehler.slice(0, 200))}` : "beitrag=1"}#beitraege`);
+}
+
+// Kündigung in Textform (Rahmenvertrag § 3). Die Bestätigung geht über die Freigabe raus.
+async function kuendigenPortal(f: FormData) {
+  "use server";
+  const token = String(f.get("token"));
+  const zugang = await zugangPerPortal(token);
+  if (!zugang) notFound();
+  const daten = await portalDaten(zugang.betrieb.id);
+  const name = String(f.get("name") ?? "").trim();
+  if (!daten.projekt?.liveAm || daten.projekt.gekuendigtAm || f.get("bestaetigt") !== "ja" || name.length < 3) redirect(`/portal/k/${token}?kuendigungfehler=1#vertrag`);
+  await kuendigungErfassen(daten.projekt.id, `Kundenportal (${name})`);
+  const { systemAufgabe, VERTRIEB } = await import("@/lib/ablauf/crm");
+  await systemAufgabe({ betriebId: zugang.betrieb.id, titel: "Kündigung über das Portal: kurz anrufen", text: "Bestätigung liegt in den Freigaben. Fragen, was wir besser machen können; kein Druck. Übergabe (Domain, Inhalte, Code) planen.", inTagen: 1, zustaendig: VERTRIEB });
+  redirect(`/portal/k/${token}?gekuendigt=1#vertrag`);
+}
+
+// Interesse an einem weiteren Modul: nur eine Aufgabe für Daniel, es geht nichts raus
+async function modulInteresse(f: FormData) {
+  "use server";
+  const token = String(f.get("token"));
+  const zugang = await zugangPerPortal(token);
+  if (!zugang) notFound();
+  const ip = clientIp(await headers());
+  if (!(await erlaubt("portal-modul", ip, GRENZEN.formularJeIp))) redirect(`/portal/k/${token}#module`);
+  await versuchMerken("portal-modul", ip);
+  const m = MODULE.find((x) => x.key === String(f.get("modul")));
+  if (!m) redirect(`/portal/k/${token}#module`);
+  const { systemAufgabe, VERTRIEB } = await import("@/lib/ablauf/crm");
+  const { protokolliere } = await import("@/lib/protokoll");
+  await systemAufgabe({ betriebId: zugang.betrieb.id, titel: `Interesse an ${m.name}: anrufen`, text: `Im Kundenportal gemeldet von ${zugang.person ?? zugang.betrieb.name}. Termin vereinbaren${m.key === "kundenmanagement" ? " (Prozess-Check vor Ort ist Pflicht)" : ""}.`, inTagen: 2, zustaendig: VERTRIEB });
+  await protokolliere(`Kundenportal (${zugang.person ?? zugang.betrieb.name})`, `Interesse an ${m.name} gemeldet`, zugang.betrieb.id);
+  redirect(`/portal/k/${token}?interesse=${encodeURIComponent(m.key)}#module`);
+}
+
+export default async function Kundenportal({ params, searchParams }: { params: Promise<{ token: string }>; searchParams: Promise<{ fehler?: string; danke?: string; bezahlt?: string; abgebrochen?: string; abnahme?: string; abnahmefehler?: string; ticket?: string; ticketfehler?: string; mandat?: string; mandatfehler?: string; foto?: string; fotofehler?: string; beitrag?: string; beitragfehler?: string; gekuendigt?: string; kuendigungfehler?: string; interesse?: string }> }) {
   const { token } = await params;
   const zugang = await zugangPerPortal(token);
   if (!zugang) notFound();
@@ -66,7 +145,14 @@ export default async function Kundenportal({ params, searchParams }: { params: P
   // Demo-Pakete, die nach Freigabe ins Portal gestellt wurden
   const demoPakete = (await demosVon(b.id)).filter((x) => x.status === "im_portal");
   const { danke, bezahlt, abgebrochen, abnahme, abnahmefehler, mandat: mandatDanke, mandatfehler } = await searchParams;
-  const [mandatFehlt, mandat] = await Promise.all([mandatOffen(b.id), aktivesMandat(b.id)]);
+  const [mandatFehlt, mandat, einwilligungen] = await Promise.all([mandatOffen(b.id), aktivesMandat(b.id), fotoEinwilligungen(b.id)]);
+  const { foto: fotoDanke, fotofehler, beitrag: beitragDanke, beitragfehler } = await searchParams;
+  const alleBeitraege = (await beitraegeVon(b.id)).filter((x) => !["entwurf", "zur_vorlage"].includes(x.status));
+  const zuEntscheiden = alleBeitraege.filter((x) => x.status === "beim_kunden");
+  const { gekuendigt, kuendigungfehler, interesse } = await searchParams;
+  const liveProjekt = d.projekt?.liveAm ? d.projekt : null;
+  const gebucht = liveProjekt ? await gebuchteModule(liveProjekt) : [];
+  const weitereModule = liveProjekt && !liveProjekt.gekuendigtAm ? MODULE.filter((m) => m.aktiv !== false && m.einmalig !== null && !gebucht.includes(m.key)) : [];
   const mitBetreuung = d.projekt && ["live", "bereit", "bau", "pruefung"].includes(d.projekt.status);
   const k = mitBetreuung ? await kontingent(b.id) : null;
   const naechster = d.schritte.findIndex((s) => !s.erledigt);
@@ -86,7 +172,9 @@ export default async function Kundenportal({ params, searchParams }: { params: P
           ? { was: `Website prüfen und abnehmen, bitte bis ${tag(d.abnahmeOffen.abnahmeFrist)}`, href: "#abnahme", knopf: "Zur Abnahme" }
           : mandatFehlt
             ? { was: "SEPA-Lastschriftmandat für den Monatsbeitrag erteilen", href: "#mandat", knopf: "Mandat erteilen" }
-            : null;
+            : zuEntscheiden.length
+              ? { was: `${zuEntscheiden.length === 1 ? "Ein Beitrag wartet" : `${zuEntscheiden.length} Beiträge warten`} auf Ihre Freigabe`, href: "#beitraege", knopf: "Beiträge ansehen" }
+              : null;
 
   return (
     <>
@@ -123,14 +211,15 @@ export default async function Kundenportal({ params, searchParams }: { params: P
       {abnahme ? <div className="hinweis ok" role="status">{abnahme === "verweigert" ? "Danke für Ihre Rückmeldung. Wir beheben die Mängel und melden uns." : "Vielen Dank für die Abnahme. Das Protokoll bekommen Sie per E-Mail."}</div> : null}
       {abgebrochen ? <div className="hinweis" role="status">Die Zahlung wurde abgebrochen. Sie können sie jederzeit hier fortsetzen.</div> : null}
 
-      {[d.angebotOffen, d.anzahlungOffen, d.inhalteOffen, d.abnahmeOffen, mandatFehlt].filter(Boolean).length + offeneRechnungen.length > 1 ? (
+      {[d.angebotOffen, d.anzahlungOffen, d.inhalteOffen, d.abnahmeOffen, mandatFehlt, zuEntscheiden.length ? 1 : null].filter(Boolean).length + offeneRechnungen.length > 1 ? (
         <section className="karte">
           <h2>Was wir gerade von Ihnen brauchen</h2>
           <ul className="liste">
             {d.angebotOffen ? <li><div><div className="titel">Angebot ansehen</div><div className="unter">{PAKETE[d.angebotOffen.paket as PaketKey].name}</div></div><a className="knopf klein" href="#angebot">Zum Angebot</a></li> : null}
-            {d.anzahlungOffen ? <li><div><div className="titel">Anzahlung bezahlen</div><div className="unter">{euro(Math.round((d.anzahlungOffen.einmalig / 2) * (1 + UST)))} brutto, online per Karte oder SEPA-Lastschrift</div></div><a className="knopf haupt klein" href={`/portal/k/${token}/zahlen`}>Jetzt bezahlen</a></li> : null}
+            {d.anzahlungOffen ? <li><div><div className="titel">Anzahlung bezahlen</div><div className="unter">{euro(Math.round((d.anzahlungOffen.einmalig / 2) * (1 + UST)))} brutto, per Überweisung</div></div><a className="knopf haupt klein" href={`/portal/k/${token}/zahlen`}>Jetzt bezahlen</a></li> : null}
             {d.inhalteOffen ? <li><div><div className="titel">Texte und Fotos hochladen</div><div className="unter">Damit wir Ihre Seite bauen können</div></div><a className="knopf haupt klein" href={`/portal/${d.inhalteOffen.portalToken}`}>Inhalte hochladen</a></li> : null}
             {d.abnahmeOffen ? <li><div><div className="titel">Website prüfen und abnehmen</div><div className="unter">Bitte bis {tag(d.abnahmeOffen.abnahmeFrist)}</div></div><a className="knopf klein" href="#abnahme">Zur Abnahme</a></li> : null}
+            {zuEntscheiden.length ? <li><div><div className="titel">Beiträge freigeben</div><div className="unter">{zuEntscheiden.length} Entwurf{zuEntscheiden.length > 1 ? "e" : ""} für Instagram, Facebook oder Google</div></div><a className="knopf klein" href="#beitraege">Zu den Beiträgen</a></li> : null}
             {mandatFehlt ? <li><div><div className="titel">SEPA-Mandat erteilen</div><div className="unter">Für den Einzug des Monatsbeitrags</div></div><a className="knopf klein" href="#mandat">Zum Mandat</a></li> : null}
             {offeneRechnungen.map((r) => <li key={r.id}><div><div className="titel">Rechnung {r.nummer} begleichen</div><div className="unter">{euro(Math.round(r.netto * (1 + UST)))} brutto{r.faelligAm ? `, zahlbar bis ${tag(r.faelligAm)}` : ""}, Verwendungszweck {r.nummer}</div></div>{r.dokumentId ? <a className="knopf klein" href={`/portal/k/${token}/dokument/${r.dokumentId}`} target="_blank">Rechnung</a> : null}</li>)}
           </ul>
@@ -265,6 +354,121 @@ export default async function Kundenportal({ params, searchParams }: { params: P
           ) : null}
         </section>
       ) : null}
+
+      {alleBeitraege.length ? (
+        <section id="beitraege" className="karte">
+          <h2>Beiträge und Antworten auf Bewertungen</h2>
+          <p className="leise">Wir veröffentlichen nur, was Sie freigegeben haben. Passt etwas nicht, schreiben Sie kurz dazu, was wir ändern sollen.</p>
+          {beitragDanke ? <div className="hinweis ok" role="status">Danke, gespeichert.</div> : null}
+          {beitragfehler ? <div className="hinweis fehler" role="alert">{beitragfehler}</div> : null}
+          <ul className="liste">
+            {alleBeitraege.slice(0, 20).map((x) => (
+              <li key={x.id} style={{ alignItems: "start", flexWrap: "wrap" }}>
+                <div style={{ display: "flex", gap: 12, minWidth: 0, flex: "1 1 320px" }}>
+                  {x.bild ? <img src={`/portal/k/${token}/beitrag/${x.id}`} alt="Foto zum Beitrag" width={96} height={96} style={{ objectFit: "cover", flex: "none" }} /> : null}
+                  <div style={{ minWidth: 0 }}>
+                    <div className="titel">{BEITRAG_ARTEN[x.art]} · {x.kanaele.map((k) => KANAELE[k] ?? k).join(", ")}{x.geplantAm ? ` · geplant ${tag(x.geplantAm)}` : ""}</div>
+                    {x.bezug ? <div className="unter">Bewertung: „{x.bezug}“</div> : null}
+                    <p style={{ whiteSpace: "pre-wrap", margin: "6px 0 0" }}>{x.text}</p>
+                  </div>
+                </div>
+                {x.status === "beim_kunden" ? (
+                  <form action={beitragPortal} style={{ display: "grid", gap: 8, flex: "1 1 240px" }}>
+                    <input type="hidden" name="token" value={token} /><input type="hidden" name="beitragId" value={x.id} />
+                    <button className="knopf" name="entscheidung" value="freigeben">Freigeben</button>
+                    <label className="feld"><span>Oder: Was sollen wir ändern?</span><textarea name="kommentar" rows={2} /></label>
+                    <button className="knopf klein" name="entscheidung" value="aendern">Änderung wünschen</button>
+                  </form>
+                ) : (
+                  <span className={`status ${x.status === "abgelehnt" ? "warten" : "ok"}`}>{x.status === "abgelehnt" ? "Änderung gewünscht" : x.status === "veroeffentlicht" ? "veröffentlicht" : "freigegeben"}</span>
+                )}
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
+      {d.projekt ? (
+        <section id="fotos" className="karte">
+          <h2>Fotos von Mitarbeitenden</h2>
+          <p className="leise">Wer auf Fotos oder Videos für Ihre Website und Ihre Profile zu sehen ist, willigt hier selbst ein. Freiwillig und jederzeit widerrufbar; nach einem Widerruf entfernen wir die Fotos binnen {ENTFERNEN_TAGE} Tagen.</p>
+          {fotoDanke ? <div className="hinweis ok" role="status">Gespeichert. Danke.</div> : null}
+          {fotofehler ? <div className="hinweis fehler" role="alert">{fotofehler}</div> : null}
+          {einwilligungen.length ? (
+            <ul className="liste">
+              {einwilligungen.map((x) => (
+                <li key={x.id}>
+                  <div><div className="titel">{x.daten.person}</div><div className="unter">{x.daten.zwecke.map((z) => FOTO_ZWECKE[z] ?? z).join(", ")}{x.daten.video ? ", auch Video" : ""} · {tag(x.erstelltAm)}</div></div>
+                  <div className="knopfreihe" style={{ gap: 8 }}>
+                    {x.daten.widerrufenAm ? <span className="status fehler">widerrufen</span> : <span className="status ok">erteilt</span>}
+                    <a className="klein" href={`/portal/k/${token}/dokument/${x.id}`} target="_blank">PDF</a>
+                    {x.daten.widerrufenAm ? null : (
+                      <form action={fotoEinwilligungPortal}><input type="hidden" name="token" value={token} /><input type="hidden" name="widerruf" value={x.id} /><button className="knopf klein">Widerrufen</button></form>
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          <details style={{ marginTop: 12 }}>
+            <summary className="knopf klein">Einwilligung hinzufügen</summary>
+            <form action={fotoEinwilligungPortal} style={{ display: "grid", gap: 12, marginTop: 12 }}>
+              <input type="hidden" name="token" value={token} />
+              <label className="feld"><span>Name der Person auf den Fotos</span><input name="person" required minLength={3} autoComplete="off" /></label>
+              <fieldset className="feld" style={{ border: 0, padding: 0, margin: 0 }}><legend style={{ padding: 0, marginBottom: 8 }}>Wofür dürfen die Fotos genutzt werden?</legend>
+                {Object.entries(FOTO_ZWECKE).map(([k, n]) => <label key={k} className="haken"><input type="checkbox" name="zweck" value={k} defaultChecked={k === "website"} /><span>{n}</span></label>)}
+                <label className="haken"><input type="checkbox" name="video" value="ja" /><span>auch Videos (z. B. Kurzvideo vom Fototermin)</span></label>
+              </fieldset>
+              <UnterschriftFeld name="fotoBild" beschriftung="Unterschrift der Person auf den Fotos" />
+              <p className="leise klein">Bitte die Person selbst unterschreiben lassen. Wer nicht einwilligt, hat keinen Nachteil.</p>
+              <button className="knopf">Einwilligung speichern</button>
+            </form>
+          </details>
+        </section>
+      ) : null}
+
+      {weitereModule.length ? (
+        <section id="module" className="karte">
+          <h2>Das könnte Ihnen auch helfen</h2>
+          <p className="leise">Ihre Website läuft. Wenn eines dieser Themen bei Ihnen drückt, melden Sie sich; Daniel ruft Sie an und bespricht es mit Ihnen. Unverbindlich.</p>
+          {interesse ? <div className="hinweis ok" role="status">Danke. Daniel meldet sich in den nächsten Tagen bei Ihnen.</div> : null}
+          <ul className="liste">
+            {weitereModule.map((m) => (
+              <li key={m.key} style={{ alignItems: "start" }}>
+                <div><div className="titel">{m.name}</div><div className="unter">{m.problem}</div><div className="klein leise" style={{ marginTop: 4 }}>{m.stufe === 2 ? "Vorher schauen wir uns Ihre Abläufe vor Ort an (Prozess-Check); danach bekommen Sie ein festes Angebot." : `${euro(m.einmalig ?? 0)} einmalig + ${euro(m.monatlich)} im Monat, netto`}</div></div>
+                {interesse === m.key ? <span className="status ok">gemeldet</span> : <form action={modulInteresse}><input type="hidden" name="token" value={token} /><input type="hidden" name="modul" value={m.key} /><button className="knopf klein">Interesse melden</button></form>}
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
+      <section id="vertrag" className="karte">
+        <h2>Ihr Vertrag und Ihre Daten</h2>
+        {liveProjekt ? (
+          <>
+            <p>Die Betreuung läuft seit {tag(liveProjekt.liveAm)}, zunächst {LAUFZEIT_MONATE} Monate, danach verlängert sie sich um je {VERLAENGERUNG_MONATE} Monate. Kündigen können Sie bis {KUENDIGUNG_MONATE_VOR_ENDE} Monate vor dem Ende.</p>
+            {gekuendigt ? <div className="hinweis ok" role="status">Ihre Kündigung ist eingegangen. Die Bestätigung bekommen Sie per E-Mail.</div> : null}
+            {kuendigungfehler ? <div className="hinweis fehler" role="alert">Bitte Namen eintragen und die Kündigung bestätigen.</div> : null}
+            {liveProjekt.gekuendigtAm ? (
+              <p><span className="status warten">gekündigt</span> am {tag(liveProjekt.gekuendigtAm)}{liveProjekt.endeAm ? <>, Vertragsende <b>{tag(liveProjekt.endeAm)}</b></> : null}.</p>
+            ) : (
+              <details>
+                <summary className="klein">Vertrag kündigen</summary>
+                <form action={kuendigenPortal} style={{ display: "grid", gap: 10, marginTop: 10 }}>
+                  <input type="hidden" name="token" value={token} />
+                  <p className="leise klein" style={{ margin: 0 }}>Kündigen Sie heute, endet der Vertrag am <b>{tag(laufzeitEnde(liveProjekt.liveAm!, new Date()))}</b>. Bis dahin kümmern wir uns wie gewohnt um alles. Domain, Inhalte und Code übergeben wir Ihnen zum Ende.</p>
+                  <label className="feld"><span>Ihr vollständiger Name</span><input name="name" required minLength={3} autoComplete="name" defaultValue={zugang.person ?? ""} /></label>
+                  <label className="haken"><input type="checkbox" name="bestaetigt" value="ja" required /><span>Ich kündige die Betreuung für {b.name} zum nächstmöglichen Termin.</span></label>
+                  <button className="knopf klein gefahr">Kündigung absenden</button>
+                </form>
+              </details>
+            )}
+          </>
+        ) : <p className="leise">Die Laufzeit beginnt mit dem Livegang Ihrer Website.</p>}
+        <p style={{ marginTop: 12 }}>Ihre Daten gehören Ihnen. Sie können sie jederzeit herunterladen:</p>
+        <div className="knopfreihe"><a className="knopf klein" href={`/portal/k/${token}/export`}>Alle Daten (JSON)</a><a className="knopf klein" href={`/portal/k/${token}/export?format=csv`}>Anfragen als Tabelle (CSV)</a></div>
+      </section>
 
       <section className="karte">
         <h2>Rechnungen</h2>

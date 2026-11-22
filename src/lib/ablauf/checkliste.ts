@@ -10,6 +10,8 @@ type Punkt = [phase: string, titel: string, schluessel?: string];
 const BASIS: Punkt[] = [
   ["Start", "Anzahlung eingegangen", "anzahlung"],
   ["Start", "Start-Mail mit Portal-Link verschickt", "kickoff"],
+  ["Start", "AV-Vertrag unterschrieben (mit den Verträgen)", "av"],
+  ["Start", "SEPA-Mandat erteilt (Tablet oder Kundenportal)", "mandat"],
   ["Start", "Domain geklärt (vorhanden, Umzug oder neu registrieren)"],
   ["Inhalte", "Texte, Fotos und Logo vom Kunden", "inhalte"],
   ["Inhalte", "Fotos beim Termin gemacht oder Foto-Anleitung geschickt"],
@@ -21,7 +23,6 @@ const BASIS: Punkt[] = [
   ["Livegang", "Livegang freigegeben", "livegang"],
   ["Livegang", "Domain zeigt auf Levarex, Zertifikat aktiv", "domain"],
   ["Nach Livegang", "Google-Unternehmensprofil und Search Console eingerichtet"],
-  ["Nach Livegang", "AV-Vertrag unterschrieben"],
 ];
 const PERSONAL: Punkt[] = [
   ["Bau", "Karriereseite mit bis zu 5 Stellen, Azubi- und Praktikumsseite"],
@@ -36,7 +37,6 @@ const MARKETING: Punkt[] = [
 ];
 const KUNDENMANAGEMENT: Punkt[] = [
   ["Start", "Prozess-Check vor Ort durchgeführt"],
-  ["Start", "AV-Vertrag für das Kundenmanagement unterschrieben"],
   ["Bau", "Kunden, Fahrzeuge oder Anlagen und Fälligkeiten übernommen"],
   ["Bau", "Online-Terminbuchung und Erinnerungen eingerichtet (BFSG prüfen)"],
   ["Bau", "Jeder Ablauf eine Testwoche im Entwurfsmodus"],
@@ -66,6 +66,9 @@ export async function checklisteSicherstellen(projektId: number): Promise<void> 
   const umzug = p.umzug as { domain?: string; status?: string };
   if (p.liveAm && (!umzug.domain || umzug.status === "umgestellt")) fertig.push("domain");
   if (["abgenommen", "vorbehalt", "fiktion"].includes(p.abnahmeStatus ?? "")) fertig.push("abnahme");
+  const unterschrieben = (await db.select().from(schema.dokumente).where(eq(schema.dokumente.betriebId, p.betriebId))).filter((d) => ((d.daten as { unterschriften?: { rolle: string }[] }).unterschriften ?? []).some((u) => u.rolle === "kunde"));
+  if (unterschrieben.some((d) => d.art === "av_vertrag")) fertig.push("av");
+  if (unterschrieben.some((d) => d.art === "sepa_mandat")) fertig.push("mandat");
   for (const k of fertig) await hakeAb(projektId, k);
 }
 

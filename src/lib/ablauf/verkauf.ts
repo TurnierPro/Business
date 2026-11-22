@@ -273,7 +273,7 @@ export async function unterschriftEingegangen(angebotId: number, wer: string, an
     zweck: "auftragsbestaetigung",
     empfaenger: b.email ?? "(E-Mail-Adresse fehlt)",
     betreff: `Auftragsbestätigung ${nummer}`,
-    text: `Guten Tag,\n\nvielen Dank für Ihren Auftrag. Im Anhang finden Sie die Auftragsbestätigung zu unserem Angebot ${angebotNummer}${vertragsDokumente.length ? ` und die unterschriebenen Verträge (Rahmenvertrag und Leistungsscheine${mitMandat ? ", dazu Ihr SEPA-Lastschriftmandat" : ""})` : ""}. Alles liegt auch in Ihrem Kundenportal:\n${await portalLink(b.id)}\n\nDie Rechnung über die erste Rate (50 %) kommt in einer eigenen E-Mail. Danach geht es los.\n\nMit freundlichen Grüßen\nDaniel Lück\nLevarex Consulting`,
+    text: `Guten Tag,\n\nvielen Dank für Ihren Auftrag. Im Anhang finden Sie die Auftragsbestätigung zu unserem Angebot ${angebotNummer}${vertragsDokumente.length ? ` und die unterschriebenen Verträge (Rahmenvertrag, Leistungsscheine und Vertrag zur Auftragsverarbeitung${mitMandat ? ", dazu Ihr SEPA-Lastschriftmandat" : ""})` : ""}. Alles liegt auch in Ihrem Kundenportal:\n${await portalLink(b.id)}\n\nDie Rechnung über die erste Rate (50 %) kommt in einer eigenen E-Mail. Danach geht es los.\n\nMit freundlichen Grüßen\nDaniel Lück\nLevarex Consulting`,
     anhaenge: [dokId, ...vertragsDokumente],
     erlaubteZahlen: [euro(a.einmalig), euro(a.monatlich), ...positionen.flatMap((x) => [euro(x.einmalig), euro(x.monatlich)])],
     hinweise: nachweis.unternehmer ? [] : ["Annahme ohne Unternehmer-Bestätigung (intern erfasst). Bitte mit dem Kunden klären."],

@@ -64,6 +64,7 @@ export async function inhalteBestaetigen(projektId: number): Promise<number | nu
   const paket = PAKETE[p.paket as PaketKey];
   const offen = mitwirkungsliste(p).filter((m) => !m.erledigt);
   const datum = datumDe(bis);
+  const vollmacht = Number((p.umzug as { vollmachtDokument?: number })?.vollmachtDokument) || null;
   return inPostausgang({
     betriebId: b.id,
     projektId,
@@ -71,8 +72,9 @@ export async function inhalteBestaetigen(projektId: number): Promise<number | nu
     zweck: "inhalte_eingang",
     empfaenger: b.email ?? "(E-Mail-Adresse fehlt)",
     betreff: "Ihre Inhalte sind bei uns angekommen",
-    text: `Guten Tag,\n\ndanke, Ihre Texte und Fotos sind bei uns angekommen. Wir bauen jetzt Ihre Website.${offen.length ? `\n\nEs fehlt noch: ${offen.map((m) => m.titel).join(", ")}. Bitte reichen Sie das nach, sobald es geht; wir melden uns dazu auch telefonisch.` : ""}\n\nSpätestens am ${datum} bekommen Sie die fertige Seite als Vorschau zur Abnahme (${paket?.wochen ?? 6} Wochen nach Eingang Ihrer Inhalte). Online geht sie nach Ihrer Abnahme.\n\nDen Stand sehen Sie jederzeit in Ihrem Kundenportal:\n${await portalLink(b.id)}\n\nMit freundlichen Grüßen\nMaximilian Steiner\nLevarex Consulting`,
+    text: `Guten Tag,\n\ndanke, Ihre Texte und Fotos sind bei uns angekommen. Wir bauen jetzt Ihre Website.${offen.length ? `\n\nEs fehlt noch: ${offen.map((m) => m.titel).join(", ")}. Bitte reichen Sie das nach, sobald es geht; wir melden uns dazu auch telefonisch.` : ""}\n\nSpätestens am ${datum} bekommen Sie die fertige Seite als Vorschau zur Abnahme (${paket?.wochen ?? 6} Wochen nach Eingang Ihrer Inhalte). Online geht sie nach Ihrer Abnahme.${vollmacht ? "\n\nIm Anhang finden Sie Ihren Auftrag zum Umzug Ihrer Domain. Ihre E-Mail bleibt unberührt." : ""}\n\nDen Stand sehen Sie jederzeit in Ihrem Kundenportal:\n${await portalLink(b.id)}\n\nMit freundlichen Grüßen\nMaximilian Steiner\nLevarex Consulting`,
     erlaubteZahlen: [datum, String(paket?.wochen ?? 6)],
+    anhaenge: vollmacht ? [vollmacht] : [],
     meta: { projektId, lieferfrist: bis.toISOString() },
   });
 }

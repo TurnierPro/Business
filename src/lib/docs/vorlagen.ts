@@ -1,6 +1,6 @@
 import { marke } from "../marke";
 import { NICHT_ENTHALTEN, PAKETE, PaketKey, euro, UST } from "../pakete";
-import { ABNAHME_FRIST_TAGE, AENDERUNG_STUNDENSATZ, AGB_URL, AGB_VERSION, ERSTATTUNG_WOCHEN, ERSTE_RATE_FAELLIG_TAGE, VORABANKUENDIGUNG_TAGE, HAFTUNG_JE_FALL, HAFTUNG_JE_JAHR, KUENDIGUNG_MONATE_VOR_ENDE, LAUFZEIT_MONATE, VERFUEGBARKEIT_PROZENT, VERLAENGERUNG_MONATE } from "../recht";
+import { ABNAHME_FRIST_TAGE, AENDERUNG_STUNDENSATZ, AGB_URL, AGB_VERSION, DATENPANNE_MELDUNG_STUNDEN, ERSTATTUNG_WOCHEN, ERSTE_RATE_FAELLIG_TAGE, PILOT_BINDUNG_MONATE, UNTERAUFTRAG_WIDERSPRUCH_TAGE, VORABANKUENDIGUNG_TAGE, HAFTUNG_JE_FALL, HAFTUNG_JE_JAHR, KUENDIGUNG_MONATE_VOR_ENDE, LAUFZEIT_MONATE, VERFUEGBARKEIT_PROZENT, VERLAENGERUNG_MONATE } from "../recht";
 import { laufzeitSumme } from "../katalog";
 import { ANGEBOT_VORLAGE, fuelle, type AngebotVorlage } from "../angebot-vorlage";
 import type { Pruefpunkt } from "../adapters/websitecheck";
@@ -486,6 +486,120 @@ ${zeile("BIC", d.konto.bic ? esc(d.konto.bic) : "–", true)}
 <div class="unterschriften" style="grid-template-columns:1fr 1fr">
 <div class="unterschrift"><div class="linie" style="align-items:flex-end">${esc(d.ort ?? "")}${d.ort ? ", " : ""}${esc(u ? new Date(u.am).toLocaleDateString("de-DE", { timeZone: "Europe/Berlin" }) : d.datum)}</div><div>Ort, Datum</div></div>
 <div class="unterschrift"><div class="linie">${u && BILD_OK.test(u.bild) ? `<img src="${u.bild}" alt="Unterschrift ${esc(u.name)}">` : ""}</div><div>Unterschrift Kontoinhaber bzw. Vertretung</div><div class="leise">${u ? `${esc(u.name)} · ${esc(am)} Uhr` : "Name"}</div></div>
+</div>
+</div>${fuss()}</div>`,
+  });
+}
+
+// ---------- Vertrag zur Auftragsverarbeitung (Art. 28 DSGVO) ----------
+
+export type AvVertragDaten = VertragBasis & {
+  rahmenNummer: string;
+  /** Gebuchte Bausteine, aus denen sich die Verarbeitung ergibt */
+  bausteine: string[];
+  kundenmanagement: boolean;
+  /** Unterauftragsverarbeiter zum Zeitpunkt des Vertrags (eingefroren) */
+  unterauftrag: { name: string; wofuer: string; sitz: string }[];
+};
+
+export function avVertrag(d: AvVertragDaten): string {
+  const p = (nr: number, titel: string, text: string) => `<div class="paragraf"><h3>§ ${nr} ${esc(titel)}</h3>${text}</div>`;
+  const daten = ["Anfragen über die Website (Name, Telefon, E-Mail, Nachricht, mitgeschickte Fotos)", ...(d.kundenmanagement ? ["Kundendaten im Kundenmanagement (Name, Anschrift, Telefon, E-Mail, Fahrzeuge oder Anlagen, Fälligkeiten, Termine, Angebote, Nachrichten über Telefon, WhatsApp und Website)"] : [])];
+  return druckSeite({
+    titel: `AV-Vertrag ${d.nummer}`,
+    extraCss: vertragCss,
+    inhalt: `<div class="seite">${kopf()}<div class="fluss">
+<h1>Vertrag zur Auftragsverarbeitung</h1>
+${vertragsKopf(d, "AV-VERTRAG NACH ART. 28 DSGVO")}
+<p>Der Auftraggeber ist Verantwortlicher, Levarex ist Auftragsverarbeiter. Zum Rahmenvertrag <span class="mono">${esc(d.rahmenNummer)}</span>.</p>
+${p(1, "Gegenstand und Dauer", `<p>Levarex verarbeitet personenbezogene Daten im Auftrag, soweit das für diese Bausteine nötig ist: ${d.bausteine.map(esc).join(", ")}. Der Vertrag läuft, solange Levarex für den Auftraggeber Daten verarbeitet.</p>`)}
+${p(2, "Art der Daten und Betroffene", `<ul>${daten.map((x) => `<li>${esc(x)}</li>`).join("")}</ul><p>Betroffen sind Kunden, Interessenten und Ansprechpartner des Auftraggebers. Besondere Kategorien (z. B. Gesundheitsdaten) verarbeitet Levarex nicht.</p>`)}
+${p(3, "Weisungen", `<p>Levarex verarbeitet die Daten nur auf dokumentierte Weisung des Auftraggebers; Weisungen erteilt er in Textform, auch über das Kundenportal. Hält Levarex eine Weisung für rechtswidrig, sagt Levarex das sofort.</p>`)}
+${p(4, "Vertraulichkeit und Sicherheit", `<p>Alle Personen mit Zugang sind zur Vertraulichkeit verpflichtet. Levarex trifft die technischen und organisatorischen Maßnahmen nach Art. 32 DSGVO (Anlage: Liste der Maßnahmen), unter anderem Zwei-Faktor-Anmeldung, verschlüsselte Übertragung, tägliche Sicherung mit 30 Tagen Aufbewahrung, Protokoll aller Zugriffe und Trennung der Daten je Betrieb.</p>`)}
+${p(5, "Unterauftragsverarbeiter", `<p>Der Auftraggeber stimmt diesen Unterauftragsverarbeitern zu:</p><table><thead><tr><th>Dienst</th><th>Wofür</th><th>Sitz</th></tr></thead><tbody>${d.unterauftrag.map((u) => `<tr><td>${esc(u.name)}</td><td>${esc(u.wofuer)}</td><td>${esc(u.sitz)}</td></tr>`).join("")}</tbody></table><p>Einen neuen Unterauftragsverarbeiter kündigt Levarex vorher in Textform an; der Auftraggeber kann binnen ${UNTERAUFTRAG_WIDERSPRUCH_TAGE} Tagen widersprechen.</p>`)}
+${p(6, "Unterstützung und Meldungen", `<p>Levarex unterstützt den Auftraggeber bei Anfragen von Betroffenen (Auskunft, Berichtigung, Löschung, Datenübertragung) und bei Datenschutz-Folgenabschätzungen. Eine Verletzung des Schutzes personenbezogener Daten meldet Levarex dem Auftraggeber binnen ${DATENPANNE_MELDUNG_STUNDEN} Stunden nach Kenntnis.</p>`)}
+${p(7, "Ende des Auftrags", `<p>Nach Ende der Verarbeitung gibt Levarex die Daten auf Wunsch in einem gängigen Format heraus und löscht sie danach, soweit keine gesetzliche Pflicht zur Aufbewahrung besteht. Der Auftraggeber kann seine Daten jederzeit im Kundenportal herunterladen.</p>`)}
+${p(8, "Nachweise und Kontrollen", `<p>Levarex stellt alle nötigen Informationen zum Nachweis bereit und ermöglicht Überprüfungen nach Absprache. Es gilt deutsches Recht.</p>`)}
+${unterschriftsblock(d.unterschriften)}
+<p class="leise" style="font-size:7.5pt;margin-top:6mm">Fassung: ${esc(d.vertragswerk)}</p>
+</div>${fuss()}</div>`,
+  });
+}
+
+// ---------- Pilotvereinbarung Kundenmanagement ----------
+
+export type PilotDaten = VertragBasis & { rahmenNummer: string; regulaer: number; pilot: number };
+
+export function pilotvereinbarung(d: PilotDaten): string {
+  const differenz = d.regulaer - d.pilot;
+  return druckSeite({
+    titel: `Pilotvereinbarung ${d.nummer}`,
+    extraCss: vertragCss,
+    inhalt: `<div class="seite">${kopf()}<div class="fluss">
+<h1>Pilotvereinbarung Kundenmanagement</h1>
+${vertragsKopf(d, "PILOTVEREINBARUNG")}
+<p>Zum Rahmenvertrag <span class="mono">${esc(d.rahmenNummer)}</span>.</p>
+<h2>Pilotpreis</h2>
+<p>Der Auftraggeber gehört zu den ersten Betrieben mit dem Kundenmanagement. Die Einrichtung kostet statt <b class="mono">${euro(d.regulaer)}</b> nur <b class="mono">${euro(d.pilot)}</b> netto. Der Monatsbeitrag bleibt unverändert.</p>
+<h2>Gegenleistung</h2>
+<ul><li>Der Auftraggeber erlaubt Levarex, ihn als Referenz zu nennen (Name, Ort, Gewerk). Zitate und Fotos nur nach seiner Freigabe.</li><li>Levarex misst gemeinsam mit dem Auftraggeber, was das Kundenmanagement bringt (z. B. Termine, nachgefasste Angebote, gesparte Zeit), und darf die Ergebnisse ohne Kundendaten verwenden.</li><li>Jeder Ablauf läuft zuerst eine Testwoche im Entwurfsmodus.</li></ul>
+<h2>Vorzeitige Kündigung</h2>
+<p>Kündigt der Auftraggeber das Kundenmanagement in den ersten ${PILOT_BINDUNG_MONATE} Monaten ab Livegang ohne wichtigen Grund, zahlt er die Differenz von <b class="mono">${euro(differenz)}</b> netto anteilig nach: je fehlendem Monat bis zum ${PILOT_BINDUNG_MONATE}. Monat 1/${PILOT_BINDUNG_MONATE} der Differenz.</p>
+${unterschriftsblock(d.unterschriften)}
+<p class="leise" style="font-size:7.5pt;margin-top:6mm">Fassung: ${esc(d.vertragswerk)}</p>
+</div>${fuss()}</div>`,
+  });
+}
+
+// ---------- Vollmacht Domain-Umzug (Textform, erteilt im Kundenportal) ----------
+
+export type DomainVollmachtDaten = { an: Anschrift; nummer: string; datum: string; domain: string; weg: "selbst" | "uebernehmen"; erteiltVon: string; erteiltAm: string; rechteBestaetigt: boolean };
+
+export function domainVollmacht(d: DomainVollmachtDaten): string {
+  const a = marke.absender;
+  const am = new Date(d.erteiltAm).toLocaleString("de-DE", { dateStyle: "medium", timeStyle: "short", timeZone: "Europe/Berlin" });
+  return druckSeite({
+    titel: `Vollmacht Domain-Umzug ${d.domain}`,
+    extraCss: vertragCss,
+    inhalt: `<div class="seite">${kopf()}<div class="fluss">
+<h1>Auftrag und Vollmacht: Umzug der Website</h1>
+<p class="leise mono">VOLLMACHT · ${esc(d.nummer)} · DOMAIN ${esc(d.domain)}</p>
+<p><b>${esc(d.an.name)}</b>, ${esc(d.an.strasse ?? "")}, ${esc(d.an.plz ?? "")} ${esc(d.an.ort ?? "")} („Auftraggeber“) beauftragt ${esc(a.firma)}, die Website unter der Domain <b class="mono">${esc(d.domain)}</b> umzuziehen und dafür die nötigen Einstellungen vorzunehmen bzw. vorzubereiten.</p>
+<h2>Umfang</h2>
+${d.weg === "uebernehmen"
+    ? `<ul><li>Levarex beantragt mit dem Auth-Code des Auftraggebers den Wechsel der Domain-Verwaltung und pflegt danach alle DNS-Einträge.</li><li>Vor dem Wechsel übernimmt Levarex alle bestehenden Einträge, damit E-Mail und Bestätigungen weiterlaufen.</li><li>Den Auth-Code bekommt der Auftraggeber jederzeit auf Wunsch zurück; Levarex hält ihn nie zurück.</li></ul>`
+    : `<ul><li>Die Domain bleibt beim bisherigen Anbieter. Der Auftraggeber oder seine IT ändert die Einträge für die Website nach der Anleitung von Levarex; auf Wunsch gemeinsam am Telefon.</li><li>Levarex prüft die bestehenden Einträge und sichert die alte Website für Weiterleitungen.</li></ul>`}
+<ul><li>Inhaber der Domain bleibt der Auftraggeber.</li><li>E-Mail-Einträge (MX) und Bestätigungs-Einträge bleiben unverändert.</li><li>Die Vollmacht endet mit dem Umzug oder mit Widerruf in Textform.</li></ul>
+${d.rechteBestaetigt ? `<p>Der Auftraggeber hat bestätigt, dass er die übergebenen Texte, Fotos und das Logo verwenden darf.</p>` : ""}
+<h2>Erteilt</h2>
+<p>Im Kundenportal von ${esc(d.erteiltVon)} am ${esc(am)} Uhr (Textform, § 126b BGB).</p>
+</div>${fuss()}</div>`,
+  });
+}
+
+// ---------- Einwilligung in Fotos und Videos von Mitarbeitenden ----------
+
+export const FOTO_ZWECKE: Record<string, string> = { website: "Website des Betriebs", karriere: "Karriereseite und Stellenanzeigen", social: "Instagram, Facebook und Google-Profil des Betriebs" };
+export type FotoEinwilligungDaten = { an: Anschrift; nummer: string; datum: string; person: string; zwecke: string[]; video: boolean; unterschriften?: VertragUnterschrift[]; widerrufenAm?: string; widerrufenVon?: string };
+
+export function fotoEinwilligung(d: FotoEinwilligungDaten): string {
+  const a = marke.absender;
+  const u = d.unterschriften?.find((x) => x.rolle === "kunde");
+  const am = u ? new Date(u.am).toLocaleString("de-DE", { dateStyle: "medium", timeStyle: "short", timeZone: "Europe/Berlin" }) : "";
+  return druckSeite({
+    titel: `Einwilligung Fotos ${d.person}`,
+    extraCss: vertragCss,
+    inhalt: `<div class="seite">${kopf()}<div class="fluss">
+<h1>Einwilligung in Fotos${d.video ? " und Videos" : ""}</h1>
+<p class="leise mono">EINWILLIGUNG · ${esc(d.nummer)}${d.widerrufenAm ? ` · WIDERRUFEN AM ${esc(new Date(d.widerrufenAm).toLocaleDateString("de-DE", { timeZone: "Europe/Berlin" }))}` : ""}</p>
+<p>Ich, <b>${esc(d.person)}</b>, bin bei <b>${esc(d.an.name)}</b>, ${esc(d.an.ort ?? "")} tätig. Ich willige ein, dass Fotos${d.video ? " und Videos" : ""}, auf denen ich zu erkennen bin, für diese Zwecke verwendet werden:</p>
+<ul>${d.zwecke.map((z) => `<li>${esc(FOTO_ZWECKE[z] ?? z)}</li>`).join("")}</ul>
+<p>Verantwortlich ist mein Arbeitgeber, ${esc(d.an.name)}. ${esc(a.firma)} erstellt und pflegt die Inhalte in seinem Auftrag.</p>
+<h2>Freiwillig und jederzeit widerrufbar</h2>
+<p>Die Einwilligung ist freiwillig. Wer nicht einwilligt, hat im Arbeitsverhältnis keinen Nachteil (§ 26 Abs. 2 BDSG). Ich kann sie jederzeit ohne Angabe von Gründen für die Zukunft widerrufen, beim Arbeitgeber oder direkt bei ${esc(a.firma)} (${esc(a.email)}). Nach dem Widerruf werden die Fotos binnen 14 Tagen von der Website und aus den Profilen entfernt; bereits gedruckte Unterlagen und Beiträge Dritter lassen sich nicht zurückholen. Rechtsgrundlage: Art. 6 Abs. 1 lit. a und Art. 7 DSGVO, § 22 KUG.</p>
+<div class="unterschriften" style="grid-template-columns:1fr 1fr">
+<div class="unterschrift"><div class="linie">${esc(d.an.ort ?? "")}${d.an.ort ? ", " : ""}${esc(u ? new Date(u.am).toLocaleDateString("de-DE", { timeZone: "Europe/Berlin" }) : d.datum)}</div><div>Ort, Datum</div></div>
+<div class="unterschrift"><div class="linie">${u && BILD_OK.test(u.bild) ? `<img src="${u.bild}" alt="Unterschrift ${esc(u.name)}">` : ""}</div><div>Unterschrift der abgebildeten Person</div><div class="leise">${u ? `${esc(u.name)} · ${esc(am)} Uhr` : "Name"}</div></div>
 </div>
 </div>${fuss()}</div>`,
   });

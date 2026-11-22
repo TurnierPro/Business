@@ -29,6 +29,7 @@ export type Umzug = {
   mailUeberDomain?: "ja" | "nein" | "unklar";
   vollmachtAm?: string;
   vollmachtVon?: string;
+  vollmachtDokument?: number;
   rechteBestaetigt?: boolean;
   authInfo?: string; // verschlüsselt, wird nach dem Wechsel gelöscht
   status?: UmzugStatus;
@@ -73,6 +74,10 @@ export async function umzugAnlegen(projektId: number, a: { domain: string; weg: 
     rechteBestaetigt: a.rechte,
     authInfo: a.weg === "uebernehmen" && a.authInfo.trim() ? verschluessele(a.authInfo.trim()) : undefined,
   };
+  // Vollmacht als Dokument (Textform), geht mit der Eingangsbestätigung an den Kunden und liegt danach im Portal
+  const p = await projekt(projektId);
+  const b = await betrieb(p.betriebId);
+  u.vollmachtDokument = await neuesDokument({ betriebId: b.id, projektId, art: "domain_vollmacht", titel: `Vollmacht Domain-Umzug ${domain}`, daten: { an: anschrift(b), nummer: `DV-${new Date().getFullYear()}-${String(projektId).padStart(4, "0")}`, datum: datumDe(), domain, weg: u.weg, erteiltVon: u.vollmachtVon, erteiltAm: u.vollmachtAm, rechteBestaetigt: !!a.rechte } });
   await speichern(projektId, u);
   await einreihen("umzug_bestand", { projektId });
 }

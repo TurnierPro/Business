@@ -46,6 +46,12 @@ export const GLAEUBIGER_ID = process.env.GLAEUBIGER_ID ?? "";
 export const VORABANKUENDIGUNG_TAGE = 5;
 /** SEPA: Erstattung ohne Angabe von Gründen (Basislastschrift), in Wochen ab Belastung. */
 export const ERSTATTUNG_WOCHEN = 8;
+/** AV-Vertrag: Meldung einer Datenpanne an den Betrieb (Zusage im Service-Level), in Stunden. */
+export const DATENPANNE_MELDUNG_STUNDEN = 24;
+/** AV-Vertrag: Widerspruchsfrist des Betriebs gegen einen neuen Unterauftragsverarbeiter, in Tagen. */
+export const UNTERAUFTRAG_WIDERSPRUCH_TAGE = 14;
+/** Pilotpreis Kundenmanagement: Kündigt der Pilot in diesen Monaten ohne wichtigen Grund, zahlt er die Differenz anteilig nach. */
+export const PILOT_BINDUNG_MONATE = 6;
 /** Prozess-Check wird angerechnet, wenn der Auftrag innerhalb dieser Frist kommt. */
 export const PROZESS_CHECK_ANRECHNUNG_TAGE = 60;
 
@@ -104,6 +110,8 @@ export const LOESCHFRISTEN: { was: string; tage: number | null; grund: string; a
   { was: "Zugänge zum Kundenportal (Name, E-Mail, letzte Nutzung)", tage: null, grund: "Mit dem Betrieb; bei Löschung oder Vertragsende sofort", automatisch: false },
   { was: "Unterschriften unter Verträgen (Bild, Name, Zeitpunkt)", tage: 6 * 365, grund: "Gehören zu Rahmenvertrag und Leistungsscheinen (§ 257 HGB, 6 Jahre ab Jahresende)", automatisch: false },
   { was: "SEPA-Mandate (Kontoinhaber, IBAN, Unterschrift)", tage: null, grund: "Solange eingezogen wird; danach 14 Monate (Erstattung bei nicht autorisierter Zahlung bis 13 Monate, § 676b BGB), als Beleg zum Vertrag 6 Jahre (§ 257 HGB)", automatisch: false },
+  { was: "Foto-Einwilligungen von Mitarbeitenden (Name, Zwecke, Unterschrift)", tage: null, grund: "Nachweis der Einwilligung (Art. 7 Abs. 1 DSGVO): solange Fotos genutzt werden, nach Widerruf oder Vertragsende noch 3 Jahre (Verjährung)", automatisch: false },
+  { was: "Beiträge und Bewertungsantworten (Entwürfe, Freigaben)", tage: null, grund: "Mit dem Betrieb; abgelehnte Entwürfe nach 90 Tagen", automatisch: false },
   { was: "Kundendaten nach Vertragsende", tage: null, grund: "Sperren statt löschen, solange Aufbewahrungspflichten laufen; danach löschen", automatisch: false },
 ];
 

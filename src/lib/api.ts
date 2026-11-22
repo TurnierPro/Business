@@ -16,6 +16,7 @@ export const RECHTE: Record<string, string> = {
   aktivitaeten: "Notizen und Aufgaben anlegen",
   dokumente: "Unterlagen lesen (PDF)",
   entwuerfe: "Mail-Entwürfe in den Postausgang legen (Versand nur nach Freigabe)",
+  beitraege: "Entwürfe für Beiträge und Bewertungsantworten anlegen (Freigabe durch Levarex und den Betrieb)",
 };
 // Bewusst kein Recht zum Versenden: alles, was rausgeht, gibt ein Mensch im Postausgang frei.
 

@@ -7,6 +7,7 @@ export const datumZeit = (d: Date | string | null | undefined) =>
 export const ZWECK: Record<string, string> = {
   akquise_brief: "Akquise-Brief",
   demo_portal: "Demo ins Kundenportal",
+  beitraege_vorlage: "Beiträge zur Freigabe beim Betrieb",
   angebot: "Angebot",
   rechnung: "Rechnung (Anzahlung)",
   schlussrechnung: "Schlussrechnung",
@@ -53,6 +54,10 @@ export const DOKART: Record<string, string> = {
   leistungsschein_erstellung: "Leistungsschein Erstellung",
   leistungsschein_betrieb: "Leistungsschein Betrieb",
   sepa_mandat: "SEPA-Lastschriftmandat",
+  av_vertrag: "AV-Vertrag",
+  pilotvereinbarung: "Pilotvereinbarung",
+  domain_vollmacht: "Vollmacht Domain-Umzug",
+  foto_einwilligung: "Einwilligung Fotos",
 };
 
 /** „2026-10-21“ + „09:00“ als deutsche Zeit (Sommer/Winter beachtet), egal in welcher Zeitzone der Server läuft. */

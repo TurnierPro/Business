@@ -105,6 +105,8 @@ export async function mandatErteilen(e: MandatEingabe): Promise<number> {
   const id = await neuesDokument({ betriebId: b.id, art: "sepa_mandat", titel: `SEPA-Lastschriftmandat ${referenz}`, daten });
   await db.insert(schema.unterschriften).values({ betriebId: b.id, angebotId: e.angebotId, dokumentId: id, rolle: "kunde", name: e.name.trim(), funktion: null, bild: e.bild, pruefsumme: summe, erfasstVon: e.wer, am });
   if (alt) await db.update(schema.dokumente).set({ daten: { ...alt.daten, ersetztAm: am.toISOString(), ersetztDurch: referenz } }).where(eq(schema.dokumente.id, alt.id));
+  const { hakeAb } = await import("./checkliste");
+  for (const pr of await db.select({ id: schema.projekte.id }).from(schema.projekte).where(eq(schema.projekte.betriebId, b.id))) await hakeAb(pr.id, "mandat");
   await protokolliere(e.wer, `SEPA-Mandat erteilt: ${referenz}, Konto ${ibanMaskiert(iban)}${alt ? ` (ersetzt ${alt.daten.nummer})` : ""}`, b.id);
   return id;
 }

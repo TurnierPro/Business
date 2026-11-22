@@ -350,6 +350,10 @@ test("Domain-Umzug: Auftrag, Bestandsaufnahme, Anleitung, Umstellung, Auslieferu
   assert.ok(u.warnungen?.some((w) => w.includes("E-Mail läuft")), "warnt vor E-Mail");
   assert.deepEqual(u.alteSeiten?.find((x) => x.pfad === "/kontakt.html")?.ziel, "kontakt");
   assert.equal(stand.status, "bereit", JSON.stringify(stand.pruefung));
+  // Der Auftrag zum Umzug liegt als Dokument vor und geht mit der Eingangsbestätigung an den Kunden
+  assert.ok(u.vollmachtDokument, "Vollmacht als Dokument");
+  const eingang = (await db.select().from(schema.postausgang).where(eq(schema.postausgang.projektId, p.id))).find((e) => e.zweck === "inhalte_eingang")!;
+  assert.ok(eingang.anhaenge.includes(u.vollmachtDokument!), "Vollmacht hängt an der Eingangsbestätigung");
 
   // Erst Abnahme der Vorschau, dann Livegang mit Anleitung zur Umstellung
   const zwecke = async () => (await db.select().from(schema.postausgang).where(eq(schema.postausgang.projektId, p.id))).map((e) => e.zweck);
@@ -868,8 +872,8 @@ test("Verträge: Rahmenvertrag und Leistungsscheine, Unterschrift auf dem Tablet
   const { angebotId } = await verkauf.erstelleAngebot({ betriebId: id!, auswahl: { paket: "PROFESSIONAL", module: ["personal"], zusaetze: ["foto"] }, wer: "Daniel Lück" });
   const doks = await vt.vertragsunterlagen(angebotId);
   // Rahmenvertrag + Webauftritt (Erstellung, Betrieb) + Personal (Erstellung, Betrieb) + Fotoshooting (nur Erstellung)
-  assert.deepEqual(doks.map((d) => d.art), ["rahmenvertrag", "leistungsschein_erstellung", "leistungsschein_betrieb", "leistungsschein_erstellung", "leistungsschein_betrieb", "leistungsschein_erstellung"]);
-  assert.equal((await vt.vertragsunterlagen(angebotId)).length, 6, "nicht doppelt");
+  assert.deepEqual(doks.map((d) => d.art), ["rahmenvertrag", "leistungsschein_erstellung", "leistungsschein_betrieb", "leistungsschein_erstellung", "leistungsschein_betrieb", "leistungsschein_erstellung", "av_vertrag"]);
+  assert.equal((await vt.vertragsunterlagen(angebotId)).length, 7, "nicht doppelt");
   const ls = doks[1].daten as { punkte: string[]; preis: number; kalkulation: { stunden: number } };
   assert.equal(ls.punkte.length, 5);
   assert.equal(ls.preis, 299000);
@@ -882,7 +886,7 @@ test("Verträge: Rahmenvertrag und Leistungsscheine, Unterschrift auf dem Tablet
   await vt.vertragUnterschreiben(eingabe);
   const [a] = await db.select().from(schema.angebote).where(eq(schema.angebote.id, angebotId));
   assert.equal(a.status, "unterschrieben");
-  assert.equal((await db.select().from(schema.unterschriften).where(eq(schema.unterschriften.angebotId, angebotId))).length, 12, "je Dokument Kunde und Levarex");
+  assert.equal((await db.select().from(schema.unterschriften).where(eq(schema.unterschriften.angebotId, angebotId))).length, 14, "je Dokument Kunde und Levarex");
   // Die nicht versendete Angebots-Mail ist überholt, die Auftragsbestätigung bringt alle Verträge mit
   const post = await db.select().from(schema.postausgang).where(eq(schema.postausgang.betriebId, id!));
   assert.equal(post.find((p) => p.zweck === "angebot")!.status, "abgelehnt");
@@ -969,6 +973,84 @@ test("SEPA-Mandat: auf dem Tablet mit den Verträgen oder später im Kundenporta
   assert.equal((await m.aktivesMandat(b2.id!))!.id, zweites);
   const [alt] = await db.select().from(schema.dokumente).where(eq(schema.dokumente.id, erstes));
   assert.ok((alt.daten as { ersetztAm?: string }).ersetztAm, "altes Mandat ist ersetzt");
+});
+
+test("Portal-Erklärungen: AV-Vertrag und Pilotvereinbarung, Foto-Einwilligung mit Widerruf, Beiträge zur Freigabe, Kündigung und Export", async () => {
+  const fs = await import("node:fs");
+  const bild = `data:image/png;base64,${fs.readFileSync(new URL("./unterschrift-muster.b64", import.meta.url), "utf8").trim()}`;
+  const vt = await import("../src/lib/ablauf/vertraege");
+  const { dokumentHtml } = await import("../src/lib/docs/render");
+  const { id } = await akquise.legeBetriebAn({ name: "Pilot Kfz GmbH", gewerk: "Kfz", score: 80, scoreGrund: "Test", website: "pilot-kfz.example", email: "chef@pilot-kfz.example", strasse: "Weg 5", plz: "76297", ort: "Stutensee" }, "Test", "Test");
+  const { angebotId } = await verkauf.erstelleAngebot({ betriebId: id!, auswahl: { paket: "PROFESSIONAL", module: ["kundenmanagement", "marketing"], zusaetze: [], pilot: true }, wer: "Daniel Lück" });
+  const doks = await vt.vertragsunterlagen(angebotId);
+  const av = doks.find((d) => d.art === "av_vertrag")!;
+  const pv = doks.find((d) => d.art === "pilotvereinbarung")!;
+  assert.ok(av && pv, doks.map((d) => d.art).join(","));
+  const avHtml = dokumentHtml(av);
+  assert.match(avHtml, /Kundenmanagement/);
+  assert.match(avHtml, /24 Stunden/);
+  assert.match(dokumentHtml(pv), /3\.990,00\s€[\s\S]*1\.990,00\s€[\s\S]*2\.000,00\s€/);
+  await vt.vertragUnterschreiben({ angebotId, kunde: { name: "Pia Pilot", funktion: "Inhaberin", unternehmer: true }, bilder: Object.fromEntries(doks.map((d) => [d.id, bild])), levarex: { name: "Daniel Lück", bild }, wer: "Daniel Lück" });
+  const ab = (await db.select().from(schema.postausgang).where(eq(schema.postausgang.betriebId, id!))).find((p) => p.zweck === "auftragsbestaetigung")!;
+  assert.ok(ab.anhaenge.includes(av.id) && ab.anhaenge.includes(pv.id), "AV und Pilot gehen mit");
+
+  // Foto-Einwilligung: Person unterschreibt selbst; Widerruf erzeugt eine Aufgabe
+  const ew = await import("../src/lib/ablauf/einwilligungen");
+  await assert.rejects(() => ew.fotoEinwilligungErteilen({ betriebId: id!, person: "Tom Azubi", zwecke: ["website"], video: false, bild: "kein-bild", wer: "Test" }), /Unterschrift/);
+  await assert.rejects(() => ew.fotoEinwilligungErteilen({ betriebId: id!, person: "Tom Azubi", zwecke: ["<script>"], video: false, bild, wer: "Test" }), /Zweck/);
+  const fe = await ew.fotoEinwilligungErteilen({ betriebId: id!, person: "Tom Azubi", zwecke: ["website", "karriere"], video: true, bild, wer: "Kundenportal (Pia Pilot)" });
+  const portal = await import("../src/lib/kundenportal");
+  assert.ok(await portal.darfDokumentSehen(id!, fe), "selbst unterschrieben: sofort im Portal");
+  await ew.fotoEinwilligungWiderrufen(fe, id!, "Kundenportal (Tom Azubi)");
+  assert.ok((await ew.fotoEinwilligungen(id!))[0].daten.widerrufenAm);
+  const aufgaben = await db.select().from(schema.aktivitaeten).where(eq(schema.aktivitaeten.betriebId, id!));
+  assert.ok(aufgaben.some((a) => a.titel.startsWith("Fotos von Tom Azubi entfernen")));
+  await assert.rejects(() => ew.fotoEinwilligungWiderrufen(fe, 999999, "x"), /nicht gefunden/);
+
+  // Beiträge: Entwurf → Vorlage über die Freigabe → Betrieb entscheidet im Portal → veröffentlicht
+  const bt = await import("../src/lib/beitraege");
+  await assert.rejects(() => bt.beitragAnlegen({ betriebId: id!, art: "beitrag", kanaele: [], text: "x" }, "Test"), /Kanal/);
+  await assert.rejects(() => bt.beitragAnlegen({ betriebId: id!, art: "bewertung_antwort", kanaele: ["google"], text: "Danke!" }, "Test"), /Bewertung/);
+  const b1 = await bt.beitragAnlegen({ betriebId: id!, art: "beitrag", kanaele: ["instagram", "facebook"], text: "Neue Hebebühne in der Werkstatt." }, "Maximilian Steiner");
+  const b2 = await bt.beitragAnlegen({ betriebId: id!, art: "bewertung_antwort", kanaele: ["google"], text: "Vielen Dank für Ihre Bewertung!", bezug: "Schnell und freundlich." }, "Maximilian Steiner");
+  await assert.rejects(() => bt.beitragEntscheiden(b1, id!, { freigeben: true }, "Kunde"), /wartet nicht/, "vor der Vorlage nichts zu entscheiden");
+  await assert.rejects(() => bt.beitragVeroeffentlicht(b1, "Test"), /nach Freigabe/);
+  const eintrag = await bt.beitraegeVorlegen(id!, "Maximilian Steiner");
+  const [mail] = await db.select().from(schema.postausgang).where(eq(schema.postausgang.id, eintrag));
+  assert.match(mail.text, /Neue Hebebühne/, "Texte stehen in der Mail und laufen durch die Qualitätskontrolle");
+  assert.equal((await bt.beitraegeVon(id!)).filter((x) => x.status === "zur_vorlage").length, 2);
+  await abarbeiten();
+  await post_freigeben(eintrag);
+  assert.equal((await bt.beitraegeVon(id!)).filter((x) => x.status === "beim_kunden").length, 2);
+  await assert.rejects(() => bt.beitragEntscheiden(b1, id! + 1, { freigeben: true }, "Fremd"), /wartet nicht/, "fremder Betrieb");
+  await assert.rejects(() => bt.beitragEntscheiden(b2, id!, { freigeben: false }, "Kunde"), /ändern/);
+  await bt.beitragEntscheiden(b1, id!, { freigeben: true }, "Kundenportal (Pia Pilot)");
+  await bt.beitragEntscheiden(b2, id!, { freigeben: false, kommentar: "Bitte mit Namen unterschreiben" }, "Kundenportal (Pia Pilot)");
+  await bt.beitragVeroeffentlicht(b1, "Maximilian Steiner");
+  await bt.beitragUeberarbeiten(b2, "Vielen Dank! Ihr Team von Pilot Kfz", "Maximilian Steiner");
+  const stand = await bt.beitraegeVon(id!);
+  assert.equal(stand.find((x) => x.id === b1)!.status, "veroeffentlicht");
+  assert.equal(stand.find((x) => x.id === b2)!.status, "entwurf");
+
+  // Kündigung im Pilotzeitraum: Hinweis zur Nachzahlung in der Bestätigung
+  const [pr] = await db.insert(schema.projekte).values({ betriebId: id!, angebotId, paket: "PROFESSIONAL", status: "live", portalToken: "pilot-projekt-token-123456", liveAm: new Date(Date.now() - 30 * 864e5) }).returning();
+  const vertrag = await import("../src/lib/ablauf/vertrag");
+  await vertrag.kuendigungErfassen(pr.id, "Kundenportal (Pia Pilot)");
+  const k = (await db.select().from(schema.postausgang).where(eq(schema.postausgang.projektId, pr.id))).find((e) => e.zweck === "kuendigung")!;
+  assert.ok(k.hinweise.some((h) => h.includes("Pilotvereinbarung")), k.hinweise.join(" | "));
+
+  // Export für den Betrieb (Data Act): nur mit gültigem Link, CSV ohne Formeln
+  await db.insert(schema.anfragen).values({ betriebId: id!, seitenSlug: "pilot-kfz", name: "=HYPERLINK(\"x\")", kontakt: "0721 1", nachricht: "Termin?" });
+  const route = await import("../src/app/portal/k/[token]/export/route");
+  const token = (await portal.portalLink(id!)).split("/").pop()!;
+  const holen = (t: string, q = "") => route.GET(new Request(`http://localhost/portal/k/${t}/export${q}`), { params: Promise.resolve({ token: t }) });
+  assert.equal((await holen("x".repeat(30))).status, 404);
+  const j = await (await holen(token)).json();
+  assert.equal(j.betrieb.name, "Pilot Kfz GmbH");
+  assert.equal(j.anfragen.length, 1);
+  assert.ok(j.beitraege.every((x: { status: string }) => x.status !== "entwurf"), "Entwürfe nicht im Export");
+  const csv = await (await holen(token, "?format=csv")).text();
+  assert.match(csv, /"'=HYPERLINK/, "Formel entschärft");
 });
 
 async function post_freigeben(id: number) {

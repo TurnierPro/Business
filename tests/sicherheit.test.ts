@@ -450,3 +450,31 @@ test("Demo-Pakete: ZIP nur mit Website-Dateien, keine Pfade nach außen, im Port
   await demos.demoLoeschen(id, "Test");
   assert.equal(demos.demoDatei(id, ["index.html"]), null, "Dateien gelöscht");
 });
+
+test("Portal: Beitragsfotos nur für den eigenen Betrieb und erst nach der Vorlage; Schnittstelle legt nur Entwürfe an", async () => {
+  const bt = await import("../src/lib/beitraege");
+  const kp = await import("../src/lib/kundenportal");
+  const route = await import("../src/app/portal/k/[token]/beitrag/[id]/route");
+  const [b] = await db.insert(schema.betriebe).values({ name: "Foto Sicher GmbH", gewerk: "SHK", email: "chef@foto-sicher.example" }).returning();
+  const [fremd] = await db.insert(schema.betriebe).values({ name: "Foto Fremd GmbH", gewerk: "SHK", email: "chef@foto-fremd.example" }).returning();
+  const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==", "base64");
+  // Kein Bild, das keins ist (z. B. HTML mit .png-Endung)
+  await assert.rejects(() => bt.beitragAnlegen({ betriebId: b.id, art: "beitrag", kanaele: ["instagram"], text: "x", bild: new File(["<script>alert(1)</script>"], "x.png", { type: "image/png" }) }, "Test"), /Dateityp/);
+  assert.equal((await bt.beitraegeVon(b.id)).length, 0, "abgelehnter Upload hinterlässt keinen Entwurf");
+  const id = await bt.beitragAnlegen({ betriebId: b.id, art: "beitrag", kanaele: ["instagram"], text: "Mit Foto", bild: new File([new Uint8Array(png)], "foto.png", { type: "image/png" }) }, "Test");
+  const token = (await kp.portalLink(b.id)).split("/").pop()!;
+  const tokenFremd = (await kp.portalLink(fremd.id)).split("/").pop()!;
+  const holen = (t: string) => route.GET(new Request("http://localhost/"), { params: Promise.resolve({ token: t, id: String(id) }) });
+  assert.equal((await holen(token)).status, 404, "Entwurf: noch nicht sichtbar");
+  await db.update(schema.beitraege).set({ status: "beim_kunden" }).where(eq(schema.beitraege.id, id));
+  const ok = await holen(token);
+  assert.equal(ok.status, 200);
+  assert.equal(ok.headers.get("Content-Type"), "image/png");
+  assert.equal(ok.headers.get("X-Content-Type-Options"), "nosniff");
+  assert.equal((await holen(tokenFremd)).status, 404, "fremder Betrieb");
+  // Schnittstelle: ohne Recht abgelehnt
+  const api = await import("../src/lib/api");
+  const schluessel = await api.schluesselErzeugen("Test ohne Beiträge", ["lesen"], "Test");
+  const r = await (await import("../src/app/api/v1/beitraege/route")).POST(new Request("http://localhost/api/v1/beitraege", { method: "POST", headers: { Authorization: `Bearer ${schluessel}`, "Content-Type": "application/json" }, body: JSON.stringify({ betriebId: b.id, kanaele: ["instagram"], text: "x" }) }));
+  assert.equal(r.status, 403);
+});

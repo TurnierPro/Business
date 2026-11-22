@@ -12,7 +12,7 @@ import { portalBasis } from "@/lib/kundenportal";
 import { BesuchBerichtFelder } from "@/components/BesuchBericht";
 import { DEMO_STATUS, demosVon } from "@/lib/demos";
 import { linkSchluessel } from "@/lib/geheim";
-import { demoFreigeben, demoHochladen, demoLoeschen, demoZurueckziehen, gespraechImportieren, besuchErfassen, aktivitaetAnlegen, antwortEntwerfen, nachrichtErledigt, portalLinkErneuern, portalZugangAnlegen, portalZugangSperren, betriebSpeichern, betriebZuweisen, datenLoeschen, einstufen, kontaktLoeschen, kontaktSpeichern, widerspruch, zahlungSimulieren } from "../../aktionen";
+import { beitragAnlegen, beitraegeVorlegen, beitragUeberarbeiten, beitragVeroeffentlicht, beitragLoeschen, demoFreigeben, demoHochladen, demoLoeschen, demoZurueckziehen, gespraechImportieren, besuchErfassen, aktivitaetAnlegen, antwortEntwerfen, nachrichtErledigt, portalLinkErneuern, portalZugangAnlegen, portalZugangSperren, betriebSpeichern, betriebZuweisen, datenLoeschen, einstufen, kontaktLoeschen, kontaktSpeichern, widerspruch, zahlungSimulieren } from "../../aktionen";
 import { AufgabenListe } from "@/components/AufgabenListe";
 import { ARTEN } from "@/lib/ablauf/crm";
 import { ticketNummer } from "@/lib/ablauf/tickets";
@@ -20,6 +20,7 @@ import { KANAELE } from "@/lib/ablauf/nachrichten";
 import { JETZT, WEG, wegIndex } from "@/lib/weg";
 import { ERGEBNISSE, KONTAKT } from "@/lib/ablauf/vertrieb";
 import { aktivesMandat, ibanMaskiert } from "@/lib/ablauf/mandat";
+import { BEITRAG_ARTEN, BEITRAG_STATUS, KANAELE as BEITRAG_KANAELE, beitraegeVon } from "@/lib/beitraege";
 
 const PROJEKT_TEXT: Record<string, string> = { inhalte: "wartet auf Inhalte", bau: "wird gebaut", pruefung: "Prüfung nicht bestanden", bereit: "Vorschau beim Kunden", live: "live, Betreuung läuft", beendet: "beendet" };
 const ANGEBOT_TEXT: Record<string, string> = { entwurf: "erstellt", versendet: "beim Kunden", unterschrieben: "unterschrieben", angezahlt: "erste Rate bezahlt", abgeschlossen: "abgeschlossen", abgelehnt: "abgelehnt" };
@@ -65,6 +66,8 @@ export default async function Lead({ params, searchParams }: { params: Promise<{
   const inArbeit = laufend.filter((j) => Number(j.daten.betriebId) === id || termine.some((t) => t.id === Number(j.daten.terminId)));
   const angebot = angebote[0];
   const sepaMandat = await aktivesMandat(id);
+  const beitraege = await beitraegeVon(id);
+  const mitMarketing = beitraege.length > 0 || angebote.some((a) => (a.module ?? []).includes("marketing") && a.unterschriebenAm);
   const projekt = projekte[0];
   const offenePost = post.filter((p) => p.status === "zur_freigabe");
   const gesperrt = b.status === "gesperrt";
@@ -453,6 +456,58 @@ export default async function Lead({ params, searchParams }: { params: Promise<{
             </form>
           </details>
         </section>
+        {mitMarketing ? (
+          <section className="karte abstand-klein" id="beitraege" aria-labelledby="beitraege-titel">
+            <div className="kopfzeile" style={{ marginBottom: 4 }}>
+              <h2 id="beitraege-titel" style={{ margin: 0 }}>Beiträge und Bewertungsantworten</h2>
+              {beitraege.some((x) => x.status === "entwurf") ? <form action={beitraegeVorlegen}><input type="hidden" name="betriebId" value={id} /><button className="knopf klein">{beitraege.filter((x) => x.status === "entwurf").length} Entwürfe dem Betrieb vorlegen</button></form> : null}
+            </div>
+            <p className="leise klein">Entwürfe schreiben, dann gesammelt vorlegen: Die Mail mit allen Texten geht durch Qualitätskontrolle und Freigabe. Danach gibt der Betrieb jeden Entwurf im Portal frei. Veröffentlicht wird nur Freigegebenes.</p>
+            {beitraege.length ? (
+              <ul className="zeilen">
+                {beitraege.map((x) => (
+                  <li key={x.id} style={{ alignItems: "start" }}>
+                    <div style={{ display: "flex", gap: 12, minWidth: 0 }}>
+                      {x.bild ? <img src={`/beitrag-bild/${x.id}`} alt="" width={64} height={64} style={{ objectFit: "cover", flex: "none" }} /> : null}
+                      <div style={{ minWidth: 0 }}>
+                        <div className="titel">{BEITRAG_ARTEN[x.art]} · {x.kanaele.map((k) => BEITRAG_KANAELE[k] ?? k).join(", ")}{x.geplantAm ? ` · geplant ${datum(x.geplantAm)}` : ""}</div>
+                        {x.bezug ? <div className="unter">Bewertung: „{x.bezug.slice(0, 160)}“</div> : null}
+                        <div className="klein" style={{ whiteSpace: "pre-wrap" }}>{x.text}</div>
+                        {x.kommentar ? <div className="hinweis klein" style={{ marginTop: 6 }}>Wunsch des Betriebs: {x.kommentar}</div> : null}
+                        {["entwurf", "abgelehnt"].includes(x.status) ? (
+                          <details className="schnell-aufgabe"><summary className="klein">Text ändern</summary>
+                            <form action={beitragUeberarbeiten} style={{ display: "grid", gap: 8 }}><input type="hidden" name="betriebId" value={id} /><input type="hidden" name="beitragId" value={x.id} /><textarea name="text" rows={4} defaultValue={x.text} aria-label="Text" /><button className="knopf klein">Speichern</button></form>
+                          </details>
+                        ) : null}
+                      </div>
+                    </div>
+                    <div className="knopfreihe" style={{ gap: 8 }}>
+                      <span className={`status ${x.status === "freigegeben" || x.status === "veroeffentlicht" ? "ok" : x.status === "abgelehnt" ? "fehler" : x.status === "entwurf" ? "" : "warten"}`}>{BEITRAG_STATUS[x.status] ?? x.status}</span>
+                      {x.status === "zur_vorlage" && x.eintragId ? <Link className="knopf klein" href={`/freigaben/${x.eintragId}`}>Zur Freigabe</Link> : null}
+                      {x.status === "freigegeben" ? <form action={beitragVeroeffentlicht}><input type="hidden" name="betriebId" value={id} /><input type="hidden" name="beitragId" value={x.id} /><button className="knopf klein">Veröffentlicht</button></form> : null}
+                      {["entwurf", "abgelehnt"].includes(x.status) ? <form action={beitragLoeschen}><input type="hidden" name="betriebId" value={id} /><input type="hidden" name="beitragId" value={x.id} /><button className="knopf klein gefahr" aria-label="Entwurf löschen">Löschen</button></form> : null}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+            <details className="schnell-aufgabe" open={!beitraege.length}>
+              <summary className="knopf klein">+ Entwurf schreiben</summary>
+              <form action={beitragAnlegen} style={{ display: "grid", gap: 10, marginTop: 8 }}>
+                <input type="hidden" name="betriebId" value={id} />
+                <div className="raster drei">
+                  <label className="feld"><span>Art</span><select name="art">{Object.entries(BEITRAG_ARTEN).map(([k, n]) => <option key={k} value={k}>{n}</option>)}</select></label>
+                  <label className="feld"><span>Geplant für (freiwillig)</span><input type="date" name="geplantAm" /></label>
+                  <label className="feld"><span>Foto (freiwillig)</span><input type="file" name="bild" accept="image/jpeg,image/png,image/webp" /></label>
+                </div>
+                <div className="knopfreihe">{Object.entries(BEITRAG_KANAELE).map(([k, n]) => <label key={k} className="haken"><input type="checkbox" name="kanal" value={k} defaultChecked={k !== "google"} /><span>{n}</span></label>)}</div>
+                <label className="feld"><span>Text</span><textarea name="text" rows={4} required maxLength={2200} /></label>
+                <label className="feld"><span>Bei Antworten: Text der Bewertung (ohne Namen)</span><textarea name="bezug" rows={2} /></label>
+                <button className="knopf klein">Entwurf speichern</button>
+              </form>
+            </details>
+          </section>
+        ) : null}
         <div className="raster zwei" style={{ alignItems: "start", marginBottom: 12 }}>
           <section className="karte">
             <h2>Angebote</h2>
@@ -500,7 +555,7 @@ export default async function Lead({ params, searchParams }: { params: Promise<{
               ))}
               {doks.map((d) => (
                 <li key={d.id}>
-                  <div><div className="titel">{DOKART[d.art] ?? d.art}</div><div className="unter">{d.titel} · {datum(d.erstelltAm)}</div></div>
+                  <div><div className="titel">{DOKART[d.art] ?? d.art}{(d.daten as { widerrufenAm?: string; ersetztAm?: string }).widerrufenAm ? <> <span className="status fehler">widerrufen</span></> : (d.daten as { ersetztAm?: string }).ersetztAm ? <> <span className="status">ersetzt</span></> : null}</div><div className="unter">{d.titel} · {datum(d.erstelltAm)}</div></div>
                   <a className="knopf klein" href={`/dokument/${d.id}`} target="_blank">PDF</a>
                 </li>
               ))}

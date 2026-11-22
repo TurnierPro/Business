@@ -74,7 +74,7 @@ export async function zugangSperren(id: number, wer: string): Promise<void> {
   await protokolliere(wer, `Portal-Zugang gesperrt: ${z.name}`, z.betriebId);
 }
 
-const FUER_KUNDEN = ["angebot", "protokoll", "rechnung", "auftragsbestaetigung", "rahmenvertrag", "leistungsschein_erstellung", "leistungsschein_betrieb", "sepa_mandat", "abnahmeprotokoll", "monatsreport", "umzugsanleitung"];
+const FUER_KUNDEN = ["angebot", "protokoll", "rechnung", "auftragsbestaetigung", "rahmenvertrag", "leistungsschein_erstellung", "leistungsschein_betrieb", "av_vertrag", "pilotvereinbarung", "sepa_mandat", "domain_vollmacht", "foto_einwilligung", "abnahmeprotokoll", "monatsreport", "umzugsanleitung"];
 
 /** Alle Einträge, die an diesen Kunden wirklich verschickt wurden (nach Qualitätskontrolle und Freigabe). */
 async function versendet(betriebId: number) {
@@ -86,16 +86,21 @@ async function versendet(betriebId: number) {
     .orderBy(desc(schema.postausgang.versendetAm));
 }
 
+// Was der Kunde selbst im Portal unterschrieben hat, sieht er sofort (es verlässt Levarex nicht)
+const VOM_KUNDEN = ["sepa_mandat", "foto_einwilligung"];
+
 export async function sichtbareDokumente(betriebId: number) {
   const db = await getDb();
   const post = await versendet(betriebId);
   const ids = [...new Set(post.flatMap((p) => p.anhaenge))];
-  if (!ids.length) return [];
-  const doks = await db.select().from(schema.dokumente).where(and(inArray(schema.dokumente.id, ids), eq(schema.dokumente.betriebId, betriebId)));
+  const eigene = await db.select().from(schema.dokumente).where(and(eq(schema.dokumente.betriebId, betriebId), inArray(schema.dokumente.art, VOM_KUNDEN)));
+  const gesendet = ids.length ? await db.select().from(schema.dokumente).where(and(inArray(schema.dokumente.id, ids), eq(schema.dokumente.betriebId, betriebId))) : [];
+  const doks = [...gesendet, ...eigene.filter((d) => !ids.includes(d.id))];
+  if (!doks.length) return [];
   const versandAm = (id: number) => post.find((p) => p.anhaenge.includes(id))?.versendetAm ?? null;
   return doks
     .filter((d) => FUER_KUNDEN.includes(d.art))
-    .map((d) => ({ ...d, versendetAm: versandAm(d.id) }))
+    .map((d) => ({ ...d, versendetAm: versandAm(d.id) ?? (VOM_KUNDEN.includes(d.art) ? d.erstelltAm : null) }))
     .sort((a, b) => (b.versendetAm?.getTime() ?? 0) - (a.versendetAm?.getTime() ?? 0));
 }
 

@@ -5,7 +5,7 @@ import { melde } from "../adapters/push";
 import { portalLink } from "../kundenportal";
 import { datumDe } from "../docs/basis";
 import { PAKETE, PaketKey, euro, UST } from "../pakete";
-import { ABNAHME_FRIST_TAGE, KUENDIGUNG_MONATE_VOR_ENDE, LAUFZEIT_MONATE, VERLAENGERUNG_MONATE, VERTRAGSWERK_VERSION } from "../recht";
+import { ABNAHME_FRIST_TAGE, KUENDIGUNG_MONATE_VOR_ENDE, LAUFZEIT_MONATE, VERLAENGERUNG_MONATE, VERTRAGSWERK_VERSION, PILOT_BINDUNG_MONATE } from "../recht";
 import { inPostausgang } from "./postausgang";
 import { hakeAb } from "./checkliste";
 import { basisUrl, anschrift, betrieb, neuesDokument, SYSTEM } from "./gemeinsam";
@@ -190,6 +190,7 @@ export async function kuendigungErfassen(projektId: number, wer: string, eingang
   const db = await getDb();
   await db.update(schema.projekte).set({ gekuendigtAm: eingang, endeAm: ende }).where(eq(schema.projekte.id, projektId));
   const b = await betrieb(p.betriebId);
+  const [pilot] = await db.select({ id: schema.dokumente.id }).from(schema.dokumente).where(and(eq(schema.dokumente.betriebId, b.id), eq(schema.dokumente.art, "pilotvereinbarung")));
   await protokolliere(wer, `Kündigung erfasst, Ende ${datumDe(ende)}`, b.id);
   await inPostausgang({
     betriebId: b.id,
@@ -199,7 +200,10 @@ export async function kuendigungErfassen(projektId: number, wer: string, eingang
     empfaenger: b.email ?? "(E-Mail-Adresse fehlt)",
     betreff: "Bestätigung Ihrer Kündigung",
     text: `Guten Tag,\n\nwir bestätigen Ihre Kündigung vom ${datumDe(eingang)}. Der Vertrag endet am ${datumDe(ende)}. Bis dahin kümmern wir uns wie gewohnt um Ihre Website.\n\nZum Ende übergeben wir Ihnen auf Wunsch alles, was Sie für einen Wechsel brauchen: Zugang zur Domain, die Inhalte und den Code Ihrer Seite. Sagen Sie uns einfach, wer Ihre Seite künftig betreut.\n\nSchade, dass Sie gehen. Wenn wir etwas besser machen können, freuen wir uns über ein kurzes Wort.\n\nMit freundlichen Grüßen\nMaximilian Steiner\nLevarex Consulting`,
-    hinweise: VERTRAGSWERK_VERSION.startsWith("Entwurf") ? ["Laufzeit und Kündigungsfrist nach Baukasten; das Vertragswerk ist noch ein Entwurf. Enddatum bitte prüfen."] : [],
+    hinweise: [
+      ...(VERTRAGSWERK_VERSION.startsWith("Entwurf") ? ["Laufzeit und Kündigungsfrist nach Baukasten; das Vertragswerk ist noch ein Entwurf. Enddatum bitte prüfen."] : []),
+      ...(pilot && p.liveAm && eingang.getTime() - p.liveAm.getTime() < PILOT_BINDUNG_MONATE * 30.44 * 864e5 ? [`Pilotvereinbarung: Kündigung in den ersten ${PILOT_BINDUNG_MONATE} Monaten. Ohne wichtigen Grund ist die Differenz anteilig nachzuzahlen; mit dem Kunden klären.`] : []),
+    ],
     meta: { projektId },
   });
   if (p.qontoAboId) {

@@ -230,6 +230,28 @@ export const demos = pgTable("demos", {
   erstelltAm: timestamp("erstellt_am", { withTimezone: true }).defaultNow().notNull(),
 });
 
+// Marketing & Sichtbarkeit: Beiträge (Instagram, Facebook, Google) und Antworten auf Bewertungen.
+// Levarex schreibt Entwürfe, legt sie über den Postausgang vor, der Betrieb gibt jeden einzeln im Portal frei (Business Case 12).
+export const beitraege = pgTable("beitraege", {
+  id: serial("id").primaryKey(),
+  betriebId: integer("betrieb_id").notNull().references(() => betriebe.id, { onDelete: "cascade" }),
+  art: text("art").notNull().default("beitrag"), // beitrag | bewertung_antwort
+  kanaele: jsonb("kanaele").$type<string[]>().notNull().default([]), // instagram | facebook | google
+  text: text("text").notNull(),
+  bild: text("bild"), // Dateiname im Ordner beitraege/<betriebId>
+  bezug: text("bezug"), // bei Bewertungsantworten: Text der Bewertung (ohne Namen)
+  geplantAm: timestamp("geplant_am", { withTimezone: true }),
+  status: text("status").notNull().default("entwurf"), // entwurf | zur_vorlage | beim_kunden | freigegeben | abgelehnt | veroeffentlicht
+  kommentar: text("kommentar"), // Änderungswunsch des Betriebs
+  eintragId: integer("eintrag_id"),
+  vorgelegtAm: timestamp("vorgelegt_am", { withTimezone: true }),
+  entschiedenAm: timestamp("entschieden_am", { withTimezone: true }),
+  entschiedenVon: text("entschieden_von"),
+  veroeffentlichtAm: timestamp("veroeffentlicht_am", { withTimezone: true }),
+  erstelltVon: text("erstellt_von").notNull(),
+  erstelltAm: timestamp("erstellt_am", { withTimezone: true }).defaultNow().notNull(),
+});
+
 export const jobs = pgTable("jobs", {
   id: serial("id").primaryKey(),
   art: text("art").notNull(),

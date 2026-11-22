@@ -34,6 +34,14 @@ export function dokumentHtml(d: Dok): string {
     case "leistungsschein_erstellung":
     case "leistungsschein_betrieb":
       return v.leistungsschein(d.daten as v.LeistungsscheinDaten);
+    case "av_vertrag":
+      return v.avVertrag(d.daten as v.AvVertragDaten);
+    case "pilotvereinbarung":
+      return v.pilotvereinbarung(d.daten as v.PilotDaten);
+    case "domain_vollmacht":
+      return v.domainVollmacht(d.daten as v.DomainVollmachtDaten);
+    case "foto_einwilligung":
+      return v.fotoEinwilligung(d.daten as v.FotoEinwilligungDaten);
     case "sepa_mandat":
       return v.sepaMandat(d.daten as v.SepaMandatDaten);
     case "monatsreport":

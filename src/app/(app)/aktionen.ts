@@ -754,3 +754,37 @@ export async function stufeVerschieben(id: number, ziel: string): Promise<{ fehl
     return { fehler: e instanceof Error ? e.message : "Verschieben fehlgeschlagen" };
   }
 }
+
+// ---------- Marketing: Beiträge und Bewertungsantworten ----------
+
+export async function beitragAnlegen(f: FormData) {
+  const id = zahl(f, "betriebId");
+  await ausfuehren(`/leads/${id}?tab=dokumente#beitraege`, "Entwurf angelegt.", async (wer) => {
+    const bild = f.get("bild");
+    const geplant = text(f, "geplantAm");
+    await (await import("@/lib/beitraege")).beitragAnlegen({ betriebId: id, art: text(f, "art"), kanaele: f.getAll("kanal").map(String), text: text(f, "text"), bezug: text(f, "bezug"), geplantAm: geplant ? (await import("@/lib/format")).berlinZeit(geplant) : null, bild: bild instanceof File ? bild : null }, wer);
+  });
+}
+
+export async function beitraegeVorlegen(f: FormData) {
+  const id = zahl(f, "betriebId");
+  await ausfuehren(`/leads/${id}?tab=dokumente#beitraege`, "Vorlage-Mail liegt in den Freigaben. Nach dem Versand sieht der Betrieb die Entwürfe im Portal.", async (wer) => {
+    const eintrag = await (await import("@/lib/beitraege")).beitraegeVorlegen(id, wer);
+    return { ziel: `/freigaben/${eintrag}` };
+  });
+}
+
+export async function beitragUeberarbeiten(f: FormData) {
+  const id = zahl(f, "betriebId");
+  await ausfuehren(`/leads/${id}?tab=dokumente#beitraege`, "Entwurf geändert.", async (wer) => (await import("@/lib/beitraege")).beitragUeberarbeiten(zahl(f, "beitragId"), text(f, "text"), wer));
+}
+
+export async function beitragVeroeffentlicht(f: FormData) {
+  const id = zahl(f, "betriebId");
+  await ausfuehren(`/leads/${id}?tab=dokumente#beitraege`, "Als veröffentlicht markiert.", async (wer) => (await import("@/lib/beitraege")).beitragVeroeffentlicht(zahl(f, "beitragId"), wer));
+}
+
+export async function beitragLoeschen(f: FormData) {
+  const id = zahl(f, "betriebId");
+  await ausfuehren(`/leads/${id}?tab=dokumente#beitraege`, "Entwurf gelöscht.", async (wer) => (await import("@/lib/beitraege")).beitragLoeschen(zahl(f, "beitragId"), wer));
+}

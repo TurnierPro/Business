@@ -3,6 +3,7 @@ import { and, eq, inArray } from "drizzle-orm";
 import { getDb, schema } from "../db";
 import { protokolliere } from "../protokoll";
 import { AENDERUNGS_MINUTEN, PAKETE, type PaketKey } from "../pakete";
+import { MODULE } from "../katalog";
 import { AENDERUNG_STUNDENSATZ, AGB_VERSION, VERTRAGSWERK_VERSION } from "../recht";
 import { ZIEL_STUNDEN, ZIEL_STUNDEN_MODULE } from "./zeiten";
 import { anschrift, betrieb, neuesDokument } from "./gemeinsam";
@@ -15,7 +16,7 @@ import type { AngebotDaten, LeistungsscheinDaten, RahmenvertragDaten, VertragUnt
 // je Dokument mit eigener Unterschrift. Danach gehen alle Unterlagen über die Freigabe an den Kunden
 // und liegen im Kundenportal (dort nur zum Lesen).
 
-export const VERTRAGSARTEN = ["rahmenvertrag", "leistungsschein_erstellung", "leistungsschein_betrieb"] as const;
+export const VERTRAGSARTEN = ["rahmenvertrag", "leistungsschein_erstellung", "leistungsschein_betrieb", "av_vertrag", "pilotvereinbarung"] as const;
 const MAX_BILD = 400_000; // Zeichen der data-URL (etwa 300 KB)
 const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 
@@ -80,7 +81,16 @@ export async function vertragsunterlagen(angebotId: number) {
   for (const [i, s] of scheine.entries()) {
     await neuesDokument({ betriebId: b.id, art: `leistungsschein_${s.art}`, titel: scheinNummern[i].titel, daten: { ...basis, ...s, nummer: scheinNummern[i].nummer, rahmenNummer } });
   }
-  await protokolliere("Levarex OS", `Vertragsunterlagen ${rahmenNummer} angelegt (${scheine.length} Leistungsscheine)`, b.id);
+  // AV-Vertrag: Über die Website kommen Anfragen mit personenbezogenen Daten ins Portal, also immer (Rahmenvertrag § 7)
+  const { DIENSTLEISTER } = await import("../datenschutz-doku");
+  const unterauftrag = DIENSTLEISTER.filter((x) => x.av && (x.aktivWenn === "immer" || !!process.env[x.aktivWenn])).map(({ name, wofuer, sitz }) => ({ name, wofuer, sitz }));
+  const kundenmanagement = a.module.includes("kundenmanagement");
+  await neuesDokument({ betriebId: b.id, art: "av_vertrag", titel: `AV-Vertrag AV-${nr(jahr, a.id)}`, daten: { ...basis, nummer: `AV-${nr(jahr, a.id)}`, rahmenNummer, bausteine: positionen.map((x) => x.text.replace(/ \(Pilotpreis\)$/, "")), kundenmanagement, unterauftrag } });
+  // Pilotpreis Kundenmanagement: eigene Vereinbarung (Referenz, Messung, Nachzahlung bei früher Kündigung)
+  const pilotPos = a.positionen.find((x) => / \(Pilotpreis\)$/.test(x.text));
+  const km = MODULE.find((m) => m.key === "kundenmanagement");
+  if (pilotPos && km) await neuesDokument({ betriebId: b.id, art: "pilotvereinbarung", titel: `Pilotvereinbarung PV-${nr(jahr, a.id)}`, daten: { ...basis, nummer: `PV-${nr(jahr, a.id)}`, rahmenNummer, regulaer: km.einmalig, pilot: pilotPos.einmalig } });
+  await protokolliere("Levarex OS", `Vertragsunterlagen ${rahmenNummer} angelegt (${scheine.length} Leistungsscheine, AV-Vertrag${pilotPos ? ", Pilotvereinbarung" : ""})`, b.id);
   return vertragsunterlagen(angebotId);
 }
 

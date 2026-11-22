@@ -131,7 +131,7 @@ export async function qualitaetskontrolle(id: number): Promise<string> {
     } catch (err) {
       blocker.push(`${d.titel}: PDF lässt sich nicht erzeugen (${err instanceof Error ? err.message : err}).`);
     }
-    if (["rahmenvertrag", "leistungsschein_erstellung", "leistungsschein_betrieb"].includes(d.art)) {
+    if (["rahmenvertrag", "leistungsschein_erstellung", "leistungsschein_betrieb", "av_vertrag", "pilotvereinbarung"].includes(d.art)) {
       const u = (d.daten as { unterschriften?: { rolle: string }[] }).unterschriften ?? [];
       if (!u.some((x) => x.rolle === "kunde") || !u.some((x) => x.rolle === "levarex")) blocker.push(`${d.titel}: Unterschrift fehlt.`);
       if (VERTRAGSWERK_VERSION.startsWith("Entwurf")) hinweise.push("Vertragstexte sind noch ein Entwurf (Dok. 21 fehlt). Vor dem ersten echten Kunden vom Anwalt prüfen lassen.");

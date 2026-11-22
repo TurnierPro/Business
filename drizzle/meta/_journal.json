@@ -162,6 +162,13 @@
       "when": 1795359247243,
       "tag": "0022_demos",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1795362062077,
+      "tag": "0023_beitraege",
+      "breakpoints": true
     }
   ]
 }
