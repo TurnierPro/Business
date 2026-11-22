@@ -1,16 +1,15 @@
 import Link from "next/link";
 import { planIst } from "@/lib/plan-ist";
-import { ANNAHMEN, BUSINESS_CASE, SZENARIEN, type SzenarioKey } from "@/lib/plan";
+import { ANNAHMEN, MODULE_AB, PLAN_BAUSTEINE, QUOTEN, SZENARIEN, type SzenarioKey } from "@/lib/plan";
 import { planIstDiagramm, FARBEN_DUNKEL } from "@/lib/diagramm";
 import { monatName } from "@/lib/finanzen";
 import { euro } from "@/lib/pakete";
 import { Fortschritt } from "@/components/FinanzReiter";
-import { kontostandSpeichern } from "../../aktionen";
 
 export const metadata = { title: "Plan und Ziele" };
 
 const zahl = (n: number) => String(n);
-const datum = (iso: string) => new Date(iso).toLocaleDateString("de-DE");
+const ganz = (cent: number) => euro(cent).replace(",00", ""); // volle Euro, damit die Tabelle auf den Bildschirm passt
 
 export default async function Plan({ searchParams }: { searchParams: Promise<{ szenario?: string }> }) {
   const sz = ((await searchParams).szenario ?? "basis") as SzenarioKey;
@@ -18,14 +17,13 @@ export default async function Plan({ searchParams }: { searchParams: Promise<{ s
   const p = await planIst(s);
   const abstand = p.bisHeute.umsatzIst - p.bisHeute.umsatzPlan;
   const vorPlan = p.monate[0].monat > p.jetzt;
-  const bc = BUSINESS_CASE;
 
   return (
     <>
       <div className="kopfzeile">
         <div>
-          <h1>Finanzen</h1>
-          <p>Wo stehen wir im Vergleich zum Business Case (Dezember 2026 bis November 2028)?</p>
+          <h1>Plan und Soll</h1>
+          <p>Szenario wählen: Monat für Monat mit Webauftritten und Modulen, gegen das Ist (Dezember 2026 bis November 2028).</p>
         </div>
       </div>
 
@@ -35,7 +33,7 @@ export default async function Plan({ searchParams }: { searchParams: Promise<{ s
             {SZENARIEN[k].name}
           </Link>
         ))}
-        <span className="leise klein">{p.szenario.beschreibung} · volles Gehalt durchgehend ab {monatName(p.szenario.vollesGehaltAb)}</span>
+        <span className="leise klein">{p.szenario.beschreibung}</span>
       </nav>
 
       {vorPlan ? <div className="hinweis">Der Planzeitraum beginnt im Dezember 2026. Bis dahin zählt alles, was schon passiert, zum ersten Planmonat.</div> : null}
@@ -64,70 +62,76 @@ export default async function Plan({ searchParams }: { searchParams: Promise<{ s
         <div dangerouslySetInnerHTML={{ __html: planIstDiagramm(p.monate.map((m) => ({ name: monatName(m.monat), plan: m.umsatz, ist: m.ist ? m.ist.umsatz : null })), FARBEN_DUNKEL) }} />
       </section>
 
-      <div className="raster zwei abstand" style={{ alignItems: "start" }}>
-        <section className="karte">
-          <h2>Meilensteine</h2>
-          <ul className="liste">
-            <li style={{ display: "block" }}>
-              <div className="titel">Entscheidung am {datum(p.stichtag.datum)}: volles Gehalt ab April 2027?</div>
-              <div className="unter" style={{ marginBottom: 8 }}>Nur wenn bis dahin mindestens {p.stichtag.ziel} Aufträge unterschrieben sind.</div>
-              <Fortschritt ist={p.stichtag.ist} ziel={p.stichtag.ziel} format={zahl} />
-            </li>
-            <li><div><div className="titel">Gründerkredit {euro(bc.kredit)}</div><div className="unter">Auszahlung Februar 2027, 2 Jahre tilgungsfrei, Tilgung ab Februar 2029</div></div></li>
-            <li><div><div className="titel">Tiefster Kontostand laut Plan</div><div className="unter">{euro(p.szenario.tiefsterKontostand)} im Januar 2027, über die Kontokorrentlinie ({euro(bc.kontokorrent)})</div></div></li>
-            <li><div><div className="titel">Kapitalbedarf</div><div className="unter">{euro(bc.kapitalbedarf)}; Finanzierung {euro(bc.stammkapital + bc.kredit)} + {euro(bc.kontokorrent)} Kontokorrent</div></div></li>
-            <li><div><div className="titel">Ø Zeit bis Livegang</div><div className="unter">Ziel ≤ {bc.ziele.wochenBisLivegang} Wochen · Ist {p.wochenBisLive === null ? "noch keine Live-Projekte" : `${p.wochenBisLive.toFixed(1).replace(".", ",")} Wochen`}</div></div></li>
-            <li><div><div className="titel">Weitere Messgrößen</div><div className="unter">≤ {bc.ziele.stundenS} h für „Anfragen“ ab Sommer 2027 · ≤ {bc.ziele.betreuungStundenJeKunde} h Betreuung je Kunde · ≥ {bc.ziele.prozessCheckQuote * 100} % der Prozess-Checks werden Aufträge. Stunden werden noch nicht erfasst.</div></div></li>
-          </ul>
-        </section>
-
-        <section className="karte">
-          <h2>Gehaltsregel</h2>
-          <p className="leise klein">Eigenes Geld = Kontostand am Monatsende − KfW-Restschuld − fällige Umsatzsteuer − Steuerrücklage (31,5 %). Volles Gehalt ab 20.000 €, unter 0 € Basisgehalt, unter −15.000 € Notgehalt. Volle Gehälter nie aus dem Kredit.</p>
-          {p.gehalt ? (
-            <>
-              <dl className="daten" style={{ marginTop: 12 }}>
-                <dt>Kontostand {monatName(p.gehalt.monat)}</dt><dd className="mono">{euro(p.gehalt.kontostand)}</dd>
-                <dt>− KfW-Restschuld</dt><dd className="mono">{euro(p.gehalt.kredit)}</dd>
-                <dt>− fällige USt</dt><dd className="mono">{euro(p.gehalt.ust)}</dd>
-                <dt>− Steuerrücklage</dt><dd className="mono">{euro(p.gehalt.ruecklage)}</dd>
-                <dt><b>Eigenes Geld</b></dt><dd className="mono"><b style={{ color: p.gehalt.eigenesGeld < 0 ? "var(--fehler)" : undefined }}>{euro(p.gehalt.eigenesGeld)}</b></dd>
-              </dl>
-              <div className={`hinweis ${p.gehalt.stufe === "voll" ? "ok" : p.gehalt.stufe === "not" ? "fehler" : ""}`} style={{ marginTop: 12 }}>{p.gehalt.text}</div>
-            </>
-          ) : <p className="leise">Noch kein Kontostand erfasst.</p>}
-          <form action={kontostandSpeichern} className="knopfreihe" style={{ marginTop: 12, alignItems: "end" }}>
-            <label className="feld" style={{ marginBottom: 0 }}><span>Monat</span><input type="month" name="monat" required defaultValue={p.jetzt} /></label>
-            <label className="feld" style={{ marginBottom: 0 }}><span>Kontostand (€)</span><input name="betrag" inputMode="decimal" required placeholder="z. B. 18.500,00" /></label>
-            <button className="knopf">Speichern</button>
-          </form>
-        </section>
-      </div>
+      <section className="karte abstand">
+        <div className="kopfzeile" style={{ marginBottom: 8 }}><h2 style={{ margin: 0 }}>Monat für Monat · {p.szenario.name}</h2><Link className="klein" href="/stammdaten/ziele">Soll je Baustein anpassen</Link></div>
+        <p className="leise klein">Verkaufte Bausteine je Monat [A]: Kompakt, Professional (Prof.), Personal & Bewerbung, Marketing & Sichtbarkeit, Kundenmanagement (Kundenm.). Umsatz = einmalig (50 % bei Auftrag, 50 % beim Livegang) + Monatsbeiträge ab Livegang.</p>
+        <div style={{ overflowX: "auto" }}>
+          <table className="tabelle plan-tabelle">
+            <thead>
+              <tr>
+                <th>Monat</th>
+                {PLAN_BAUSTEINE.map((b) => <th key={b.key} className="zahl weg-mobil">{b.name}</th>)}
+                <th className="zahl">Aufträge Ist</th>
+                <th className="zahl weg-mobil">Einmalig</th>
+                <th className="zahl weg-mobil">Beiträge</th>
+                <th className="zahl">Umsatz Plan</th>
+                <th className="zahl">Umsatz Ist</th>
+                <th className="zahl weg-mobil">Kosten Plan</th>
+                <th className="zahl">Ergebnis Plan</th>
+              </tr>
+            </thead>
+            <tbody>
+              {p.monate.map((m) => (
+                <tr key={m.monat} className={m.monat === p.jetzt ? "jetzt" : undefined}>
+                  <td>{monatName(m.monat)}</td>
+                  {PLAN_BAUSTEINE.map((b) => <td key={b.key} className="zahl weg-mobil">{m.stueck[b.key] || <span className="leise">–</span>}</td>)}
+                  <td className="zahl">{m.ist ? m.ist.auftraege : "–"}</td>
+                  <td className="zahl leise weg-mobil">{ganz(m.einmalig)}</td>
+                  <td className="zahl leise weg-mobil">{ganz(m.beitraege)}</td>
+                  <td className="zahl">{ganz(m.umsatz)}</td>
+                  <td className="zahl">{m.ist ? ganz(m.ist.umsatz) : "–"}</td>
+                  <td className="zahl leise weg-mobil">{ganz(m.kosten)}</td>
+                  <td className="zahl" style={m.ergebnis < 0 ? { color: "var(--fehler)" } : undefined}>{ganz(m.ergebnis)}</td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              {[0, 1].map((j) => {
+                const l = p.monate.slice(j * 12, j * 12 + 12);
+                const sum = (f: (m: (typeof l)[number]) => number) => l.reduce((x, m) => x + f(m), 0);
+                return (
+                  <tr key={j}>
+                    <th>Jahr {j + 1}</th>
+                    {PLAN_BAUSTEINE.map((b) => <th key={b.key} className="zahl weg-mobil mono">{sum((m) => m.stueck[b.key] ?? 0)}</th>)}
+                    <th className="zahl mono">{sum((m) => m.ist?.auftraege ?? 0)}</th>
+                    <th className="zahl weg-mobil mono">{ganz(sum((m) => m.einmalig))}</th>
+                    <th className="zahl weg-mobil mono">{ganz(sum((m) => m.beitraege))}</th>
+                    <th className="zahl mono">{ganz(sum((m) => m.umsatz))}</th>
+                    <th className="zahl mono">{ganz(sum((m) => m.ist?.umsatz ?? 0))}</th>
+                    <th className="zahl weg-mobil mono">{ganz(sum((m) => m.kosten))}</th>
+                    <th className="zahl mono">{ganz(sum((m) => m.ergebnis))}</th>
+                  </tr>
+                );
+              })}
+            </tfoot>
+          </table>
+        </div>
+      </section>
 
       <section className="karte abstand">
-        <h2>Monat für Monat</h2>
-        <table className="tabelle">
-          <thead><tr><th>Monat</th><th className="zahl">Aufträge Plan / Ist</th><th className="zahl">Umsatz Plan</th><th className="zahl">Umsatz Ist</th><th className="zahl weg-mobil">Kosten Plan</th><th className="zahl weg-mobil">Kosten Ist</th><th className="zahl">Ergebnis Plan</th><th className="zahl">Ergebnis Ist</th></tr></thead>
-          <tbody>
-            {p.monate.map((m) => (
-              <tr key={m.monat} style={m.monat === p.jetzt ? { background: "rgba(201,163,92,0.06)" } : undefined}>
-                <td>{monatName(m.monat)}</td>
-                <td className="zahl">{m.auftraege} / {m.ist ? m.ist.auftraege : "–"}</td>
-                <td className="zahl leise">{euro(m.umsatz)}</td>
-                <td className="zahl">{m.ist ? euro(m.ist.umsatz) : "–"}</td>
-                <td className="zahl leise weg-mobil">{euro(m.kosten)}</td>
-                <td className="zahl weg-mobil">{m.ist ? euro(m.ist.kosten) : "–"}</td>
-                <td className="zahl leise" style={m.ergebnis < 0 ? { color: "var(--fehler)" } : undefined}>{euro(m.ergebnis)}</td>
-                <td className="zahl">{m.ist ? euro(m.ist.ergebnis) : "–"}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <h2>Quoten im Szenario {p.szenario.name} [A]</h2>
+        <div className="raster vier">
+          <div className="kennzahl"><div className="wert">{Math.round(QUOTEN[s].PROFESSIONAL * 100)} %</div><div className="name">der Webauftritte Professional</div></div>
+          <div className="kennzahl"><div className="wert">{Math.round(QUOTEN[s].personal * 100)} %</div><div className="name">mit Personal & Bewerbung</div></div>
+          <div className="kennzahl"><div className="wert">{Math.round(QUOTEN[s].marketing * 100)} %</div><div className="name">mit Marketing & Sichtbarkeit</div></div>
+          <div className="kennzahl"><div className="wert">{Math.round(QUOTEN[s].kundenmanagement * 100)} %</div><div className="name">mit Kundenmanagement</div></div>
+        </div>
+        <p className="leise klein" style={{ marginTop: 8 }}>Annahmen, bis der Finanzplan (Dok. 43) eigene Modulquoten liefert. Module ab {monatName(MODULE_AB)}.</p>
       </section>
 
       <section className="karte abstand">
         <h2>Annahmen</h2>
-        <ul>{ANNAHMEN.map((a) => <li key={a} className="klein">{a}</li>)}</ul>
+        <ul className="leise">{ANNAHMEN.map((a) => <li key={a} className="klein">{a}</li>)}</ul>
         <p className="leise klein">Die Planwerte stehen zentral in <span className="mono">src/lib/plan.ts</span>. Ändert sich der Business Case, nur dort anpassen.</p>
       </section>
     </>

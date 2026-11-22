@@ -89,11 +89,19 @@ export async function auswertung(z: Zeitraum) {
     umsatz: rechnungen.filter((x) => monatKey(x.r.erstelltAm) === m).reduce((s, x) => s + x.r.netto, 0),
     ausgaben: ausgaben.filter((a) => monatKey(a.datum) === m).reduce((s, a) => s + a.netto, 0),
   }));
+  const plan = await kostenplan();
   const proKategorie = KATEGORIEN.map((k) => ({
     ...k,
+    planMonat: plan[k.key] ?? k.planMonat,
     ist: ausgaben.filter((a) => a.kategorie === k.key).reduce((s, a) => s + a.netto, 0),
-    plan: k.planMonat * z.monate.length,
-  })).filter((k) => k.ist || k.plan);
+    plan: (plan[k.key] ?? k.planMonat) * z.monate.length,
+  }));
+  const alleKategorien = proKategorie;
+  // Angebote im Zeitraum: offen (erstellt, noch nicht unterschrieben) und angenommen (unterschrieben)
+  const alleAngebote = await db.select({ a: schema.angebote, kunde: schema.betriebe.name }).from(schema.angebote).innerJoin(schema.betriebe, eq(schema.angebote.betriebId, schema.betriebe.id));
+  const imZeitraum = (d: Date | null) => !!d && d >= z.von && d < z.bis;
+  const angeboteOffen = alleAngebote.filter((x) => ["entwurf", "versendet"].includes(x.a.status) && imZeitraum(x.a.erstelltAm));
+  const angeboteAngenommen = alleAngebote.filter((x) => imZeitraum(x.a.unterschriebenAm));
 
   return {
     rechnungen,
@@ -108,7 +116,10 @@ export async function auswertung(z: Zeitraum) {
     ustZahllast: ustEinnahmen - vorsteuer,
     steuerruecklage: Math.max(0, Math.round(ergebnis * STEUERSATZ)),
     proMonat,
-    proKategorie,
+    proKategorie: alleKategorien.filter((k) => k.ist || k.plan),
+    alleKategorien,
+    angeboteOffen,
+    angeboteAngenommen,
     zuPruefen: ausgaben.filter((a) => a.status === "pruefen").length,
   };
 }
@@ -232,4 +243,25 @@ export function csv(a: Auswertung, art: "ausgaben" | "einnahmen"): string {
           ...a.rechnungen.map(({ r, kunde }) => [tag(r.erstelltAm), r.nummer, kunde, r.art === "anzahlung" ? "Anzahlung" : "Schlussrechnung", betrag(r.netto), betrag(Math.round(r.netto * UST)), betrag(Math.round(r.netto * (1 + UST))), r.status, r.bezahltAm ? tag(r.bezahltAm) : ""]),
         ];
   return "﻿" + zeilen.map((z) => z.map(csvZelle).join(";")).join("\r\n");
+}
+
+/** Plan je Kategorie (Cent im Monat): Werkswert aus dem Business Case, eigene Werte aus den Stammdaten (art „kostenplan“). */
+export async function kostenplan(): Promise<Record<string, number>> {
+  const db = await getDb();
+  const eigene = await db.select().from(schema.katalogEintraege).where(eq(schema.katalogEintraege.art, "kostenplan"));
+  return Object.fromEntries(KATEGORIEN.map((k) => [k.key, Number((eigene.find((e) => e.key === `kostenplan:${k.key}`)?.daten as { planMonat?: number } | undefined)?.planMonat ?? k.planMonat)]));
+}
+
+export async function kostenplanSpeichern(werte: Record<string, number>, wer: string): Promise<void> {
+  const db = await getDb();
+  for (const k of KATEGORIEN) {
+    const v = werte[k.key];
+    if (v === undefined) continue;
+    if (!(Number.isInteger(v) && v >= 0 && v < 1e9)) throw new Error(`${k.name}: Betrag ungültig`);
+    const key = `kostenplan:${k.key}`;
+    if (v === k.planMonat) await db.delete(schema.katalogEintraege).where(eq(schema.katalogEintraege.key, key));
+    else await db.insert(schema.katalogEintraege).values({ key, art: "kostenplan", daten: { planMonat: v }, geaendertVon: wer }).onConflictDoUpdate({ target: schema.katalogEintraege.key, set: { daten: { planMonat: v }, geaendertVon: wer, geaendertAm: new Date() } });
+  }
+  const { protokolliere } = await import("./protokoll");
+  await protokolliere(wer, "Kostenplan je Kategorie angepasst");
 }

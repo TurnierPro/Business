@@ -492,11 +492,31 @@ test("Stammdaten: Katalog ändern wirkt auf neue Angebote, verschickte bleiben; 
   const soll = await import("../src/lib/soll");
   const werte = await soll.sollwerte();
   assert.equal(werte.length, 24);
-  assert.equal(await soll.sollSpeichern([{ monat: "2027-03", umsatz: 2_000_000, auftraege: 5 }], "Maximilian Steiner"), 1);
-  assert.equal((await soll.sollwerte()).find((x) => x.monat === "2027-03")?.umsatz, 2_000_000);
-  await assert.rejects(() => soll.sollSpeichern([{ monat: "2030-01", umsatz: 1, auftraege: 1 }], "Maximilian"), /Planzeitraum/);
+  // Soll je Baustein: 2 × Professional und 1 × Kundenmanagement im März 2027 → Umsatz wird gerechnet
+  assert.equal(await soll.sollSpeichern([{ monat: "2027-03", stueck: { KOMPAKT: 0, PROFESSIONAL: 2, kundenmanagement: 1 } }], "Maximilian Steiner"), 1);
+  const neuW = await soll.sollwerte();
+  const maerz = neuW.find((x) => x.monat === "2027-03")!;
+  assert.equal(maerz.auftraege, 2);
+  assert.ok(maerz.geaendert);
+  const vorM = werte.find((x) => x.monat === "2027-03")!;
+  // März: halbe Einmalpreise (Pilotpreis Kundenmanagement 1.990 €) ersetzen die der Vorgabe
+  const halb = (st: Record<string, number>) => ((st.KOMPAKT ?? 0) * 149000 + (st.PROFESSIONAL ?? 0) * 299000) / 2;
+  assert.equal(maerz.umsatz - vorM.umsatz, halb({ PROFESSIONAL: 2 }) + 199000 / 2 - halb(vorM.stueck));
+  assert.ok(neuW.find((x) => x.monat === "2027-05")!.umsatz > werte.find((x) => x.monat === "2027-05")!.umsatz, "Livegang und Monatsbeiträge zwei Monate später");
+  await assert.rejects(() => soll.sollSpeichern([{ monat: "2030-01", stueck: { KOMPAKT: 1 } }], "Maximilian"), /Planzeitraum/);
+  await assert.rejects(() => soll.sollSpeichern([{ monat: "2027-04", stueck: { KOMPAKT: -1 } }], "Maximilian"), /ungültig/);
   const si = await soll.sollIst(new Date(2027, 2, 15));
-  assert.equal(si.zeitraeume[0].soll.umsatz, 2_000_000);
+  assert.equal(si.zeitraeume[0].soll.umsatz, maerz.umsatz);
+
+  // Plan je Ausgaben-Kategorie anpassbar; Werkswert gilt wieder, wenn gleich
+  const fin = await import("../src/lib/finanzen");
+  await fin.kostenplanSpeichern({ software: 60000 }, "Maximilian Steiner");
+  assert.equal((await fin.kostenplan()).software, 60000);
+  const q = await fin.auswertung(fin.zeitraum("2027-Q1"));
+  assert.equal(q.alleKategorien.find((k) => k.key === "software")!.plan, 180000);
+  await assert.rejects(() => fin.kostenplanSpeichern({ software: -1 }, "Maximilian"), /ungültig/);
+  await fin.kostenplanSpeichern({ software: 55000 }, "Maximilian Steiner");
+  assert.equal((await db.select().from(schema.katalogEintraege).where(eq(schema.katalogEintraege.key, "kostenplan:software"))).length, 0);
 
   const { finde } = await import("../src/lib/bereiche");
   assert.equal(finde("/leads/12")?.bereich.key, "leads");

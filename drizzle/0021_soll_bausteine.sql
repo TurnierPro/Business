@@ -1,0 +1,1 @@
+ALTER TABLE "sollwerte" ADD COLUMN "bausteine" jsonb;

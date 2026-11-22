@@ -1,44 +1,60 @@
 import { eq } from "drizzle-orm";
 import { getDb, schema } from "./db";
 import { protokolliere } from "./protokoll";
-import { PLAN_MONATE, monatsplan } from "./plan";
+import { PLAN_BAUSTEINE, PLAN_MONATE, monatsplan, umsatzAus, type Stueck } from "./plan";
 
 // Soll-Umsätze: wie wir uns entwickeln wollen. Vorgabe ist das Basis-Szenario des Business Case,
-// jeder Monat lässt sich unter Stammdaten → Ziele anpassen.
+// jeder Monat lässt sich je Baustein unter Stammdaten → Soll-Umsätze anpassen.
 
 const monatVon = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 
-export type Soll = { monat: string; umsatz: number; auftraege: number; vorgabe: { umsatz: number; auftraege: number }; geaendert: boolean };
+export type Soll = { monat: string; umsatz: number; auftraege: number; stueck: Stueck; vorgabe: { umsatz: number; auftraege: number; stueck: Stueck }; geaendert: boolean };
 
+const web = (st: Stueck) => (st.KOMPAKT ?? 0) + (st.PROFESSIONAL ?? 0);
+
+/** Soll je Monat: Stück je Baustein (Vorgabe Basis-Szenario, eigene Werte aus Stammdaten → Soll-Umsätze). Der Umsatz wird daraus gerechnet. */
 export async function sollwerte(): Promise<Soll[]> {
   const db = await getDb();
   const eigene = await db.select().from(schema.sollwerte);
-  return monatsplan("basis").map((p) => {
-    const e = eigene.find((x) => x.monat === p.monat);
-    return { monat: p.monat, umsatz: e?.umsatz ?? p.umsatz, auftraege: e?.auftraege ?? p.auftraege, vorgabe: { umsatz: p.umsatz, auftraege: p.auftraege }, geaendert: !!e };
-  });
+  const vorgabe = monatsplan("basis");
+  const stueck = vorgabe.map((p) => ({ ...p.stueck, ...(eigene.find((x) => x.monat === p.monat)?.bausteine ?? {}) }));
+  const umsatz = umsatzAus(stueck);
+  return vorgabe.map((p, i) => ({
+    monat: p.monat,
+    umsatz: umsatz[i].umsatz,
+    auftraege: web(stueck[i]),
+    stueck: stueck[i],
+    vorgabe: { umsatz: p.umsatz, auftraege: p.auftraege, stueck: p.stueck },
+    geaendert: !!eigene.find((x) => x.monat === p.monat)?.bausteine,
+  }));
 }
 
-export async function sollSpeichern(werte: { monat: string; umsatz: number; auftraege: number }[], wer: string): Promise<number> {
+export async function sollSpeichern(werte: { monat: string; stueck: Stueck }[], wer: string): Promise<number> {
   const db = await getDb();
   const vorgabe = monatsplan("basis");
   let n = 0;
   for (const w of werte) {
     if (!PLAN_MONATE.includes(w.monat)) throw new Error(`Monat ${w.monat} liegt nicht im Planzeitraum`);
-    if (!(w.umsatz >= 0 && w.umsatz < 1e10 && Number.isInteger(w.auftraege) && w.auftraege >= 0 && w.auftraege < 1000)) throw new Error(`Monat ${w.monat}: Werte ungültig`);
+    const st: Stueck = {};
+    for (const b of PLAN_BAUSTEINE) {
+      const v = w.stueck[b.key] ?? 0;
+      if (!(Number.isInteger(v) && v >= 0 && v < 1000)) throw new Error(`Monat ${w.monat}: ${b.name} ungültig`);
+      st[b.key] = v;
+    }
     const v = vorgabe.find((p) => p.monat === w.monat)!;
-    if (w.umsatz === v.umsatz && w.auftraege === v.auftraege) {
+    if (PLAN_BAUSTEINE.every((b) => st[b.key] === (v.stueck[b.key] ?? 0))) {
       await db.delete(schema.sollwerte).where(eq(schema.sollwerte.monat, w.monat));
       continue;
     }
-    await db.insert(schema.sollwerte).values({ ...w, geaendertVon: wer }).onConflictDoUpdate({ target: schema.sollwerte.monat, set: { umsatz: w.umsatz, auftraege: w.auftraege, geaendertVon: wer, geaendertAm: new Date() } });
+    const zeile = { umsatz: 0, auftraege: web(st), bausteine: st, geaendertVon: wer, geaendertAm: new Date() }; // umsatz wird beim Lesen gerechnet
+    await db.insert(schema.sollwerte).values({ monat: w.monat, ...zeile }).onConflictDoUpdate({ target: schema.sollwerte.monat, set: zeile });
     n++;
   }
-  await protokolliere(wer, `Soll-Umsätze gespeichert (${n} Monate abweichend vom Business Case)`);
+  await protokolliere(wer, `Soll gespeichert (${n} Monate abweichend vom Business Case)`);
   return n;
 }
 
-/** Soll gegen Ist für Monat, Quartal und Geschäftsjahr (Dezember bis November). */
+/** Soll gegen Ist für Monat, Quartal und Jahr (Geschäftsjahr = Kalenderjahr). */
 export async function sollIst(heute = new Date()) {
   const db = await getDb();
   const [soll, rechnungen, angebote] = await Promise.all([sollwerte(), db.select().from(schema.rechnungen), db.select().from(schema.angebote)]);
@@ -50,11 +66,10 @@ export async function sollIst(heute = new Date()) {
   const jetzt = monatVon(heute);
   const q = Math.floor(heute.getMonth() / 3);
   const quartal = [0, 1, 2].map((i) => monatVon(new Date(heute.getFullYear(), q * 3 + i, 1)));
-  const gjStart = heute.getMonth() === 11 ? heute.getFullYear() : heute.getFullYear() - 1;
-  const geschaeftsjahr = Array.from({ length: 12 }, (_, i) => monatVon(new Date(gjStart, 11 + i, 1)));
+  const geschaeftsjahr = Array.from({ length: 12 }, (_, i) => monatVon(new Date(heute.getFullYear(), i, 1))); // Geschäftsjahr = Kalenderjahr
   const bereich = (name: string, monate: string[]) => ({ name, soll: summe(monate), ist: ist(monate), imPlan: monate.some((m) => PLAN_MONATE.includes(m)) });
   return {
-    zeitraeume: [bereich("Dieser Monat", [jetzt]), bereich("Dieses Quartal", quartal), bereich(`Geschäftsjahr ${gjStart}/${String(gjStart + 1).slice(2)}`, geschaeftsjahr)],
+    zeitraeume: [bereich("Dieser Monat", [jetzt]), bereich("Dieses Quartal", quartal), bereich(`Jahr ${heute.getFullYear()}`, geschaeftsjahr)],
     naechste: soll.filter((s) => s.monat >= jetzt).slice(0, 6).map((s) => ({ ...s, ist: ist([s.monat]) })),
   };
 }

@@ -1,7 +1,7 @@
 import { desc, isNotNull } from "drizzle-orm";
 import { getDb, schema } from "./db";
 import { BUSINESS_CASE, PLAN_MONATE, SZENARIEN, monatsplan, type SzenarioKey } from "./plan";
-import { auswertung, zeitraum } from "./finanzen";
+import { auswertung, kostenplan, zeitraum } from "./finanzen";
 
 // Plan gegen Ist: Wo stehen wir im Vergleich zum Business Case?
 
@@ -16,7 +16,8 @@ export async function planIst(s: SzenarioKey, heute = new Date()) {
     db.select().from(schema.projekte).where(isNotNull(schema.projekte.liveAm)),
     db.select().from(schema.kontostaende).orderBy(desc(schema.kontostaende.monat)),
   ]);
-  const plan = monatsplan(s);
+  const fix = Object.values(await kostenplan()).reduce((x, v) => x + v, 0);
+  const plan = monatsplan(s, fix);
   const jetzt = monatVon(heute);
   const monate = plan.map((p) => {
     const vorbei = p.monat <= jetzt;
@@ -74,9 +75,9 @@ export async function planIst(s: SzenarioKey, heute = new Date()) {
       auftraegeIst: summe(bisHeute, "auftraege", true) + vorStart.auftraege,
     },
     jahr1: {
-      umsatzPlan: SZENARIEN[s].umsatzJahr[0],
+      umsatzPlan: summe(jahr1, "umsatz", false),
       umsatzIst: summe(jahr1, "umsatz", true) + vorStart.umsatz,
-      auftraegePlan: SZENARIEN[s].auftraegeJahr[0],
+      auftraegePlan: summe(jahr1, "auftraege", false),
       auftraegeIst: summe(jahr1, "auftraege", true) + vorStart.auftraege,
       ergebnisPlan: summe(jahr1, "ergebnis", false),
       ergebnisIst: summe(jahr1, "ergebnis", true),

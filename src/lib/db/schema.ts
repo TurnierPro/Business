@@ -480,6 +480,7 @@ export const sollwerte = pgTable("sollwerte", {
   monat: text("monat").primaryKey(), // JJJJ-MM
   umsatz: integer("umsatz").notNull(),
   auftraege: integer("auftraege").notNull(),
+  bausteine: jsonb("bausteine").$type<Record<string, number>>(), // Stück je Baustein; Umsatz wird daraus berechnet
   geaendertVon: text("geaendert_von").notNull(),
   geaendertAm: timestamp("geaendert_am", { withTimezone: true }).defaultNow().notNull(),
 });

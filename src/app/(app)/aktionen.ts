@@ -39,8 +39,10 @@ async function ausfuehren(ziel: string, ok: string, fn: (wer: string) => Promise
   }
   revalidatePath("/", "layout");
   ziel = internerPfad(ziel);
-  const trenner = ziel.includes("?") ? "&" : "?";
-  redirect(`${ziel}${trenner}${fehler ? `fehler=${encodeURIComponent(fehler)}` : `ok=${encodeURIComponent(ok)}`}`);
+  // Meldung vor einen Anker (#…) setzen, sonst kommt sie nicht an
+  const [pfad, anker] = ziel.split("#");
+  const trenner = pfad.includes("?") ? "&" : "?";
+  redirect(`${pfad}${trenner}${fehler ? `fehler=${encodeURIComponent(fehler)}` : `ok=${encodeURIComponent(ok)}`}${anker ? `#${anker}` : ""}`);
 }
 
 const zahl = (f: FormData, k: string) => Number(f.get(k));
@@ -232,10 +234,25 @@ export async function beispieleEntfernen() {
 export async function ausgabeSpeichern(f: FormData) {
   const id = f.get("id") ? Number(f.get("id")) : undefined;
   const { ausgabeSpeichern: speichern } = await import("@/lib/finanzen");
-  await ausfuehren("/finanzen", f.get("nurBeleg") === "ja" ? "Beleg hochgeladen. Der Beleg-Agent liest ihn aus, bitte danach prüfen." : "Ausgabe gespeichert", async (wer) => {
+  // „zurueck“ führt nach dem Speichern in den gleichen Zeitraum zurück (internerPfad prüft das Ziel in ausfuehren)
+  await ausfuehren(f.get("zurueck") ? String(f.get("zurueck")) : "/finanzen", f.get("nurBeleg") === "ja" ? "Beleg hochgeladen. Der Beleg-Agent liest ihn aus, bitte danach prüfen." : "Ausgabe gespeichert", async (wer) => {
     const neu = await speichern(f, wer, id);
     if (f.get("nurBeleg") === "ja") return { ziel: `/finanzen/ausgabe/${neu}` };
   });
+}
+
+/** Plan je Ausgaben-Kategorie (Euro im Monat) anpassen. */
+export async function kostenplanAnpassen(f: FormData) {
+  await ausfuehren(f.get("zurueck") ? String(f.get("zurueck")) : "/finanzen", "Plan je Kategorie gespeichert", async (wer) => {
+    const { KATEGORIEN, kostenplanSpeichern } = await import("@/lib/finanzen");
+    const werte: Record<string, number> = {};
+    for (const k of KATEGORIEN) {
+      const roh = text(f, `plan-${k.key}`);
+      if (roh === "") continue;
+      werte[k.key] = Math.round(Number(roh.replace(/\./g, "").replace(",", ".")) * 100);
+    }
+    await kostenplanSpeichern(werte, wer);
+  }, "verwalten");
 }
 
 export async function ausgabeLoeschen(f: FormData) {
@@ -588,7 +605,8 @@ export async function katalogZuruecksetzen(f: FormData) {
 export async function sollSpeichern(f: FormData) {
   await ausfuehren("/stammdaten/ziele", "Soll-Umsätze gespeichert", async (wer) => {
     const monate = f.getAll("monat").map(String);
-    const werte = monate.map((m) => ({ monat: m, umsatz: Math.round(Number(text(f, `umsatz-${m}`).replace(/\./g, "").replace(",", ".")) * 100), auftraege: Number(text(f, `auftraege-${m}`)) }));
+    const { PLAN_BAUSTEINE } = await import("@/lib/plan");
+    const werte = monate.map((m) => ({ monat: m, stueck: Object.fromEntries(PLAN_BAUSTEINE.map((b) => [b.key, Number(text(f, `${b.key}-${m}`) || 0)])) }));
     const n = await (await import("@/lib/soll")).sollSpeichern(werte, wer);
     return { ok: `Gespeichert. ${n} Monate weichen vom Business Case ab.` };
   }, "verwalten");

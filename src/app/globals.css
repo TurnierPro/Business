@@ -621,3 +621,22 @@ details.karte[open] > .aufklapp-titel { margin-bottom: 10px; }
 .kontaktzeile svg { flex: none; }
 .kontakt-allgemein { display: flex; gap: 24px; flex-wrap: wrap; margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--rand-weich); }
 .kontakt-allgemein .kontaktzeile { margin-top: 0; color: var(--text); }
+
+/* Finanzen: Blase „Ausgabe erfassen“ und Plan-Eingaben in der Kategorie-Tabelle */
+.blase { position: relative; }
+.blase > summary { list-style: none; }
+.blase > summary::-webkit-details-marker { display: none; }
+.blase[open] > summary { border-color: var(--text); }
+.blase-inhalt { position: absolute; right: 0; top: calc(100% + 8px); z-index: 20; width: min(560px, calc(100vw - 32px)); background: var(--flaeche); border: 1px solid var(--rahmen); border-radius: 12px; padding: 16px; }
+.blase-inhalt .raster.zwei { gap: 8px 12px; }
+.tabelle .planfeld { width: 110px; text-align: right; font-family: var(--mono, "IBM Plex Mono", monospace); padding: 4px 8px; min-height: 32px; }
+.tabelle.kategorien tfoot th { border-top: 1px solid var(--rahmen); padding-top: 8px; }
+.verbrauch { display: flex; align-items: center; gap: 10px; }
+.verbrauch .portal-balken { flex: 1; }
+@media (max-width: 700px) { .blase-inhalt { position: fixed; left: 16px; right: 16px; top: 80px; width: auto; max-height: calc(100vh - 100px); overflow: auto; } }
+.tabelle .planfeld.stueck { width: 64px; }
+.soll-tabelle tr.jahrwechsel td { border-top: 1px solid var(--rahmen); }
+.plan-tabelle tr.jetzt td { background: rgba(201,163,92,0.06); }
+.plan-tabelle tfoot th { border-top: 1px solid var(--rahmen); padding-top: 8px; }
+.plan-tabelle, .soll-tabelle { font-size: 14px; }
+.plan-tabelle th, .plan-tabelle td, .soll-tabelle td:first-child { white-space: nowrap; padding-left: 6px; padding-right: 6px; }

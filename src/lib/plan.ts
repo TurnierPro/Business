@@ -2,6 +2,9 @@
 // Feste Werte stehen im Business Case. Wo er nur Spannen nennt, ist die Verteilung eine Annahme (unten markiert).
 // Ändert sich der Business Case, nur hier anpassen.
 
+import { PAKETE } from "./pakete";
+import { MODULE } from "./katalog";
+
 export type SzenarioKey = "vorsichtig" | "basis" | "ambitioniert";
 
 export const PLAN_START = "2026-12";
@@ -61,28 +64,82 @@ function gehaelter(monat: string, s: SzenarioKey): number {
   return max + daniel;
 }
 
-export type PlanMonat = { monat: string; auftraege: number; umsatz: number; kosten: number; ergebnis: number; betreuungskunden: number };
+// Bausteine im Plan: zwei Webauftritte, drei Module. Preise kommen aus dem Baukasten (pakete.ts, katalog.ts).
+export const PLAN_BAUSTEINE = [
+  { key: "KOMPAKT", name: "Kompakt", einmalig: PAKETE.KOMPAKT.einmalig, monatlich: PAKETE.KOMPAKT.monatlich, web: true },
+  { key: "PROFESSIONAL", name: "Prof.", einmalig: PAKETE.PROFESSIONAL.einmalig, monatlich: PAKETE.PROFESSIONAL.monatlich, web: true },
+  ...MODULE.map((m) => ({ key: m.key, name: m.key === "kundenmanagement" ? "Kundenm." : m.name.split(" ")[0], einmalig: m.einmalig ?? 0, monatlich: m.monatlich, web: false })),
+] as const;
+export type Stueck = Record<string, number>;
 
-/** Monatsplan: Umsatz aus Aufträgen (50 % bei Auftrag, 50 % im Folgemonat) und Betreuung, auf die Jahresumsätze des Business Case skaliert. */
-export function monatsplan(s: SzenarioKey): PlanMonat[] {
+// [A] Annahmen je Szenario, bis Dok. 43 eigene Modulquoten liefert:
+// Anteil Professional an den Webauftritten und Modulquote je verkauftem Webauftritt.
+export const QUOTEN: Record<SzenarioKey, { PROFESSIONAL: number; personal: number; marketing: number; kundenmanagement: number }> = {
+  vorsichtig: { PROFESSIONAL: 0.3, personal: 0.1, marketing: 0.1, kundenmanagement: 0.05 },
+  basis: { PROFESSIONAL: 0.4, personal: 0.15, marketing: 0.15, kundenmanagement: 0.1 },
+  ambitioniert: { PROFESSIONAL: 0.5, personal: 0.2, marketing: 0.2, kundenmanagement: 0.15 },
+};
+// Bis April 2027 verkauft Daniel nur den Webauftritt (Beweisphase); Module ab Mai 2027 (Start Kundenmanagement-Pilot).
+export const MODULE_AB = "2027-05";
+const PILOT_KM = 2; // die ersten zwei Kundenmanagement-Betriebe zum Pilotpreis
+const LIVE_NACH = 2; // Monate vom Auftrag bis zum Livegang
+
+/** Stückzahlen je Monat und Baustein aus Aufträgen und Quoten (kumuliert gerundet, damit die Summen stimmen). */
+export function planStueck(s: SzenarioKey): Stueck[] {
   const a = AUFTRAEGE[s];
-  const bc = BUSINESS_CASE;
-  const roh = a.map((n, i) => {
-    const kunden = a.slice(0, Math.max(0, i - 1)).reduce((x, y) => x + y, 0); // live zwei Monate nach Auftrag
-    return { kunden, umsatz: (n * bc.oKaufpreis) / 2 + ((a[i - 1] ?? 0) * bc.oKaufpreis) / 2 + kunden * bc.oBetreuung };
+  const q = QUOTEN[s];
+  const kum = (i: number, quote: number, ab = "") => Math.round(a.slice(0, i + 1).reduce((x, n, j) => x + (PLAN_MONATE[j] >= ab ? n : 0), 0) * quote);
+  return a.map((n, i) => {
+    const anteil = (k: keyof typeof q, ab = "") => kum(i, q[k], ab) - (i ? kum(i - 1, q[k], ab) : 0);
+    const pro = anteil("PROFESSIONAL");
+    return { KOMPAKT: n - pro, PROFESSIONAL: pro, personal: anteil("personal", MODULE_AB), marketing: anteil("marketing", MODULE_AB), kundenmanagement: anteil("kundenmanagement", MODULE_AB) };
   });
-  const faktor = [0, 1].map((j) => SZENARIEN[s].umsatzJahr[j] / roh.slice(j * 12, j * 12 + 12).reduce((x, r) => x + r.umsatz, 0));
-  const variabel = bc.variabelJeProjekt * (1 - bc.anteilL) + bc.variabelL * bc.anteilL;
+}
+
+export type PlanUmsatz = { einmalig: number; beitraege: number; umsatz: number; vertraege: number };
+
+/** Umsatz aus Stückzahlen: einmalig 50 % bei Auftrag, 50 % beim Livegang (2 Monate später); Monatsbeitrag ab Livegang. */
+export function umsatzAus(stueck: Stueck[]): PlanUmsatz[] {
+  const kmPilot = MODULE.find((m) => m.key === "kundenmanagement")?.pilot?.einmalig;
+  let kmBisher = 0;
+  const einmalJeMonat = stueck.map((st) =>
+    PLAN_BAUSTEINE.reduce((x, b) => {
+      const n = st[b.key] ?? 0;
+      if (b.key === "kundenmanagement" && kmPilot) {
+        const pilot = Math.max(0, Math.min(n, PILOT_KM - kmBisher));
+        kmBisher += n;
+        return x + pilot * kmPilot + (n - pilot) * b.einmalig;
+      }
+      return x + n * b.einmalig;
+    }, 0),
+  );
+  return stueck.map((_, i) => {
+    const einmalig = Math.round(einmalJeMonat[i] / 2 + (einmalJeMonat[i - LIVE_NACH] ?? 0) / 2);
+    const live = stueck.slice(0, Math.max(0, i - LIVE_NACH + 1));
+    const beitraege = live.reduce((x, st) => x + PLAN_BAUSTEINE.reduce((y, b) => y + (st[b.key] ?? 0) * b.monatlich, 0), 0);
+    const vertraege = live.reduce((x, st) => x + (st.KOMPAKT ?? 0) + (st.PROFESSIONAL ?? 0), 0);
+    return { einmalig, beitraege, umsatz: einmalig + beitraege, vertraege };
+  });
+}
+
+export type PlanMonat = { monat: string; auftraege: number; stueck: Stueck; einmalig: number; beitraege: number; umsatz: number; kosten: number; ergebnis: number; betreuungskunden: number };
+
+/** Monatsplan je Szenario: Umsatz aus den Bausteinen, Kosten aus Fixkosten (Plan je Kategorie), Einmalkosten, Projektkosten und Gehältern. */
+export function monatsplan(s: SzenarioKey, fixkostenMonat: number = BUSINESS_CASE.fixkostenMonat): PlanMonat[] {
+  const stueck = planStueck(s);
+  const u = umsatzAus(stueck);
+  const variabel = BUSINESS_CASE.variabelJeProjekt;
   return PLAN_MONATE.map((monat, i) => {
-    const umsatz = Math.round(roh[i].umsatz * faktor[i < 12 ? 0 : 1]);
-    const kosten = bc.fixkostenMonat + (EINMAL[monat] ?? 0) + Math.round(a[i] * variabel) + gehaelter(monat, s);
-    return { monat, auftraege: a[i], umsatz, kosten, ergebnis: umsatz - kosten, betreuungskunden: roh[i].kunden };
+    const auftraege = (stueck[i].KOMPAKT ?? 0) + (stueck[i].PROFESSIONAL ?? 0);
+    const kosten = fixkostenMonat + (EINMAL[monat] ?? 0) + auftraege * variabel + gehaelter(monat, s);
+    return { monat, auftraege, stueck: stueck[i], einmalig: u[i].einmalig, beitraege: u[i].beitraege, umsatz: u[i].umsatz, kosten, ergebnis: u[i].umsatz - kosten, betreuungskunden: u[i].vertraege };
   });
 }
 
 export const ANNAHMEN = [
-  "Aufträge je Monat innerhalb der Spannen des Business Case verteilt; Jahressummen stimmen.",
-  "Umsatzverlauf: 50 % im Auftragsmonat, 50 % im Folgemonat, Betreuung ab dem zweiten Monat nach Auftrag; auf die Jahresumsätze des Business Case skaliert.",
-  "Kosten: Fixkosten 3.900 €, Einmalkosten Dez–Mär, 600 € je Projekt (700 € bei Entlastet), Gehälter (Arbeitgeberkosten) nach Szenario und Gehaltsregel.",
+  "[A] Webauftritte je Monat innerhalb der Spannen des Szenarios verteilt.",
+  "[A] Anteil Professional und Modulquoten je Szenario (siehe Tabelle oben), Module ab Mai 2027; die ersten zwei Kundenmanagement-Betriebe zum Pilotpreis.",
+  "Umsatz: einmalig 50 % bei Auftrag, 50 % beim Livegang zwei Monate später; Monatsbeiträge ab Livegang, laufend über 24 Monate.",
+  "Kosten: Plan je Kategorie aus den Finanzen, Einmalkosten Dez–Mär, 600 € je Webauftritt, Gehälter (Arbeitgeberkosten) nach Szenario.",
   "Steuern (31,5 %), Kredit, Kontokorrent und Umsatzsteuer sind nicht im Monatsergebnis, sondern in der Gehaltsregel berücksichtigt.",
 ];
