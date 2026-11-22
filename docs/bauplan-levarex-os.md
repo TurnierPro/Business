@@ -4,15 +4,15 @@ Stand 21.11.2026 · zur Freigabe durch Maximilian Steiner und Daniel Lück
 
 ## 1. Ausgangslage
 
-Maximilian hat am 21.11.2026 entschieden. **Wirksam wird das erst mit Zustimmung von Daniel** (Gesellschafter-Festlegung, 50/50).
+Maximilian hat am 21.11.2026 entschieden. Daniel hat am 22.11.2026 zugestimmt (laut Maximilian); damit sind die Festlegungen wirksam (Gesellschafter-Festlegung, 50/50).
 
 | Entscheidung | Wirkung | Zustimmung Daniel |
 |---|---|---|
-| Das CRM wird dieser Code (bisher „Nexova OS“), umbenannt auf **Levarex OS**. | Hebt die Festlegung „eigenes Levarex OS entfällt, Code nicht weiterverwenden“ auf. | offen |
-| **Website und Kundenportal werden getrennt.** Auf der Website steht nur ein Link „Kundenportal“. | Das Portal läuft in Levarex OS. **Portal und Admin-Center aus den Lovable-Etappen 1–11f werden damit aufgegeben**, ebenso die Arbeit daran und die offenen Abnahmen dort. | offen |
-| **Kunden lesen im Portal Unterlagen und sehen den Stand**, ohne Zugriff auf das CRM. | Das Portal ist ein Lese-Zugang. Ausnahmen klären F1 und F2. | offen |
-| **n8n läuft bei Hostinger** und greift über die Schnittstelle zu. | Hebt die Festlegung „n8n entfällt“ auf. n8n legt nur Entwürfe an und versendet nie selbst. | offen |
-| Erst Bauplan, dann bauen. | Dieses Dokument. | offen |
+| Das CRM wird dieser Code (bisher „Nexova OS“), umbenannt auf **Levarex OS**. | Hebt die Festlegung „eigenes Levarex OS entfällt, Code nicht weiterverwenden“ auf. | zugestimmt 22.11.2026 |
+| **Website und Kundenportal werden getrennt.** Auf der Website steht nur ein Link „Kundenportal“. | Das Portal läuft in Levarex OS. **Portal und Admin-Center aus den Lovable-Etappen 1–11f werden damit aufgegeben**, ebenso die Arbeit daran und die offenen Abnahmen dort. | zugestimmt 22.11.2026 |
+| **Kunden lesen im Portal Unterlagen und sehen den Stand**, ohne Zugriff auf das CRM. | Das Portal ist ein Lese-Zugang. Ausnahmen klären F1 und F2. | zugestimmt 22.11.2026 |
+| **n8n läuft bei Hostinger** und greift über die Schnittstelle zu. | Hebt die Festlegung „n8n entfällt“ auf. n8n legt nur Entwürfe an und versendet nie selbst. | zugestimmt 22.11.2026 |
+| Erst Bauplan, dann bauen. | Dieses Dokument. | zugestimmt 22.11.2026 |
 
 **Dokumente, die nach eurer Zustimmung nachgezogen werden.** Das macht die Teamleitung, Freigabe durch die Gründer:
 
