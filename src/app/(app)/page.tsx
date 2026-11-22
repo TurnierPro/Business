@@ -43,11 +43,15 @@ export default async function ZuTun() {
     db.select().from(schema.datenpannen).where(isNull(schema.datenpannen.abgeschlossenAm)),
     db.select().from(schema.betroffenenanfragen).where(isNull(schema.betroffenenanfragen.erledigtAm)),
     stand(),
-    offeneAufgaben({ wer: b.name, bis: inTagen(1, "00:00") }),
+    offeneAufgaben({ wer: b.name, bis: inTagen(8, "00:00") }),
     db.select({ n: sql<number>`count(*)::int` }).from(schema.betriebe),
     db.select({ n: sql<number>`count(*)::int` }).from(schema.jobs).where(and(eq(schema.jobs.art, "beispieldaten"), inArray(schema.jobs.status, ["wartet", "laeuft"]))),
   ]);
   const unbekannt = await unbekannteNachrichten();
+  // „Mein Tag“: heute und überfällig; die nächsten 7 Tage kompakt darunter
+  const morgenFrueh = inTagen(1, "00:00");
+  const heuteFaellig = meineAufgaben.filter((x) => x.a.faelligAm && x.a.faelligAm < morgenFrueh);
+  const demnaechst = meineAufgaben.filter((x) => x.a.faelligAm && x.a.faelligAm >= morgenFrueh);
   const [ich] = await db.select({ totpAktiv: schema.benutzer.totpAktiv }).from(schema.benutzer).where(eq(schema.benutzer.id, b.id));
   const betriebIds = [...new Set(freigaben.map((f) => f.betriebId).filter((x): x is number => !!x))];
   const namen = new Map((betriebIds.length ? await db.select({ id: schema.betriebe.id, name: schema.betriebe.name }).from(schema.betriebe).where(inArray(schema.betriebe.id, betriebIds)) : []).map((x) => [x.id, x.name]));
@@ -98,7 +102,7 @@ export default async function ZuTun() {
       {!nichts ? (
         <div className="auf-einen-blick" style={{ marginBottom: 16 }} aria-label="Überblick">
           {[
-            { id: "aufgaben", etikett: "Mein Tag", n: meineAufgaben.length, unter: "Aufgaben heute" },
+            { id: "aufgaben", etikett: "Mein Tag", n: heuteFaellig.length, unter: "Aufgaben heute" },
             { id: "aufgaben", etikett: "Besuche", n: besuche.length, unter: "fällig" },
             { id: "freigeben", etikett: "Freigeben", n: freigaben.length, unter: "wartet auf dein OK" },
             { id: "einstufen", etikett: "Einstufen", n: neueLeads.length, unter: "neue Leads" },
@@ -117,11 +121,20 @@ export default async function ZuTun() {
 
       <section className="karte mein-tag" id="aufgaben" aria-labelledby="meintag">
         <div className="kopfzeile" style={{ marginBottom: 4 }}>
-          <h2 id="meintag" style={{ margin: 0 }}>Mein Tag <span className="anzahl-pille">{meineAufgaben.length + besuche.length}</span></h2>
+          <h2 id="meintag" style={{ margin: 0 }}>Mein Tag <span className="anzahl-pille">{heuteFaellig.length + besuche.length + (freigaben.length ? 1 : 0) + (neueLeads.length ? 1 : 0) + (tickets.length ? 1 : 0) + (unbekannt.length ? 1 : 0)}</span></h2>
           <Link className="knopf klein" href="/aufgaben">Alle Aufgaben</Link>
         </div>
-        <p className="leise klein" style={{ marginBottom: 8 }}>Heute fällig: Aufgaben, Rückrufe und Besuche vor Ort. Abhaken, wenn erledigt; „Morgen“ schiebt um einen Tag.</p>
-        {meineAufgaben.length ? <AufgabenListe eintraege={meineAufgaben} zurueck="/" /> : <p className="leise">Heute keine Aufgaben.</p>}
+        <p className="leise klein" style={{ marginBottom: 8 }}>Alles, was heute auf dich wartet. Abhaken, wenn erledigt; „Morgen“ schiebt um einen Tag.</p>
+        {heuteFaellig.length ? <AufgabenListe eintraege={heuteFaellig} zurueck="/" /> : null}
+        {freigaben.length || neueLeads.length || tickets.length || unbekannt.length ? (
+          <ul className="zeilen tag-sammel">
+            {freigaben.length ? <li><div><div className="titel">{freigaben.length} {freigaben.length === 1 ? "Sache wartet" : "Sachen warten"} auf deine Freigabe</div><div className="unter">{[...new Set(freigaben.map((f) => gruppenName(gruppeVon(f.zweck))))].join(", ")}</div></div><a className="knopf klein" href="#freigeben">Freigeben</a></li> : null}
+            {neueLeads.length ? <li><div><div className="titel">{neueLeads.length} neue {neueLeads.length === 1 ? "Lead einstufen" : "Leads einstufen"}</div><div className="unter">interessant oder nicht?</div></div><a className="knopf klein" href="#einstufen">Einstufen</a></li> : null}
+            {tickets.length ? <li><div><div className="titel">{tickets.length} {tickets.length === 1 ? "Ticket" : "Tickets"} von Kunden offen</div><div className="unter">{tickets.slice(0, 2).map(({ name }) => name).join(", ")}{tickets.length > 2 ? " …" : ""}</div></div><a className="knopf klein" href="#tickets">Ansehen</a></li> : null}
+            {unbekannt.length ? <li><div><div className="titel">{unbekannt.length} {unbekannt.length === 1 ? "Nachricht" : "Nachrichten"} ohne Betrieb</div><div className="unter">Absender zuordnen</div></div><a className="knopf klein" href="#unbekannt">Zuordnen</a></li> : null}
+          </ul>
+        ) : null}
+        {!heuteFaellig.length && !besuche.length && !freigaben.length && !neueLeads.length && !tickets.length && !unbekannt.length ? <p className="leise">Heute steht nichts an.</p> : null}
         {besuche.length ? (
           <>
             <h3 style={{ margin: "16px 0 4px" }}>Besuche fällig</h3>
@@ -129,6 +142,12 @@ export default async function ZuTun() {
               {besuche.map((l) => <li key={l.id}><div style={{ flex: 1 }}><div className="titel">{l.name}</div><div className="unter">{l.strasse}, {l.plz} {l.ort}</div></div><Link className="knopf klein" href={`/leads/${l.id}?tab=aktivitaeten&erfassen=besuch`}>Besuch erfassen</Link></li>)}
             </ul>
           </>
+        ) : null}
+        {demnaechst.length ? (
+          <details className="demnaechst">
+            <summary className="klein">Nächste 7 Tage: {demnaechst.length} {demnaechst.length === 1 ? "Aufgabe" : "Aufgaben"}</summary>
+            <AufgabenListe eintraege={demnaechst} zurueck="/" />
+          </details>
         ) : null}
       </section>
 
@@ -170,7 +189,7 @@ export default async function ZuTun() {
 
 
       {unbekannt.length ? (
-        <Block titel="Nachrichten ohne Betrieb" zahl={unbekannt.length} erklaerung="Absender nicht erkannt (unbekannte Mail-Adresse oder Nummer). Betrieb wählen, dann entstehen Aufgabe und Antwortentwurf. Ohne Zuordnung werden sie nach 90 Tagen gelöscht.">
+        <Block id="unbekannt" titel="Nachrichten ohne Betrieb" zahl={unbekannt.length} erklaerung="Absender nicht erkannt (unbekannte Mail-Adresse oder Nummer). Betrieb wählen, dann entstehen Aufgabe und Antwortentwurf. Ohne Zuordnung werden sie nach 90 Tagen gelöscht.">
           <ul className="liste">
             {unbekannt.slice(0, 5).map((n) => (
               <li key={n.id} style={{ flexWrap: "wrap" }}>

@@ -733,3 +733,9 @@ fieldset { min-width: 0; }
 .pipeline .karte-klein { padding: 8px 10px; }
 .pipeline .karte-klein .stufe-waehlen { height: 32px !important; font-size: 13px; margin-top: 6px; }
 .pipeline { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: minmax(200px, 1fr); }
+/* Mein Tag: gesammelte Punkte (Freigaben, Leads, Tickets) und Ausblick */
+.tag-sammel { margin-top: 4px; border-top: 1px solid var(--linie); }
+.tag-sammel > li { padding: 10px 0 10px 40px; position: relative; }
+.tag-sammel > li::before { content: ""; position: absolute; left: 4px; top: 14px; width: 18px; height: 18px; border-radius: 50%; border: 1.5px dashed var(--rahmen); }
+.demnaechst { margin-top: 8px; border-top: 1px solid var(--linie); padding-top: 8px; }
+.demnaechst > summary { cursor: pointer; color: var(--leise); }

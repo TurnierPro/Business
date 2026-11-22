@@ -924,7 +924,8 @@ test("Vertrieb: Messbogen, Gate der Beweisphase, Besuchsplan nach Ort, Nachfasse
   const plan = await v.besuchsplan();
   assert.ok(plan.find((g) => g.ort === "76297 Stutensee")?.betriebe.length === 2, JSON.stringify(plan.map((g) => g.ort)));
   const am = new Date("2027-01-05T10:00:00+01:00");
-  await assert.rejects(() => v.besuchErfassen({ betriebId: a1.id!, am, inhaberAngetroffen: true, ergebnis: "unterschrift", art14Info: true, paket: "KOMPAKT" }, "Daniel Lück"), /Variante/);
+  // Unterschrift ohne Inhaber geht nicht; die Variante ist optional (ohne Angabe: vor Ort)
+  await assert.rejects(() => v.besuchErfassen({ betriebId: a1.id!, am, inhaberAngetroffen: false, ergebnis: "unterschrift", art14Info: true }, "Daniel Lück"), /Inhaber/);
   await v.besuchErfassen({ betriebId: a1.id!, am, inhaberAngetroffen: true, ergebnis: "unterschrift", variante: "B", paket: "KOMPAKT", art14Info: true, dauerMin: 25 }, "Daniel Lück");
   await v.besuchErfassen({ betriebId: a2.id!, am, inhaberAngetroffen: true, ergebnis: "ueberlegt", einwand: "Muss ich mit dem Büro besprechen", einwilligungKontakt: "keine", art14Info: false }, "Daniel Lück");
   const s = await v.auswertung();

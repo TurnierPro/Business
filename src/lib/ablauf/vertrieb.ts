@@ -10,14 +10,14 @@ import { istGesperrt } from "./postausgang";
 export const BEWEISPHASE = { von: new Date("2027-01-04T00:00:00+01:00"), bis: new Date("2027-01-29T23:59:59+01:00"), zielBesuche: 100, zwischenNach: 50 };
 
 export const ERGEBNISSE: Record<string, string> = {
-  unterschrift: "Unterschrift",
-  folgetermin: "Folgetermin vereinbart",
+  unterschrift: "Hat unterschrieben",
+  folgetermin: "Neuer Termin ausgemacht",
   ueberlegt: "Überlegt es sich",
   kein_interesse: "Kein Interesse",
-  nicht_angetroffen: "Inhaber nicht angetroffen",
+  nicht_angetroffen: "Inhaber nicht da",
 };
 
-export const KONTAKT: Record<string, string> = { keine: "keine Einwilligung", mail: "E-Mail ausdrücklich gewünscht", telefon: "Anruf ausdrücklich gewünscht", brief: "Brief" };
+export const KONTAKT: Record<string, string> = { keine: "Nein, nur per Brief oder Besuch", mail: "Ja, per E-Mail (hat er ausdrücklich gesagt)", telefon: "Ja, per Telefon (hat er ausdrücklich gesagt)", brief: "Nur per Brief" };
 
 /** Gate am Ende der Beweisphase (sichere Unterschriften). Wirkt nicht auf das Gehalt, das regelt allein die Gehaltsregel. */
 export function gateStufe(sicher: number): { stufe: string; empfehlung: string } {
@@ -52,7 +52,7 @@ export async function besuchErfassen(m: Messbogen, wer: string): Promise<number>
   if (!ERGEBNISSE[m.ergebnis]) throw new Error("Bitte ein Ergebnis wählen.");
   if (m.ergebnis === "nicht_angetroffen") m = { ...m, inhaberAngetroffen: false };
   if (m.ergebnis === "unterschrift" && !m.inhaberAngetroffen) throw new Error("Unterschrift nur vom Inhaber oder einer vertretungsberechtigten Person.");
-  if (m.ergebnis === "unterschrift" && !["A", "B"].includes(m.variante ?? "")) throw new Error("Bei Unterschrift die Variante (A oder B) angeben.");
+  if (m.ergebnis === "unterschrift" && !["A", "B"].includes(m.variante ?? "")) m = { ...m, variante: "A" }; // ohne Angabe: vor Ort unterschrieben
   if (m.ergebnis === "unterschrift" && !["KOMPAKT", "PROFESSIONAL"].includes(m.paket ?? "")) throw new Error("Bei Unterschrift das Paket angeben.");
   if (m.einwilligungKontakt && !KONTAKT[m.einwilligungKontakt]) throw new Error("Einwilligung ungültig.");
   if (await istGesperrt(m.betriebId)) throw new Error("Betrieb steht auf der Sperrliste.");

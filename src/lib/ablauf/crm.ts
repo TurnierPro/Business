@@ -63,6 +63,10 @@ export async function aktivitaetAnlegen(a: NeueAktivitaet, wer: string): Promise
       erstelltVon: wer,
     })
     .returning({ id: schema.aktivitaeten.id });
+  // Notiz oder Anruf mit Datum: zusätzlich eine Erinnerung für diesen Tag (erscheint in „Mein Tag“)
+  if ((a.art === "notiz" || a.art === "anruf") && a.faelligAm && !a.erledigt) {
+    await db.insert(schema.aktivitaeten).values({ betriebId: a.betriebId ?? null, projektId: a.projektId ?? null, ticketId: a.ticketId ?? null, art: "aufgabe", titel: `Nachfassen: ${a.titel.trim()}`, text: a.text?.trim() || null, faelligAm: a.faelligAm, zustaendig: a.zustaendig || wer, erstelltVon: wer });
+  }
   // Jede Aktivität hält den Lead „warm“ (Pipeline zeigt liegengebliebene Chancen)
   if (a.betriebId) await db.update(schema.betriebe).set({ letzteAktivitaet: new Date() }).where(eq(schema.betriebe.id, a.betriebId));
   return neu.id;

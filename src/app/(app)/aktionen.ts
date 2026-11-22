@@ -670,14 +670,15 @@ export async function portalLinkErneuern(f: FormData) {
   });
 }
 
-// ---------- Vertrieb: Messbogen nach dem Besuch ----------
+// ---------- Vertrieb: Besuchsbericht nach dem Besuch ----------
 
 export async function besuchErfassen(f: FormData) {
   await ausfuehren(text(f, "zurueck") || "/leads", "Besuch gespeichert", async (wer) => {
     await (await import("@/lib/ablauf/vertrieb")).besuchErfassen(
       {
         betriebId: zahl(f, "betriebId"),
-        inhaberAngetroffen: f.get("angetroffen") === "ja",
+        // Angetroffen ergibt sich aus dem Ergebnis (nur „Inhaber nicht da“ heißt nein); altes Häkchen gilt weiter
+        inhaberAngetroffen: f.get("angetroffen") === "ja" || (f.get("angetroffen") === null && text(f, "ergebnis") !== "nicht_angetroffen"),
         dauerMin: zahl(f, "dauer") || null,
         einwand: text(f, "einwand"),
         paket: text(f, "paket"),
@@ -690,6 +691,12 @@ export async function besuchErfassen(f: FormData) {
       },
       wer,
     );
+    // Wiedervorlage: Erinnerung in „Mein Tag“
+    const wv = datumAus(f, "wiedervorlage");
+    if (wv) {
+      const crm = await import("@/lib/ablauf/crm");
+      await crm.aktivitaetAnlegen({ betriebId: zahl(f, "betriebId"), art: "aufgabe", titel: "Nachfassen nach Besuch", text: text(f, "einwand"), faelligAm: wv }, wer);
+    }
   });
 }
 

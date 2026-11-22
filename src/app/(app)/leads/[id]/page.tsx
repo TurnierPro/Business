@@ -10,6 +10,7 @@ import { PAKETE, PaketKey, euro } from "@/lib/pakete";
 import { istEcht } from "@/lib/adapters/dienste";
 import { basisUrl } from "@/lib/ablauf/gemeinsam";
 import { portalBasis } from "@/lib/kundenportal";
+import { BesuchBerichtFelder } from "@/components/BesuchBericht";
 import { besuchErfassen, aktivitaetAnlegen, antwortEntwerfen, nachrichtErledigt, portalLinkErneuern, portalZugangAnlegen, portalZugangSperren, betriebSpeichern, betriebZuweisen, datenLoeschen, einstufen, kontaktLoeschen, kontaktSpeichern, terminHochladen, widerspruch, zahlungSimulieren } from "../../aktionen";
 import { AufgabenListe } from "@/components/AufgabenListe";
 import { ARTEN } from "@/lib/ablauf/crm";
@@ -45,7 +46,7 @@ export default async function Lead({ params, searchParams }: { params: Promise<{
   ]);
   const offeneAufgaben = aktivitaeten.filter((a) => !a.erledigtAm && a.faelligAm).sort((x, y) => x.faelligAm!.getTime() - y.faelligAm!.getTime());
   const chronik = aktivitaeten.filter((a) => a.erledigtAm || !a.faelligAm);
-  const morgen = new Date(Date.now() + 864e5).toISOString().slice(0, 10);
+  const heuteIso = new Date().toLocaleDateString("sv-SE", { timeZone: "Europe/Berlin" }); // JJJJ-MM-TT
   const [doks, post, termine, angebote, projekte, demos, laufend, verlauf] = await Promise.all([
     db.select().from(schema.dokumente).where(eq(schema.dokumente.betriebId, id)).orderBy(desc(schema.dokumente.erstelltAm)),
     db.select().from(schema.postausgang).where(eq(schema.postausgang.betriebId, id)).orderBy(desc(schema.postausgang.erstelltAm)),
@@ -92,7 +93,7 @@ export default async function Lead({ params, searchParams }: { params: Promise<{
                 : angebot && ["entwurf", "versendet"].includes(angebot.status)
                   ? { was: "Verträge auf dem Tablet unterschreiben", unter: `Angebot ${PAKETE[angebot.paket as PaketKey]?.name ?? angebot.paket} ${angebot.status === "versendet" ? "ist beim Kunden" : "ist erstellt"}. Beim Termin: Rahmenvertrag und je Baustein ein Leistungsschein.`, knopf: <Link className="knopf haupt" href={`/unterschrift/${angebot.id}`}>Unterschreiben lassen</Link> }
                   : b.status === "angeschrieben"
-                    ? { was: `Besuch vor Ort ab ${datum(b.besuchAb)}`, unter: "Demo zeigen, nach dem Gespräch den Messbogen ausfüllen oder die Aufnahme hochladen.", knopf: <Link className="knopf haupt" href={`/leads/${id}?tab=aktivitaeten&erfassen=besuch`}>Besuch erfassen</Link> }
+                    ? { was: `Besuch vor Ort ab ${datum(b.besuchAb)}`, unter: "Demo zeigen, nach dem Gespräch kurz den Besuchsbericht ausfüllen oder das Gespräch aufnehmen.", knopf: <Link className="knopf haupt" href={`/leads/${id}?tab=aktivitaeten&erfassen=besuch`}>Besuch erfassen</Link> }
                     : ["interessant", "termin"].includes(b.status)
                       ? { was: "Angebot erstellen", unter: "Webauftritt und Module gemeinsam auswählen; der Preis rechnet sofort mit.", knopf: <Link className="knopf haupt" href={`/leads/${id}/angebot`}>Angebot erstellen</Link> }
                       : { was: "Kein nächster Schritt geplant", unter: "Unter „Aktivitäten“ eine Aufgabe anlegen." };
@@ -300,27 +301,11 @@ export default async function Lead({ params, searchParams }: { params: Promise<{
               </nav>
               {erfassen === "besuch" ? (
                 <>
-                  <p className="leise klein" style={{ marginTop: 0 }}>Nach dem Besuch ausfüllen. Er erscheint danach im Verlauf.</p>
+                  <p className="leise klein" style={{ marginTop: 0 }}>Kurz nach dem Besuch ausfüllen. Er erscheint danach im Verlauf.</p>
                   <form action={besuchErfassen} className="messbogen" style={{ maxWidth: "none" }}>
                   <input type="hidden" name="betriebId" value={id} />
                   <input type="hidden" name="zurueck" value={`/leads/${id}?tab=aktivitaeten`} />
-                  <fieldset>
-                    <legend>Ergebnis</legend>
-                    <div className="raster zwei" style={{ gap: 6 }}>{Object.entries(ERGEBNISSE).map(([k, n]) => <label key={k} className="haken"><input type="radio" name="ergebnis" value={k} required /><span>{n}</span></label>)}</div>
-                  </fieldset>
-                  <label className="haken"><input type="checkbox" name="angetroffen" value="ja" /><span>Inhaber angetroffen</span></label>
-                  <div className="raster" style={{ gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 12 }}>
-                    <label className="feld"><span>Dauer (Min.)</span><input name="dauer" type="number" inputMode="numeric" min={0} max={240} /></label>
-                    <label className="feld"><span>Paket</span><select name="paket" defaultValue=""><option value="">keins</option><option value="KOMPAKT">Kompakt</option><option value="PROFESSIONAL">Professional</option></select></label>
-                    <label className="feld"><span>Variante</span><select name="variante" defaultValue=""><option value="">keine</option><option value="A">A · vor Ort</option><option value="B">B · Rücktrittsrecht</option></select></label>
-                  </div>
-                  <label className="feld"><span>Einwand wörtlich</span><input name="einwand" placeholder="z. B. Muss ich mit dem Büro besprechen" /></label>
-                  <div className="raster zwei" style={{ gap: 12 }}>
-                    <label className="feld"><span>Weiterer Kontakt</span><select name="kontakt" defaultValue="keine">{Object.entries(KONTAKT).map(([k, n]) => <option key={k} value={k}>{n}</option>)}</select></label>
-                    <label className="feld"><span>Reaktion auf den Preis <em>optional</em></span><input name="preistest" placeholder="z. B. „passt“, „zu teuer“" /></label>
-                  </div>
-                  <label className="haken"><input type="checkbox" name="art14" value="ja" /><span>Art.-14-Infoblatt dagelassen</span></label>
-                  <button className="knopf">Messbogen speichern</button>
+                  <BesuchBerichtFelder />
                 </form>
                 </>
               ) : erfassen === "gespraech" ? (
@@ -341,14 +326,15 @@ export default async function Lead({ params, searchParams }: { params: Promise<{
                 <input type="hidden" name="betriebId" value={id} />
                 <input type="hidden" name="zurueck" value={`/leads/${id}?tab=aktivitaeten`} />
                 <div className="raster" style={{ gridTemplateColumns: "minmax(0, 0.8fr) minmax(0, 1.6fr)", gap: 12 }}>
-                  <label className="feld"><span>Art</span><select name="art" defaultValue="anruf">{Object.entries(ARTEN).map(([k, n]) => <option key={k} value={k}>{n}</option>)}</select></label>
-                  <label className="feld"><span>Kurz</span><input name="titel" placeholder="z. B. Rückruf wegen Fotos" /></label>
+                  <label className="feld"><span>Was?</span><select name="art" defaultValue="aufgabe"><option value="aufgabe">Aufgabe (zu erledigen)</option><option value="termin">Termin</option><option value="anruf">Anruf (war schon)</option><option value="notiz">Notiz (nur festhalten)</option></select></label>
+                  <label className="feld"><span>Kurz</span><input name="titel" required placeholder="z. B. Fotos beim Kunden abholen" /></label>
                 </div>
-                <label className="feld"><span>Notiz</span><textarea name="text" rows={3} placeholder="Was wurde besprochen?" style={{ minHeight: 90 }} /></label>
+                <label className="feld"><span>Details <em>optional</em></span><textarea name="text" rows={3} placeholder="Was wurde besprochen? Was ist zu tun?" style={{ minHeight: 80 }} /></label>
                 <div className="raster zwei" style={{ gap: 12 }}>
-                  <label className="feld"><span>Datum <em>bei Aufgabe oder Termin</em></span><input type="date" name="faellig" defaultValue={morgen} /></label>
-                  <label className="feld"><span>Für</span><select name="zustaendig" defaultValue={b.zustaendig ?? ""}><option value="">mich</option>{benutzer.map((x) => <option key={x.name}>{x.name}</option>)}</select></label>
+                  <label className="feld"><span>Fällig am <em>dann in „Mein Tag“</em></span><input type="date" name="faellig" defaultValue={heuteIso} /></label>
+                  <label className="feld"><span>Wer kümmert sich?</span><select name="zustaendig" defaultValue=""><option value="">ich</option>{benutzer.map((x) => <option key={x.name}>{x.name}</option>)}</select></label>
                 </div>
+                <p className="leise klein" style={{ margin: "0 0 12px" }}>Aufgaben und Termine erscheinen am Fälligkeitstag in „Mein Tag“. Anruf und Notiz stehen nur im Verlauf, außer du setzt ein Datum: dann kommt eine Erinnerung.</p>
                 <button className="knopf">Eintragen</button>
               </form>
               )}
