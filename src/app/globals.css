@@ -754,3 +754,12 @@ fieldset { min-width: 0; }
 .schrittleiste .nr, .schritt-titel .nr { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; border: 1px solid var(--rahmen); font-family: var(--mono); font-size: 12px; }
 .schritt { margin-bottom: 28px; scroll-margin-top: 16px; }
 .schritt-titel { display: flex; align-items: center; gap: 10px; margin: 0 0 12px; }
+.filter-karte { background: var(--flaeche); border: 1px solid var(--rand-weich, var(--linie)); border-radius: 14px; padding: 10px 12px; }
+.filter-karte input:not([type=hidden]) { flex: 1 1 200px; max-width: 280px; }
+/* Protokoll: Tage zum Auf- und Zuklappen */
+.tag-block > summary { list-style: none; cursor: pointer; display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.tag-block > summary::-webkit-details-marker { display: none; }
+.tag-block > summary .gruppe-titel::before { content: "▸ "; }
+.tag-block[open] > summary .gruppe-titel::before { content: "▾ "; }
+.tag-block[open] > summary { margin-bottom: 8px; }
+.protokoll-tabelle td.wer { white-space: normal; overflow-wrap: anywhere; }

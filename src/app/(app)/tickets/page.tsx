@@ -10,11 +10,18 @@ import { ticketAnlegen } from "../aktionen";
 
 export const metadata = { title: "Tickets" };
 
-export default async function Tickets({ searchParams }: { searchParams: Promise<{ status?: string; betrieb?: string }> }) {
-  const { status = "offen", betrieb } = await searchParams;
+export default async function Tickets({ searchParams }: { searchParams: Promise<{ status?: string; betrieb?: string; kunde?: string; art?: string; prio?: string; q?: string }> }) {
+  const { status = "offen", betrieb, kunde = "", art = "", prio = "", q = "" } = await searchParams;
   const db = await getDb();
   const alle = await db.select({ t: schema.tickets, name: schema.betriebe.name }).from(schema.tickets).innerJoin(schema.betriebe, eq(schema.tickets.betriebId, schema.betriebe.id)).orderBy(desc(schema.tickets.erstelltAm));
-  const liste = alle.filter(({ t }) => (status === "alle" ? true : status === "offen" ? t.status !== "erledigt" : t.status === status));
+  const suchwort = q.trim().toLowerCase();
+  const liste = alle.filter(({ t, name }) =>
+    (status === "alle" ? true : status === "offen" ? t.status !== "erledigt" : t.status === status) &&
+    (!kunde || String(t.betriebId) === kunde) &&
+    (!art || t.kategorie === art) &&
+    (!prio || t.prioritaet === prio) &&
+    (!suchwort || `${t.betreff} ${t.beschreibung} ${name}`.toLowerCase().includes(suchwort)));
+  const filterAktiv = !!(kunde || art || prio || q);
   const kunden = await db.select({ id: schema.betriebe.id, name: schema.betriebe.name }).from(schema.betriebe).where(eq(schema.betriebe.status, "kunde")).orderBy(asc(schema.betriebe.name));
   // Änderungskontingent je Kunde im laufenden Monat (Betreuungszeit gegen die Minuten aus dem Paket)
   const monatsStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
@@ -37,6 +44,15 @@ export default async function Tickets({ searchParams }: { searchParams: Promise<
       <nav className="reiter" aria-label="Filter">
         {reiter.map(([k, n]) => <Link key={k} href={`/tickets?status=${k}`} aria-current={status === k ? "page" : undefined}>{n} <span className="mono leise">{alle.filter(({ t }) => (k === "alle" ? true : k === "offen" ? t.status !== "erledigt" : t.status === k)).length}</span></Link>)}
       </nav>
+      <form method="get" role="search" className="filterleiste filter-karte" aria-label="Tickets filtern">
+        <input type="hidden" name="status" value={status} />
+        <input name="q" defaultValue={q} placeholder="Suchen: Betreff, Text, Kunde" aria-label="Suchen" />
+        <select name="kunde" defaultValue={kunde} aria-label="Kunde"><option value="">Alle Kunden</option>{[...new Map(alle.map(({ t, name }) => [t.betriebId, name])).entries()].map(([id, n]) => <option key={id} value={id}>{n}</option>)}</select>
+        <select name="art" defaultValue={art} aria-label="Art"><option value="">Jede Art</option>{Object.entries(KATEGORIEN).map(([k, n]) => <option key={k} value={k}>{n}</option>)}</select>
+        <select name="prio" defaultValue={prio} aria-label="Priorität"><option value="">Jede Priorität</option><option value="normal">normal</option><option value="hoch">hoch</option><option value="dringend">dringend</option></select>
+        <button className="knopf klein">Filtern</button>
+        {filterAktiv ? <Link className="klein" href={`/tickets?status=${status}`}>Filter zurücksetzen</Link> : null}
+      </form>
       <div className="akte-raster" style={{ gridTemplateColumns: "minmax(0, 1.5fr) minmax(0, 1fr)" }}>
         <div>
           {liste.length ? (

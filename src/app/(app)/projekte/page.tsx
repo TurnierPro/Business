@@ -21,8 +21,8 @@ function stufe(p: Projekt | undefined): number {
   return KUNDENWEG.length; // live oder beendet
 }
 
-export default async function Kunden({ searchParams }: { searchParams: Promise<{ zeige?: string }> }) {
-  const { zeige = "alle" } = await searchParams;
+export default async function Kunden({ searchParams }: { searchParams: Promise<{ zeige?: string; q?: string; paket?: string; ort?: string; tickets?: string }> }) {
+  const { zeige = "alle", q = "", paket = "", ort = "", tickets: mitTickets = "" } = await searchParams;
   const db = await getDb();
   const kunden = await db.select().from(schema.betriebe).where(eq(schema.betriebe.status, "kunde")).orderBy(desc(schema.betriebe.letzteAktivitaet));
   const ids = kunden.map((k) => k.id);
@@ -39,7 +39,16 @@ export default async function Kunden({ searchParams }: { searchParams: Promise<{
   });
   const inArbeit = zeilen.filter((z) => z.i < KUNDENWEG.length);
   const betreut = zeilen.filter((z) => z.i >= KUNDENWEG.length);
-  const sichtbar = zeige === "projekt" ? inArbeit : zeige === "betreuung" ? betreut : zeilen;
+  const orte = [...new Set(zeilen.map((z) => z.b.ort).filter((x): x is string => !!x))].sort();
+  const suchwort = q.trim().toLowerCase();
+  const sichtbar = (zeige === "projekt" ? inArbeit : zeige === "betreuung" ? betreut : zeilen).filter(
+    (z) =>
+      (!suchwort || `${z.b.name} ${z.b.ort ?? ""} ${z.b.inhaber ?? ""} ${z.p?.domain ?? ""}`.toLowerCase().includes(suchwort)) &&
+      (!paket || (z.p?.paket ?? z.a?.paket) === paket) &&
+      (!ort || z.b.ort === ort) &&
+      (!mitTickets || z.offeneTickets > 0),
+  );
+  const filterAktiv = !!(q || paket || ort || mitTickets);
   const monatlich = betreut.reduce((s, z) => s + (z.a?.monatlich ?? 0), 0);
 
   return (
@@ -55,6 +64,16 @@ export default async function Kunden({ searchParams }: { searchParams: Promise<{
           <Link key={k} href={`/projekte?zeige=${k}`} aria-current={zeige === k ? "page" : undefined}>{n}</Link>
         ))}
       </nav>
+      <form method="get" role="search" className="filterleiste filter-karte" aria-label="Kunden filtern">
+        <input type="hidden" name="zeige" value={zeige} />
+        <input name="q" defaultValue={q} placeholder="Suchen: Name, Ort, Inhaber, Domain" aria-label="Suchen" />
+        <select name="paket" defaultValue={paket} aria-label="Webauftritt"><option value="">Jeder Webauftritt</option>{Object.entries(PAKETE).map(([k, p]) => <option key={k} value={k}>{p.name}</option>)}</select>
+        <select name="ort" defaultValue={ort} aria-label="Ort"><option value="">Alle Orte</option>{orte.map((o) => <option key={o}>{o}</option>)}</select>
+        <select name="tickets" defaultValue={mitTickets} aria-label="Tickets"><option value="">mit und ohne Tickets</option><option value="ja">nur mit offenen Tickets</option></select>
+        <button className="knopf klein">Filtern</button>
+        {filterAktiv ? <Link className="klein" href={`/projekte?zeige=${zeige}`}>Filter zurücksetzen</Link> : null}
+        <span className="leise klein" style={{ marginLeft: "auto" }}>{sichtbar.length} Treffer</span>
+      </form>
       {sichtbar.length ? (
         <ul className="betriebsliste">
           {sichtbar.map(({ b, p, a, i, offeneTickets }) => {

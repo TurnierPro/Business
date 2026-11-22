@@ -9,7 +9,7 @@ import { AufEinenBlick, SeitenKopf } from "@/components/Seite";
 export const metadata = { title: "Pipeline" };
 
 // Pipeline: Leads und Kunden getrennt, damit die Tafel nicht zu breit wird. Als Tafel (ziehen) oder als Liste (viele Betriebe).
-type Suche = { wer?: string; teil?: string; ansicht?: string; stufe?: string };
+type Suche = { wer?: string; teil?: string; ansicht?: string; stufe?: string; q?: string; gewerk?: string; ort?: string; stand?: string; sort?: string };
 
 export default async function Pipeline({ searchParams }: { searchParams: Promise<Suche> }) {
   const sp = await searchParams;
@@ -23,13 +23,27 @@ export default async function Pipeline({ searchParams }: { searchParams: Promise
   const spalten = teil === "leads"
     ? leads.map((s) => ({ key: s.key, name: s.name, summe: s.summe, karten: s.karten.map((k) => ({ id: k.id, name: k.name, ort: k.ort, gewerk: k.gewerk, wert: k.wert, geschaetzt: k.geschaetzt, tageOhneAktivitaet: k.tageOhneAktivitaet, liegt: k.liegt, zustaendig: k.zustaendig, naechsteAufgabe: k.naechsteAufgabe })) }))
     : kunden;
-  const sichtbar = sp.stufe ? spalten.filter((s) => s.key === sp.stufe) : spalten;
+  // Filter: Suche, Gewerk, Ort, Stand; Sortierung (gilt für Tafel und Liste)
+  const q = (sp.q ?? "").trim().toLowerCase();
+  const alleKarten = spalten.flatMap((s) => s.karten);
+  const gewerke = [...new Set(alleKarten.map((k) => k.gewerk).filter(Boolean))].sort();
+  const orte = [...new Set(alleKarten.map((k) => k.ort).filter((x): x is string => !!x))].sort();
+  const passt = (k: (typeof alleKarten)[number]) =>
+    (!q || `${k.name} ${k.ort ?? ""} ${k.gewerk}`.toLowerCase().includes(q)) &&
+    (!sp.gewerk || k.gewerk === sp.gewerk) &&
+    (!sp.ort || k.ort === sp.ort) &&
+    (!sp.stand || (sp.stand === "still" ? k.liegt : !k.liegt));
+  const sortiere = <T extends (typeof alleKarten)[number]>(l: T[]) =>
+    sp.sort === "wert" ? [...l].sort((a, b) => b.wert - a.wert) : sp.sort === "name" ? [...l].sort((a, b) => a.name.localeCompare(b.name, "de")) : sp.sort === "still" ? [...l].sort((a, b) => b.tageOhneAktivitaet - a.tageOhneAktivitaet) : l;
+  const gefiltert = spalten.map((s) => ({ ...s, karten: sortiere(s.karten.filter(passt)) }));
+  const sichtbar = sp.stufe ? gefiltert.filter((s) => s.key === sp.stufe) : gefiltert;
+  const filterAktiv = !!(q || sp.gewerk || sp.ort || sp.stand || sp.sort || sp.stufe);
   const liegen = leads.flatMap((s) => s.karten.filter((k) => k.liegt)).length;
   const offen = leads.reduce((x, s) => x + s.karten.length, 0);
   const imProjekt = kunden.filter((k) => k.key !== "k_live").reduce((x, s) => x + s.karten.length, 0);
   const live = kunden.find((k) => k.key === "k_live")?.karten.length ?? 0;
   const link = (q: Partial<Suche>) => {
-    const p = new URLSearchParams(Object.entries({ teil, ansicht, wer, ...q }).filter(([, v]) => v) as [string, string][]);
+    const p = new URLSearchParams(Object.entries({ teil, ansicht, wer, q: sp.q ?? "", gewerk: sp.gewerk ?? "", ort: sp.ort ?? "", stand: sp.stand ?? "", sort: sp.sort ?? "", stufe: sp.stufe ?? "", ...q }).filter(([, v]) => v) as [string, string][]);
     return `/pipeline?${p.toString()}`;
   };
 
@@ -63,7 +77,7 @@ export default async function Pipeline({ searchParams }: { searchParams: Promise
 
       {/* Stufenleiste: Anzahl je Stufe auf einen Blick; antippen filtert */}
       <nav className="stufenleiste" aria-label="Stufen">
-        {spalten.map((s) => (
+        {gefiltert.map((s) => (
           <Link key={s.key} href={link({ stufe: sp.stufe === s.key ? "" : s.key })} aria-current={sp.stufe === s.key ? "page" : undefined} className={s.karten.length ? "" : "leer"}>
             <span className="zahl">{s.karten.length}</span>
             <span className="name">{s.name}</span>
@@ -72,9 +86,21 @@ export default async function Pipeline({ searchParams }: { searchParams: Promise
         ))}
       </nav>
 
+      <form method="get" className="filterleiste filter-karte" role="search" aria-label="Pipeline filtern">
+        {[["teil", teil], ["ansicht", ansicht], ["wer", wer], ["stufe", sp.stufe ?? ""]].filter(([, v]) => v).map(([k, v]) => <input key={k} type="hidden" name={k} value={v} />)}
+        <input name="q" defaultValue={sp.q ?? ""} placeholder="Suchen: Name, Ort, Gewerk" aria-label="Suchen" />
+        <select name="gewerk" defaultValue={sp.gewerk ?? ""} aria-label="Gewerk"><option value="">Alle Gewerke</option>{gewerke.map((g) => <option key={g}>{g}</option>)}</select>
+        <select name="ort" defaultValue={sp.ort ?? ""} aria-label="Ort"><option value="">Alle Orte</option>{orte.map((o) => <option key={o}>{o}</option>)}</select>
+        <select name="stand" defaultValue={sp.stand ?? ""} aria-label="Stand"><option value="">Jeder Stand</option><option value="aktiv">aktiv</option><option value="still">liegt still</option></select>
+        <select name="sort" defaultValue={sp.sort ?? ""} aria-label="Sortieren"><option value="">Sortierung: Stufe</option><option value="wert">nach Wert</option><option value="name">nach Name</option><option value="still">am längsten still zuerst</option></select>
+        <button className="knopf klein">Filtern</button>
+        {filterAktiv ? <Link className="klein" href={`/pipeline?teil=${teil}&ansicht=${ansicht}${wer ? `&wer=${encodeURIComponent(wer)}` : ""}`}>Filter zurücksetzen</Link> : null}
+        <span className="leise klein" style={{ marginLeft: "auto" }}>{sichtbar.reduce((x, s) => x + s.karten.length, 0)} von {alleKarten.length}</span>
+      </form>
+
       {ansicht === "tafel" ? (
         <>
-          <PipelineBrett key={`${teil}-${wer}-${sp.stufe ?? ""}`} stufen={sichtbar} verschieben={stufeVerschieben} />
+          <PipelineBrett key={`${teil}-${wer}-${sp.stufe ?? ""}-${q}-${sp.gewerk ?? ""}-${sp.ort ?? ""}-${sp.stand ?? ""}-${sp.sort ?? ""}`} stufen={sichtbar} verschieben={stufeVerschieben} />
           {teil === "leads" ? <p className="leise klein">Karte auf eine andere Stufe ziehen oder „Stufe ändern“ in der Karte. Kunde wird ein Betrieb nur durch die Unterschrift.</p> : <p className="leise klein">Kunden wandern von selbst weiter: Zahlung, Inhalte, Abnahme, Livegang.</p>}
         </>
       ) : (

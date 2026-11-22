@@ -26,8 +26,8 @@ const NAECHSTER: Record<string, string> = {
   gesperrt: "Nicht mehr kontaktieren",
 };
 
-export default async function Leads({ searchParams }: { searchParams: Promise<{ status?: string; q?: string }> }) {
-  const { status = "aktiv", q = "" } = await searchParams;
+export default async function Leads({ searchParams }: { searchParams: Promise<{ status?: string; q?: string; gewerk?: string; ort?: string; wer?: string; sort?: string }> }) {
+  const { status = "aktiv", q = "", gewerk = "", ort = "", wer = "", sort = "" } = await searchParams;
   const db = await getDb();
   const b = schema.betriebe;
   const bedingung: Record<string, SQL | undefined> = {
@@ -38,7 +38,14 @@ export default async function Leads({ searchParams }: { searchParams: Promise<{ 
     ruhend: inArray(b.status, ["nicht_interessant", "gesperrt"]),
   };
   const suche = q.trim() ? or(ilike(b.name, `%${q.trim().replace(/[%_]/g, "")}%`), ilike(b.ort, `%${q.trim().replace(/[%_]/g, "")}%`), ilike(b.inhaber, `%${q.trim().replace(/[%_]/g, "")}%`)) : undefined;
-  const zeilen = await db.select().from(b).where(and(bedingung[status] ?? bedingung.aktiv, suche)).orderBy(desc(b.letzteAktivitaet));
+  // Filter: Gewerk, Ort, Zuständig; Sortierung
+  const auswahl = await db.select({ gewerk: b.gewerk, ort: b.ort, zustaendig: b.zustaendig }).from(b).where(bedingung[status] ?? bedingung.aktiv);
+  const gewerke = [...new Set(auswahl.map((x) => x.gewerk).filter(Boolean))].sort();
+  const orte = [...new Set(auswahl.map((x) => x.ort).filter((x): x is string => !!x))].sort();
+  const personen = [...new Set(auswahl.map((x) => x.zustaendig).filter((x): x is string => !!x))].sort();
+  const reihenfolge = sort === "name" ? b.name : sort === "neu" ? desc(b.erstelltAm) : sort === "score" ? desc(b.score) : desc(b.letzteAktivitaet);
+  const zeilen = await db.select().from(b).where(and(bedingung[status] ?? bedingung.aktiv, suche, gewerk ? eq(b.gewerk, gewerk) : undefined, ort ? eq(b.ort, ort) : undefined, wer ? eq(b.zustaendig, wer) : undefined)).orderBy(reihenfolge);
+  const filterAktiv = !!(q || gewerk || ort || wer || sort);
   const ids = zeilen.map((z) => z.id);
   const [angebote, projekte] = ids.length
     ? await Promise.all([
@@ -74,11 +81,18 @@ export default async function Leads({ searchParams }: { searchParams: Promise<{ 
             </Link>
           ))}
         </nav>
-        <form method="get" role="search">
-          <input type="hidden" name="status" value={status} />
-          <input name="q" defaultValue={q} placeholder="Name, Ort, Inhaber" aria-label="In Leads suchen" style={{ width: 240 }} />
-        </form>
       </div>
+      <form method="get" role="search" className="filterleiste filter-karte" aria-label="Leads filtern">
+        <input type="hidden" name="status" value={status} />
+        <input name="q" defaultValue={q} placeholder="Suchen: Name, Ort, Inhaber" aria-label="In Leads suchen" />
+        <select name="gewerk" defaultValue={gewerk} aria-label="Gewerk"><option value="">Alle Gewerke</option>{gewerke.map((g) => <option key={g}>{g}</option>)}</select>
+        <select name="ort" defaultValue={ort} aria-label="Ort"><option value="">Alle Orte</option>{orte.map((o) => <option key={o}>{o}</option>)}</select>
+        {personen.length ? <select name="wer" defaultValue={wer} aria-label="Zuständig"><option value="">Alle Zuständigen</option>{personen.map((p) => <option key={p}>{p}</option>)}</select> : null}
+        <select name="sort" defaultValue={sort} aria-label="Sortieren"><option value="">Zuletzt aktiv zuerst</option><option value="neu">Neueste zuerst</option><option value="name">nach Name</option><option value="score">nach Score</option></select>
+        <button className="knopf klein">Filtern</button>
+        {filterAktiv ? <Link className="klein" href={`/leads?status=${status}`}>Filter zurücksetzen</Link> : null}
+        <span className="leise klein" style={{ marginLeft: "auto" }}>{zeilen.length} Treffer</span>
+      </form>
       {zeilen.length ? (
         <ul className="betriebsliste">
           {zeilen.map((z) => {
