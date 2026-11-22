@@ -16,8 +16,11 @@ export function BetriebFelder({ b = {} }: { b?: B }) {
           <label className="feld"><span>Straße und Nr. <em>für Brief und Besuch</em></span><input name="strasse" defaultValue={b.strasse ?? ""} autoComplete="street-address" /></label>
           <label className="feld"><span>PLZ</span><input name="plz" defaultValue={b.plz ?? ""} inputMode="numeric" /></label>
           <label className="feld"><span>Ort</span><input name="ort" defaultValue={b.ort ?? ""} /></label>
-          <label className="feld" style={{ gridColumn: "span 2" }}><span>Website <em className="pflicht">Pflicht</em></span><input name="website" defaultValue={b.website ?? ""} placeholder="beispiel.de" /></label>
-          <label className="haken" style={{ alignSelf: "end", marginBottom: 12 }}><input type="checkbox" name="keineWebsite" value="ja" defaultChecked={b.name !== undefined && !b.website} /><span>Keine Website vorhanden</span></label>
+          <label className="feld"><span>Website <em className="pflicht">Pflicht</em></span><input name="website" defaultValue={b.website ?? ""} placeholder="beispiel.de" /></label>
+          <div className="feld" style={{ gridColumn: "span 2" }}>
+            <span aria-hidden="true">&nbsp;</span>
+            <label className="haken feldhoch"><input type="checkbox" name="keineWebsite" value="ja" defaultChecked={b.name !== undefined && !b.website} /><span>Keine Website vorhanden</span></label>
+          </div>
         </div>
       </fieldset>
 
@@ -37,8 +40,8 @@ export function BetriebFelder({ b = {} }: { b?: B }) {
       </fieldset>
 
       <fieldset className="gruppe ganz">
-        <legend><span className="nr">3</span> Notizen</legend>
-        <label className="feld"><span>Notizen <em>optional</em></span><textarea name="notizen" defaultValue={b.notizen ?? ""} style={{ minHeight: 80 }} placeholder="Was wissen wir schon? z. B. drei offene Stellen, Website von 2015" /></label>
+        <legend><span className="nr">3</span> Notizen <em className="leise" style={{ fontStyle: "normal", fontWeight: 400 }}>optional</em></legend>
+        <label className="feld"><span className="sr-only">Notizen</span><textarea name="notizen" defaultValue={b.notizen ?? ""} style={{ minHeight: 80 }} placeholder="Was wissen wir schon? z. B. drei offene Stellen, Website von 2015" /></label>
         {b.datenquelle ? <input type="hidden" name="datenquelle" value={b.datenquelle} /> : null}
       </fieldset>
     </div>

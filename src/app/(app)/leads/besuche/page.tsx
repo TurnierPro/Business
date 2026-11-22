@@ -1,16 +1,15 @@
 import Link from "next/link";
 import { desc, eq } from "drizzle-orm";
 import { getDb, schema } from "@/lib/db";
-import { auswertung, besuchErlaubt, besuchsplan, BEWEISPHASE, ERGEBNISSE, KONTAKT } from "@/lib/ablauf/vertrieb";
+import { auswertung, besuchErlaubt, besuchsplan, ERGEBNISSE, KONTAKT } from "@/lib/ablauf/vertrieb";
 import { datum } from "@/lib/format";
 import { besuchErfassen } from "../../aktionen";
 
-// Besuche vor Ort: Plan nach Ort, Messbogen direkt nach dem Gespräch, Auswertung und Gate.
+// Besuche vor Ort: Plan nach Ort. Erfasst wird der Besuch in der Kundenakte (Aktivitäten).
 // Für Daniel am Tablet oder Handy gebaut: große Felder, eine Spalte, wenig Tippen.
 
 export const dynamic = "force-dynamic";
 
-const prozent = (x: number) => `${Math.round(x * 100)} %`;
 
 export default async function Besuche() {
   const db = await getDb();
@@ -26,38 +25,12 @@ export default async function Besuche() {
       <div className="kopfzeile">
         <div>
           <h1>Besuche vor Ort</h1>
-          <p>Beweisphase {datum(BEWEISPHASE.von)} bis {datum(BEWEISPHASE.bis)}: {BEWEISPHASE.zielBesuche} Besuche, Zwischenstand nach {BEWEISPHASE.zwischenNach}.</p>
+          <p>Wer besucht werden kann, nach Ort gebündelt. Den Besuch danach in der Kundenakte unter „Aktivitäten“ erfassen.</p>
         </div>
       </div>
       {!jetztErlaubt ? <div className="hinweis" role="status">Heute keine Besuche mehr: Freitag ab 12 Uhr und am Wochenende besuchen wir nicht.</div> : null}
 
-      <section className="karte" aria-labelledby="stand">
-        <h2 id="stand">Stand und Gate</h2>
-        <div className="raster vier besuche-zahlen">
-          <div className="kennzahl"><div className="wert">{a.besuche}</div><div className="name">von {BEWEISPHASE.zielBesuche} Besuchen</div></div>
-          <div className="kennzahl"><div className="wert">{a.angetroffen}</div><div className="name">Inhaber angetroffen</div></div>
-          <div className="kennzahl"><div className="wert">{a.sicher}</div><div className="name">sichere Unterschriften ({a.ruecktritte} Rücktritte)</div></div>
-          <div className="kennzahl"><div className="wert">{prozent(a.quote)}</div><div className="name">Quote je Gespräch</div></div>
-        </div>
-        <p style={{ marginTop: 16 }}><b>Gate-Stufe heute:</b> <span className="status">{a.gate.stufe}</span> {a.gate.empfehlung}</p>
-        <p className="leise klein">Ehrlich lesen: 100 Besuche belegen wenig. Bei 5 % Quote liegt die Chance auf mindestens 5 Unterschriften nur bei 56 %. Das Gate wirkt nicht aufs Gehalt.</p>
-        <div className="tabelle-rahmen" style={{ marginTop: 12 }}>
-        <table className="tabelle">
-          <thead><tr><th>Variante</th><th className="zahl">Besuche</th><th className="zahl">Unterschr.</th><th className="zahl">Rücktr.</th><th className="zahl">sicher</th></tr></thead>
-          <tbody>
-            <tr><td>A · vor Ort</td><td className="zahl">{a.varianteA.besuche}</td><td className="zahl">{a.varianteA.unterschriften}</td><td className="zahl">{a.varianteA.ruecktritte}</td><td className="zahl">{a.varianteA.sicher}</td></tr>
-            <tr><td>B · mit Rücktrittsrecht</td><td className="zahl">{a.varianteB.besuche}</td><td className="zahl">{a.varianteB.unterschriften}</td><td className="zahl">{a.varianteB.ruecktritte}</td><td className="zahl">{a.varianteB.sicher}</td></tr>
-          </tbody>
-        </table>
-        </div>
-        {a.art14Fehlt ? <div className="hinweis fehler" style={{ marginTop: 12 }}>Bei {a.art14Fehlt} Gesprächen fehlt das Art.-14-Infoblatt. Bitte nachreichen.</div> : null}
-        {a.einwaende.length ? (
-          <details style={{ marginTop: 12 }}>
-            <summary style={{ cursor: "pointer" }}>Häufigste Einwände (wörtlich)</summary>
-            <ul className="liste-schlicht" style={{ marginTop: 8 }}>{a.einwaende.map(([e, n]) => <li key={e}><span className="mono">{n}×</span> „{e}“</li>)}</ul>
-          </details>
-        ) : null}
-      </section>
+      {a.art14Fehlt ? <div className="hinweis fehler">Bei {a.art14Fehlt} Gesprächen fehlt das Art.-14-Infoblatt. Bitte nachreichen.</div> : null}
 
       <section className="karte" aria-labelledby="plan">
         <h2 id="plan">Besuchsplan nach Ort</h2>

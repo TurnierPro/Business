@@ -99,7 +99,16 @@ async function folgeschritte(id: number, wer: string, entwurf: boolean): Promise
   const [b] = await db.select().from(schema.betriebe).where(eq(schema.betriebe.id, n.betriebId));
   const zustaendig = b?.zustaendig ?? (b?.status === "kunde" ? TECHNIK : VERTRIEB);
   const titel = n.kanal === "telefon" ? `Rückruf: ${wer}` : `${KANAELE[n.kanal]} beantworten: ${n.betreff ?? n.inhalt.slice(0, 50)}`;
-  await systemAufgabe({ betriebId: n.betriebId, titel, text: n.inhalt.slice(0, 500), inTagen: n.kanal === "telefon" ? 0 : 1, zustaendig });
+  if (b?.status === "kunde") {
+    // Kunde meldet sich: daraus wird ein Ticket beim richtigen Kunden (Technik kümmert sich, Zeit zählt gegen das Kontingent)
+    const { ticketAnlegen } = await import("./tickets");
+    const betreff = (n.betreff?.trim() || n.inhalt.replace(/\s+/g, " ").slice(0, 60)).padEnd(3, ".");
+    const ticketId = await ticketAnlegen({ betriebId: n.betriebId, betreff, beschreibung: `${n.inhalt}`.padEnd(5, "."), kategorie: "aenderung", quelle: n.kanal }, `${KANAELE[n.kanal]} (${wer})`);
+    await db.update(schema.nachrichten).set({ ticketId }).where(eq(schema.nachrichten.id, n.id));
+    if (n.kanal === "telefon") await systemAufgabe({ betriebId: n.betriebId, titel, text: n.inhalt.slice(0, 500), inTagen: 0, zustaendig });
+  } else {
+    await systemAufgabe({ betriebId: n.betriebId, titel, text: n.inhalt.slice(0, 500), inTagen: n.kanal === "telefon" ? 0 : 1, zustaendig });
+  }
   if ((n.kanal === "mail" || n.kanal === "whatsapp") && entwurf) await einreihen("antwortentwurf", { nachrichtId: n.id });
 }
 

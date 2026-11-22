@@ -826,6 +826,16 @@ test("Nachrichten: WhatsApp, Telefon, Mail landen beim Betrieb; Antwort nur als 
   await n.nachrichtEingang({ kanal: "telefon", absender: "0721/123456", inhalt: "Verpasster Anruf", dauerSek: 0, externeId: "call-1" }, "Test");
   assert.ok((await db.select().from(schema.aktivitaeten).where(eq(schema.aktivitaeten.betriebId, id!))).some((a) => a.titel.startsWith("Rückruf")));
 
+  // Kunde schreibt: daraus wird automatisch ein Ticket beim richtigen Kunden (Zuordnung über die Mail-Adresse)
+  await db.update(schema.betriebe).set({ status: "kunde" }).where(eq(schema.betriebe.id, id!));
+  const km = await n.nachrichtEingang({ kanal: "mail", absender: "INFO@kanal-elektro.example", betreff: "Neue Telefonnummer", inhalt: "Bitte auf der Website die neue Nummer eintragen." }, "Test");
+  const [kn] = await db.select().from(schema.nachrichten).where(eq(schema.nachrichten.id, km.id));
+  assert.ok(kn.ticketId, "Nachricht ist mit einem Ticket verknüpft");
+  const [tk] = await db.select().from(schema.tickets).where(eq(schema.tickets.id, kn.ticketId!));
+  assert.equal(tk.betriebId, id);
+  assert.equal(tk.betreff, "Neue Telefonnummer");
+  await db.update(schema.betriebe).set({ status: "angebot" }).where(eq(schema.betriebe.id, id!));
+
   // WhatsApp an jemanden, der nicht geschrieben hat: Qualitätskontrolle blockiert (kein Erstkontakt, 24-Stunden-Regel)
   const kalt = await post.inPostausgang({ betriebId: id, kanal: "whatsapp", zweck: "test", empfaenger: "+49 170 9999999", betreff: "x", text: "Guten Tag, kurze Frage zu Ihrer Website." });
   await abarbeiten();
@@ -839,7 +849,7 @@ test("Nachrichten: WhatsApp, Telefon, Mail landen beim Betrieb; Antwort nur als 
   assert.equal((await n.unbekannteNachrichten()).length, 1);
   await n.nachrichtZuordnen(u.id, id!, "Daniel Lück");
   await abarbeiten();
-  const mailEntwurf = (await db.select().from(schema.postausgang).where(eq(schema.postausgang.betriebId, id!))).find((e) => e.zweck === "antwort" && e.kanal === "mail")!;
+  const mailEntwurf = (await db.select().from(schema.postausgang).where(eq(schema.postausgang.betriebId, id!))).find((e) => e.zweck === "antwort" && e.kanal === "mail" && /Anfrage/.test(e.betreff))!;
   assert.equal(mailEntwurf.empfaenger, "fremd@example.com");
   assert.match(mailEntwurf.betreff, /^AW: Anfrage/);
 

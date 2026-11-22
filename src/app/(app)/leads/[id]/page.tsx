@@ -22,11 +22,16 @@ const PROJEKT_TEXT: Record<string, string> = { inhalte: "wartet auf Inhalte", ba
 const ANGEBOT_TEXT: Record<string, string> = { entwurf: "erstellt", versendet: "beim Kunden", unterschrieben: "unterschrieben", angezahlt: "erste Rate bezahlt", abgeschlossen: "abgeschlossen", abgelehnt: "abgelehnt" };
 
 const REITER = [["ueberblick", "Überblick"], ["stammdaten", "Stammdaten"], ["aktivitaeten", "Aktivitäten"], ["dokumente", "Unterlagen"], ["portal", "Kundenportal"]] as const;
+// Seltener gebraucht: über das Menü „Mehr“ oben rechts
+const MEHR = [["zustaendig", "Zuständig und Schlagworte"], ["tickets", "Tickets"], ["log", "Änderungsprotokoll"], ["datenschutz", "Datenschutz und Zugänge"]] as const;
+const ERFASSEN = [["notiz", "Notiz, Anruf, Aufgabe"], ["besuch", "Besuch vor Ort"], ["gespraech", "Gespräch aufnehmen"]] as const;
+type Auswertung = { ziele?: string[]; probleme?: string[]; empfehlung?: { paket?: string; begruendung?: string }; offeneFragen?: string[]; massnahmen?: { was: string; wann: string; wer: string }[] };
 
-export default async function Lead({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ tab?: string }> }) {
+export default async function Lead({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ tab?: string; erfassen?: string }> }) {
   const id = Number((await params).id);
-  const tabRoh = (await searchParams).tab;
-  const tab = REITER.some(([k]) => k === tabRoh) ? tabRoh! : "ueberblick";
+  const sp = await searchParams;
+  const tabRoh = sp.tab;
+  const tab = [...REITER, ...MEHR].some(([k]) => k === tabRoh) ? tabRoh! : "ueberblick";
   const db = await getDb();
   const [b] = await db.select().from(schema.betriebe).where(eq(schema.betriebe.id, id));
   if (!b) notFound();
@@ -61,8 +66,13 @@ export default async function Lead({ params, searchParams }: { params: Promise<{
   const lexwareAktiv = istEcht("buchhaltung");
   const index = wegIndex(b, angebot, projekt);
   const hauptkontakt = kontakte.find((k) => k.haupt) ?? kontakte[0];
+  // Der Inhaber aus den Stammdaten ist der erste Ansprechpartner (außer er ist schon als Kontakt angelegt)
+  const inhaberAlsKontakt = (b.inhaber || b.telefon || b.email) && !kontakte.some((k) => b.inhaber && k.name.trim().toLowerCase() === b.inhaber.trim().toLowerCase());
   const offeneRechnungen = rechnungen.filter((r) => r.status !== "bezahlt" && r.status !== "storniert");
   const verschickt = post.filter((p) => p.versendetAm).length;
+  // Erfassen: Standard je nach Stand (angeschrieben → Besuch, Termin → Gespräch)
+  const erfassenStandard = gesperrt ? "notiz" : b.status === "angeschrieben" ? "besuch" : b.status === "termin" ? "gespraech" : "notiz";
+  const erfassen = ERFASSEN.some(([k]) => k === sp.erfassen) ? sp.erfassen! : erfassenStandard;
 
   // Genau ein nächster Schritt mit genau einem Messing-Knopf
   const naechstes: { was: string; unter?: string; knopf?: React.ReactNode } = gesperrt
@@ -82,7 +92,7 @@ export default async function Lead({ params, searchParams }: { params: Promise<{
                 : angebot && ["entwurf", "versendet"].includes(angebot.status)
                   ? { was: "Verträge auf dem Tablet unterschreiben", unter: `Angebot ${PAKETE[angebot.paket as PaketKey]?.name ?? angebot.paket} ${angebot.status === "versendet" ? "ist beim Kunden" : "ist erstellt"}. Beim Termin: Rahmenvertrag und je Baustein ein Leistungsschein.`, knopf: <Link className="knopf haupt" href={`/unterschrift/${angebot.id}`}>Unterschreiben lassen</Link> }
                   : b.status === "angeschrieben"
-                    ? { was: `Besuch vor Ort ab ${datum(b.besuchAb)}`, unter: "Demo zeigen, nach dem Gespräch den Messbogen ausfüllen oder die Aufnahme hochladen.", knopf: <Link className="knopf haupt" href="/leads/besuche">Zum Besuchsplan</Link> }
+                    ? { was: `Besuch vor Ort ab ${datum(b.besuchAb)}`, unter: "Demo zeigen, nach dem Gespräch den Messbogen ausfüllen oder die Aufnahme hochladen.", knopf: <Link className="knopf haupt" href={`/leads/${id}?tab=aktivitaeten&erfassen=besuch`}>Besuch erfassen</Link> }
                     : ["interessant", "termin"].includes(b.status)
                       ? { was: "Angebot erstellen", unter: "Webauftritt und Module gemeinsam auswählen; der Preis rechnet sofort mit.", knopf: <Link className="knopf haupt" href={`/leads/${id}/angebot`}>Angebot erstellen</Link> }
                       : { was: "Kein nächster Schritt geplant", unter: "Unter „Aktivitäten“ eine Aufgabe anlegen." };
@@ -92,7 +102,7 @@ export default async function Lead({ params, searchParams }: { params: Promise<{
   const protokolle = doks.filter((d) => d.art === "protokoll");
   const zeitleiste: Eintrag[] = [
     ...besuche.map((v) => ({ key: `b${v.id}`, am: v.am, typ: "besuch", etikett: "Besuch", titel: ERGEBNISSE[v.ergebnis] ?? v.ergebnis, wer: v.erstelltVon, text: [v.inhaberAngetroffen ? "Inhaber angetroffen" : "Inhaber nicht angetroffen", v.dauerMin ? `${v.dauerMin} Min.` : null, v.paket ? `Paket ${v.paket === "KOMPAKT" ? "Kompakt" : "Professional"}` : null, v.variante ? `Variante ${v.variante}` : null, v.einwand ? `Einwand: „${v.einwand}“` : null, v.art14Info ? "Art.-14-Info dagelassen" : "Art.-14-Info fehlt", v.einwilligungKontakt && v.einwilligungKontakt !== "keine" ? KONTAKT[v.einwilligungKontakt] : null].filter(Boolean).join(" · ") })),
-    ...termine.map((t) => ({ key: `t${t.id}`, am: t.datum, typ: "gespraech", etikett: "Gespräch", titel: "Gespräch vor Ort aufgenommen", wer: t.einwilligungVon ? `Einwilligung ${t.einwilligungVon}` : null, text: t.audioGeloeschtAm ? `Aufnahme gelöscht am ${datum(t.audioGeloeschtAm)}` : "Aufnahme gespeichert, wird nach dem Versand gelöscht", extra: protokolle.length ? <div className="knopfreihe" style={{ marginTop: 8 }}>{protokolle.map((d) => <a key={d.id} className="knopf klein" href={`/dokument/${d.id}`} target="_blank">Protokoll {datum(d.erstelltAm)}</a>)}</div> : null })),
+    ...termine.map((t) => ({ key: `t${t.id}`, am: t.datum, typ: "gespraech", etikett: "Gespräch", titel: "Gespräch vor Ort aufgenommen", wer: t.einwilligungVon ? `Einwilligung ${t.einwilligungVon}` : null, text: t.audioGeloeschtAm ? `Aufnahme gelöscht am ${datum(t.audioGeloeschtAm)}` : "Aufnahme gespeichert, wird nach dem Versand gelöscht", extra: <>{t.auswertung ? <Zusammenfassung a={t.auswertung as Auswertung} /> : <p className="leise klein">Noch keine Zusammenfassung: Die Aufnahme wird gerade ausgewertet.</p>}{protokolle.length ? <div className="knopfreihe" style={{ marginTop: 8 }}>{protokolle.map((d) => <a key={d.id} className="knopf klein" href={`/dokument/${d.id}`} target="_blank">Protokoll als PDF ({datum(d.erstelltAm)})</a>)}</div> : null}</> })),
     ...nachrichten.map((n) => ({ key: `n${n.id}`, am: n.zeit, typ: n.richtung === "ein" ? "ein" : "aus", etikett: KANAELE[n.kanal] ?? n.kanal, titel: `${n.richtung === "ein" ? "Von" : "An"} ${n.richtung === "ein" ? n.absender : n.empfaenger}${n.betreff ? `: ${n.betreff}` : ""}`, text: n.richtung === "aus" ? (n.inhalt.length > 160 ? `${n.inhalt.replace(/\s+/g, " ").slice(0, 160)} …` : n.inhalt) : n.inhalt.length > 500 ? `${n.inhalt.slice(0, 500)} …` : n.inhalt, extra: n.richtung === "ein" && n.status === "neu" ? <div className="knopfreihe" style={{ marginTop: 8 }}>{n.kanal === "mail" || n.kanal === "whatsapp" ? <form action={antwortEntwerfen}><input type="hidden" name="id" value={n.id} /><input type="hidden" name="zurueck" value={`/leads/${id}?tab=aktivitaeten`} /><button className="knopf klein">Antwort entwerfen</button></form> : null}<form action={nachrichtErledigt}><input type="hidden" name="id" value={n.id} /><input type="hidden" name="zurueck" value={`/leads/${id}?tab=aktivitaeten`} /><button className="knopf klein">Erledigt</button></form></div> : null })),
     ...chronik.map((a) => ({ key: `a${a.id}`, am: a.erledigtAm ?? a.erstelltAm, typ: "notiz", etikett: ARTEN[a.art] ?? a.art, titel: `${a.titel}${a.erledigtAm && a.faelligAm ? " (erledigt)" : ""}`, wer: a.erstelltVon, text: a.text })),
     ...post.filter((p) => p.versendetAm && p.kanal !== "mail" && p.kanal !== "whatsapp").map((p) => ({ key: `p${p.id}`, am: p.versendetAm!, typ: "aus", etikett: "Versendet", titel: ZWECK[p.zweck] ?? p.zweck, text: p.betreff })),
@@ -115,9 +125,20 @@ export default async function Lead({ params, searchParams }: { params: Promise<{
         <div className="knopfreihe">
           <Status wert={b.status} />
           {b.portalToken ? <Link className="knopf klein" href={`/leads/${id}?tab=portal`}>Kundenportal ansehen</Link> : <span className="leise klein">Kundenportal ab dem ersten Angebot</span>}
+          <details className="menue">
+            <summary className="knopf klein" aria-label="Weitere Bereiche">Mehr ▾</summary>
+            <nav className="menue-liste" aria-label="Weitere Bereiche des Betriebs">
+              {MEHR.map(([k, n]) => (
+                <Link key={k} href={`/leads/${id}?tab=${k}`} aria-current={tab === k ? "page" : undefined}>
+                  {n}{k === "tickets" && tickets.some((t) => t.status !== "erledigt") ? <span className="reiter-zahl warten">{tickets.filter((t) => t.status !== "erledigt").length}</span> : null}
+                </Link>
+              ))}
+            </nav>
+          </details>
         </div>
       </div>
 
+      {MEHR.some(([k]) => k === tab) ? <p className="klein leise" style={{ margin: "-8px 0 8px" }}>Mehr → <b>{MEHR.find(([k]) => k === tab)![1]}</b></p> : null}
       <nav className="reiter" aria-label="Bereiche des Betriebs">
         {REITER.map(([k, n]) => <Link key={k} href={`/leads/${id}?tab=${k}`} aria-current={tab === k ? "page" : undefined}>{n}{k === "aktivitaeten" && offeneAufgaben.length ? ` · ${offeneAufgaben.length} offen` : ""}</Link>)}
       </nav>
@@ -225,6 +246,14 @@ export default async function Lead({ params, searchParams }: { params: Promise<{
               ) : null}
             <section className="karte" id="kontakte">
               <h2>Ansprechpartner</h2>
+              {inhaberAlsKontakt ? (
+                <ul className="liste">
+                  <li>
+                    <div style={{ flex: 1 }}><div className="titel">{[b.anrede, b.inhaber].filter(Boolean).join(" ") || "Inhaber"}{kontakte.some((k) => k.haupt) ? null : <span className="status ok" style={{ marginLeft: 8 }}>Hauptkontakt</span>}</div><div className="unter">{["Inhaber", b.telefon ? <a key="t" href={`tel:${b.telefon.replace(/\s/g, "")}`}>{b.telefon}</a> : null, b.email ? <a key="m" href={`mailto:${b.email}`}>{b.email}</a> : null].filter(Boolean).map((x, i) => <span key={i}>{i ? " · " : ""}{x}</span>)}</div></div>
+                    <Link className="knopf klein" href={`/leads/${id}?tab=stammdaten`}>Ändern</Link>
+                  </li>
+                </ul>
+              ) : null}
               {kontakte.length ? (
                 <ul className="liste">
                   {kontakte.map((k) => (
@@ -234,9 +263,9 @@ export default async function Lead({ params, searchParams }: { params: Promise<{
                     </li>
                   ))}
                 </ul>
-              ) : <p className="leise klein">Noch keine. {b.inhaber ? `Inhaber laut Stammdaten: ${b.inhaber}.` : ""}</p>}
+              ) : !inhaberAlsKontakt ? <p className="leise klein">Noch keine. Inhaber, Telefon und E-Mail in den Stammdaten eintragen.</p> : null}
               <details style={{ marginTop: 8 }}>
-                <summary style={{ cursor: "pointer" }}>Ansprechpartner hinzufügen</summary>
+                <summary style={{ cursor: "pointer" }}>Weiteren Ansprechpartner hinzufügen</summary>
                 <form action={kontaktSpeichern} style={{ marginTop: 8 }}>
                   <input type="hidden" name="betriebId" value={id} />
                   <div className="raster zwei">
@@ -262,28 +291,17 @@ export default async function Lead({ params, searchParams }: { params: Promise<{
       {tab === "aktivitaeten" ? (
         <div className="akte-raster" style={{ gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1.3fr)" }}>
           <div className="raster" style={{ gap: 16, alignContent: "start" }}>
-            <section className="karte">
-              <h2>Eintragen</h2>
-              <form action={aktivitaetAnlegen}>
-                <input type="hidden" name="betriebId" value={id} />
-                <input type="hidden" name="zurueck" value={`/leads/${id}?tab=aktivitaeten`} />
-                <div className="raster" style={{ gridTemplateColumns: "minmax(0, 0.8fr) minmax(0, 1.6fr)", gap: 12 }}>
-                  <label className="feld"><span>Art</span><select name="art" defaultValue="anruf">{Object.entries(ARTEN).map(([k, n]) => <option key={k} value={k}>{n}</option>)}</select></label>
-                  <label className="feld"><span>Kurz</span><input name="titel" placeholder="z. B. Rückruf wegen Fotos" /></label>
-                </div>
-                <label className="feld"><span>Notiz</span><textarea name="text" rows={3} placeholder="Was wurde besprochen?" style={{ minHeight: 90 }} /></label>
-                <div className="raster zwei" style={{ gap: 12 }}>
-                  <label className="feld"><span>Datum <em>bei Aufgabe oder Termin</em></span><input type="date" name="faellig" defaultValue={morgen} /></label>
-                  <label className="feld"><span>Für</span><select name="zustaendig" defaultValue={b.zustaendig ?? ""}><option value="">mich</option>{benutzer.map((x) => <option key={x.name}>{x.name}</option>)}</select></label>
-                </div>
-                <button className="knopf">Eintragen</button>
-              </form>
-            </section>
-
-            {!gesperrt && b.status !== "kunde" ? (
-              <details className="karte" open={b.status === "angeschrieben"}>
-                <summary style={{ cursor: "pointer", fontWeight: 600, fontSize: 19 }}>Besuch vor Ort: Messbogen</summary>
-                <form action={besuchErfassen} className="messbogen" style={{ marginTop: 12, maxWidth: "none" }}>
+            <section className="karte" aria-labelledby="erfassen">
+              <h2 id="erfassen">Erfassen</h2>
+              <nav className="reiter klein-reiter" aria-label="Was erfassen?" style={{ marginBottom: 12 }}>
+                {ERFASSEN.filter(([k]) => k === "notiz" || (!gesperrt && (k === "besuch" ? b.status !== "kunde" : ["interessant", "angeschrieben", "termin"].includes(b.status)))).map(([k, n]) => (
+                  <Link key={k} href={`/leads/${id}?tab=aktivitaeten&erfassen=${k}`} aria-current={erfassen === k ? "page" : undefined}>{n}</Link>
+                ))}
+              </nav>
+              {erfassen === "besuch" ? (
+                <>
+                  <p className="leise klein" style={{ marginTop: 0 }}>Nach dem Besuch ausfüllen. Er erscheint danach im Verlauf.</p>
+                  <form action={besuchErfassen} className="messbogen" style={{ maxWidth: "none" }}>
                   <input type="hidden" name="betriebId" value={id} />
                   <input type="hidden" name="zurueck" value={`/leads/${id}?tab=aktivitaeten`} />
                   <fieldset>
@@ -299,18 +317,15 @@ export default async function Lead({ params, searchParams }: { params: Promise<{
                   <label className="feld"><span>Einwand wörtlich</span><input name="einwand" placeholder="z. B. Muss ich mit dem Büro besprechen" /></label>
                   <div className="raster zwei" style={{ gap: 12 }}>
                     <label className="feld"><span>Weiterer Kontakt</span><select name="kontakt" defaultValue="keine">{Object.entries(KONTAKT).map(([k, n]) => <option key={k} value={k}>{n}</option>)}</select></label>
-                    <label className="feld"><span>Preistest <em>erste 15 Gespräche</em></span><input name="preistest" placeholder="Reaktion auf den Preis" /></label>
+                    <label className="feld"><span>Reaktion auf den Preis <em>optional</em></span><input name="preistest" placeholder="z. B. „passt“, „zu teuer“" /></label>
                   </div>
                   <label className="haken"><input type="checkbox" name="art14" value="ja" /><span>Art.-14-Infoblatt dagelassen</span></label>
                   <button className="knopf">Messbogen speichern</button>
                 </form>
-              </details>
-            ) : null}
-
-            {!gesperrt && ["interessant", "angeschrieben", "termin"].includes(b.status) ? (
-              <details className="karte" open={b.status === "termin"}>
-                <summary style={{ cursor: "pointer", fontWeight: 600, fontSize: 19 }}>Gespräch aufnehmen</summary>
-                <p className="leise" style={{ marginTop: 12 }}>Aus der Aufnahme entstehen Protokoll, Maßnahmenplan, Angebot und Begleit-Mail. Alles geht vorher durch die Freigabe. Die Aufnahme wird nach dem Versand gelöscht.</p>
+                </>
+              ) : erfassen === "gespraech" ? (
+                <>
+                  <p className="leise klein" style={{ marginTop: 0 }}>Aus der Aufnahme entstehen Protokoll, Maßnahmenplan, Angebot und Begleit-Mail. Alles geht vorher durch die Freigabe. Die Aufnahme wird nach dem Versand gelöscht.</p>
                 <form action={terminHochladen}>
                   <input type="hidden" name="id" value={id} />
                   <label className="haken" style={{ marginBottom: 16 }}>
@@ -320,8 +335,24 @@ export default async function Lead({ params, searchParams }: { params: Promise<{
                   <Aufnahme />
                   <button className="knopf">Aufnahme speichern</button>
                 </form>
-              </details>
-            ) : null}
+                </>
+              ) : (
+                <form action={aktivitaetAnlegen}>
+                <input type="hidden" name="betriebId" value={id} />
+                <input type="hidden" name="zurueck" value={`/leads/${id}?tab=aktivitaeten`} />
+                <div className="raster" style={{ gridTemplateColumns: "minmax(0, 0.8fr) minmax(0, 1.6fr)", gap: 12 }}>
+                  <label className="feld"><span>Art</span><select name="art" defaultValue="anruf">{Object.entries(ARTEN).map(([k, n]) => <option key={k} value={k}>{n}</option>)}</select></label>
+                  <label className="feld"><span>Kurz</span><input name="titel" placeholder="z. B. Rückruf wegen Fotos" /></label>
+                </div>
+                <label className="feld"><span>Notiz</span><textarea name="text" rows={3} placeholder="Was wurde besprochen?" style={{ minHeight: 90 }} /></label>
+                <div className="raster zwei" style={{ gap: 12 }}>
+                  <label className="feld"><span>Datum <em>bei Aufgabe oder Termin</em></span><input type="date" name="faellig" defaultValue={morgen} /></label>
+                  <label className="feld"><span>Für</span><select name="zustaendig" defaultValue={b.zustaendig ?? ""}><option value="">mich</option>{benutzer.map((x) => <option key={x.name}>{x.name}</option>)}</select></label>
+                </div>
+                <button className="knopf">Eintragen</button>
+              </form>
+              )}
+            </section>
 
             <section className="karte">
               <h2>Offene Aufgaben</h2>
@@ -330,17 +361,18 @@ export default async function Lead({ params, searchParams }: { params: Promise<{
           </div>
 
           <section className="karte" aria-labelledby="verlauf">
-            <h2 id="verlauf">Verlauf</h2>
+            <div className="kopfzeile" style={{ marginBottom: 8 }}><h2 id="verlauf" style={{ margin: 0 }}>Verlauf</h2><span className="leise klein">Eintrag anklicken für Details</span></div>
             {zeitleiste.length ? (
               <ol className="zeitleiste">
                 {zeitleiste.map((e) => (
                   <li key={e.key}>
                     <span className={`art art-${e.typ}`}>{e.etikett}</span>
-                    <div className="inhalt">
-                      <div className="kopf"><span className="titel">{e.titel}</span><span className="leise klein">{datumZeit(e.am)}{e.wer ? ` · ${e.wer}` : ""}</span></div>
+                    <details className="inhalt verlauf-eintrag">
+                      <summary className="kopf"><span className="titel">{e.titel}</span><span className="leise klein">{datumZeit(e.am)}{e.wer ? ` · ${e.wer}` : ""}</span></summary>
                       {e.text ? <div className="text">{e.text}</div> : null}
                       {e.extra ?? null}
-                    </div>
+                      {!e.text && !e.extra ? <div className="leise klein">Keine weiteren Angaben.</div> : null}
+                    </details>
                   </li>
                 ))}
               </ol>
@@ -450,11 +482,13 @@ export default async function Lead({ params, searchParams }: { params: Promise<{
             </form>
 
           </div>
-          <h2 className="katalog-titel">Zuständigkeit, Tickets, Verlauf und Datenschutz</h2>
-          <div className="raster zwei" style={{ alignItems: "start" }}>
-            <div>
-          <form action={betriebZuweisen} className="karte abstand">
+        </>
+      ) : null}
+
+      {tab === "zustaendig" ? (
+          <form action={betriebZuweisen} className="karte">
             <h2>Zuständig und Schlagworte</h2>
+            <p className="leise klein">Wer kümmert sich um diesen Betrieb? Schlagworte helfen beim Suchen und Filtern, z. B. „Messe 2027“.</p>
             <input type="hidden" name="id" value={id} />
             <div className="raster zwei">
               <label className="feld"><span>Zuständig</span><select name="zustaendig" defaultValue={b.zustaendig ?? ""}><option value="">niemand</option>{benutzer.map((x) => <option key={x.name}>{x.name}</option>)}</select></label>
@@ -462,25 +496,31 @@ export default async function Lead({ params, searchParams }: { params: Promise<{
             </div>
             <button className="knopf">Speichern</button>
           </form>
-          <section className="karte abstand">
+      ) : null}
+
+      {tab === "tickets" ? (
+          <section className="karte">
             <div className="kopfzeile" style={{ marginBottom: 4 }}><h2 style={{ margin: 0 }}>Tickets</h2>{b.status === "kunde" ? <Link className="knopf klein" href={`/tickets?betrieb=${id}`}>Ticket aufnehmen</Link> : null}</div>
             {tickets.length ? <ul className="liste">{tickets.map((t) => <li key={t.id}><div><div className="titel"><Link href={`/tickets/${t.id}`}>{ticketNummer(t.id)} {t.betreff}</Link></div><div className="unter">{datum(t.erstelltAm)}</div></div><Status wert={t.status === "in_arbeit" ? "in_arbeit_ticket" : t.status === "erledigt" ? "fertig" : t.status} /></li>)}</ul> : <p className="leise klein">Keine Tickets.</p>}
           </section>
-            </div>
-        <details className="karte">
-          <summary className="aufklapp-titel">Verlauf ({verlauf.length})</summary>
-          {verlauf.length ? (
-            <ul className="liste">
-              {verlauf.map((v) => (
-                <li key={v.id}><div><div>{v.aktion}</div><div className="unter">{v.wer} · {datumZeit(v.am)}</div></div></li>
-              ))}
-            </ul>
-          ) : <p className="leise">Noch nichts.</p>}
-        </details>
-          </div>
+      ) : null}
 
+      {tab === "log" ? (
+          <section className="karte">
+            <h2>Änderungsprotokoll</h2>
+            <p className="leise klein">Wer hat an diesem Betrieb wann was geändert (Nachweis nach DSGVO). Gespräche, Besuche und Nachrichten stehen unter „Aktivitäten“.</p>
+            {verlauf.length ? (
+              <ul className="zeilen">
+                {verlauf.map((v) => <li key={v.id}><div><div>{v.aktion}</div><div className="unter">{v.wer}</div></div><span className="leise klein mono">{datumZeit(v.am)}</span></li>)}
+              </ul>
+            ) : <p className="leise">Noch nichts.</p>}
+          </section>
+      ) : null}
+
+      {tab === "datenschutz" ? (
+        <>
       {!gesperrt ? (
-        <details className="karte abstand">
+        <details className="karte">
           <summary style={{ cursor: "pointer", fontWeight: 600 }}>Widerspruch eintragen</summary>
           <p className="leise" style={{ marginTop: 12 }}>Der Betrieb kommt auf die Sperrliste. Offene Post wird gestoppt, die Demo gelöscht, und er wird nie wieder angeschrieben.</p>
           <form action={widerspruch} className="knopfreihe">
@@ -531,5 +571,19 @@ export default async function Lead({ params, searchParams }: { params: Promise<{
         </>
       ) : null}
     </>
+  );
+}
+
+/** Zusammenfassung eines aufgenommenen Gesprächs (aus der Auswertung), im Verlauf aufklappbar. */
+function Zusammenfassung({ a }: { a: Auswertung }) {
+  const liste = (titel: string, punkte?: string[]) => (punkte?.length ? <div><b className="klein">{titel}</b><ul className="klein" style={{ margin: "2px 0 8px", paddingLeft: 18 }}>{punkte.map((x) => <li key={x}>{x}</li>)}</ul></div> : null);
+  return (
+    <div className="zusammenfassung">
+      {liste("Ziele des Betriebs", a.ziele)}
+      {liste("Probleme", a.probleme)}
+      {a.empfehlung?.paket ? <p className="klein" style={{ margin: "0 0 8px" }}><b>Empfehlung:</b> {PAKETE[a.empfehlung.paket as PaketKey]?.name ?? a.empfehlung.paket}{a.empfehlung.begruendung ? ` · ${a.empfehlung.begruendung}` : ""}</p> : null}
+      {liste("Offene Fragen", a.offeneFragen)}
+      {liste("Maßnahmen", a.massnahmen?.map((m) => `${m.was} (${m.wer}, ${m.wann})`))}
+    </div>
   );
 }

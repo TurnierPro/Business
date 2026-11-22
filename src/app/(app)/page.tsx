@@ -126,9 +126,8 @@ export default async function ZuTun() {
           <>
             <h3 style={{ margin: "16px 0 4px" }}>Besuche fällig</h3>
             <ul className="liste">
-              {besuche.map((l) => <li key={l.id}><div style={{ flex: 1 }}><div className="titel">{l.name}</div><div className="unter">{l.strasse}, {l.plz} {l.ort}</div></div><Link className="knopf klein" href={`/leads/${l.id}?tab=aktivitaeten`}>Messbogen</Link></li>)}
+              {besuche.map((l) => <li key={l.id}><div style={{ flex: 1 }}><div className="titel">{l.name}</div><div className="unter">{l.strasse}, {l.plz} {l.ort}</div></div><Link className="knopf klein" href={`/leads/${l.id}?tab=aktivitaeten&erfassen=besuch`}>Besuch erfassen</Link></li>)}
             </ul>
-            <p className="klein" style={{ marginTop: 8 }}><Link href="/leads/besuche">Besuchsplan nach Ort</Link></p>
           </>
         ) : null}
       </section>

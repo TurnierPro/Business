@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { desc, eq, gte, sql } from "drizzle-orm";
 import { getDb, schema } from "@/lib/db";
 import { dienste } from "@/lib/adapters/dienste";
@@ -10,7 +11,7 @@ import { beispieleErlaubt } from "@/lib/beispiele";
 import { AGENTEN } from "@/lib/agenten";
 import { AufEinenBlick, SeitenKopf, SeitenReiter, reiterWahl } from "@/components/Seite";
 
-export const metadata = { title: "System" };
+export const metadata = { title: "Systemzustand" };
 
 export default async function System({ searchParams }: { searchParams: Promise<{ reiter?: string }> }) {
   const db = await getDb();
@@ -36,11 +37,11 @@ export default async function System({ searchParams }: { searchParams: Promise<{
   ];
   const liste = [
     { key: "ueberblick", name: "Überblick", zahl: probleme.length || undefined, ton: probleme.length ? ("fehler" as const) : undefined },
-    { key: "zeitplan", name: "Zeitplan", zahl: REGELN.length },
+    { key: "zeitplan", name: "Automatische Abläufe", zahl: REGELN.length },
     { key: "meldungen", name: "Meldungen", zahl: meldungen.length },
-    { key: "jobs", name: "Hintergrund-Jobs", zahl: fehlerJobs || undefined, ton: fehlerJobs ? ("fehler" as const) : undefined },
-    { key: "dienste", name: "Dienste", zahl: alleDienste.length },
-    { key: "agenten", name: "Agenten", zahl: AGENTEN.length },
+    { key: "jobs", name: "Erledigte Arbeiten", zahl: fehlerJobs ? `${fehlerJobs} Fehler` : undefined, ton: fehlerJobs ? ("fehler" as const) : undefined },
+    { key: "dienste", name: "Angebundene Programme", zahl: alleDienste.length },
+    { key: "agenten", name: "KI-Helfer", zahl: AGENTEN.length },
   ];
   const reiter = reiterWahl((await searchParams).reiter, liste);
   const uhr = (d: Date) => d.toLocaleString("de-DE", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
@@ -54,7 +55,7 @@ export default async function System({ searchParams }: { searchParams: Promise<{
 
   return (
     <>
-      <SeitenKopf titel="Technik und Agenten" text="Läuft alles? Dienste, Zeitplan, Hintergrund-Jobs, Sicherungen und KI-Kosten." />
+      <SeitenKopf titel="Systemzustand" text="Läuft Levarex OS im Hintergrund sauber? Hier schaust du nur nach, wenn oben „Bitte prüfen“ steht." />
 
       <section className={`karte ampel ${probleme.length ? "rot" : "gruen"}`} aria-live="polite" style={{ marginBottom: 12 }}>
         <div className="kopfzeile" style={{ marginBottom: probleme.length ? 8 : 0 }}>
@@ -64,15 +65,24 @@ export default async function System({ searchParams }: { searchParams: Promise<{
         {probleme.length ? <ul style={{ margin: 0, paddingLeft: 18 }}>{probleme.map((x) => <li key={x}>{x}</li>)}</ul> : null}
       </section>
       <AufEinenBlick werte={[
-        { wert: `${alleDienste.length - simuliert} / ${alleDienste.length}`, name: "Dienste echt angebunden", ton: simuliert ? "warten" : "ok", href: "/system?reiter=dienste" },
+        { wert: `${alleDienste.length - simuliert} / ${alleDienste.length}`, name: "Programme angeschlossen", ton: simuliert ? "warten" : "ok", href: "/system?reiter=dienste" },
         { wert: letztesBackup ? uhr(letztesBackup.am) : "keine", name: letztesBackup ? `letzte Sicherung · ${letztesBackup.ok ? "ok" : "Fehler"}` : "Sicherung", ton: letztesBackup?.ok ? "ok" : "fehler", href: "/system?reiter=meldungen" },
-        { wert: fehlerJobs, name: "Jobs mit Fehler", ton: fehlerJobs ? "fehler" : "ok", href: "/system?reiter=jobs" },
+        { wert: fehlerJobs, name: "Arbeiten mit Fehler", ton: fehlerJobs ? "fehler" : "ok", href: "/system?reiter=jobs" },
         { wert: warnungen.length, name: "Warnungen in 24 Stunden", ton: warnungen.length ? "fehler" : "ok", href: "/system?reiter=meldungen" },
         { wert: `${(summe / 1_000_000).toFixed(2)} USD`, name: "KI-Kosten, 30 Tage" },
       ]} />
       <SeitenReiter basis="/system" aktiv={reiter} liste={liste} />
 
       {reiter === "ueberblick" ? (
+        <>
+        <section className="karte abstand-klein">
+          <h2>Was hier zu sehen ist</h2>
+          <ul className="zeilen">
+            <li><div><div className="titel">Automatische Abläufe</div><div className="unter">Was Levarex OS von selbst erledigt, z. B. jede Nacht die Sicherung, morgens den Tagesbericht, Erinnerungen an offene Rechnungen.</div></div><Link className="knopf klein" href="/system?reiter=zeitplan">Ansehen</Link></li>
+            <li><div><div className="titel">KI-Helfer</div><div className="unter">Bereiten Briefe, Angebote, Antworten und Protokolle vor. Sie schicken nie selbst etwas raus: alles landet bei euch in den Freigaben.</div></div><Link className="knopf klein" href="/system?reiter=agenten">Ansehen</Link></li>
+            <li><div><div className="titel">Angebundene Programme</div><div className="unter">Outlook, WhatsApp, Lexware, Qonto und Co. „Simulator“ heißt: noch nicht angeschlossen, es geht nichts nach draußen.</div></div><Link className="knopf klein" href="/system?reiter=dienste">Ansehen</Link></li>
+          </ul>
+        </section>
         <div className="raster zwei" style={{ alignItems: "start" }}>
           <section className="karte">
             <h2>Neueste Meldungen</h2>
@@ -93,6 +103,7 @@ export default async function System({ searchParams }: { searchParams: Promise<{
             ) : null}
           </section>
         </div>
+        </>
       ) : null}
 
       {reiter === "zeitplan" ? (
@@ -119,7 +130,7 @@ export default async function System({ searchParams }: { searchParams: Promise<{
 
       {reiter === "jobs" ? (
         <section className="karte">
-          <p className="leise klein">Die letzten 25 Aufträge an die Hintergrund-Arbeiter (Briefe, PDFs, Prüfungen, Abgleiche).</p>
+          <p className="leise klein">Die letzten 25 Arbeiten, die im Hintergrund liefen (Briefe und PDFs erstellen, Qualitätskontrolle, Abgleich mit Lexware). Bei „Fehler“ einmal „Wiederholen“ drücken; klappt es dann nicht, Maximilian Bescheid geben.</p>
           <table className="tabelle">
             <thead><tr><th>Job</th><th>Status</th><th className="weg-mobil">Ergebnis</th><th className="weg-mobil">Zeit</th><th></th></tr></thead>
             <tbody>
@@ -157,9 +168,9 @@ export default async function System({ searchParams }: { searchParams: Promise<{
 
       {reiter === "agenten" ? (
         <section className="karte">
-          <p className="leise klein">Jeder Agent bereitet vor. Alles, was nach draußen geht, läuft durch die Qualitätskontrolle und wartet dann auf euch.</p>
+          <p className="leise klein">Jeder KI-Helfer bereitet nur vor. Alles, was nach draußen geht, läuft durch die Qualitätskontrolle und wartet dann auf eure Freigabe.</p>
           <table className="tabelle">
-            <thead><tr><th>Agent</th><th className="weg-mobil">Auslöser</th><th>Was er tut</th><th>Mensch entscheidet</th></tr></thead>
+            <thead><tr><th>Helfer</th><th className="weg-mobil">Auslöser</th><th>Was er tut</th><th>Mensch entscheidet</th></tr></thead>
             <tbody>
               {AGENTEN.map((g) => (
                 <tr key={g.name}><td><b>{g.name}</b></td><td className="weg-mobil leise klein">{g.ausloeser}</td><td className="klein">{g.macht}<div className="leise">→ {g.ergebnis}</div></td><td className="klein">{g.freigabe}</td></tr>

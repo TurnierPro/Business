@@ -695,3 +695,41 @@ fieldset { min-width: 0; }
 .zeile-link { display: flex; flex-direction: column; min-width: 0; text-decoration: none; color: inherit; }
 .zeile-link .titel { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .zeile-link:hover .titel { text-decoration: underline; }
+/* Haken in Feldhöhe, z. B. „Keine Website vorhanden“ neben dem Website-Feld */
+.haken.feldhoch { height: 42px; padding: 0 14px; align-items: center; box-sizing: border-box; }
+.haken.feldhoch input { margin-top: 0; }
+@media (pointer: coarse) { .haken.feldhoch { height: 46px; } }
+
+/* Kundenakte: Menü „Mehr“ oben rechts */
+.menue { position: relative; }
+.menue > summary { list-style: none; }
+.menue > summary::-webkit-details-marker { display: none; }
+.menue-liste { position: absolute; right: 0; top: calc(100% + 6px); z-index: 30; min-width: 260px; display: flex; flex-direction: column; padding: 6px; background: var(--flaeche); border: 1px solid var(--rahmen); border-radius: 12px; }
+.menue-liste a { display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; border-radius: 8px; text-decoration: none; color: var(--text); }
+.menue-liste a:hover, .menue-liste a[aria-current="page"] { background: rgba(255,255,255,0.05); }
+.klein-reiter { margin: 0; }
+.klein-reiter a { padding: 6px 12px; font-size: 14px; }
+/* Verlauf: Einträge aufklappbar */
+.verlauf-eintrag > summary { list-style: none; cursor: pointer; }
+.verlauf-eintrag > summary::-webkit-details-marker { display: none; }
+.verlauf-eintrag > summary .titel::after { content: " ▸"; color: var(--leise); font-weight: 400; }
+.verlauf-eintrag[open] > summary .titel::after { content: " ▾"; }
+.verlauf-eintrag[open] { padding-bottom: 4px; }
+.verlauf-eintrag > :not(summary) { margin-top: 6px; }
+.zusammenfassung { margin-top: 8px; padding: 10px 12px; background: var(--grund); border: 1px solid var(--linie); border-radius: 8px; }
+.haken.feldhoch span { white-space: nowrap; }
+
+/* Pipeline: Stufenleiste mit Anzahl und Summe je Stufe */
+.stufenleiste { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(120px, 1fr); gap: 0; margin: 4px 0 12px; border: 1px solid var(--rand-weich, var(--linie)); border-radius: 14px; overflow-x: auto; background: var(--flaeche); }
+.stufenleiste a { display: flex; flex-direction: column; gap: 2px; padding: 10px 14px; text-decoration: none; color: inherit; border-left: 1px solid var(--linie); position: relative; }
+.stufenleiste a:first-child { border-left: 0; }
+.stufenleiste a:hover { background: rgba(255,255,255,0.03); }
+.stufenleiste a[aria-current="page"] { background: rgba(255,255,255,0.06); border-bottom: 2px solid var(--text); }
+.stufenleiste a.leer { opacity: 0.5; }
+.stufenleiste .zahl { font-family: var(--mono); font-size: 22px; font-weight: 600; line-height: 1.1; }
+.stufenleiste .name { font-size: 13.5px; }
+.stufenleiste .summe { font-family: var(--mono); font-size: 12px; color: var(--leise); }
+/* kompaktere Karten in der Tafel */
+.pipeline .karte-klein { padding: 8px 10px; }
+.pipeline .karte-klein .stufe-waehlen { height: 32px !important; font-size: 13px; margin-top: 6px; }
+.pipeline { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: minmax(200px, 1fr); }

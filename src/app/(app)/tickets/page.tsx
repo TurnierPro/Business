@@ -63,8 +63,11 @@ export default async function Tickets({ searchParams }: { searchParams: Promise<
         </div>
         <form action={ticketAnlegen} className="karte">
           <h2>Ticket aufnehmen</h2>
-          <p className="leise klein">Zum Beispiel bei einem Anruf. Kunden können Tickets auch selbst im Portal stellen.</p>
-          <label className="feld"><span>Kunde</span><select name="betriebId" required defaultValue={betrieb ?? ""}><option value="" disabled>Bitte wählen</option>{kunden.map((k) => <option key={k.id} value={k.id}>{k.name}</option>)}</select></label>
+          <p className="leise klein">Zum Beispiel bei einem Anruf. Schreibt oder ruft ein Kunde an, entsteht das Ticket automatisch beim richtigen Kunden; im Portal stellt er es selbst.</p>
+          <div className="raster zwei" style={{ gap: 12 }}>
+            <label className="feld"><span>Telefon oder E-Mail <em>findet den Kunden</em></span><input name="kontakt" placeholder="0721 … oder name@betrieb.de" /></label>
+            <label className="feld"><span>oder Kunde wählen</span><select name="betriebId" defaultValue={betrieb ?? ""}><option value="">–</option>{kunden.map((k) => <option key={k.id} value={k.id}>{k.name}</option>)}</select></label>
+          </div>
           <label className="feld"><span>Betreff</span><input name="betreff" required placeholder="z. B. Neue Öffnungszeiten" /></label>
           <label className="feld"><span>Beschreibung</span><textarea name="beschreibung" required rows={4} /></label>
           <div className="raster drei">

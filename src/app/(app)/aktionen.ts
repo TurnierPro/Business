@@ -406,7 +406,7 @@ export async function aufgabeVerschieben(f: FormData) {
 
 export async function betriebZuweisen(f: FormData) {
   const id = zahl(f, "id");
-  await ausfuehren(`/leads/${id}?tab=daten`, "Gespeichert", async () => (await import("@/lib/pipeline")).betriebZuweisen(id, text(f, "zustaendig") || null, text(f, "tags").split(",")));
+  await ausfuehren(`/leads/${id}?tab=zustaendig`, "Gespeichert", async () => (await import("@/lib/pipeline")).betriebZuweisen(id, text(f, "zustaendig") || null, text(f, "tags").split(",")));
 }
 
 // ---------- Lieferung: Checkliste und Zeiten ----------
@@ -436,7 +436,11 @@ export async function zeitLoeschen(f: FormData) {
 
 export async function ticketAnlegen(f: FormData) {
   await ausfuehren("/tickets", "Ticket angelegt", async (wer) => {
-    const id = await (await import("@/lib/ablauf/tickets")).ticketAnlegen({ betriebId: zahl(f, "betriebId"), betreff: text(f, "betreff"), beschreibung: text(f, "beschreibung"), kategorie: text(f, "kategorie"), prioritaet: text(f, "prioritaet"), quelle: text(f, "quelle") || "telefon" }, wer);
+    // Kunde gewählt oder anhand von Telefonnummer bzw. E-Mail des Anrufers gefunden
+    let betriebId = zahl(f, "betriebId");
+    if (!betriebId && text(f, "kontakt")) betriebId = (await (await import("@/lib/ablauf/nachrichten")).zuordnen(text(f, "kontakt"))).betriebId ?? 0;
+    if (!betriebId) throw new Error(text(f, "kontakt") ? `Zu „${text(f, "kontakt")}“ ist kein Kunde bekannt. Bitte den Kunden auswählen.` : "Bitte den Kunden auswählen oder Telefon bzw. E-Mail eintragen.");
+    const id = await (await import("@/lib/ablauf/tickets")).ticketAnlegen({ betriebId, betreff: text(f, "betreff"), beschreibung: text(f, "beschreibung"), kategorie: text(f, "kategorie"), prioritaet: text(f, "prioritaet"), quelle: text(f, "quelle") || "telefon" }, wer);
     return { ziel: `/tickets/${id}` };
   });
 }
@@ -647,17 +651,17 @@ export async function antwortEntwerfen(f: FormData) {
 
 export async function portalZugangAnlegen(f: FormData) {
   const id = zahl(f, "betriebId");
-  await ausfuehren(`/leads/${id}?tab=daten`, "Zugang angelegt. Die Mail mit dem Link liegt in den Freigaben.", async (wer) => (await import("@/lib/kundenportal")).zugangAnlegen({ betriebId: id, name: text(f, "name"), email: text(f, "email") }, wer));
+  await ausfuehren(`/leads/${id}?tab=datenschutz`, "Zugang angelegt. Die Mail mit dem Link liegt in den Freigaben.", async (wer) => (await import("@/lib/kundenportal")).zugangAnlegen({ betriebId: id, name: text(f, "name"), email: text(f, "email") }, wer));
 }
 
 export async function portalZugangSperren(f: FormData) {
   const id = zahl(f, "betriebId");
-  await ausfuehren(`/leads/${id}?tab=daten`, "Zugang gesperrt. Der Link funktioniert ab sofort nicht mehr.", async (wer) => (await import("@/lib/kundenportal")).zugangSperren(zahl(f, "id"), wer));
+  await ausfuehren(`/leads/${id}?tab=datenschutz`, "Zugang gesperrt. Der Link funktioniert ab sofort nicht mehr.", async (wer) => (await import("@/lib/kundenportal")).zugangSperren(zahl(f, "id"), wer));
 }
 
 export async function portalLinkErneuern(f: FormData) {
   const id = zahl(f, "id");
-  await ausfuehren(`/leads/${id}?tab=daten`, "Neuer Portal-Link erzeugt. Der alte ist gesperrt; die Mail mit dem neuen Link liegt in den Freigaben.", async (wer) => {
+  await ausfuehren(`/leads/${id}?tab=datenschutz`, "Neuer Portal-Link erzeugt. Der alte ist gesperrt; die Mail mit dem neuen Link liegt in den Freigaben.", async (wer) => {
     const kp = await import("@/lib/kundenportal");
     await kp.portalLinkErneuern(id, wer);
     const db = await getDb();
@@ -669,7 +673,7 @@ export async function portalLinkErneuern(f: FormData) {
 // ---------- Vertrieb: Messbogen nach dem Besuch ----------
 
 export async function besuchErfassen(f: FormData) {
-  await ausfuehren(text(f, "zurueck") || "/leads/besuche", "Besuch gespeichert", async (wer) => {
+  await ausfuehren(text(f, "zurueck") || "/leads", "Besuch gespeichert", async (wer) => {
     await (await import("@/lib/ablauf/vertrieb")).besuchErfassen(
       {
         betriebId: zahl(f, "betriebId"),
