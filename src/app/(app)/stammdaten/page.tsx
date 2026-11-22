@@ -1,9 +1,12 @@
 import { brauchtBenutzer, darf } from "@/lib/auth";
 import { geaendert, katalogLaden, paketDaten } from "@/lib/katalog-db";
 import { euro, type PaketKey } from "@/lib/pakete";
+import { AufEinenBlick, SeitenKopf, SeitenReiter, reiterWahl } from "@/components/Seite";
+import { LAUFZEIT_MONATE } from "@/lib/recht";
+import Link from "next/link";
 import { katalogZuruecksetzen, modulSpeichern, paketSpeichern, zusatzSpeichern } from "../aktionen";
 
-export const metadata = { title: "Stammdaten" };
+export const metadata = { title: "Katalog" };
 
 const eu = (cent: number | null) => (cent === null ? "" : (cent / 100).toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
 
@@ -15,17 +18,61 @@ function Zuruecksetzen({ art, k }: { art: string; k: string }) {
   return <form action={katalogZuruecksetzen}><input type="hidden" name="art" value={art} /><input type="hidden" name="key" value={k} /><button className="knopf klein">Zurücksetzen</button></form>;
 }
 
-export default async function Stammdaten() {
+export default async function Stammdaten({ searchParams }: { searchParams: Promise<{ reiter?: string }> }) {
   const ich = await brauchtBenutzer();
   const admin = darf(ich, "verwalten");
   const k = await katalogLaden();
   const anders = await geaendert();
+  const pakete = (Object.keys(k.pakete) as PaketKey[]).map((key) => ({ key, ...paketDaten(key) }));
+  const zeilen = [
+    ...pakete.map((p) => ({ gruppe: "Webauftritt", reiter: "webauftritt", name: p.name, einmalig: p.einmalig as number | null, monatlich: p.monatlich, aktiv: p.aktiv !== false, geaendert: anders.has(`paket:${p.key}`), hinweis: `online ${p.wochen} Wochen nach Inhalten` })),
+    ...k.module.map((m) => ({ gruppe: "Module", reiter: "module", name: m.name, einmalig: m.einmalig, monatlich: m.monatlich, aktiv: m.aktiv !== false, geaendert: anders.has(`modul:${m.key}`), hinweis: m.stufe === 2 ? "nach Prozess-Check" : m.pilot ? `Pilot ${euro(m.pilot.einmalig)}` : "" })),
+    ...k.zusaetze.map((z) => ({ gruppe: "Zusatzmodule und Vorab", reiter: "zusatz", name: z.name, einmalig: z.individuell ? null : z.einmalig, monatlich: z.monatlich, aktiv: z.aktiv !== false, geaendert: anders.has(`zusatz:${z.key}`), hinweis: z.individuell ? "Festpreis nach Prozess-Check" : "" })),
+  ];
+  const liste = [
+    { key: "uebersicht", name: "Preisübersicht", zahl: zeilen.length },
+    { key: "webauftritt", name: "Webauftritt", zahl: pakete.length },
+    { key: "module", name: "Module", zahl: k.module.length },
+    { key: "zusatz", name: "Zusatzmodule und Vorab", zahl: k.zusaetze.length },
+  ];
+  const reiter = reiterWahl((await searchParams).reiter, liste);
   return (
     <>
-      <div className="kopfzeile"><div><h1>Katalog</h1><p>Der Baukasten für den Angebots-Konfigurator: Webauftritt, Module, Zusatzmodule. Jeder Baustein als „Das Problem“ und fünf Punkte. Änderungen gelten für neue Angebote; verschickte Angebote bleiben unverändert.{admin ? "" : " Nur Admins können ändern."}</p></div></div>
-      <p className="leise klein">Karte antippen zum Bearbeiten.</p>
+      <SeitenKopf titel="Katalog" text={`Der Baukasten für den Angebots-Konfigurator. Änderungen gelten für neue Angebote; verschickte Angebote bleiben unverändert.${admin ? "" : " Nur Admins können ändern."}`} />
+      <AufEinenBlick werte={[
+        { wert: pakete.length, name: "Webauftritte", href: "/stammdaten?reiter=webauftritt" },
+        { wert: k.module.length, name: "Module", href: "/stammdaten?reiter=module" },
+        { wert: k.zusaetze.length, name: "Zusatzmodule und Vorab", href: "/stammdaten?reiter=zusatz" },
+        { wert: anders.size, name: "von der Werkseinstellung geändert", ton: anders.size ? "warten" : "ok" },
+        { wert: zeilen.filter((z) => !z.aktiv).length, name: "im Konfigurator ausgeblendet" },
+      ]} />
+      <SeitenReiter basis="/stammdaten" aktiv={reiter} liste={liste} />
 
-      <h2 className="katalog-titel">Webauftritt</h2>
+      {reiter === "uebersicht" ? (
+        <section className="karte">
+          <table className="tabelle">
+            <thead><tr><th>Baustein</th><th className="zahl">Einmalig</th><th className="zahl">Monatlich</th><th className="zahl weg-mobil">{LAUFZEIT_MONATE} Monate gesamt</th><th className="weg-mobil">Hinweis</th><th>Stand</th></tr></thead>
+            {["Webauftritt", "Module", "Zusatzmodule und Vorab"].map((g) => (
+              <tbody key={g}>
+                <tr><th colSpan={6} className="gruppe-titel" style={{ paddingTop: 16 }}>{g}</th></tr>
+                {zeilen.filter((z) => z.gruppe === g).map((z) => (
+                  <tr key={z.name} className={z.aktiv ? undefined : "leise"}>
+                    <td><Link href={`/stammdaten?reiter=${z.reiter}`}>{z.name}</Link></td>
+                    <td className="zahl">{z.einmalig === null ? "individuell" : euro(z.einmalig)}</td>
+                    <td className="zahl">{z.monatlich ? euro(z.monatlich) : "–"}</td>
+                    <td className="zahl weg-mobil leise">{z.einmalig === null ? "–" : euro(z.einmalig + LAUFZEIT_MONATE * z.monatlich)}</td>
+                    <td className="weg-mobil leise klein">{z.hinweis}</td>
+                    <td>{!z.aktiv ? <span className="status">ausgeblendet</span> : z.geaendert ? <span className="status warten">geändert</span> : <span className="status ok">Werkseinstellung</span>}</td>
+                  </tr>
+                ))}
+              </tbody>
+            ))}
+          </table>
+          <p className="leise klein" style={{ marginTop: 8 }}>Alle Preise netto. Bearbeiten: Baustein anklicken oder Reiter oben wählen.</p>
+        </section>
+      ) : null}
+
+      {reiter === "webauftritt" ? (
       <section className="katalog-raster">
           {(Object.keys(k.pakete) as PaketKey[]).map((key) => {
             const p = paketDaten(key);
@@ -58,7 +105,8 @@ export default async function Stammdaten() {
           })}
       </section>
 
-      <h2 className="katalog-titel">Module</h2>
+      ) : null}
+      {reiter === "module" ? (
       <section className="katalog-raster">
           {[...k.module, null].map((m) => (
             <details key={m?.key ?? "neu"} className="zeile-aufklappen katalog-karte">
@@ -89,7 +137,8 @@ export default async function Stammdaten() {
           ))}
       </section>
 
-      <h2 className="katalog-titel">Zusatzmodule und Vorab</h2>
+      ) : null}
+      {reiter === "zusatz" ? (
       <section className="katalog-raster">
           {[...k.zusaetze, null].map((z) => (
             <details key={z?.key ?? "neu"} className="zeile-aufklappen katalog-karte">
@@ -111,6 +160,7 @@ export default async function Stammdaten() {
             </details>
           ))}
       </section>
+      ) : null}
     </>
   );
 }

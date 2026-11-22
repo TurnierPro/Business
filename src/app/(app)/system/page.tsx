@@ -8,20 +8,18 @@ import { datumZeit } from "@/lib/format";
 import { beispieleEntfernen, beispieleLaden, jobStarten, jobWiederholen } from "../aktionen";
 import { beispieleErlaubt } from "@/lib/beispiele";
 import { AGENTEN } from "@/lib/agenten";
-import { verarbeitungen } from "@/lib/ablauf/datenschutz";
+import { AufEinenBlick, SeitenKopf, SeitenReiter, reiterWahl } from "@/components/Seite";
 
 export const metadata = { title: "System" };
 
-export default async function System() {
+export default async function System({ searchParams }: { searchParams: Promise<{ reiter?: string }> }) {
   const db = await getDb();
   const monat = new Date(Date.now() - 30 * 864e5);
-  const verzeichnis = await verarbeitungen();
-  const [jobs, meldungen, zeitplan, kosten, verlauf] = await Promise.all([
+  const [jobs, meldungen, zeitplan, kosten] = await Promise.all([
     db.select().from(schema.jobs).orderBy(desc(schema.jobs.erstelltAm)).limit(25),
-    db.select().from(schema.meldungen).orderBy(desc(schema.meldungen.am)).limit(20),
+    db.select().from(schema.meldungen).orderBy(desc(schema.meldungen.am)).limit(40),
     db.select().from(schema.zeitplan),
     db.select({ zweck: schema.kiNutzung.zweck, n: sql<number>`count(*)::int`, s: sql<number>`sum(${schema.kiNutzung.kostenMikroUsd})::int` }).from(schema.kiNutzung).where(gte(schema.kiNutzung.am, monat)).groupBy(schema.kiNutzung.zweck),
-    db.select().from(schema.protokoll).orderBy(desc(schema.protokoll.am)).limit(30),
   ]);
   const summe = kosten.reduce((a, k) => a + (k.s ?? 0), 0);
   // Ampel: in einem Satz, ob etwas zu tun ist
@@ -36,147 +34,140 @@ export default async function System() {
     ...warnungen.map((m) => `${m.titel}${m.detail ? `: ${m.detail.slice(0, 120)}` : ""}`),
     ...(letztesBackup && !letztesBackup.ok ? ["Letzte Sicherung fehlgeschlagen"] : []),
   ];
+  const liste = [
+    { key: "ueberblick", name: "Überblick", zahl: probleme.length || undefined, ton: probleme.length ? ("fehler" as const) : undefined },
+    { key: "zeitplan", name: "Zeitplan", zahl: REGELN.length },
+    { key: "meldungen", name: "Meldungen", zahl: meldungen.length },
+    { key: "jobs", name: "Hintergrund-Jobs", zahl: fehlerJobs || undefined, ton: fehlerJobs ? ("fehler" as const) : undefined },
+    { key: "dienste", name: "Dienste", zahl: alleDienste.length },
+    { key: "agenten", name: "Agenten", zahl: AGENTEN.length },
+  ];
+  const reiter = reiterWahl((await searchParams).reiter, liste);
+  const uhr = (d: Date) => d.toLocaleString("de-DE", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+  const meldungsListe = (l: typeof meldungen) => (
+    <ul className="zeilen">
+      {l.map((m) => (
+        <li key={m.id}><div><div className="titel">{m.titel}</div><div className="unter" style={{ whiteSpace: "pre-wrap" }}>{datumZeit(m.am)}{m.gepusht ? " · aufs Handy geschickt" : ""}{m.detail ? ` · ${m.detail}` : ""}</div></div><Status wert={m.ok ? "fertig" : "fehler"} /></li>
+      ))}
+    </ul>
+  );
+
   return (
     <>
-      <div className="kopfzeile"><div><h1>System</h1><p>Dienste, Hintergrund-Jobs, Backups und alles, was protokolliert wird.</p></div></div>
+      <SeitenKopf titel="Technik und Agenten" text="Läuft alles? Dienste, Zeitplan, Hintergrund-Jobs, Sicherungen und KI-Kosten." />
 
-      <section className={`karte ampel ${probleme.length ? "rot" : "gruen"}`} aria-live="polite">
+      <section className={`karte ampel ${probleme.length ? "rot" : "gruen"}`} aria-live="polite" style={{ marginBottom: 12 }}>
         <div className="kopfzeile" style={{ marginBottom: probleme.length ? 8 : 0 }}>
           <h2 style={{ margin: 0 }}><span className={`status ${probleme.length ? "fehler" : "ok"}`}>{probleme.length ? "Bitte prüfen" : "Alles läuft"}</span></h2>
-          <span className="leise klein">{simuliert} von {alleDienste.length} Diensten im Simulator · letzte Sicherung: {letztesBackup ? `${letztesBackup.ok ? "ok" : "Fehler"}, ${letztesBackup.am.toLocaleString("de-DE", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}` : "noch keine"}</span>
+          <span className="leise klein">Stand {uhr(new Date())}</span>
         </div>
         {probleme.length ? <ul style={{ margin: 0, paddingLeft: 18 }}>{probleme.map((x) => <li key={x}>{x}</li>)}</ul> : null}
       </section>
+      <AufEinenBlick werte={[
+        { wert: `${alleDienste.length - simuliert} / ${alleDienste.length}`, name: "Dienste echt angebunden", ton: simuliert ? "warten" : "ok", href: "/system?reiter=dienste" },
+        { wert: letztesBackup ? uhr(letztesBackup.am) : "keine", name: letztesBackup ? `letzte Sicherung · ${letztesBackup.ok ? "ok" : "Fehler"}` : "Sicherung", ton: letztesBackup?.ok ? "ok" : "fehler", href: "/system?reiter=meldungen" },
+        { wert: fehlerJobs, name: "Jobs mit Fehler", ton: fehlerJobs ? "fehler" : "ok", href: "/system?reiter=jobs" },
+        { wert: warnungen.length, name: "Warnungen in 24 Stunden", ton: warnungen.length ? "fehler" : "ok", href: "/system?reiter=meldungen" },
+        { wert: `${(summe / 1_000_000).toFixed(2)} USD`, name: "KI-Kosten, 30 Tage" },
+      ]} />
+      <SeitenReiter basis="/system" aktiv={reiter} liste={liste} />
 
-      <details className="karte">
-        <summary className="aufklapp-titel">Agenten</summary>
-        
-        <p className="leise">Jeder Agent bereitet vor. Alles, was nach draußen geht, läuft durch die Qualitätskontrolle und wartet dann auf euch.</p>
-        <table className="tabelle">
-          <thead><tr><th>Agent</th><th className="weg-mobil">Auslöser</th><th>Was er tut</th><th>Mensch entscheidet</th></tr></thead>
-          <tbody>
-            {AGENTEN.map((g) => (
-              <tr key={g.name}><td><b>{g.name}</b></td><td className="weg-mobil leise klein">{g.ausloeser}</td><td className="klein">{g.macht}<div className="leise">→ {g.ergebnis}</div></td><td className="klein">{g.freigabe}</td></tr>
-            ))}
-          </tbody>
-        </table>
-      </details>
-
-      <details className="karte">
-        <summary className="aufklapp-titel">Dienste</summary>
-        
-        <table className="tabelle">
-          <thead><tr><th>Dienst</th><th className="weg-mobil">Wofür</th><th>Stand</th></tr></thead>
-          <tbody>
-            {dienste().map((d) => (
-              <tr key={d.key}>
-                <td><b>{d.name}</b>{!d.echt ? <div className="leise klein">{d.hinweis}</div> : null}</td>
-                <td className="weg-mobil">{d.zweck}</td>
-                <td><Status wert={d.echt ? "echt" : "simulator"} /></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </details>
-
-      <div className="raster zwei abstand" style={{ alignItems: "start" }}>
-        <section className="karte">
-          <h2>Zeitplan</h2>
-          <ul className="liste">
-            {REGELN.map((r) => {
-              const z = zeitplan.find((x) => x.name === r.art);
-              return (
-                <li key={r.art}>
-                  <div><div className="titel">{r.name}</div><div className="unter">Zuletzt: {datumZeit(z?.zuletztAm)}</div></div>
-                  <form action={jobStarten}><input type="hidden" name="art" value={r.art} /><button className="knopf klein">Jetzt</button></form>
-                </li>
-              );
-            })}
-          </ul>
-        </section>
-        <section className="karte">
-          <h2>Meldungen</h2>
-          {meldungen.length ? (
-            <ul className="liste">
-              {meldungen.map((m) => (
-                <li key={m.id}><div><div className="titel">{m.titel}</div><div className="unter" style={{ whiteSpace: "pre-wrap" }}>{m.detail}</div><div className="unter">{datumZeit(m.am)}{m.gepusht ? " · aufs Handy geschickt" : ""}</div></div><Status wert={m.ok ? "fertig" : "fehler"} /></li>
-              ))}
-            </ul>
-          ) : <p className="leise">Noch keine Meldungen.</p>}
-        </section>
-      </div>
-
-      <section className="karte abstand">
-        <div style={{ padding: "16px 16px 0" }}>
-          <h2>Verarbeitungen für Kunden</h2>
-          <p className="leise klein">Entwurf des Verzeichnisses als Auftragsverarbeiter (Art. 30 Abs. 2 DSGVO), automatisch aus den laufenden Projekten. Löschfristen im AVV festlegen.</p>
+      {reiter === "ueberblick" ? (
+        <div className="raster zwei" style={{ alignItems: "start" }}>
+          <section className="karte">
+            <h2>Neueste Meldungen</h2>
+            {meldungen.length ? meldungsListe(meldungen.slice(0, 6)) : <p className="leise">Noch keine Meldungen.</p>}
+          </section>
+          <section className="karte">
+            <h2>KI-Kosten nach Zweck, 30 Tage</h2>
+            {kosten.length ? <ul className="zeilen">{kosten.map((k) => <li key={k.zweck}><span>{k.zweck} <span className="leise">({k.n}×)</span></span><span className="mono">{((k.s ?? 0) / 1_000_000).toFixed(3)} USD</span></li>)}</ul> : <p className="leise">Noch keine Aufrufe. Im Simulator entstehen keine Kosten.</p>}
+            {beispieleErlaubt() ? (
+              <>
+                <h3 className="gruppe-titel" style={{ marginTop: 24 }}>Beispieldaten (nur lokal)</h3>
+                <p className="leise klein">16 erfundene Betriebe in allen Phasen: Leads, Briefe, Termine, Angebote, Rechnungen, Projekte bis zum Livegang.</p>
+                <div className="knopfreihe">
+                  <form action={beispieleLaden}><button className="knopf klein">Beispieldaten laden</button></form>
+                  <form action={beispieleEntfernen}><button className="knopf klein gefahr">Beispieldaten entfernen</button></form>
+                </div>
+              </>
+            ) : null}
+          </section>
         </div>
-        {verzeichnis.length ? (
+      ) : null}
+
+      {reiter === "zeitplan" ? (
+        <section className="karte">
           <table className="tabelle">
-            <thead><tr><th>Kunde</th><th>Was wir verarbeiten</th><th className="weg-mobil">Unterauftragnehmer</th></tr></thead>
+            <thead><tr><th>Aufgabe</th><th>Zuletzt gelaufen</th><th></th></tr></thead>
             <tbody>
-              {verzeichnis.map((v) => (
-                <tr key={v.kunde}>
-                  <td>{v.kunde}<div className="leise klein">{v.paket}</div></td>
-                  <td className="klein">{v.taetigkeiten.join(" · ")}<div className="leise">Betroffene: {v.betroffene}</div></td>
-                  <td className="weg-mobil klein">{v.unterauftragnehmer.join(", ")}</td>
+              {REGELN.map((r) => {
+                const z = zeitplan.find((x) => x.name === r.art);
+                return (
+                  <tr key={r.art}>
+                    <td>{r.name}</td>
+                    <td className="mono klein">{z?.zuletztAm ? datumZeit(z.zuletztAm) : <span className="leise">noch nie</span>}</td>
+                    <td style={{ textAlign: "right" }}><form action={jobStarten}><input type="hidden" name="art" value={r.art} /><button className="knopf klein">Jetzt ausführen</button></form></td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </section>
+      ) : null}
+
+      {reiter === "meldungen" ? <section className="karte">{meldungen.length ? meldungsListe(meldungen) : <p className="leise">Noch keine Meldungen.</p>}</section> : null}
+
+      {reiter === "jobs" ? (
+        <section className="karte">
+          <p className="leise klein">Die letzten 25 Aufträge an die Hintergrund-Arbeiter (Briefe, PDFs, Prüfungen, Abgleiche).</p>
+          <table className="tabelle">
+            <thead><tr><th>Job</th><th>Status</th><th className="weg-mobil">Ergebnis</th><th className="weg-mobil">Zeit</th><th></th></tr></thead>
+            <tbody>
+              {jobs.map((j) => (
+                <tr key={j.id}>
+                  <td>{JOB_NAMEN[j.art] ?? j.art}</td>
+                  <td><Status wert={j.status} /></td>
+                  <td className="weg-mobil klein" style={{ color: j.fehler ? "var(--fehler)" : undefined }}>{j.fehler ?? j.ergebnis ?? ""}</td>
+                  <td className="weg-mobil mono klein">{datumZeit(j.erstelltAm)}</td>
+                  <td>{j.status === "fehler" ? <form action={jobWiederholen}><input type="hidden" name="id" value={j.id} /><button className="knopf klein">Wiederholen</button></form> : null}</td>
                 </tr>
               ))}
             </tbody>
           </table>
-        ) : <div className="leer"><strong>Noch keine Kundenprojekte.</strong>Einträge entstehen mit der Anzahlung.</div>}
-      </section>
-
-      <details className="karte abstand">
-        <summary className="aufklapp-titel">Hintergrund-Jobs</summary>
-        
-        <table className="tabelle">
-          <thead><tr><th>Job</th><th>Status</th><th className="weg-mobil">Ergebnis</th><th className="weg-mobil">Zeit</th><th></th></tr></thead>
-          <tbody>
-            {jobs.map((j) => (
-              <tr key={j.id}>
-                <td>{JOB_NAMEN[j.art] ?? j.art}</td>
-                <td><Status wert={j.status} /></td>
-                <td className="weg-mobil klein" style={{ color: j.fehler ? "var(--fehler)" : undefined }}>{j.fehler ?? j.ergebnis ?? ""}</td>
-                <td className="weg-mobil mono klein">{datumZeit(j.erstelltAm)}</td>
-                <td>{j.status === "fehler" ? <form action={jobWiederholen}><input type="hidden" name="id" value={j.id} /><button className="knopf klein">Wiederholen</button></form> : null}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </details>
-
-      <div className="raster zwei abstand" style={{ alignItems: "start" }}>
-        <section className="karte">
-          <h2>KI-Kosten, letzte 30 Tage</h2>
-          <p className="mono" style={{ fontSize: 26 }}>{(summe / 1_000_000).toFixed(2)} USD</p>
-          {kosten.length ? <ul className="liste">{kosten.map((k) => <li key={k.zweck}><span>{k.zweck} ({k.n}×)</span><span className="mono">{((k.s ?? 0) / 1_000_000).toFixed(3)} USD</span></li>)}</ul> : <p className="leise">Noch keine Aufrufe. Im Simulator entstehen keine Kosten.</p>}
-        </section>
-        <section className="karte">
-          <h2>Passwort und Zwei-Faktor</h2>
-          <p className="leise">Passwort, Zwei-Faktor-Anmeldung, Benutzer und Sitzungen findest du unter Einstellungen.</p>
-          <a className="knopf" href="/einstellungen">Zu den Einstellungen</a>
-        </section>
-      </div>
-
-      {beispieleErlaubt() ? (
-        <section className="karte abstand">
-          <h2>Beispieldaten</h2>
-          <p className="leise">16 erfundene Betriebe in allen Phasen: neue Leads, Briefe, Termine, Angebote, Rechnungen, Projekte bis zum Livegang. Nur auf der lokalen Datenbank möglich.</p>
-          <div className="knopfreihe">
-            <form action={beispieleLaden}><button className="knopf">Beispieldaten laden</button></form>
-            <form action={beispieleEntfernen}><button className="knopf gefahr">Beispieldaten entfernen</button></form>
-          </div>
         </section>
       ) : null}
 
-      <details className="karte abstand">
-        <summary className="aufklapp-titel">Protokoll</summary>
-        
-        <ul className="liste">
-          {verlauf.map((v) => <li key={v.id}><div><div>{v.aktion}</div><div className="unter">{v.wer} · {datumZeit(v.am)}{v.detail ? ` · ${v.detail}` : ""}</div></div></li>)}
-        </ul>
-      </details>
+      {reiter === "dienste" ? (
+        <section className="karte">
+          <p className="leise klein">Anschlüsse richtest du unter Stammdaten → Konnektoren ein. Ohne Zugangsdaten läuft ein Dienst im Simulator.</p>
+          <table className="tabelle">
+            <thead><tr><th>Dienst</th><th className="weg-mobil">Wofür</th><th>Stand</th></tr></thead>
+            <tbody>
+              {alleDienste.map((d) => (
+                <tr key={d.key}>
+                  <td><b>{d.name}</b>{!d.echt ? <div className="leise klein">{d.hinweis}</div> : null}</td>
+                  <td className="weg-mobil">{d.zweck}</td>
+                  <td><Status wert={d.echt ? "echt" : "simulator"} /></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
+      ) : null}
+
+      {reiter === "agenten" ? (
+        <section className="karte">
+          <p className="leise klein">Jeder Agent bereitet vor. Alles, was nach draußen geht, läuft durch die Qualitätskontrolle und wartet dann auf euch.</p>
+          <table className="tabelle">
+            <thead><tr><th>Agent</th><th className="weg-mobil">Auslöser</th><th>Was er tut</th><th>Mensch entscheidet</th></tr></thead>
+            <tbody>
+              {AGENTEN.map((g) => (
+                <tr key={g.name}><td><b>{g.name}</b></td><td className="weg-mobil leise klein">{g.ausloeser}</td><td className="klein">{g.macht}<div className="leise">→ {g.ergebnis}</div></td><td className="klein">{g.freigabe}</td></tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
+      ) : null}
     </>
   );
 }

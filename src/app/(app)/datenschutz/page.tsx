@@ -5,11 +5,12 @@ import { datum, datumZeit } from "@/lib/format";
 import { LOESCHFRISTEN } from "@/lib/recht";
 import { DIENSTLEISTER, DSB_HINWEIS, TOMS, VERARBEITUNGEN } from "@/lib/datenschutz-doku";
 import { ANFRAGE_ARTEN, anfrageFrist, PANNE_RISIKO, restStunden, verarbeitungen } from "@/lib/ablauf/datenschutz";
+import { AufEinenBlick, SeitenKopf, SeitenReiter, reiterWahl } from "@/components/Seite";
 import { betroffenenanfrageErfassen, betroffenenanfrageErledigt, panneAktualisieren, panneErfassen } from "../aktionen";
 
 export const metadata = { title: "Datenschutz" };
 
-export default async function Datenschutz() {
+export default async function Datenschutz({ searchParams }: { searchParams: Promise<{ reiter?: string }> }) {
   const db = await getDb();
   const [pannen, anfragen, auftrag] = await Promise.all([
     db.select().from(schema.datenpannen).orderBy(desc(schema.datenpannen.entdecktAm)),
@@ -20,21 +21,33 @@ export default async function Datenschutz() {
   const offeneAnfragen = anfragen.filter((a) => !a.erledigtAm);
   const heute = new Date().toISOString().slice(0, 10);
   const umgesetzt = TOMS.filter((t) => t.umgesetzt).length;
+  const aktiv = (d: (typeof DIENSTLEISTER)[number]) => d.aktivWenn === "immer" || !!process.env[d.aktivWenn];
+  const liste = [
+    { key: "vorfaelle", name: "Pannen und Anfragen", zahl: offenePannen.length + offeneAnfragen.length || undefined, ton: offenePannen.length ? ("fehler" as const) : offeneAnfragen.length ? ("warten" as const) : undefined },
+    { key: "verzeichnis", name: "Verzeichnis", zahl: VERARBEITUNGEN.length },
+    { key: "massnahmen", name: "Maßnahmen", zahl: TOMS.length - umgesetzt ? `${TOMS.length - umgesetzt} offen` : undefined, ton: TOMS.length - umgesetzt ? ("warten" as const) : undefined },
+    { key: "dienstleister", name: "Dienstleister", zahl: DIENSTLEISTER.length },
+    { key: "loeschen", name: "Löschfristen", zahl: LOESCHFRISTEN.length },
+    { key: "kunden", name: "Für Kunden (AV)", zahl: auftrag.length },
+  ];
+  const reiter = reiterWahl((await searchParams).reiter, liste);
+  const bereiche = [...new Set(TOMS.map((t) => t.bereich))];
   return (
     <>
-      <div className="kopfzeile">
-        <div><h1>Datenschutz und Sicherheit</h1><p>Alles, was die DSGVO von euch als Verantwortliche verlangt: Verzeichnis, Maßnahmen, Dienstleister, Löschfristen, Datenpannen und Anfragen von Betroffenen. Keine Rechtsberatung: vor dem ersten Kunden mit Anwalt oder externem Datenschutzberater abstimmen.</p></div>
-      </div>
+      <SeitenKopf titel="Datenschutz und Sicherheit" text="Was die DSGVO von euch verlangt: Vorfälle, Verzeichnis, Maßnahmen, Dienstleister, Löschfristen. Keine Rechtsberatung: vor dem ersten Kunden mit Anwalt oder Datenschutzberater abstimmen." />
 
       {offenePannen.some((p) => p.risiko !== "kein" && !p.gemeldetAm) ? <div className="hinweis fehler" role="alert">Offene Datenpanne: Meldung an die Aufsicht binnen 72 Stunden ab Kenntnis, wenn ein Risiko besteht.</div> : null}
 
-      <div className="raster vier">
-        <div className="kennzahl"><div className="wert" style={offenePannen.length ? { color: "var(--fehler)" } : undefined}>{offenePannen.length}</div><div className="name">Offene Datenpannen</div></div>
-        <div className="kennzahl"><div className="wert" style={offeneAnfragen.length ? { color: "var(--akzent)" } : undefined}>{offeneAnfragen.length}</div><div className="name">Offene Anfragen</div></div>
-        <div className="kennzahl"><div className="wert">{umgesetzt}/{TOMS.length}</div><div className="name">Maßnahmen umgesetzt</div></div>
-        <div className="kennzahl"><div className="wert">{VERARBEITUNGEN.length}</div><div className="name">Verarbeitungen</div></div>
-      </div>
+      <AufEinenBlick werte={[
+        { wert: offenePannen.length, name: "offene Datenpannen", ton: offenePannen.length ? "fehler" : "ok", href: "/datenschutz?reiter=vorfaelle" },
+        { wert: offeneAnfragen.length, name: "offene Anfragen von Betroffenen", ton: offeneAnfragen.length ? "warten" : "ok", href: "/datenschutz?reiter=vorfaelle" },
+        { wert: `${umgesetzt}/${TOMS.length}`, name: "Maßnahmen umgesetzt", ton: umgesetzt === TOMS.length ? "ok" : "warten", href: "/datenschutz?reiter=massnahmen" },
+        { wert: `${DIENSTLEISTER.filter(aktiv).length}/${DIENSTLEISTER.length}`, name: "Dienstleister aktiv", href: "/datenschutz?reiter=dienstleister" },
+        { wert: auftrag.length, name: "Kunden mit Auftragsverarbeitung", href: "/datenschutz?reiter=kunden" },
+      ]} />
+      <SeitenReiter basis="/datenschutz" aktiv={reiter} liste={liste} />
 
+      {reiter === "vorfaelle" ? (
       <div className="raster zwei abstand" style={{ alignItems: "start" }}>
         <section className="karte">
           <h2>Datenpannen (Art. 33/34)</h2>
@@ -117,30 +130,50 @@ export default async function Datenschutz() {
         </section>
       </div>
 
-      <section className="karte abstand" style={{ padding: 0 }}>
+      ) : null}
+
+      {reiter === "verzeichnis" ? (
+      <section className="karte" style={{ padding: 0 }}>
         <div style={{ padding: "16px 16px 0" }}><h2>Verzeichnis der Verarbeitungstätigkeiten (Art. 30 Abs. 1)</h2><p className="leise klein">Verantwortlich: Levarex Consulting GmbH. {DSB_HINWEIS}</p></div>
         <table className="tabelle klein">
           <thead><tr><th>Verarbeitung</th><th>Zweck und Rechtsgrundlage</th><th className="weg-mobil">Daten und Betroffene</th><th className="weg-mobil">Empfänger, Drittland</th><th>Löschung</th></tr></thead>
           <tbody>{VERARBEITUNGEN.map((v) => <tr key={v.name}><td><b>{v.name}</b></td><td>{v.zweck}<div className="leise">{v.rechtsgrundlage}</div></td><td className="weg-mobil">{v.daten}<div className="leise">{v.betroffene}</div></td><td className="weg-mobil">{v.empfaenger}<div className="leise">Drittland: {v.drittland}</div></td><td>{v.loeschung}</td></tr>)}</tbody>
         </table>
       </section>
+      ) : null}
 
-      <section className="karte abstand" style={{ padding: 0 }}>
-        <div style={{ padding: "16px 16px 0" }}><h2>Technische und organisatorische Maßnahmen (Art. 32)</h2><p className="leise klein">Technisch in Levarex OS umgesetzt und mit Tests abgesichert; „offen“ heißt: vor dem ersten echten Kunden erledigen.</p></div>
-        <table className="tabelle klein">
-          <thead><tr><th>Bereich</th><th>Maßnahme</th><th>Stand</th></tr></thead>
-          <tbody>{TOMS.map((t) => <tr key={t.massnahme}><td>{t.bereich}</td><td>{t.massnahme}</td><td><span className={`status ${t.umgesetzt ? "ok" : "warten"}`}>{t.umgesetzt ? "umgesetzt" : "offen"}</span></td></tr>)}</tbody>
-        </table>
+      {reiter === "massnahmen" ? (
+      <section className="karte">
+        <h2>Technische und organisatorische Maßnahmen (Art. 32)</h2>
+        <p className="leise klein">Technisch in Levarex OS umgesetzt und mit Tests abgesichert; „offen“ heißt: vor dem ersten echten Kunden erledigen.</p>
+        {TOMS.some((t) => !t.umgesetzt) ? (
+          <>
+            <h3 className="gruppe-titel">Noch offen</h3>
+            <ul className="zeilen">{TOMS.filter((t) => !t.umgesetzt).map((t) => <li key={t.massnahme}><div><div className="titel">{t.massnahme}</div><div className="unter">{t.bereich}</div></div><span className="status warten">offen</span></li>)}</ul>
+          </>
+        ) : null}
+        {bereiche.map((b) => {
+          const l = TOMS.filter((t) => t.bereich === b && t.umgesetzt);
+          return l.length ? (
+            <div key={b}>
+              <h3 className="gruppe-titel">{b} · {l.length}</h3>
+              <ul className="zeilen">{l.map((t) => <li key={t.massnahme}><div>{t.massnahme}</div><span className="status ok">umgesetzt</span></li>)}</ul>
+            </div>
+          ) : null;
+        })}
       </section>
+      ) : null}
 
-      <div className="raster zwei abstand" style={{ alignItems: "start" }}>
+      {reiter === "dienstleister" ? (
         <section className="karte" style={{ padding: 0 }}>
           <div style={{ padding: "16px 16px 0" }}><h2>Dienstleister</h2><p className="leise klein">Mit „AV“ braucht es einen Vertrag zur Auftragsverarbeitung (Art. 28), bei Drittland zusätzlich eine Grundlage nach Art. 44 ff. Aktiv wird ein Dienst erst, wenn sein Zugang gesetzt ist.</p></div>
           <table className="tabelle klein">
             <thead><tr><th>Dienst</th><th>Wofür</th><th>AV</th><th>Status</th></tr></thead>
-            <tbody>{DIENSTLEISTER.map((d) => <tr key={d.name}><td>{d.name}<div className="leise">{d.sitz}</div></td><td>{d.wofuer}</td><td>{d.av ? "nötig" : "nein"}</td><td><span className={`status ${d.aktivWenn === "immer" || process.env[d.aktivWenn] ? "ok" : ""}`}>{d.aktivWenn === "immer" || process.env[d.aktivWenn] ? "aktiv" : "aus"}</span></td></tr>)}</tbody>
+            <tbody>{DIENSTLEISTER.map((d) => <tr key={d.name}><td>{d.name}<div className="leise">{d.sitz}</div></td><td>{d.wofuer}</td><td>{d.av ? "nötig" : "nein"}</td><td><span className={`status ${aktiv(d) ? "ok" : ""}`}>{aktiv(d) ? "aktiv" : "aus"}</span></td></tr>)}</tbody>
           </table>
         </section>
+      ) : null}
+      {reiter === "loeschen" ? (
         <section className="karte" style={{ padding: 0 }}>
           <div style={{ padding: "16px 16px 0" }}><h2>Löschkonzept</h2><p className="leise klein">Automatisch: Der Aufräum-Agent löscht täglich um 3 Uhr.</p></div>
           <table className="tabelle klein">
@@ -148,12 +181,30 @@ export default async function Datenschutz() {
             <tbody>{LOESCHFRISTEN.map((f) => <tr key={f.was}><td>{f.was}{f.automatisch ? "" : <div className="leise">von Hand</div>}</td><td className="mono">{f.tage === null ? "–" : f.tage >= 365 ? `${Math.round(f.tage / 365)} J.` : `${f.tage} T.`}</td><td>{f.grund}</td></tr>)}</tbody>
           </table>
         </section>
-      </div>
+      ) : null}
 
-      <section className="karte abstand">
-        <h2>Als Auftragsverarbeiter für Kunden (Art. 30 Abs. 2)</h2>
-        <p className="leise">{auftrag.length} Kunden. Details unter System → Verarbeitungen für Kunden.</p>
-      </section>
+      {reiter === "kunden" ? (
+        <section className="karte" style={{ padding: 0 }}>
+          <div style={{ padding: "16px 16px 0" }}>
+            <h2>Als Auftragsverarbeiter für Kunden (Art. 30 Abs. 2)</h2>
+            <p className="leise klein">Entwurf, automatisch aus den laufenden Projekten. Löschfristen im AV-Vertrag festlegen.</p>
+          </div>
+          {auftrag.length ? (
+            <table className="tabelle">
+              <thead><tr><th>Kunde</th><th>Was wir verarbeiten</th><th className="weg-mobil">Unterauftragnehmer</th></tr></thead>
+              <tbody>
+                {auftrag.map((v) => (
+                  <tr key={v.kunde}>
+                    <td>{v.kunde}<div className="leise klein">{v.paket}</div></td>
+                    <td className="klein">{v.taetigkeiten.join(" · ")}<div className="leise">Betroffene: {v.betroffene}</div></td>
+                    <td className="weg-mobil klein">{v.unterauftragnehmer.join(", ")}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : <div className="leer"><strong>Noch keine Kundenprojekte.</strong>Einträge entstehen mit der Anzahlung.</div>}
+        </section>
+      ) : null}
     </>
   );
 }

@@ -640,3 +640,49 @@ details.karte[open] > .aufklapp-titel { margin-bottom: 10px; }
 .plan-tabelle tfoot th { border-top: 1px solid var(--rahmen); padding-top: 8px; }
 .plan-tabelle, .soll-tabelle { font-size: 14px; }
 .plan-tabelle th, .plan-tabelle td, .soll-tabelle td:first-child { white-space: nowrap; padding-left: 6px; padding-right: 6px; }
+
+/* Einheitlicher Seitenaufbau: Leiste „auf einen Blick“ und Reiter mit Zahlen */
+.blickleiste { display: grid; gap: 0; margin: 0 0 16px; background: var(--flaeche); border: 1px solid var(--rand-weich, var(--linie)); border-radius: 16px; overflow: hidden; }
+.blick-wert { padding: 14px 20px; border-left: 1px solid var(--linie); text-decoration: none; color: inherit; min-width: 0; }
+.blick-wert:first-child { border-left: 0; }
+a.blick-wert:hover { background: rgba(255,255,255,0.03); }
+.blick-wert .wert { font-family: var(--mono); font-size: 24px; font-weight: 600; line-height: 1.15; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.blick-wert .wert.ok { color: var(--ok); } .blick-wert .wert.warten { color: var(--akzent); } .blick-wert .wert.fehler { color: var(--fehler); }
+.blick-wert .name { color: var(--leise); font-size: 13.5px; margin-top: 2px; }
+@media (max-width: 800px) { .blickleiste { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; } .blick-wert { border-left: 0; border-top: 1px solid var(--linie); } .blick-wert:nth-child(-n+2) { border-top: 0; } .blick-wert:nth-child(even) { border-left: 1px solid var(--linie); } }
+.reiter-zahl { display: inline-block; margin-left: 8px; font-family: var(--mono); font-size: 12px; padding: 0 7px; border-radius: 999px; background: rgba(255,255,255,0.06); color: var(--leise); }
+.reiter-zahl.warten { color: var(--akzent); background: rgba(201,163,92,0.1); }
+.reiter-zahl.fehler { color: var(--fehler); background: rgba(224,138,124,0.1); }
+.seitenreiter { border-bottom: 1px solid var(--linie); padding-bottom: 12px; }
+/* Kompakte Liste: Zeile mit Titel links, Kurzinfo Mitte, Status rechts */
+.zeilen { list-style: none; margin: 0; padding: 0; }
+.zeilen > li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 16px; align-items: center; padding: 10px 0; border-top: 1px solid var(--linie); }
+.zeilen > li:first-child { border-top: 0; }
+.zeilen .titel { font-weight: 500; }
+.zeilen .unter { color: var(--leise); font-size: 13.5px; }
+.gruppe-titel { font-family: var(--mono); font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--leise); margin: 20px 0 6px; }
+.gruppe-titel:first-child { margin-top: 0; }
+.filterleiste { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 0 0 12px; }
+.filterleiste input:not([type=hidden]) { flex: 1 1 240px; max-width: 360px; }
+.filterleiste select { width: auto; }
+.abstand-klein { margin-bottom: 12px; }
+.protokoll-tabelle td { vertical-align: top; }
+.protokoll-tabelle td.zeit { width: 64px; white-space: nowrap; }
+.protokoll-tabelle td.wer { width: 180px; white-space: nowrap; }
+.protokoll-tabelle td.betrieb { width: 220px; text-align: right; }
+.abstand-oben { margin-top: 12px; }
+.benutzerliste > li { grid-template-columns: minmax(0, 1fr) auto; }
+.benutzerliste .zeile-bearbeiten { grid-column: 1 / -1; }
+.zeile-bearbeiten > summary { cursor: pointer; color: var(--leise); width: fit-content; }
+details > summary.knopf { list-style: none; }
+details > summary.knopf::-webkit-details-marker { display: none; }
+.rechte-wahl { border: 0; padding: 0; margin: 8px 0 12px; display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 8px; }
+.rechte-wahl legend { margin-bottom: 6px; }
+.trichter-zeile { display: grid !important; grid-template-columns: minmax(140px, 220px) 1fr 110px; gap: 12px; align-items: center; }
+.trichter-zeile > span:last-child { white-space: nowrap; }
+.filterleiste select { flex: 0 0 auto; width: auto !important; max-width: 260px; }
+.protokoll-tabelle { table-layout: fixed; width: 100%; }
+.protokoll-tabelle td { overflow-wrap: anywhere; }
+@media (max-width: 700px) { .protokoll-tabelle td.wer { width: 110px; white-space: normal; } }
+fieldset { min-width: 0; }
+@media (max-width: 800px) { .blick-wert:last-child:nth-child(odd) { grid-column: 1 / -1; border-left: 0; } .blick-wert .wert { font-size: 20px; } }

@@ -34,15 +34,16 @@ export async function kennzahlen(): Promise<{ messgroessen: Kennzahl[]; trichter
     const a = angebote.find((x) => x.id === p.angebotId);
     const start = a?.angezahltAm ?? p.erstelltAm;
     return (p.liveAm!.getTime() - start.getTime()) / (7 * 864e5);
-  });
+  }).filter((w) => w >= 0); // unstimmige Daten (Livegang vor Anzahlung, z. B. nachgetragen) nicht mitrechnen
   const wochen = dauer.length ? dauer.reduce((s, x) => s + x, 0) / dauer.length : null;
   const z = BUSINESS_CASE.ziele;
+  const anzahl = (n: number, eins: string, mehr: string) => `${n} ${n === 1 ? eins : mehr}`;
   const f = (x: number) => x.toLocaleString("de-DE", { maximumFractionDigits: 1 });
   const messgroessen: Kennzahl[] = [
-    { name: "Stunden je Webauftritt Kompakt", wert: schnittS === null ? "noch keine Daten" : `${f(schnittS)} h`, ziel: `≤ ${ZIEL_STUNDEN.KOMPAKT} h (Start 6 h)`, ok: schnittS === null ? null : schnittS <= ZIEL_STUNDEN.KOMPAKT, erklaerung: `Aus der Zeiterfassung (ohne Betreuung), ${sProjekte.length} Projekte. Ziele: Kompakt ${ZIEL_STUNDEN.KOMPAKT} h, Professional ${ZIEL_STUNDEN.PROFESSIONAL} h, Module laut Baukasten.` },
-    { name: "Betreuung je Kunde und Monat", wert: jeKunde === null ? "noch keine Daten" : `${f(jeKunde)} h`, ziel: `≤ ${z.betreuungStundenJeKunde} h`, ok: jeKunde === null ? null : jeKunde <= z.betreuungStundenJeKunde, erklaerung: `Letzte 30 Tage, ${live.length} Kunden mit Live-Seite.` },
+    { name: "Stunden je Webauftritt Kompakt", wert: schnittS === null ? "noch keine Daten" : `${f(schnittS)} h`, ziel: `≤ ${ZIEL_STUNDEN.KOMPAKT} h (Start 6 h)`, ok: schnittS === null ? null : schnittS <= ZIEL_STUNDEN.KOMPAKT, erklaerung: `Aus der Zeiterfassung (ohne Betreuung), ${anzahl(sProjekte.length, "Projekt", "Projekte")}. Ziele: Kompakt ${ZIEL_STUNDEN.KOMPAKT} h, Professional ${ZIEL_STUNDEN.PROFESSIONAL} h, Module laut Baukasten.` },
+    { name: "Betreuung je Kunde und Monat", wert: jeKunde === null ? "noch keine Daten" : `${f(jeKunde)} h`, ziel: `≤ ${z.betreuungStundenJeKunde} h`, ok: jeKunde === null ? null : jeKunde <= z.betreuungStundenJeKunde, erklaerung: `Letzte 30 Tage, ${anzahl(live.length, "Kunde", "Kunden")} mit Live-Seite.` },
     { name: "Termine, die zum Auftrag werden", wert: quote === null ? "noch keine Daten" : `${Math.round(quote * 100)} %`, ziel: `≥ ${Math.round(z.prozessCheckQuote * 100)} %`, ok: quote === null ? null : quote >= z.prozessCheckQuote, erklaerung: `${mitTermin.size} Betriebe mit Termin, davon ${[...mitTermin].filter((id) => auftraege.has(id)).length} mit Auftrag.` },
-    { name: "Wochen bis Livegang", wert: wochen === null ? "noch keine Daten" : `${f(wochen)} Wochen`, ziel: `≤ ${z.wochenBisLivegang} Wochen`, ok: wochen === null ? null : wochen <= z.wochenBisLivegang, erklaerung: `Von der Anzahlung bis zum Livegang, ${dauer.length} Projekte.` },
+    { name: "Wochen bis Livegang", wert: wochen === null ? "noch keine Daten" : `${f(wochen)} Wochen`, ziel: `≤ ${z.wochenBisLivegang} Wochen`, ok: wochen === null ? null : wochen <= z.wochenBisLivegang, erklaerung: `Von der Anzahlung bis zum Livegang, ${anzahl(dauer.length, "Projekt", "Projekte")}.` },
   ];
   const zaehle = (st: string[]) => betriebe.filter((b) => st.includes(b.status)).length;
   const trichter = [

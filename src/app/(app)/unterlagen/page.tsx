@@ -4,6 +4,7 @@ import { Fortschritt } from "@/components/FinanzReiter";
 import { datum } from "@/lib/format";
 import { ENTSCHEIDUNGEN, ETAPPEN, FRISTEN, inLevarexOs, stand, UNTERLAGEN } from "@/lib/unterlagen";
 import { unterlageSpeichern } from "../aktionen";
+import { AufEinenBlick, SeitenKopf, SeitenReiter, reiterWahl } from "@/components/Seite";
 
 export const metadata = { title: "Unterlagen" };
 
@@ -17,7 +18,7 @@ const STATUS = [
   { wert: "entfaellt", text: "entfällt" },
 ];
 
-type Suche = { etappe?: string; status?: string; q?: string };
+type Suche = { reiter?: string; status?: string; q?: string };
 
 export default async function Unterlagen({ searchParams }: { searchParams: Promise<Suche> }) {
   const s = await searchParams;
@@ -26,60 +27,71 @@ export default async function Unterlagen({ searchParams }: { searchParams: Promi
   const heute = new Date().toISOString().slice(0, 10);
   const q = (s.q ?? "").toLowerCase();
 
-  const liste = UNTERLAGEN.filter(
-    (u) =>
-      (!s.etappe || String(u.etappe) === s.etappe) &&
-      (!s.status || statusVon(u.key, u.etappe) === s.status) &&
-      (!q || `${u.titel} ${u.kategorie} ${u.grundlage} ${u.wer}`.toLowerCase().includes(q)),
-  );
+  const fertig = (u: (typeof UNTERLAGEN)[number]) => ["erledigt", "entfaellt"].includes(statusVon(u.key, u.etappe));
   const fristen = FRISTEN.filter((f) => f.datum >= heute);
   const naechste = fristen[0];
+  const offen = UNTERLAGEN.filter((u) => statusVon(u.key, u.etappe) === "offen").length;
+  const inArbeit = UNTERLAGEN.filter((u) => statusVon(u.key, u.etappe) === "in_arbeit").length;
+  const erledigt = UNTERLAGEN.filter((u) => statusVon(u.key, u.etappe) === "erledigt").length;
+  // Reiter: eine Etappe je Reiter (Zahl = noch offen), dazu Fristen und Entscheidungen
+  const etappen = ETAPPEN.filter((e) => UNTERLAGEN.some((u) => u.etappe === e.nr));
+  const reiterListe = [
+    ...etappen.map((e) => {
+      const rest = UNTERLAGEN.filter((u) => u.etappe === e.nr && !fertig(u)).length;
+      return { key: `e${e.nr}`, name: e.nr ? `${e.nr}. ${e.name}` : e.name, zahl: rest || "✓", ton: rest ? ("warten" as const) : undefined };
+    }),
+    { key: "fristen", name: "Fristen", zahl: fristen.length },
+    { key: "entscheiden", name: "Zu entscheiden", zahl: ENTSCHEIDUNGEN.length },
+  ];
+  const erste = etappen.find((e) => e.nr > 0 && UNTERLAGEN.some((u) => u.etappe === e.nr && !fertig(u)));
+  const reiter = reiterWahl(s.reiter ?? (erste ? `e${erste.nr}` : undefined), reiterListe);
+  const etappe = reiter.startsWith("e") ? ETAPPEN.find((e) => `e${e.nr}` === reiter) : undefined;
+  const liste = etappe
+    ? UNTERLAGEN.filter(
+        (u) =>
+          u.etappe === etappe.nr &&
+          (!s.status || statusVon(u.key, u.etappe) === s.status) &&
+          (!q || `${u.titel} ${u.kategorie} ${u.grundlage} ${u.wer}`.toLowerCase().includes(q)),
+      )
+    : [];
+  const kategorien = [...new Set(liste.map((u) => u.kategorie))];
+  const teil = etappe ? UNTERLAGEN.filter((u) => u.etappe === etappe.nr) : [];
 
   return (
     <>
-      <div className="kopfzeile">
-        <div>
-          <h1>Unterlagen</h1>
-          <p>Alles, was die GmbH an Verträgen, Anmeldungen und Nachweisen braucht. Keine Rechtsberatung: Wo Anwalt, Steuerberater oder Notar steht, prüfen diese.</p>
-        </div>
-      </div>
+      <SeitenKopf titel="Unterlagen" text="Verträge, Anmeldungen und Nachweise der GmbH, nach Etappen. Keine Rechtsberatung: Wo Anwalt, Steuerberater oder Notar steht, prüfen diese." />
+      <AufEinenBlick werte={[
+        { wert: naechste ? datum(new Date(naechste.datum)) : "–", name: naechste ? `nächste Frist · ${naechste.was.length > 38 ? `${naechste.was.slice(0, 38)} …` : naechste.was}` : "keine Frist", ton: "warten", href: "/unterlagen?reiter=fristen" },
+        { wert: offen, name: "offen", ton: offen ? "warten" : "ok" },
+        { wert: inArbeit, name: "in Arbeit" },
+        { wert: erledigt, name: "erledigt", ton: "ok" },
+        { wert: UNTERLAGEN.length, name: "Unterlagen insgesamt" },
+      ]} />
+      <SeitenReiter basis="/unterlagen" aktiv={reiter} liste={reiterListe} />
 
-      {naechste ? (
-        <div className="hinweis">Nächste Frist: <strong>{datum(new Date(naechste.datum))}</strong> · {naechste.was}</div>
-      ) : null}
-
-      <div className="raster drei">
-        {ETAPPEN.filter((e) => e.nr > 0).map((e) => {
-          const teil = UNTERLAGEN.filter((u) => u.etappe === e.nr);
-          const fertig = teil.filter((u) => ["erledigt", "entfaellt"].includes(statusVon(u.key, u.etappe))).length;
-          return (
-            <Link key={e.nr} href={`/unterlagen?etappe=${e.nr}`} className="karte" style={{ display: "block", textDecoration: "none", color: "inherit" }} aria-current={s.etappe === String(e.nr) ? "page" : undefined}>
-              <h3 style={{ margin: "0 0 4px" }}>{e.nr}. {e.name}</h3>
-              <div className="klein leise" style={{ marginBottom: 10 }}>bis {datum(new Date(e.bis))}</div>
-              <Fortschritt ist={fertig} ziel={teil.length} format={(n) => String(n)} />
-            </Link>
-          );
-        })}
-      </div>
-
-      <form className="knopfreihe abstand" method="get" role="search" aria-label="Unterlagen filtern">
-        <select name="etappe" defaultValue={s.etappe ?? ""} aria-label="Etappe" style={{ width: "auto" }}>
-          <option value="">Alle Etappen</option>
-          {ETAPPEN.map((e) => <option key={e.nr} value={e.nr}>{e.nr ? `${e.nr}. ` : ""}{e.name}</option>)}
-        </select>
-        <select name="status" defaultValue={s.status ?? ""} aria-label="Status" style={{ width: "auto" }}>
-          <option value="">Jeder Status</option>
-          {STATUS.map((x) => <option key={x.wert} value={x.wert}>{x.text}</option>)}
-        </select>
-        <input name="q" defaultValue={s.q ?? ""} placeholder="Suchen, z. B. AGB" aria-label="Suchbegriff" style={{ width: 220 }} />
-        <button className="knopf">Filtern</button>
-        {s.etappe || s.status || s.q ? <Link href="/unterlagen" className="knopf klein">Zurücksetzen</Link> : null}
-      </form>
-
+      {etappe ? (
+        <>
+          <div className="kopfzeile" style={{ marginBottom: 8, alignItems: "center" }}>
+            <div style={{ flex: 1, maxWidth: 520 }}>
+              <p className="klein" style={{ margin: "0 0 6px" }}><b>{etappe.name}</b>{etappe.nr ? <> · bis {datum(new Date(etappe.bis))}</> : null}</p>
+              <Fortschritt ist={teil.filter(fertig).length} ziel={teil.length} format={(n) => String(n)} />
+            </div>
+            <form className="filterleiste" method="get" role="search" aria-label="Unterlagen filtern" style={{ margin: 0 }}>
+              <input type="hidden" name="reiter" value={reiter} />
+              <input name="q" defaultValue={s.q ?? ""} placeholder="Suchen, z. B. AGB" aria-label="Suchbegriff" />
+              <select name="status" defaultValue={s.status ?? ""} aria-label="Status">
+                <option value="">Jeder Status</option>
+                {STATUS.map((x) => <option key={x.wert} value={x.wert}>{x.text}</option>)}
+              </select>
+              <button className="knopf">Filtern</button>
+            </form>
+          </div>
       <section className="karte abstand" style={{ padding: 0 }}>
-        <div className="klein leise" style={{ padding: "12px 16px" }}>{liste.length} von {UNTERLAGEN.length} Unterlagen</div>
+        {kategorien.map((kat) => (
+        <div key={kat}>
+        <h3 className="gruppe-titel" style={{ padding: "16px 16px 0", marginTop: 0 }}>{kat} · {liste.filter((u) => u.kategorie === kat && !fertig(u)).length} offen von {liste.filter((u) => u.kategorie === kat).length}</h3>
         <div className="register">
-          {liste.map((u) => {
+          {[...liste.filter((u) => u.kategorie === kat && !fertig(u)), ...liste.filter((u) => u.kategorie === kat && fertig(u))].map((u) => {
             const z = st.get(u.key);
             const wert = statusVon(u.key, u.etappe);
             const os = inLevarexOs(u);
@@ -88,7 +100,7 @@ export default async function Unterlagen({ searchParams }: { searchParams: Promi
                 <summary>
                   <div>
                     <div className="titel">{u.titel}</div>
-                    <div className="klein leise">{u.kategorie} · {u.wer} · {u.prioritaet}</div>
+                    <div className="klein leise">{u.wer} · {u.prioritaet}</div>
                     {os ? <span className="marke">In Levarex OS umgesetzt</span> : null}
                   </div>
                   <Status wert={wert} />
@@ -118,13 +130,16 @@ export default async function Unterlagen({ searchParams }: { searchParams: Promi
               </details>
             );
           })}
-          {!liste.length ? <div className="leer"><strong>Nichts gefunden.</strong>Filter zurücksetzen.</div> : null}
         </div>
+        </div>
+        ))}
+          {!liste.length ? <div className="leer"><strong>Nichts gefunden.</strong><Link href={`/unterlagen?reiter=${reiter}`}>Filter zurücksetzen</Link></div> : null}
       </section>
+        </>
+      ) : null}
 
-      <div className="raster zwei abstand">
+      {reiter === "fristen" ? (
         <section className="karte">
-          <h2>Fristen</h2>
           <ul className="liste">
             {FRISTEN.map((f) => (
               <li key={f.datum + f.was} style={f.datum < heute ? { opacity: 0.55 } : undefined}>
@@ -136,8 +151,9 @@ export default async function Unterlagen({ searchParams }: { searchParams: Promi
             ))}
           </ul>
         </section>
+      ) : null}
+      {reiter === "entscheiden" ? (
         <section className="karte">
-          <h2>Zu entscheiden</h2>
           <ul className="liste">
             {ENTSCHEIDUNGEN.map((e) => (
               <li key={e.titel}>
@@ -149,7 +165,7 @@ export default async function Unterlagen({ searchParams }: { searchParams: Promi
             ))}
           </ul>
         </section>
-      </div>
+      ) : null}
     </>
   );
 }

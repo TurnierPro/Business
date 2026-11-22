@@ -461,7 +461,7 @@ export async function ticketAntworten(f: FormData) {
 // ---------- Einstellungen: Benutzer, Zwei-Faktor, API, Import ----------
 
 export async function benutzerAnlegen(f: FormData) {
-  await ausfuehren("/einstellungen", "Benutzer angelegt. Start-Passwort sicher weitergeben.", async (wer) => {
+  await ausfuehren("/einstellungen?reiter=benutzer", "Benutzer angelegt. Start-Passwort sicher weitergeben.", async (wer) => {
     const email = text(f, "email").toLowerCase();
     const rolle = text(f, "rolle");
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error("E-Mail ungültig");
@@ -475,7 +475,7 @@ export async function benutzerAnlegen(f: FormData) {
 }
 
 export async function benutzerAendern(f: FormData) {
-  await ausfuehren("/einstellungen", "Gespeichert", async (wer) => {
+  await ausfuehren("/einstellungen?reiter=benutzer", "Gespeichert", async (wer) => {
     const id = zahl(f, "id");
     const db = await getDb();
     const ich = await brauchtBenutzer();
@@ -512,34 +512,34 @@ export async function zweiFaktorBestaetigen(f: FormData) {
 
 export async function apiSchluesselErzeugen(f: FormData) {
   const b = await brauchtBenutzer();
-  if (!darf(b, "verwalten")) redirect("/einstellungen?fehler=" + encodeURIComponent("Das darf nur ein Admin."));
+  if (!darf(b, "verwalten")) redirect("/einstellungen?reiter=schnittstelle&fehler=" + encodeURIComponent("Das darf nur ein Admin."));
   const faktor = await (await import("@/lib/zweiter-faktor")).technikMitCode(b.name, text(f, "code"), `API-Schlüssel ${text(f, "name")}`).catch((e: Error) => e);
-  if (faktor instanceof Error) redirect("/einstellungen?fehler=" + encodeURIComponent(faktor.message) + "#api");
+  if (faktor instanceof Error) redirect("/einstellungen?reiter=schnittstelle&fehler=" + encodeURIComponent(faktor.message));
   const schluessel = await (await import("@/lib/api")).schluesselErzeugen(text(f, "name"), f.getAll("rechte").map(String), b.name).catch((e: Error) => e);
-  if (schluessel instanceof Error) redirect("/einstellungen?fehler=" + encodeURIComponent(schluessel.message));
+  if (schluessel instanceof Error) redirect("/einstellungen?reiter=schnittstelle&fehler=" + encodeURIComponent(schluessel.message));
   // Der Schlüssel wird genau einmal angezeigt (nur in einem kurzlebigen Cookie, nicht in der Adresse)
   (await cookies()).set("lvx_neuer_schluessel", schluessel, { httpOnly: true, sameSite: "strict", path: "/einstellungen", maxAge: 120 });
-  redirect("/einstellungen?ok=" + encodeURIComponent("Schlüssel erzeugt. Jetzt kopieren, er wird nur einmal angezeigt.") + "#api");
+  redirect("/einstellungen?reiter=schnittstelle&ok=" + encodeURIComponent("Schlüssel erzeugt. Jetzt kopieren, er wird nur einmal angezeigt."));
 }
 
 export async function webhookAnlegen(f: FormData) {
   const b = await brauchtBenutzer();
-  if (!darf(b, "verwalten")) redirect("/einstellungen?fehler=" + encodeURIComponent("Das darf nur ein Admin."));
+  if (!darf(b, "verwalten")) redirect("/einstellungen?reiter=schnittstelle&fehler=" + encodeURIComponent("Das darf nur ein Admin."));
   const faktor = await (await import("@/lib/zweiter-faktor")).technikMitCode(b.name, text(f, "code"), `Webhook ${text(f, "name")}`).catch((e: Error) => e);
-  if (faktor instanceof Error) redirect("/einstellungen?fehler=" + encodeURIComponent(faktor.message) + "#webhooks");
+  if (faktor instanceof Error) redirect("/einstellungen?reiter=schnittstelle&fehler=" + encodeURIComponent(faktor.message));
   const w = await (await import("@/lib/webhooks")).webhookAnlegen({ name: text(f, "name"), url: text(f, "url"), ereignisse: f.getAll("ereignisse").map(String) }, b.name).catch((e: Error) => e);
-  if (w instanceof Error) redirect("/einstellungen?fehler=" + encodeURIComponent(w.message) + "#webhooks");
+  if (w instanceof Error) redirect("/einstellungen?reiter=schnittstelle&fehler=" + encodeURIComponent(w.message));
   // Geheimnis nur einmal zeigen (kurzlebiges Cookie, nicht in der Adresse)
   (await cookies()).set("lvx_neues_geheimnis", w.geheimnis, { httpOnly: true, sameSite: "strict", path: "/einstellungen", maxAge: 120 });
-  redirect("/einstellungen?ok=" + encodeURIComponent("Webhook angelegt. Geheimnis jetzt in n8n eintragen, es wird nur einmal angezeigt.") + "#webhooks");
+  redirect("/einstellungen?reiter=schnittstelle&ok=" + encodeURIComponent("Webhook angelegt. Geheimnis jetzt in n8n eintragen, es wird nur einmal angezeigt."));
 }
 
 export async function webhookLoeschen(f: FormData) {
-  await ausfuehren("/einstellungen", "Webhook gelöscht", async (wer) => (await import("@/lib/webhooks")).webhookLoeschen(zahl(f, "id"), wer), "verwalten");
+  await ausfuehren("/einstellungen?reiter=schnittstelle", "Webhook gelöscht", async (wer) => (await import("@/lib/webhooks")).webhookLoeschen(zahl(f, "id"), wer), "verwalten");
 }
 
 export async function apiSchluesselWiderrufen(f: FormData) {
-  await ausfuehren("/einstellungen", "Widerrufen", async (wer) => (await import("@/lib/api")).schluesselWiderrufen(zahl(f, "id"), wer), "verwalten");
+  await ausfuehren("/einstellungen?reiter=schnittstelle", "Widerrufen", async (wer) => (await import("@/lib/api")).schluesselWiderrufen(zahl(f, "id"), wer), "verwalten");
 }
 
 export async function leadsImportieren(f: FormData) {
@@ -582,24 +582,24 @@ export async function betroffenenanfrageErledigt(f: FormData) {
 const formularDaten = (f: FormData) => Object.fromEntries([...f.entries()].filter(([, v]) => typeof v === "string"));
 
 export async function paketSpeichern(f: FormData) {
-  await ausfuehren("/stammdaten", "Paket gespeichert. Gilt für neue Angebote.", async (wer) => (await import("@/lib/katalog-db")).paketSpeichern(text(f, "key"), formularDaten(f), wer), "verwalten");
+  await ausfuehren("/stammdaten?reiter=webauftritt", "Paket gespeichert. Gilt für neue Angebote.", async (wer) => (await import("@/lib/katalog-db")).paketSpeichern(text(f, "key"), formularDaten(f), wer), "verwalten");
 }
 
 export async function modulSpeichern(f: FormData) {
-  await ausfuehren("/stammdaten?bereich=module", "Modul gespeichert. Gilt für neue Angebote.", async (wer) => {
+  await ausfuehren("/stammdaten?reiter=module", "Modul gespeichert. Gilt für neue Angebote.", async (wer) => {
     await (await import("@/lib/katalog-db")).modulSpeichern(text(f, "key") || null, formularDaten(f), wer);
   }, "verwalten");
 }
 
 export async function zusatzSpeichern(f: FormData) {
-  await ausfuehren("/stammdaten?bereich=zusaetze", "Zusatzleistung gespeichert. Gilt für neue Angebote.", async (wer) => {
+  await ausfuehren("/stammdaten?reiter=zusatz", "Zusatzleistung gespeichert. Gilt für neue Angebote.", async (wer) => {
     await (await import("@/lib/katalog-db")).zusatzSpeichern(text(f, "key") || null, formularDaten(f), wer);
   }, "verwalten");
 }
 
 export async function katalogZuruecksetzen(f: FormData) {
   const art = text(f, "art");
-  await ausfuehren(`/stammdaten${art === "paket" ? "" : art === "modul" ? "?bereich=module" : "?bereich=zusaetze"}`, "Auf Werkseinstellung zurückgesetzt", async (wer) => (await import("@/lib/katalog-db")).zuruecksetzen(art, text(f, "key"), wer), "verwalten");
+  await ausfuehren(`/stammdaten?reiter=${art === "paket" ? "webauftritt" : art === "modul" ? "module" : "zusatz"}`, "Auf Werkseinstellung zurückgesetzt", async (wer) => (await import("@/lib/katalog-db")).zuruecksetzen(art, text(f, "key"), wer), "verwalten");
 }
 
 export async function sollSpeichern(f: FormData) {

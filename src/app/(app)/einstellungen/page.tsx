@@ -11,11 +11,12 @@ import { basisUrl } from "@/lib/ablauf/gemeinsam";
 import { datum, datumZeit } from "@/lib/format";
 import { entschluessele } from "@/lib/geheim";
 import { ueberallAbmelden } from "../aktionen";
+import { AufEinenBlick, SeitenKopf, SeitenReiter, reiterWahl } from "@/components/Seite";
 import { apiSchluesselErzeugen, apiSchluesselWiderrufen, webhookAnlegen, webhookLoeschen, benutzerAendern, benutzerAnlegen, leadsImportieren, zweiFaktorBestaetigen, zweiFaktorStarten } from "../aktionen";
 
-export const metadata = { title: "Einstellungen" };
+export const metadata = { title: "Benutzer und Sicherheit" };
 
-export default async function Einstellungen() {
+export default async function Einstellungen({ searchParams }: { searchParams: Promise<{ reiter?: string }> }) {
   const ich = await brauchtBenutzer();
   const admin = darf(ich, "verwalten");
   const db = await getDb();
@@ -30,10 +31,29 @@ export default async function Einstellungen() {
   const geheim = mein.totpGeheim && !mein.totpAktiv ? entschluessele(mein.totpGeheim) : null;
   const qr = geheim ? await QRCode.toDataURL(otpauthUrl(geheim, mein.email), { margin: 1, width: 220 }) : null;
   const kalender = await kalenderLink(ich.id);
+  const aktiveBenutzer = benutzer.filter((b) => b.aktiv);
+  const mitFaktor = aktiveBenutzer.filter((b) => b.totpAktiv).length;
+  const aktiveSchluessel = schluessel.filter((x) => !x.widerrufenAm);
+  const liste = [
+    { key: "konto", name: "Mein Konto", zahl: mein.totpAktiv ? undefined : "2FA aus", ton: mein.totpAktiv ? undefined : ("warten" as const) },
+    { key: "benutzer", name: "Benutzer und Rollen", zahl: aktiveBenutzer.length },
+    { key: "schnittstelle", name: "Schnittstelle und n8n", zahl: aktiveSchluessel.length + hooks.length },
+    { key: "import", name: "Leads importieren" },
+  ];
+  const reiter = reiterWahl((await searchParams).reiter ?? (neuerSchluessel || neuesGeheimnis ? "schnittstelle" : undefined), liste);
   return (
     <>
-      <div className="kopfzeile"><div><h1>Einstellungen</h1><p>Konten, Sicherheit, Kalender, Schnittstelle und Import.</p></div></div>
+      <SeitenKopf titel="Benutzer und Sicherheit" text="Dein Konto, wer Zugang hat, Schnittstelle für n8n und der Import von Leads." />
+      <AufEinenBlick werte={[
+        { wert: mein.totpAktiv ? "an" : "aus", name: "deine Zwei-Faktor-Anmeldung", ton: mein.totpAktiv ? "ok" : "warten", href: "/einstellungen?reiter=konto" },
+        { wert: aktiveBenutzer.length, name: "aktive Benutzer", href: "/einstellungen?reiter=benutzer" },
+        { wert: `${mitFaktor}/${aktiveBenutzer.length}`, name: "mit Zwei-Faktor", ton: mitFaktor === aktiveBenutzer.length ? "ok" : "warten", href: "/einstellungen?reiter=benutzer" },
+        { wert: aktiveSchluessel.length, name: "API-Schlüssel aktiv", href: "/einstellungen?reiter=schnittstelle" },
+        { wert: hooks.length, name: "Webhooks", href: "/einstellungen?reiter=schnittstelle" },
+      ]} />
+      <SeitenReiter basis="/einstellungen" aktiv={reiter} liste={liste} />
 
+      {reiter === "konto" ? (
       <div className="raster zwei" style={{ alignItems: "start" }}>
         <section className="karte" id="zwei-faktor">
           <h2>Zwei-Faktor-Anmeldung</h2>
@@ -69,51 +89,58 @@ export default async function Einstellungen() {
           <p className="leise klein">Der Link ist geheim. Nicht weitergeben.</p>
         </section>
       </div>
+      ) : null}
 
-      <section className="karte abstand">
-        <h2>Benutzer und Rollen</h2>
-        <p className="leise klein">Benutzer, Rollen, API-Schlüssel, Webhooks und den Livegang ändert nur die Technik-Leitung, jeweils mit einem frischen Code aus der Authenticator-App. Jede Änderung steht im Protokoll.</p>
-        <p className="leise klein">Admin: alles. Vertrieb und Technik: arbeiten und freigeben. Nur lesen: sieht alles, ändert nichts (z. B. Steuerberater, Aushilfe).</p>
-        <table className="tabelle">
-          <thead><tr><th>Name</th><th className="weg-mobil">E-Mail</th><th>Rolle</th><th className="weg-mobil">Zwei-Faktor</th></tr></thead>
-          <tbody>
-            {benutzer.map((b) => (
-              <tr key={b.id}>
-                <td>{b.name}{b.aktiv ? "" : <span className="status fehler" style={{ marginLeft: 6 }}>gesperrt</span>}</td>
-                <td className="weg-mobil mono klein">{b.email}</td>
-                <td>{admin ? null : ROLLEN[b.rolle as keyof typeof ROLLEN]}
-                  {admin ? (
-                    <form action={benutzerAendern} className="knopfreihe">
-                      <input type="hidden" name="id" value={b.id} />
-                      <select name="rolle" defaultValue={b.rolle} aria-label={`Rolle ${b.name}`} style={{ width: "auto" }}>{Object.entries(ROLLEN).map(([k, n]) => <option key={k} value={k}>{n}</option>)}</select>
-                      <label className="haken"><input type="checkbox" name="aktiv" value="ja" defaultChecked={b.aktiv} /><span>aktiv</span></label>
-                      {b.totpAktiv ? <label className="haken"><input type="checkbox" name="zweiFaktorAus" value="ja" /><span>2FA zurücksetzen</span></label> : null}
-                      <input name="code" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" required placeholder="Code" aria-label="Code aus der Authenticator-App" style={{ width: 90 }} />
-                      <button className="knopf klein">Speichern</button>
-                    </form>
-                  ) : null}
-                </td>
-                <td className="weg-mobil"><span className={`status ${b.totpAktiv ? "ok" : "warten"}`}>{b.totpAktiv ? "an" : "aus"}</span></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      {reiter === "benutzer" ? (
+      <section className="karte">
+        <p className="leise klein" style={{ marginTop: 0 }}>Admin: alles. Vertrieb und Technik: arbeiten und freigeben. Nur lesen: sieht alles, ändert nichts (z. B. Steuerberater, Aushilfe). Änderungen nur mit frischem Code aus der Authenticator-App; jede steht im Protokoll.</p>
+        <ul className="zeilen benutzerliste">
+          {benutzer.map((b) => (
+            <li key={b.id}>
+              <div>
+                <div className="titel">{b.name}{b.id === ich.id ? <span className="leise"> (du)</span> : null}</div>
+                <div className="unter mono">{b.email}</div>
+              </div>
+              <div className="knopfreihe" style={{ gap: 8 }}>
+                <span className="marke-klein" style={{ margin: 0 }}>{ROLLEN[b.rolle as keyof typeof ROLLEN]}</span>
+                <span className={`status ${b.totpAktiv ? "ok" : "warten"}`}>2FA {b.totpAktiv ? "an" : "aus"}</span>
+                <span className={`status ${b.aktiv ? "ok" : "fehler"}`}>{b.aktiv ? "aktiv" : "gesperrt"}</span>
+              </div>
+              {admin ? (
+                <details className="zeile-bearbeiten">
+                  <summary className="klein">Ändern</summary>
+                  <form action={benutzerAendern} className="knopfreihe" style={{ marginTop: 8 }}>
+                    <input type="hidden" name="id" value={b.id} />
+                    <label className="feld" style={{ margin: 0 }}><span>Rolle</span><select name="rolle" defaultValue={b.rolle} aria-label={`Rolle ${b.name}`}>{Object.entries(ROLLEN).map(([k, n]) => <option key={k} value={k}>{n}</option>)}</select></label>
+                    <label className="haken"><input type="checkbox" name="aktiv" value="ja" defaultChecked={b.aktiv} /><span>aktiv</span></label>
+                    {b.totpAktiv ? <label className="haken"><input type="checkbox" name="zweiFaktorAus" value="ja" /><span>Zwei-Faktor zurücksetzen</span></label> : null}
+                    <label className="feld" style={{ margin: 0 }}><span>Code</span><input name="code" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" required placeholder="123456" aria-label="Code aus der Authenticator-App" style={{ width: 110 }} /></label>
+                    <button className="knopf klein">Speichern</button>
+                  </form>
+                </details>
+              ) : null}
+            </li>
+          ))}
+        </ul>
         {admin ? (
-          <details style={{ marginTop: 12 }}>
-            <summary style={{ cursor: "pointer" }}>Benutzer anlegen</summary>
+          <details className="abstand-oben">
+            <summary className="knopf klein" style={{ display: "inline-flex" }}>+ Benutzer anlegen</summary>
             <form action={benutzerAnlegen} className="raster zwei" style={{ marginTop: 12 }}>
               <label className="feld"><span>Name</span><input name="name" required /></label>
               <label className="feld"><span>E-Mail</span><input name="email" type="email" required /></label>
               <label className="feld"><span>Rolle</span><select name="rolle" defaultValue="lesen">{Object.entries(ROLLEN).map(([k, n]) => <option key={k} value={k}>{n}</option>)}</select></label>
               <label className="feld"><span>Start-Passwort (mind. 10 Zeichen)</span><input name="passwort" type="text" minLength={10} required autoComplete="off" /></label>
               <label className="feld"><span>Code aus der Authenticator-App</span><input name="code" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" required /></label>
-              <div><button className="knopf">Anlegen</button></div>
+              <div style={{ alignSelf: "end" }}><button className="knopf">Anlegen</button></div>
             </form>
           </details>
         ) : null}
       </section>
+      ) : null}
 
-      <section className="karte abstand" id="api">
+      {reiter === "schnittstelle" ? (
+      <div className="raster zwei" style={{ alignItems: "start" }}>
+      <section className="karte" id="api">
         <h2>Schnittstelle (API)</h2>
         <p className="leise klein">Für n8n, Website-Formulare oder andere Programme. Adresse: <span className="mono">{basisUrl()}/api/v1/…</span> mit <span className="mono">Authorization: Bearer lvx_…</span>. Alle Endpunkte und Felder stehen in <a href="/api/v1/openapi.json" target="_blank" className="mono">/api/v1/openapi.json</a> (in n8n importierbar). Was die Schnittstelle anlegt, läuft durch dieselben Regeln wie alles andere (Sperrliste, Freigabe); versenden kann sie nichts. Höchstens 120 Anfragen je Minute und Schlüssel, jeder Zugriff wird protokolliert.</p>
         {neuerSchluessel ? <div className="hinweis ok" role="status">Neuer Schlüssel, nur jetzt sichtbar: <span className="mono" style={{ userSelect: "all", wordBreak: "break-all" }}>{neuerSchluessel}</span></div> : null}
@@ -133,16 +160,23 @@ export default async function Einstellungen() {
           </table>
         ) : <p className="leise">Noch keine Schlüssel.</p>}
         {admin ? (
-          <form action={apiSchluesselErzeugen} className="knopfreihe" style={{ marginTop: 12 }}>
-            <input name="name" placeholder="Wofür? z. B. n8n" required aria-label="Name des Schlüssels" style={{ maxWidth: 220 }} />
-            {Object.entries(RECHTE).map(([k, n]) => <label key={k} className="haken"><input type="checkbox" name="rechte" value={k} defaultChecked={k === "lesen"} /><span>{n}</span></label>)}
-            <input name="code" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" required placeholder="Code" aria-label="Code aus der Authenticator-App" style={{ width: 90 }} />
-            <button className="knopf">Schlüssel erzeugen</button>
-          </form>
+          <details className="abstand-oben">
+            <summary className="knopf klein" style={{ display: "inline-flex" }}>+ Schlüssel erzeugen</summary>
+            <form action={apiSchluesselErzeugen} style={{ marginTop: 12 }}>
+              <label className="feld"><span>Wofür?</span><input name="name" placeholder="z. B. n8n" required /></label>
+              <fieldset className="rechte-wahl"><legend className="klein leise">Rechte</legend>
+                {Object.entries(RECHTE).map(([k, n]) => <label key={k} className="haken"><input type="checkbox" name="rechte" value={k} defaultChecked={k === "lesen"} /><span>{n}</span></label>)}
+              </fieldset>
+              <div className="knopfreihe" style={{ alignItems: "end" }}>
+                <label className="feld" style={{ margin: 0 }}><span>Code aus der Authenticator-App</span><input name="code" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" required style={{ width: 140 }} /></label>
+                <button className="knopf">Schlüssel erzeugen</button>
+              </div>
+            </form>
+          </details>
         ) : null}
       </section>
 
-      <section className="karte abstand" id="webhooks">
+      <section className="karte" id="webhooks">
         <h2>Webhooks (z. B. an n8n)</h2>
         <p className="leise klein">Bei einem Ereignis schickt Levarex OS einen signierten POST mit Ereignis und IDs, keine Kundendaten. Die Details holt n8n mit seinem API-Schlüssel. Prüfen in n8n: Kopf <span className="mono">X-Levarex-Signatur</span> = <span className="mono">sha256=HMAC(Geheimnis, X-Levarex-Zeit + "." + Body)</span>.</p>
         {neuesGeheimnis ? <div className="hinweis ok" role="status">Geheimnis für die Signaturprüfung, nur jetzt sichtbar: <span className="mono" style={{ userSelect: "all", wordBreak: "break-all" }}>{neuesGeheimnis}</span></div> : null}
@@ -157,19 +191,28 @@ export default async function Einstellungen() {
           </ul>
         ) : <p className="leise">Noch keine Webhooks.</p>}
         {admin ? (
+          <details className="abstand-oben">
+          <summary className="knopf klein" style={{ display: "inline-flex" }}>+ Webhook anlegen</summary>
           <form action={webhookAnlegen} style={{ marginTop: 12 }}>
-            <div className="raster zwei">
+            <div>
               <label className="feld"><span>Name</span><input name="name" required placeholder="z. B. n8n Vertrieb" /></label>
               <label className="feld"><span>Adresse (https)</span><input name="url" type="url" required placeholder="https://n8n.levarex-consulting.de/webhook/…" /></label>
             </div>
-            <div className="knopfreihe">{Object.entries(EREIGNISSE).map(([k, n]) => <label key={k} className="haken"><input type="checkbox" name="ereignisse" value={k} /><span>{n}</span></label>)}</div>
-            <label className="feld" style={{ maxWidth: 220, marginTop: 8 }}><span>Code aus der Authenticator-App</span><input name="code" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" required /></label>
-            <button className="knopf" style={{ marginTop: 8 }}>Webhook anlegen</button>
+            <fieldset className="rechte-wahl"><legend className="klein leise">Bei welchen Ereignissen?</legend>{Object.entries(EREIGNISSE).map(([k, n]) => <label key={k} className="haken"><input type="checkbox" name="ereignisse" value={k} /><span>{n}</span></label>)}</fieldset>
+            <div className="knopfreihe" style={{ alignItems: "end" }}>
+              <label className="feld" style={{ margin: 0 }}><span>Code aus der Authenticator-App</span><input name="code" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" required style={{ width: 140 }} /></label>
+              <button className="knopf">Webhook anlegen</button>
+            </div>
           </form>
+          </details>
         ) : null}
       </section>
 
-      <section className="karte abstand">
+      </div>
+      ) : null}
+
+      {reiter === "import" ? (
+      <section className="karte">
         <h2>Leads importieren (CSV)</h2>
         <p className="leise klein">Aus Excel oder einem alten CRM. Erste Zeile: Spaltennamen, z. B. <span className="mono">Firma;Gewerk;Ansprechpartner;Straße;PLZ;Ort;Telefon;E-Mail;Website;Quelle</span>. Doppelte und Betriebe auf der Sperrliste werden übersprungen. Die Quelle (Art. 14 DSGVO) wird gespeichert.</p>
         <form action={leadsImportieren} encType="multipart/form-data" className="knopfreihe">
@@ -177,6 +220,7 @@ export default async function Einstellungen() {
           <button className="knopf">Importieren</button>
         </form>
       </section>
+      ) : null}
     </>
   );
 }
