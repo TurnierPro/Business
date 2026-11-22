@@ -94,6 +94,8 @@ export type UnterschriftEingabe = {
   bilder: Record<number, string>; // Dokument-ID → Unterschrift des Kunden
   levarex: { name: string; bild: string };
   wer: string; // angemeldeter Benutzer, der das Tablet bedient
+  // SEPA-Lastschriftmandat für die Monatsbeiträge, freiwillig im selben Termin (sonst später im Kundenportal)
+  mandat?: { kontoinhaber: string; iban: string; bic?: string; bild: string } | null;
 };
 
 /** Unterschriften vom Tablet speichern, in die Verträge übernehmen und den Auftrag auslösen. */
@@ -109,6 +111,10 @@ export async function vertragUnterschreiben(e: UnterschriftEingabe): Promise<{ d
   const doks = await vertragsunterlagen(e.angebotId);
   const fehlt = doks.filter((d) => !unterschriftsbildOk(e.bilder[d.id]));
   if (fehlt.length) throw new Error(`Unterschrift fehlt: ${fehlt.map((d) => d.titel).join(", ")}`);
+  // Mandat vorab prüfen, damit nichts halb gespeichert wird
+  const { mandatPruefen, mandatErteilen } = await import("./mandat");
+  const mandat = e.mandat && a.monatlich > 0 ? { ...e.mandat, name } : null;
+  if (mandat) mandatPruefen(mandat);
 
   const am = new Date();
   for (const d of doks) {
@@ -131,6 +137,8 @@ export async function vertragUnterschreiben(e: UnterschriftEingabe): Promise<{ d
   const angebotDok = offen.flatMap((p) => p.anhaenge);
 
   await protokolliere(e.wer, `Verträge unterschrieben auf dem Tablet: ${name} (${doks.length} Dokumente)`, a.betriebId);
-  await unterschriftEingegangen(a.id, `${name} (Unterschrift auf dem Tablet, erfasst von ${e.wer})`, { name, am: am.toISOString(), agbVersion: AGB_VERSION, unternehmer: true }, [...angebotDok, ...doks.map((d) => d.id)]);
-  return { dokumente: doks.map((d) => d.id) };
+  const mandatId = mandat ? await mandatErteilen({ ...mandat, betriebId: a.betriebId, angebotId: a.id, wer: e.wer }) : null;
+  const unterlagen = [...doks.map((d) => d.id), ...(mandatId ? [mandatId] : [])];
+  await unterschriftEingegangen(a.id, `${name} (Unterschrift auf dem Tablet, erfasst von ${e.wer})`, { name, am: am.toISOString(), agbVersion: AGB_VERSION, unternehmer: true }, [...angebotDok, ...unterlagen]);
+  return { dokumente: unterlagen };
 }

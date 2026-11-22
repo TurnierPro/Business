@@ -7,6 +7,11 @@ import { marke } from "@/lib/marke";
 import { DOKART } from "@/lib/format";
 import { abnahmeErklaeren } from "@/lib/ablauf/vertrag";
 import { kontingent, ticketNummer, TICKET_STATUS } from "@/lib/ablauf/tickets";
+import { aktivesMandat, ibanMaskiert, mandatErteilen, mandatOffen } from "@/lib/ablauf/mandat";
+import { ERSTATTUNG_WOCHEN, VORABANKUENDIGUNG_TAGE } from "@/lib/recht";
+import { UnterschriftFeld } from "@/components/UnterschriftFeld";
+import { headers } from "next/headers";
+import { clientIp, erlaubt, GRENZEN, versuchMerken } from "@/lib/sicherheit";
 
 export const metadata = { title: "Ihr Kundenportal", robots: { index: false } };
 
@@ -28,8 +33,31 @@ async function abnehmen(f: FormData) {
   redirect(`/portal/k/${token}?abnahme=${ergebnis}`);
 }
 
+// SEPA-Mandat selbst im Portal erteilen (wenn es beim Termin offen geblieben ist)
+async function mandatErteilenPortal(f: FormData) {
+  "use server";
+  const token = String(f.get("token"));
+  const zugang = await zugangPerPortal(token);
+  if (!zugang) notFound();
+  const b = zugang.betrieb;
+  const ip = clientIp(await headers());
+  if (!(await erlaubt("portal-mandat", ip, GRENZEN.formularJeIp))) redirect(`/portal/k/${token}?mandatfehler=${encodeURIComponent("Zu viele Versuche. Bitte in einer Stunde noch einmal.")}#mandat`);
+  await versuchMerken("portal-mandat", ip);
+  const offen = await mandatOffen(b.id);
+  if (!offen) redirect(`/portal/k/${token}#mandat`);
+  const feld = (k: string) => String(f.get(k) ?? "").trim();
+  if (f.get("einverstanden") !== "ja") redirect(`/portal/k/${token}?mandatfehler=${encodeURIComponent("Bitte bestätigen Sie, dass Sie das Mandat erteilen.")}#mandat`);
+  let fehler = "";
+  try {
+    await mandatErteilen({ betriebId: b.id, angebotId: offen.angebotId, kontoinhaber: feld("kontoinhaber"), iban: feld("iban"), bic: feld("bic"), name: feld("name"), bild: feld("mandatBild"), wer: `Kundenportal (${zugang.person ?? b.name})` });
+  } catch (e) {
+    fehler = e instanceof Error ? e.message : "Das hat nicht geklappt.";
+  }
+  if (fehler) redirect(`/portal/k/${token}?mandatfehler=${encodeURIComponent(fehler.slice(0, 200))}#mandat`);
+  redirect(`/portal/k/${token}?mandat=1#mandat`);
+}
 
-export default async function Kundenportal({ params, searchParams }: { params: Promise<{ token: string }>; searchParams: Promise<{ fehler?: string; danke?: string; bezahlt?: string; abgebrochen?: string; abnahme?: string; abnahmefehler?: string; ticket?: string; ticketfehler?: string }> }) {
+export default async function Kundenportal({ params, searchParams }: { params: Promise<{ token: string }>; searchParams: Promise<{ fehler?: string; danke?: string; bezahlt?: string; abgebrochen?: string; abnahme?: string; abnahmefehler?: string; ticket?: string; ticketfehler?: string; mandat?: string; mandatfehler?: string }> }) {
   const { token } = await params;
   const zugang = await zugangPerPortal(token);
   if (!zugang) notFound();
@@ -37,7 +65,8 @@ export default async function Kundenportal({ params, searchParams }: { params: P
   const d = await portalDaten(b.id);
   // Demo-Pakete, die nach Freigabe ins Portal gestellt wurden
   const demoPakete = (await demosVon(b.id)).filter((x) => x.status === "im_portal");
-  const { danke, bezahlt, abgebrochen, abnahme, abnahmefehler } = await searchParams;
+  const { danke, bezahlt, abgebrochen, abnahme, abnahmefehler, mandat: mandatDanke, mandatfehler } = await searchParams;
+  const [mandatFehlt, mandat] = await Promise.all([mandatOffen(b.id), aktivesMandat(b.id)]);
   const mitBetreuung = d.projekt && ["live", "bereit", "bau", "pruefung"].includes(d.projekt.status);
   const k = mitBetreuung ? await kontingent(b.id) : null;
   const naechster = d.schritte.findIndex((s) => !s.erledigt);
@@ -55,7 +84,9 @@ export default async function Kundenportal({ params, searchParams }: { params: P
         ? { was: "Texte und Fotos hochladen", href: `/portal/${d.inhalteOffen.portalToken}`, knopf: "Inhalte hochladen" }
         : d.abnahmeOffen
           ? { was: `Website prüfen und abnehmen, bitte bis ${tag(d.abnahmeOffen.abnahmeFrist)}`, href: "#abnahme", knopf: "Zur Abnahme" }
-          : null;
+          : mandatFehlt
+            ? { was: "SEPA-Lastschriftmandat für den Monatsbeitrag erteilen", href: "#mandat", knopf: "Mandat erteilen" }
+            : null;
 
   return (
     <>
@@ -92,7 +123,7 @@ export default async function Kundenportal({ params, searchParams }: { params: P
       {abnahme ? <div className="hinweis ok" role="status">{abnahme === "verweigert" ? "Danke für Ihre Rückmeldung. Wir beheben die Mängel und melden uns." : "Vielen Dank für die Abnahme. Das Protokoll bekommen Sie per E-Mail."}</div> : null}
       {abgebrochen ? <div className="hinweis" role="status">Die Zahlung wurde abgebrochen. Sie können sie jederzeit hier fortsetzen.</div> : null}
 
-      {[d.angebotOffen, d.anzahlungOffen, d.inhalteOffen, d.abnahmeOffen].filter(Boolean).length + offeneRechnungen.length > 1 ? (
+      {[d.angebotOffen, d.anzahlungOffen, d.inhalteOffen, d.abnahmeOffen, mandatFehlt].filter(Boolean).length + offeneRechnungen.length > 1 ? (
         <section className="karte">
           <h2>Was wir gerade von Ihnen brauchen</h2>
           <ul className="liste">
@@ -100,6 +131,7 @@ export default async function Kundenportal({ params, searchParams }: { params: P
             {d.anzahlungOffen ? <li><div><div className="titel">Anzahlung bezahlen</div><div className="unter">{euro(Math.round((d.anzahlungOffen.einmalig / 2) * (1 + UST)))} brutto, online per Karte oder SEPA-Lastschrift</div></div><a className="knopf haupt klein" href={`/portal/k/${token}/zahlen`}>Jetzt bezahlen</a></li> : null}
             {d.inhalteOffen ? <li><div><div className="titel">Texte und Fotos hochladen</div><div className="unter">Damit wir Ihre Seite bauen können</div></div><a className="knopf haupt klein" href={`/portal/${d.inhalteOffen.portalToken}`}>Inhalte hochladen</a></li> : null}
             {d.abnahmeOffen ? <li><div><div className="titel">Website prüfen und abnehmen</div><div className="unter">Bitte bis {tag(d.abnahmeOffen.abnahmeFrist)}</div></div><a className="knopf klein" href="#abnahme">Zur Abnahme</a></li> : null}
+            {mandatFehlt ? <li><div><div className="titel">SEPA-Mandat erteilen</div><div className="unter">Für den Einzug des Monatsbeitrags</div></div><a className="knopf klein" href="#mandat">Zum Mandat</a></li> : null}
             {offeneRechnungen.map((r) => <li key={r.id}><div><div className="titel">Rechnung {r.nummer} begleichen</div><div className="unter">{euro(Math.round(r.netto * (1 + UST)))} brutto{r.faelligAm ? `, zahlbar bis ${tag(r.faelligAm)}` : ""}, Verwendungszweck {r.nummer}</div></div>{r.dokumentId ? <a className="knopf klein" href={`/portal/k/${token}/dokument/${r.dokumentId}`} target="_blank">Rechnung</a> : null}</li>)}
           </ul>
         </section>
@@ -208,6 +240,31 @@ export default async function Kundenportal({ params, searchParams }: { params: P
           </div>
         ) : <p className="leise">Hier erscheinen Protokoll, Angebot und weitere Unterlagen, sobald wir sie Ihnen geschickt haben.</p>}
       </section>
+
+      {mandatFehlt || mandat || mandatDanke ? (
+        <section id="mandat" className="karte">
+          <h2>SEPA-Lastschriftmandat</h2>
+          {mandatDanke ? <div className="hinweis ok" role="status">Vielen Dank. Ihr Mandat ist gespeichert und liegt bei Ihren Unterlagen.</div> : null}
+          {mandatfehler ? <div className="hinweis fehler" role="alert">{mandatfehler}</div> : null}
+          {mandat ? (
+            <p>Erteilt am {tag(new Date(mandat.daten.unterschriften?.[0]?.am ?? mandat.erstelltAm))} für das Konto <b className="mono">{ibanMaskiert(mandat.daten.konto.iban)}</b>, Mandatsreferenz <span className="mono">{mandat.daten.nummer}</span>. Möchten Sie das Konto ändern? Schreiben Sie uns unten unter „Änderung oder Frage“.</p>
+          ) : mandatFehlt ? (
+            <form action={mandatErteilenPortal} style={{ display: "grid", gap: 12 }}>
+              <input type="hidden" name="token" value={token} />
+              <p className="leise">Damit ziehen wir Ihren Monatsbeitrag ein. Jeden Einzug kündigen wir {VORABANKUENDIGUNG_TAGE} Tage vorher mit Betrag und Datum an. Ihre Bank erstattet eine Lastschrift auf Wunsch binnen {ERSTATTUNG_WOCHEN} Wochen.</p>
+              <div className="raster drei">
+                <label className="feld"><span>Kontoinhaber</span><input name="kontoinhaber" required minLength={3} autoComplete="off" defaultValue={b.name} /></label>
+                <label className="feld"><span>IBAN</span><input name="iban" required autoComplete="off" spellCheck={false} placeholder="DE.. .... .... .... .... .." /></label>
+                <label className="feld"><span>BIC (freiwillig)</span><input name="bic" autoComplete="off" spellCheck={false} /></label>
+              </div>
+              <label className="feld"><span>Ihr vollständiger Name</span><input name="name" required minLength={3} autoComplete="name" defaultValue={zugang.person ?? ""} /></label>
+              <UnterschriftFeld name="mandatBild" beschriftung="Unterschrift Kontoinhaber bzw. Vertretung" />
+              <label className="haken"><input type="checkbox" name="einverstanden" value="ja" required /><span>Ich ermächtige {marke.absender.firma}, die Monatsbeiträge und fällige Rechnungen aus unserem Vertrag per SEPA-Basislastschrift von diesem Konto einzuziehen, und weise meine Bank an, die Lastschriften einzulösen.</span></label>
+              <button className="knopf">Mandat erteilen</button>
+            </form>
+          ) : null}
+        </section>
+      ) : null}
 
       <section className="karte">
         <h2>Rechnungen</h2>

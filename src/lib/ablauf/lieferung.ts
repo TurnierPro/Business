@@ -174,6 +174,8 @@ export async function livegangDurchfuehren(projektId: number): Promise<void> {
   const b = await betrieb(p.betriebId);
   const ersterEinzug = new Date(Date.now() + 14 * 864e5);
   const brutto = Math.round(a.monatlich * (1 + UST));
+  const { aktivesMandat } = await import("./mandat");
+  const mandat = await aktivesMandat(p.betriebId);
   await inPostausgang({
     betriebId: p.betriebId,
     projektId,
@@ -181,8 +183,9 @@ export async function livegangDurchfuehren(projektId: number): Promise<void> {
     zweck: "lastschrift_start",
     empfaenger: b.email ?? "(E-Mail-Adresse fehlt)",
     betreff: `Lastschrift einrichten: ${b.name}`,
-    text: `Monatsbeitrag ${euro(a.monatlich)} netto (${euro(brutto)} brutto) per SEPA-Lastschrift über Qonto, monatlich ab ${ersterEinzug.toLocaleDateString("de-DE")}. Qonto schickt dem Kunden den Link zum SEPA-Mandat und kündigt jeden Einzug vorher an.`,
+    text: `Monatsbeitrag ${euro(a.monatlich)} netto (${euro(brutto)} brutto) per SEPA-Lastschrift über Qonto, monatlich ab ${ersterEinzug.toLocaleDateString("de-DE")}. ${mandat ? `SEPA-Mandat liegt unterschrieben vor (Mandatsreferenz ${mandat.daten.nummer}).` : "Noch kein SEPA-Mandat im Kundenportal: Qonto schickt dem Kunden den Link zum Mandat."} Jeder Einzug wird vorher angekündigt.`,
     erlaubteZahlen: [euro(a.monatlich), euro(brutto)],
-    meta: { projektId, monatlichBrutto: brutto, ersterEinzug: ersterEinzug.toISOString() },
+    hinweise: mandat ? [] : ["Kein SEPA-Mandat erteilt. Der Kunde kann es im Kundenportal nachholen; sonst schickt Qonto den Mandats-Link."],
+    meta: { projektId, monatlichBrutto: brutto, ersterEinzug: ersterEinzug.toISOString(), ...(mandat ? { mandatsreferenz: mandat.daten.nummer, mandatDokumentId: mandat.id } : {}) },
   });
 }

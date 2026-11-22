@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
 import { ANGEBOT_VORLAGE, fuelle } from "../angebot-vorlage";
-import { and, eq, max } from "drizzle-orm";
+import { and, eq, inArray, max } from "drizzle-orm";
 import { getDb, schema } from "../db";
 import { einreihen } from "../jobs/warteschlange";
 import { protokolliere } from "../protokoll";
@@ -257,6 +257,7 @@ export async function unterschriftEingegangen(angebotId: number, wer: string, an
   await protokolliere(wer, `Angebot angenommen (${PAKETE[a.paket as PaketKey].name}, AGB ${nachweis.agbVersion}${nachweis.unternehmer ? ", Unternehmer bestätigt" : ""})`, a.betriebId);
 
   const b = await betrieb(a.betriebId);
+  const mitMandat = vertragsDokumente.length ? (await db.select({ art: schema.dokumente.art }).from(schema.dokumente).where(inArray(schema.dokumente.id, vertragsDokumente))).some((d) => d.art === "sepa_mandat") : false;
   const nummer = `AB-${a.erstelltAm.getFullYear()}-${String(a.id).padStart(4, "0")}`;
   const angebotNummer = `A-${a.erstelltAm.getFullYear()}-${String(a.id).padStart(4, "0")}`;
   const positionen = a.positionen.length ? a.positionen : [{ text: PAKETE[a.paket as PaketKey].name, einmalig: a.einmalig, monatlich: a.monatlich }];
@@ -272,7 +273,7 @@ export async function unterschriftEingegangen(angebotId: number, wer: string, an
     zweck: "auftragsbestaetigung",
     empfaenger: b.email ?? "(E-Mail-Adresse fehlt)",
     betreff: `Auftragsbestätigung ${nummer}`,
-    text: `Guten Tag,\n\nvielen Dank für Ihren Auftrag. Im Anhang finden Sie die Auftragsbestätigung zu unserem Angebot ${angebotNummer}${vertragsDokumente.length ? " und die unterschriebenen Verträge (Rahmenvertrag und Leistungsscheine)" : ""}. Alles liegt auch in Ihrem Kundenportal:\n${await portalLink(b.id)}\n\nDie Rechnung über die erste Rate (50 %) kommt in einer eigenen E-Mail. Danach geht es los.\n\nMit freundlichen Grüßen\nDaniel Lück\nLevarex Consulting`,
+    text: `Guten Tag,\n\nvielen Dank für Ihren Auftrag. Im Anhang finden Sie die Auftragsbestätigung zu unserem Angebot ${angebotNummer}${vertragsDokumente.length ? ` und die unterschriebenen Verträge (Rahmenvertrag und Leistungsscheine${mitMandat ? ", dazu Ihr SEPA-Lastschriftmandat" : ""})` : ""}. Alles liegt auch in Ihrem Kundenportal:\n${await portalLink(b.id)}\n\nDie Rechnung über die erste Rate (50 %) kommt in einer eigenen E-Mail. Danach geht es los.\n\nMit freundlichen Grüßen\nDaniel Lück\nLevarex Consulting`,
     anhaenge: [dokId, ...vertragsDokumente],
     erlaubteZahlen: [euro(a.einmalig), euro(a.monatlich), ...positionen.flatMap((x) => [euro(x.einmalig), euro(x.monatlich)])],
     hinweise: nachweis.unternehmer ? [] : ["Annahme ohne Unternehmer-Bestätigung (intern erfasst). Bitte mit dem Kunden klären."],

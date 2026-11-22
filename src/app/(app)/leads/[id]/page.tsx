@@ -19,6 +19,7 @@ import { ticketNummer } from "@/lib/ablauf/tickets";
 import { KANAELE } from "@/lib/ablauf/nachrichten";
 import { JETZT, WEG, wegIndex } from "@/lib/weg";
 import { ERGEBNISSE, KONTAKT } from "@/lib/ablauf/vertrieb";
+import { aktivesMandat, ibanMaskiert } from "@/lib/ablauf/mandat";
 
 const PROJEKT_TEXT: Record<string, string> = { inhalte: "wartet auf Inhalte", bau: "wird gebaut", pruefung: "Prüfung nicht bestanden", bereit: "Vorschau beim Kunden", live: "live, Betreuung läuft", beendet: "beendet" };
 const ANGEBOT_TEXT: Record<string, string> = { entwurf: "erstellt", versendet: "beim Kunden", unterschrieben: "unterschrieben", angezahlt: "erste Rate bezahlt", abgeschlossen: "abgeschlossen", abgelehnt: "abgelehnt" };
@@ -63,6 +64,7 @@ export default async function Lead({ params, searchParams }: { params: Promise<{
   const rechnungen = await db.select().from(schema.rechnungen).where(eq(schema.rechnungen.betriebId, id)).orderBy(desc(schema.rechnungen.erstelltAm));
   const inArbeit = laufend.filter((j) => Number(j.daten.betriebId) === id || termine.some((t) => t.id === Number(j.daten.terminId)));
   const angebot = angebote[0];
+  const sepaMandat = await aktivesMandat(id);
   const projekt = projekte[0];
   const offenePost = post.filter((p) => p.status === "zur_freigabe");
   const gesperrt = b.status === "gesperrt";
@@ -193,6 +195,11 @@ export default async function Lead({ params, searchParams }: { params: Promise<{
                       <div><span className="etikett">24 Monate</span><b>{euro(summe24)}</b></div>
                     </div>
                     <p className="leise klein" style={{ margin: "8px 0 0" }}>netto · 50 % bei Unterschrift, 50 % beim Livegang, Monatsbeitrag per Lastschrift ab Livegang</p>
+                    {angebot.monatlich > 0 && angebot.unterschriebenAm ? (
+                      <p className="klein" style={{ margin: "8px 0 0" }}>
+                        SEPA-Mandat: {sepaMandat ? <><span className="status ok">erteilt</span> <span className="mono">{ibanMaskiert(sepaMandat.daten.konto.iban)}</span> · <a href={`/dokument/${sepaMandat.id}`} target="_blank">PDF</a></> : <><span className="status warten">offen</span> <span className="leise">Kunde kann es im Kundenportal erteilen</span></>}
+                      </p>
+                    ) : null}
                     <h3 style={{ margin: "18px 0 6px" }}>Rechnungen</h3>
                     {rechnungen.length ? (
                       <ul className="liste">

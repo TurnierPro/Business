@@ -40,6 +40,12 @@ export const VERFUEGBARKEIT_PROZENT = 99.5;
 /** Haftung bei leichter Fahrlässigkeit, in Cent. */
 export const HAFTUNG_JE_FALL = 25_000_000;
 export const HAFTUNG_JE_JAHR = 50_000_000;
+/** SEPA: Gläubiger-Identifikationsnummer (Bundesbank, nach der Gründung beantragen). Leer = wird mit der Vorabankündigung mitgeteilt. */
+export const GLAEUBIGER_ID = process.env.GLAEUBIGER_ID ?? "";
+/** SEPA: Vorabankündigung (Pre-Notification) vor jedem Einzug, in Kalendertagen. */
+export const VORABANKUENDIGUNG_TAGE = 5;
+/** SEPA: Erstattung ohne Angabe von Gründen (Basislastschrift), in Wochen ab Belastung. */
+export const ERSTATTUNG_WOCHEN = 8;
 /** Prozess-Check wird angerechnet, wenn der Auftrag innerhalb dieser Frist kommt. */
 export const PROZESS_CHECK_ANRECHNUNG_TAGE = 60;
 
@@ -97,6 +103,7 @@ export const LOESCHFRISTEN: { was: string; tage: number | null; grund: string; a
   { was: "Angebote, Auftragsbestätigungen, Abnahmeprotokolle von Kunden", tage: 6 * 365, grund: "§ 257 HGB (Handelsbriefe, 6 Jahre ab Jahresende)", automatisch: false },
   { was: "Zugänge zum Kundenportal (Name, E-Mail, letzte Nutzung)", tage: null, grund: "Mit dem Betrieb; bei Löschung oder Vertragsende sofort", automatisch: false },
   { was: "Unterschriften unter Verträgen (Bild, Name, Zeitpunkt)", tage: 6 * 365, grund: "Gehören zu Rahmenvertrag und Leistungsscheinen (§ 257 HGB, 6 Jahre ab Jahresende)", automatisch: false },
+  { was: "SEPA-Mandate (Kontoinhaber, IBAN, Unterschrift)", tage: null, grund: "Solange eingezogen wird; danach 14 Monate (Erstattung bei nicht autorisierter Zahlung bis 13 Monate, § 676b BGB), als Beleg zum Vertrag 6 Jahre (§ 257 HGB)", automatisch: false },
   { was: "Kundendaten nach Vertragsende", tage: null, grund: "Sperren statt löschen, solange Aufbewahrungspflichten laufen; danach löschen", automatisch: false },
 ];
 

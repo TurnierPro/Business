@@ -9,7 +9,7 @@ import { PAKETE, PaketKey } from "../pakete";
 import { gebuchteModule } from "../bausteine";
 import { betrieb, sperrSchluessel } from "./gemeinsam";
 
-const AUFBEWAHREN = ["rechnung", "angebot", "auftragsbestaetigung", "abnahmeprotokoll", "rahmenvertrag", "leistungsschein_erstellung", "leistungsschein_betrieb"];
+const AUFBEWAHREN = ["rechnung", "angebot", "auftragsbestaetigung", "abnahmeprotokoll", "rahmenvertrag", "leistungsschein_erstellung", "leistungsschein_betrieb", "sepa_mandat"];
 
 // Betroffenenrechte (Art. 15 und 17 DSGVO) und Verzeichnis der Verarbeitungen als Auftragsverarbeiter (Art. 30 Abs. 2).
 
@@ -43,6 +43,11 @@ export async function datenauskunft(betriebId: number, wer: string) {
     erstelltAm: new Date().toISOString(),
     hinweis: "Auskunft nach Art. 15 DSGVO. Zwecke: Akquise (Art. 6 Abs. 1 lit. f), Vertrag (lit. b), Aufbewahrung von Rechnungen (lit. c, § 147 AO, 8 Jahre).",
     stammdaten,
+    // SEPA-Lastschriftmandate mit Kontodaten (ohne Unterschriftsbild; das steht im PDF des Mandats)
+    sepaMandate: (await db.select().from(schema.dokumente).where(and(eq(schema.dokumente.betriebId, betriebId), eq(schema.dokumente.art, "sepa_mandat")))).map((d) => {
+      const x = d.daten as { nummer?: string; konto?: unknown; ersetztAm?: string; unterschriften?: { name: string; am: string }[] };
+      return { mandatsreferenz: x.nummer, konto: x.konto, unterschrieben: x.unterschriften?.map((u) => ({ name: u.name, am: u.am })), ersetztAm: x.ersetztAm ?? null };
+    }),
     ansprechpartner: kontakte,
     aktivitaeten,
     besuche,

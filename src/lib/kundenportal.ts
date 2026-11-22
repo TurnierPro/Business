@@ -74,7 +74,7 @@ export async function zugangSperren(id: number, wer: string): Promise<void> {
   await protokolliere(wer, `Portal-Zugang gesperrt: ${z.name}`, z.betriebId);
 }
 
-const FUER_KUNDEN = ["angebot", "protokoll", "rechnung", "auftragsbestaetigung", "rahmenvertrag", "leistungsschein_erstellung", "leistungsschein_betrieb", "abnahmeprotokoll", "monatsreport", "umzugsanleitung"];
+const FUER_KUNDEN = ["angebot", "protokoll", "rechnung", "auftragsbestaetigung", "rahmenvertrag", "leistungsschein_erstellung", "leistungsschein_betrieb", "sepa_mandat", "abnahmeprotokoll", "monatsreport", "umzugsanleitung"];
 
 /** Alle Einträge, die an diesen Kunden wirklich verschickt wurden (nach Qualitätskontrolle und Freigabe). */
 async function versendet(betriebId: number) {

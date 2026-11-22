@@ -136,6 +136,7 @@ export async function qualitaetskontrolle(id: number): Promise<string> {
       if (!u.some((x) => x.rolle === "kunde") || !u.some((x) => x.rolle === "levarex")) blocker.push(`${d.titel}: Unterschrift fehlt.`);
       if (VERTRAGSWERK_VERSION.startsWith("Entwurf")) hinweise.push("Vertragstexte sind noch ein Entwurf (Dok. 21 fehlt). Vor dem ersten echten Kunden vom Anwalt prüfen lassen.");
     }
+    if (d.art === "sepa_mandat" && !((d.daten as { unterschriften?: { rolle: string }[] }).unterschriften ?? []).some((x) => x.rolle === "kunde")) blocker.push(`${d.titel}: Unterschrift fehlt.`);
     const an = (d.daten as { an?: { strasse?: string | null; plz?: string | null } }).an;
     if (e.kanal === "brief" && (!an?.strasse || !an?.plz)) blocker.push("Anschrift im Brief unvollständig.");
   }

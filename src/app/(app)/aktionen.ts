@@ -211,7 +211,9 @@ export async function vertragUnterschreiben(f: FormData) {
     const { vertragUnterschreiben: unterschreiben } = await import("@/lib/ablauf/vertraege");
     const bilder: Record<number, string> = {};
     for (const [k, v] of f.entries()) if (k.startsWith("bild-")) bilder[Number(k.slice(5))] = String(v);
-    await unterschreiben({ angebotId, kunde: { name: text(f, "name"), funktion: text(f, "funktion"), unternehmer: f.get("unternehmer") === "ja" }, bilder, levarex: { name: text(f, "levarexName"), bild: text(f, "levarexBild") }, wer });
+    await unterschreiben({ angebotId, kunde: { name: text(f, "name"), funktion: text(f, "funktion"), unternehmer: f.get("unternehmer") === "ja" }, bilder, levarex: { name: text(f, "levarexName"), bild: text(f, "levarexBild") }, wer,
+      // Mandat nur, wenn eine IBAN eingetragen ist; sonst später im Kundenportal
+      mandat: text(f, "iban") ? { kontoinhaber: text(f, "kontoinhaber"), iban: text(f, "iban"), bic: text(f, "bic"), bild: text(f, "mandatBild") } : null });
     const db = await getDb();
     const [a] = await db.select().from(schema.angebote).where(eq(schema.angebote.id, angebotId));
     return { ziel: `/leads/${a.betriebId}` };

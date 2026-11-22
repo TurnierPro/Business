@@ -52,6 +52,7 @@ export const DOKART: Record<string, string> = {
   rahmenvertrag: "Rahmenvertrag",
   leistungsschein_erstellung: "Leistungsschein Erstellung",
   leistungsschein_betrieb: "Leistungsschein Betrieb",
+  sepa_mandat: "SEPA-Lastschriftmandat",
 };
 
 /** „2026-10-21“ + „09:00“ als deutsche Zeit (Sommer/Winter beachtet), egal in welcher Zeitzone der Server läuft. */

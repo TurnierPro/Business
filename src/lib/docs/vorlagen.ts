@@ -1,6 +1,6 @@
 import { marke } from "../marke";
 import { NICHT_ENTHALTEN, PAKETE, PaketKey, euro, UST } from "../pakete";
-import { ABNAHME_FRIST_TAGE, AENDERUNG_STUNDENSATZ, AGB_URL, AGB_VERSION, ERSTE_RATE_FAELLIG_TAGE, HAFTUNG_JE_FALL, HAFTUNG_JE_JAHR, KUENDIGUNG_MONATE_VOR_ENDE, LAUFZEIT_MONATE, VERFUEGBARKEIT_PROZENT, VERLAENGERUNG_MONATE } from "../recht";
+import { ABNAHME_FRIST_TAGE, AENDERUNG_STUNDENSATZ, AGB_URL, AGB_VERSION, ERSTATTUNG_WOCHEN, ERSTE_RATE_FAELLIG_TAGE, VORABANKUENDIGUNG_TAGE, HAFTUNG_JE_FALL, HAFTUNG_JE_JAHR, KUENDIGUNG_MONATE_VOR_ENDE, LAUFZEIT_MONATE, VERFUEGBARKEIT_PROZENT, VERLAENGERUNG_MONATE } from "../recht";
 import { laufzeitSumme } from "../katalog";
 import { ANGEBOT_VORLAGE, fuelle, type AngebotVorlage } from "../angebot-vorlage";
 import type { Pruefpunkt } from "../adapters/websitecheck";
@@ -438,6 +438,55 @@ ${erstellung
     : `<h2>Laufzeit</h2><p>${LAUFZEIT_MONATE} Monate ab Livegang, danach jeweils ${VERLAENGERUNG_MONATE} Monate; Kündigung ${KUENDIGUNG_MONATE_VOR_ENDE} Monate vor Ende in Textform.${d.aenderungsMinuten ? ` Enthalten sind ${d.aenderungsMinuten} Minuten Änderungen im Monat; darüber ${euro(AENDERUNG_STUNDENSATZ)} je Stunde nach Freigabe.` : ""} Service-Level nach § 6 des Rahmenvertrags.</p>`}
 ${unterschriftsblock(d.unterschriften)}
 <p class="leise" style="font-size:7.5pt;margin-top:6mm">Fassung: ${esc(d.vertragswerk)}</p>
+</div>${fuss()}</div>`,
+  });
+}
+
+// ---------- SEPA-Lastschriftmandat (Basislastschrift) für die Monatsbeiträge ----------
+
+export type SepaMandatDaten = {
+  an: Anschrift;
+  nummer: string; // Mandatsreferenz
+  datum: string;
+  glaeubigerId: string;
+  angebotId: number;
+  konto: { inhaber: string; iban: string; bic: string | null };
+  ort: string | null;
+  unterschriften?: VertragUnterschrift[];
+  ersetztAm?: string;
+  ersetztDurch?: string;
+};
+
+export function sepaMandat(d: SepaMandatDaten): string {
+  const a = marke.absender;
+  const u = d.unterschriften?.find((x) => x.rolle === "kunde");
+  const am = u ? new Date(u.am).toLocaleString("de-DE", { dateStyle: "medium", timeStyle: "short", timeZone: "Europe/Berlin" }) : "";
+  const zeile = (k: string, v: string, mono = false) => `<tr><th style="width:42%">${esc(k)}</th><td${mono ? ' class="mono"' : ""}>${v}</td></tr>`;
+  return druckSeite({
+    titel: `SEPA-Lastschriftmandat ${d.nummer}`,
+    extraCss: vertragCss + `.mandat th{font-weight:400;color:${marke.hell.textLeise};text-align:left}`,
+    inhalt: `<div class="seite">${kopf()}<div class="fluss">
+<h1>SEPA-Lastschriftmandat</h1>
+<p class="leise mono">SEPA-BASISLASTSCHRIFT · WIEDERKEHRENDE ZAHLUNG${d.ersetztAm ? ` · ERSETZT DURCH ${esc(d.ersetztDurch ?? "")}` : ""}</p>
+<table class="mandat"><tbody>
+${zeile("Zahlungsempfänger", `${esc(a.firma)}, ${esc(a.strasse)}, ${esc(a.ort)}`)}
+${zeile("Gläubiger-Identifikationsnummer", d.glaeubigerId ? esc(d.glaeubigerId) : "wird mit der ersten Vorabankündigung mitgeteilt", !!d.glaeubigerId)}
+${zeile("Mandatsreferenz", esc(d.nummer), true)}
+</tbody></table>
+<p>Ich ermächtige / Wir ermächtigen ${esc(a.firma)}, Zahlungen von meinem / unserem Konto mittels Lastschrift einzuziehen. Zugleich weise ich mein / weisen wir unser Kreditinstitut an, die von ${esc(a.firma)} auf mein / unser Konto gezogenen Lastschriften einzulösen.</p>
+<p><b>Hinweis:</b> Ich kann / Wir können innerhalb von ${ERSTATTUNG_WOCHEN} Wochen, beginnend mit dem Belastungsdatum, die Erstattung des belasteten Betrages verlangen. Es gelten dabei die mit meinem / unserem Kreditinstitut vereinbarten Bedingungen.</p>
+<p>Eingezogen werden die Monatsbeiträge laut Rahmenvertrag und Leistungsscheinen sowie fällige Rechnungen aus diesem Vertrag. Jeden Einzug kündigt ${esc(a.firma)} spätestens ${VORABANKUENDIGUNG_TAGE} Kalendertage vorher mit Betrag und Datum an.</p>
+<h2>Zahlungspflichtiger</h2>
+<table class="mandat"><tbody>
+${zeile("Kontoinhaber", esc(d.konto.inhaber))}
+${zeile("Betrieb und Anschrift", `${esc(d.an.name)}, ${esc(d.an.strasse ?? "")}, ${esc(d.an.plz ?? "")} ${esc(d.an.ort ?? "")}`)}
+${zeile("IBAN", esc(d.konto.iban.replace(/(.{4})/g, "$1 ").trim()), true)}
+${zeile("BIC", d.konto.bic ? esc(d.konto.bic) : "–", true)}
+</tbody></table>
+<div class="unterschriften" style="grid-template-columns:1fr 1fr">
+<div class="unterschrift"><div class="linie" style="align-items:flex-end">${esc(d.ort ?? "")}${d.ort ? ", " : ""}${esc(u ? new Date(u.am).toLocaleDateString("de-DE", { timeZone: "Europe/Berlin" }) : d.datum)}</div><div>Ort, Datum</div></div>
+<div class="unterschrift"><div class="linie">${u && BILD_OK.test(u.bild) ? `<img src="${u.bild}" alt="Unterschrift ${esc(u.name)}">` : ""}</div><div>Unterschrift Kontoinhaber bzw. Vertretung</div><div class="leise">${u ? `${esc(u.name)} · ${esc(am)} Uhr` : "Name"}</div></div>
+</div>
 </div>${fuss()}</div>`,
   });
 }

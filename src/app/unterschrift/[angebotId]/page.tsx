@@ -9,7 +9,8 @@ import { vertragsunterlagen } from "@/lib/ablauf/vertraege";
 import { euro } from "@/lib/pakete";
 import { laufzeitSumme } from "@/lib/katalog";
 import { DOKART } from "@/lib/format";
-import { AGB_URL, AGB_VERSION } from "@/lib/recht";
+import { AGB_URL, AGB_VERSION, ERSTATTUNG_WOCHEN, VORABANKUENDIGUNG_TAGE } from "@/lib/recht";
+import { aktivesMandat, ibanMaskiert } from "@/lib/ablauf/mandat";
 import { vertragUnterschreiben } from "../../(app)/aktionen";
 
 export const metadata = { title: "Verträge unterschreiben", robots: { index: false } };
@@ -28,6 +29,7 @@ export default async function Unterschrift({ params, searchParams }: { params: P
   const offen = ["entwurf", "versendet"].includes(a.status);
   const doks = offen ? await vertragsunterlagen(angebotId) : [];
   const summe = laufzeitSumme(a.einmalig, a.monatlich);
+  const mandat = offen && a.monatlich > 0 ? await aktivesMandat(b.id) : null;
 
   return (
     <div className="portal-seite">
@@ -59,6 +61,23 @@ export default async function Unterschrift({ params, searchParams }: { params: P
                 <UnterschriftFeld name={`bild-${d.id}`} beschriftung="Unterschrift Auftraggeber" />
               </section>
             ))}
+
+            {a.monatlich > 0 ? (
+              <section className="karte" id="mandat">
+                <h2>SEPA-Lastschriftmandat für die Monatsbeiträge</h2>
+                <p className="leise klein">Damit ziehen wir den Monatsbeitrag ein; jeden Einzug kündigen wir {VORABANKUENDIGUNG_TAGE} Tage vorher an. Ihre Bank erstattet eine Lastschrift auf Wunsch binnen {ERSTATTUNG_WOCHEN} Wochen. Ohne IBAN bleibt das Mandat offen und kann später im Kundenportal erteilt werden.</p>
+                {mandat ? <p className="hinweis ok">Mandat liegt schon vor: {mandat.daten.nummer}, Konto {ibanMaskiert(mandat.daten.konto.iban)}.</p> : (
+                  <>
+                    <div className="raster drei">
+                      <label className="feld"><span>Kontoinhaber</span><input name="kontoinhaber" autoComplete="off" defaultValue={b.name} /></label>
+                      <label className="feld"><span>IBAN</span><input name="iban" autoComplete="off" inputMode="text" spellCheck={false} placeholder="DE.. .... .... .... .... .." pattern="[A-Za-z]{2}[0-9]{2}[A-Za-z0-9 ]{11,40}" /></label>
+                      <label className="feld"><span>BIC (freiwillig)</span><input name="bic" autoComplete="off" spellCheck={false} /></label>
+                    </div>
+                    <UnterschriftFeld name="mandatBild" beschriftung="Unterschrift Kontoinhaber bzw. Vertretung" />
+                  </>
+                )}
+              </section>
+            ) : null}
 
             <section className="karte">
               <h2>Wer unterschreibt?</h2>

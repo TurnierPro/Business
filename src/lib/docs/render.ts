@@ -34,6 +34,8 @@ export function dokumentHtml(d: Dok): string {
     case "leistungsschein_erstellung":
     case "leistungsschein_betrieb":
       return v.leistungsschein(d.daten as v.LeistungsscheinDaten);
+    case "sepa_mandat":
+      return v.sepaMandat(d.daten as v.SepaMandatDaten);
     case "monatsreport":
       return v.monatsreport(d.daten as v.MonatsreportDaten);
     case "finanzbericht": {

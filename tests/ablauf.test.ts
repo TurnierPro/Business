@@ -906,6 +906,71 @@ test("Verträge: Rahmenvertrag und Leistungsscheine, Unterschrift auf dem Tablet
   await assert.rejects(() => vt.vertragUnterschreiben(eingabe), /Status/);
 });
 
+test("SEPA-Mandat: auf dem Tablet mit den Verträgen oder später im Kundenportal, Dokument liegt beim Kunden", async () => {
+  const fs = await import("node:fs");
+  const bild = `data:image/png;base64,${fs.readFileSync(new URL("./unterschrift-muster.b64", import.meta.url), "utf8").trim()}`;
+  const vt = await import("../src/lib/ablauf/vertraege");
+  const m = await import("../src/lib/ablauf/mandat");
+  // IBAN-Prüfung: Prüfziffer, Länge, Schreibweise
+  assert.equal(m.ibanPruefen("de89 3704 0044 0532 0130 00"), "DE89370400440532013000");
+  assert.equal(m.ibanPruefen("DE89370400440532013001"), null, "falsche Prüfziffer");
+  assert.equal(m.ibanPruefen("DE8937040044053201300"), null, "zu kurz");
+  assert.equal(m.bicPruefen(""), null);
+  assert.equal(m.bicPruefen("COBADEFFXXX"), "COBADEFFXXX");
+  assert.equal(m.bicPruefen("<script>"), false);
+  assert.equal(m.ibanMaskiert("DE89370400440532013000"), "DE89 •••• •••• 3000");
+
+  // 1) Mandat gleich beim Termin auf dem Tablet
+  const { id } = await akquise.legeBetriebAn({ name: "Mandat Sanitär GmbH", gewerk: "SHK", score: 70, scoreGrund: "Test", website: "mandat.example", email: "chef@mandat.example", strasse: "Weg 3", plz: "76297", ort: "Stutensee" }, "Test", "Test");
+  const { angebotId } = await verkauf.erstelleAngebot({ betriebId: id!, auswahl: { paket: "KOMPAKT", module: [], zusaetze: [] }, wer: "Daniel Lück" });
+  const doks = await vt.vertragsunterlagen(angebotId);
+  const eingabe = { angebotId, kunde: { name: "Paula Mandat", funktion: "Inhaberin", unternehmer: true }, bilder: Object.fromEntries(doks.map((d) => [d.id, bild])), levarex: { name: "Daniel Lück", bild }, wer: "Daniel Lück" };
+  // Falsche IBAN: nichts wird gespeichert, auch die Verträge nicht
+  await assert.rejects(() => vt.vertragUnterschreiben({ ...eingabe, mandat: { kontoinhaber: "Mandat Sanitär GmbH", iban: "DE89370400440532013001", bild } }), /IBAN/);
+  await assert.rejects(() => vt.vertragUnterschreiben({ ...eingabe, mandat: { kontoinhaber: "Mandat Sanitär GmbH", iban: "DE89370400440532013000", bild: "data:image/svg+xml;base64,PHN2Zz4=" } }), /Unterschrift unter dem SEPA-Mandat/);
+  assert.equal((await db.select().from(schema.unterschriften).where(eq(schema.unterschriften.angebotId, angebotId))).length, 0);
+  const r = await vt.vertragUnterschreiben({ ...eingabe, mandat: { kontoinhaber: "Mandat Sanitär GmbH", iban: "DE89 3704 0044 0532 0130 00", bic: "cobadeffxxx", bild } });
+  const md = await m.aktivesMandat(id!);
+  assert.ok(md && r.dokumente.includes(md.id), "Mandat gehört zu den Vertragsunterlagen");
+  assert.equal(md!.daten.konto.iban, "DE89370400440532013000");
+  assert.equal(md!.daten.konto.bic, "COBADEFFXXX");
+  assert.match(md!.daten.nummer, /^LVX-\d{5}-[0-9A-F]{6}$/);
+  assert.equal(await m.mandatOffen(id!), null, "nichts mehr offen");
+  // Auftragsbestätigung nimmt das Mandat mit, Prüfung blockiert nicht, PDF zeigt die IBAN
+  const ab = (await db.select().from(schema.postausgang).where(eq(schema.postausgang.betriebId, id!))).find((p) => p.zweck === "auftragsbestaetigung")!;
+  assert.ok(ab.anhaenge.includes(md!.id));
+  assert.match(ab.text, /SEPA-Lastschriftmandat/);
+  const { dokumentHtml, dokumentPdf } = await import("../src/lib/docs/render");
+  const html = dokumentHtml(md!);
+  assert.match(html, /DE89 3704 0044 0532 0130 00/);
+  assert.match(html, /8 Wochen/);
+  const [mdRoh] = await db.select().from(schema.dokumente).where(eq(schema.dokumente.id, md!.id));
+  assert.ok((await dokumentPdf(mdRoh)).length > 5000);
+  await abarbeiten();
+  const [abNeu] = await db.select().from(schema.postausgang).where(eq(schema.postausgang.id, ab.id));
+  assert.notEqual(abNeu.qkStatus, "blockiert", abNeu.hinweise.join(" | "));
+  await post_freigeben(ab.id);
+  const portal = await import("../src/lib/kundenportal");
+  assert.ok((await portal.portalDaten(id!)).dokumente.some((d) => d.art === "sepa_mandat"), "Mandat im Kundenportal");
+  // Datenauskunft enthält die Kontodaten
+  const { datenauskunft } = await import("../src/lib/ablauf/datenschutz");
+  const ausk = await datenauskunft(id!, "Test");
+  assert.equal((ausk.sepaMandate[0].konto as { iban: string }).iban, "DE89370400440532013000");
+
+  // 2) Ohne IBAN beim Termin: Mandat bleibt offen und kann im Portal nachgeholt werden; ein neues ersetzt das alte
+  const b2 = await akquise.legeBetriebAn({ name: "Mandat Später KG", gewerk: "Elektro", score: 70, scoreGrund: "Test", website: "spaeter.example", email: "chef@spaeter.example", strasse: "Weg 4", plz: "76297", ort: "Stutensee" }, "Test", "Test");
+  const { angebotId: a2 } = await verkauf.erstelleAngebot({ betriebId: b2.id!, auswahl: { paket: "KOMPAKT", module: [], zusaetze: [] }, wer: "Daniel Lück" });
+  assert.equal(await m.mandatOffen(b2.id!), null, "vor der Unterschrift nicht offen");
+  const d2 = await vt.vertragsunterlagen(a2);
+  await vt.vertragUnterschreiben({ ...eingabe, angebotId: a2, bilder: Object.fromEntries(d2.map((d) => [d.id, bild])), mandat: null });
+  assert.deepEqual(await m.mandatOffen(b2.id!), { angebotId: a2 });
+  const erstes = await m.mandatErteilen({ betriebId: b2.id!, angebotId: a2, kontoinhaber: "Mandat Später KG", iban: "DE89370400440532013000", name: "Karl Später", bild, wer: "Kundenportal (Karl Später)" });
+  const zweites = await m.mandatErteilen({ betriebId: b2.id!, angebotId: a2, kontoinhaber: "Mandat Später KG", iban: "DE02120300000000202051", name: "Karl Später", bild, wer: "Kundenportal (Karl Später)" });
+  assert.equal((await m.aktivesMandat(b2.id!))!.id, zweites);
+  const [alt] = await db.select().from(schema.dokumente).where(eq(schema.dokumente.id, erstes));
+  assert.ok((alt.daten as { ersetztAm?: string }).ersetztAm, "altes Mandat ist ersetzt");
+});
+
 async function post_freigeben(id: number) {
   await post.freigeben(id, "Daniel Lück");
   await abarbeiten();
