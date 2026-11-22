@@ -17,6 +17,7 @@ export const metadata = { title: "Freigabe prüfen" };
 export default async function Eintrag({ params }: { params: Promise<{ id: string }> }) {
   const ich = await brauchtBenutzer();
   const id = Number((await params).id);
+  if (!Number.isInteger(id) || id <= 0) notFound();
   const db = await getDb();
   const [e] = await db.select().from(schema.postausgang).where(eq(schema.postausgang.id, id));
   if (!e) notFound();

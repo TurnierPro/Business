@@ -1,5 +1,5 @@
 import fs from "node:fs";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { getDb, schema } from "../db";
 import { protokolliere } from "../protokoll";
 import { setzeStatus, SYSTEM } from "./gemeinsam";
@@ -29,7 +29,8 @@ export async function nachVersand(e: Eintrag): Promise<void> {
   }
   if (e.zweck === "angebot") {
     const angebotId = Number(e.meta.angebotId);
-    if (angebotId) await db.update(schema.angebote).set({ status: "versendet" }).where(eq(schema.angebote.id, angebotId));
+    // Nur ein Entwurf wird „versendet“: wurde inzwischen auf dem Tablet unterschrieben, bleibt es „unterschrieben“
+    if (angebotId) await db.update(schema.angebote).set({ status: "versendet" }).where(and(eq(schema.angebote.id, angebotId), eq(schema.angebote.status, "entwurf")));
     // Die Aufnahme wird gelöscht, sobald das Protokoll freigegeben und verschickt ist.
     const terminId = Number(e.meta.terminId);
     if (terminId) {

@@ -182,9 +182,11 @@ function plusMonate(d: Date, m: number): Date {
 
 export function laufzeitEnde(start: Date, eingang: Date): Date {
   let monate = LAUFZEIT_MONATE;
+  // Ende = Tag vor dem Jahrestag (§ 188 Abs. 2 BGB). Gibt es den Starttag im Zielmonat nicht (29.02. → 2030),
+  // endet die Frist mit dem letzten Tag des Monats (§ 188 Abs. 3 BGB).
   const ende = (m: number) => {
     const e = plusMonate(start, m);
-    e.setDate(e.getDate() - 1);
+    if (e.getDate() === start.getDate()) e.setDate(e.getDate() - 1);
     return e;
   };
   const frist = (m: number) => plusMonate(ende(m), -KUENDIGUNG_MONATE_VOR_ENDE);

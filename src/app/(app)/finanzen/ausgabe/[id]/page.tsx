@@ -10,6 +10,7 @@ export const metadata = { title: "Ausgabe" };
 
 export default async function Ausgabe({ params }: { params: Promise<{ id: string }> }) {
   const id = Number((await params).id);
+  if (!Number.isInteger(id) || id <= 0) notFound();
   const db = await getDb();
   const [a] = await db.select().from(schema.ausgaben).where(eq(schema.ausgaben.id, id));
   if (!a) notFound();

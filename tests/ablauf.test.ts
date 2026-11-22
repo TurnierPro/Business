@@ -1140,6 +1140,46 @@ test("Korrekturen aus den Testrunden: Verträge folgen dem Angebot, Fristen am M
   assert.equal((await bt.beitraegeVon(id!)).find((x) => x.id === b1)!.status, "entwurf");
 });
 
+test("Korrekturen Runde 2: Unterschrift nach Freigabe, Schaltjahr, Anhänge, Module über den Text", async () => {
+  const fs = await import("node:fs");
+  const bild = `data:image/png;base64,${fs.readFileSync(new URL("./unterschrift-muster.b64", import.meta.url), "utf8").trim()}`;
+  const vt = await import("../src/lib/ablauf/vertraege");
+  const vertrag = await import("../src/lib/ablauf/vertrag");
+  // Schaltjahr: Start 29.02.2028 → Ende 28.02.2030 (§ 188 Abs. 3 BGB)
+  assert.equal(vertrag.laufzeitEnde(new Date(2028, 1, 29, 12), new Date(2028, 3, 1, 12)).toLocaleDateString("de-DE"), "28.2.2030");
+  assert.equal(vertrag.laufzeitEnde(new Date(2027, 0, 15, 12), new Date(2027, 3, 1, 12)).toLocaleDateString("de-DE"), "14.1.2029");
+
+  // Angebots-Mail freigegeben, Versand steht noch aus, dann vor Ort unterschrieben: Mail geht nicht mehr raus, Status bleibt „unterschrieben“
+  const { id } = await akquise.legeBetriebAn({ name: "Runde Zwei Maler GmbH", gewerk: "Maler", score: 70, scoreGrund: "Test", website: "runde2.example", email: "chef@runde2.example", strasse: "Weg 7", plz: "76297", ort: "Stutensee" }, "Test", "Test");
+  const r = await verkauf.erstelleAngebot({ betriebId: id!, auswahl: { paket: "KOMPAKT", module: [], zusaetze: [] }, wer: "Daniel Lück" });
+  await abarbeiten();
+  await db.update(schema.postausgang).set({ status: "freigegeben", freigaben: [{ name: "Daniel Lück", am: new Date().toISOString() }] }).where(eq(schema.postausgang.id, r.eintragId));
+  const doks = await vt.vertragsunterlagen(r.angebotId);
+  await vt.vertragUnterschreiben({ angebotId: r.angebotId, kunde: { name: "Rita Runde", unternehmer: true }, bilder: Object.fromEntries(doks.map((d) => [d.id, bild])), levarex: { name: "Daniel Lück", bild }, wer: "Daniel Lück" });
+  await abarbeiten();
+  const [a] = await db.select().from(schema.angebote).where(eq(schema.angebote.id, r.angebotId));
+  assert.equal(a.status, "unterschrieben");
+  assert.equal((await db.select().from(schema.postausgang).where(eq(schema.postausgang.id, r.eintragId)))[0].status, "abgelehnt");
+
+  // Aus der Auftragsbestätigung lässt sich nur ein Protokoll entfernen, nicht der AV-Vertrag
+  const ab = (await db.select().from(schema.postausgang).where(eq(schema.postausgang.betriebId, id!))).find((e) => e.zweck === "auftragsbestaetigung")!;
+  const av = doks.find((d) => d.art === "av_vertrag")!;
+  await assert.rejects(() => post.anhangEntfernen(ab.id, av.id, "Test"), /protokoll/i);
+  await assert.rejects(() => post.anhangEntfernen(ab.id, 999999, "Test"), /gehört nicht/);
+
+  // Module über den Text: umformulierte Position bleibt gebucht
+  const r2 = await verkauf.erstelleAngebot({ betriebId: id!, auswahl: { paket: "KOMPAKT", module: ["personal"], zusaetze: [] }, wer: "Daniel Lück" });
+  const { angebotAendern } = await import("../src/lib/ablauf/angebot-bearbeiten");
+  const [ad] = (await db.select().from(schema.dokumente).where(eq(schema.dokumente.betriebId, id!))).filter((d) => d.art === "angebot").slice(-1);
+  const pos = (ad.daten as { positionen: { text: string; einmalig: number; monatlich: number }[] }).positionen.map((x) => (x.text.startsWith("Personal") ? { ...x, text: "Modul Personal & Bewerbung (Karriereseite)" } : x));
+  await angebotAendern(r2.eintragId, { positionen: pos, einleitung: "Preis: $& bleibt so." }, "Test");
+  const [a2] = await db.select().from(schema.angebote).where(eq(schema.angebote.id, r2.angebotId));
+  assert.deepEqual(a2.module, ["personal"]);
+  const [m2] = await db.select().from(schema.postausgang).where(eq(schema.postausgang.id, r2.eintragId));
+  assert.match(m2.text, /Preis: \$& bleibt so\./, "kein Ersetzungsmuster");
+  assert.match(m2.betreff, /ein weiterer Baustein/);
+});
+
 async function post_freigeben(id: number) {
   await post.freigeben(id, "Daniel Lück");
   await abarbeiten();

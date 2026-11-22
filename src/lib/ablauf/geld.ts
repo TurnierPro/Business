@@ -1,3 +1,4 @@
+import { LASTSCHRIFT_ENDE_VORLAUF_TAGE } from "../recht";
 import fs from "node:fs";
 import path from "node:path";
 import { and, eq, inArray } from "drizzle-orm";
@@ -51,7 +52,7 @@ export async function lastschriftAusfuehren(e: Eintrag): Promise<string> {
   }
   if (e.zweck === "lastschrift_ende") {
     const endeAm = e.meta.endeAm ? new Date(String(e.meta.endeAm)) : null;
-    if (endeAm && endeAm.getTime() - Date.now() > 31 * 864e5) throw new Error(`Zu früh: Der Vertrag endet erst am ${endeAm.toLocaleDateString("de-DE")}. Bis dahin wird weiter eingezogen.`);
+    if (endeAm && endeAm.getTime() - Date.now() > (LASTSCHRIFT_ENDE_VORLAUF_TAGE + 5) * 864e5) throw new Error(`Zu früh: Der Vertrag endet erst am ${endeAm.toLocaleDateString("de-DE")}. Bis dahin wird weiter eingezogen.`);
     const ergebnis = await lastschriftBeenden(String(e.meta.aboId));
     await db.update(schema.projekte).set({ qontoAboId: null }).where(eq(schema.projekte.id, projektId));
     return ergebnis;

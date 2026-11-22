@@ -257,7 +257,7 @@ export async function erstelleRechnung(o: {
   return dokId;
 }
 
-export type Annahme = { name: string; am: string; agbVersion: string; unternehmer: boolean };
+export type Annahme = { name: string; am: string; agbVersion: string; unternehmer: boolean; kanal?: "tablet" | "portal" };
 
 /** Angebot ist angenommen: Nachweis speichern, Auftragsbestätigung und Rechnung über die erste Rate vorbereiten. */
 export async function unterschriftEingegangen(angebotId: number, wer: string, annahme?: Annahme, vertragsDokumente: number[] = []): Promise<void> {

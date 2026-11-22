@@ -12,6 +12,7 @@ export const metadata = { title: "Ticket" };
 
 export default async function Ticket({ params }: { params: Promise<{ id: string }> }) {
   const id = Number((await params).id);
+  if (!Number.isInteger(id) || id <= 0) notFound();
   const db = await getDb();
   const [t] = await db.select().from(schema.tickets).where(eq(schema.tickets.id, id));
   if (!t) notFound();

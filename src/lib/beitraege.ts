@@ -129,9 +129,14 @@ export async function beitragLoeschen(id: number, wer: string): Promise<void> {
   const db = await getDb();
   const [x] = await db.select().from(schema.beitraege).where(eq(schema.beitraege.id, id));
   if (!x) return;
+  if (["zur_vorlage", "beim_kunden"].includes(x.status)) throw new Error("Der Beitrag liegt gerade beim Betrieb bzw. in den Freigaben. Erst die Vorlage-Mail ablehnen oder die Entscheidung abwarten.");
   if (x.bild) fs.rmSync(path.join(datenOrdner("beitraege", String(x.betriebId)), x.bild), { force: true });
   await db.delete(schema.beitraege).where(eq(schema.beitraege.id, id));
   await protokolliere(wer, `${BEITRAG_ARTEN[x.art]} gelöscht`, x.betriebId);
+  const rest = await beitraegeVon(x.betriebId);
+  const { systemAufgabeErledigt } = await import("./ablauf/crm");
+  if (!rest.some((y) => y.status === "freigegeben")) await systemAufgabeErledigt(x.betriebId, "Freigegebene Beiträge veröffentlichen");
+  if (!rest.some((y) => y.status === "abgelehnt")) await systemAufgabeErledigt(x.betriebId, "Beitrag nach Wunsch des Betriebs überarbeiten");
 }
 
 /** Bild eines Beitrags. Für das Portal nur, wenn der Betrieb den Entwurf sehen darf. */

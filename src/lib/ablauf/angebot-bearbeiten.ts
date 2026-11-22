@@ -28,7 +28,7 @@ export type AngebotAenderung = z.infer<typeof AngebotAenderung>;
 export function mitSummen(alt: AngebotDaten, a: AngebotAenderung): AngebotDaten {
   const positionen = a.positionen.map((p) => ({ ...p, hinweis: p.hinweis || undefined }));
   // Bausteine (Anlage 1) nur für Positionen, die es noch gibt: gestrichenes Modul verschwindet auch aus der Leistungsbeschreibung
-  const noch = (name: string) => positionen.some((p) => p.text.startsWith(name));
+  const noch = (name: string) => positionen.some((p) => p.text.toLowerCase().includes(name.toLowerCase()));
   const bausteine = alt.bausteine?.filter((b) => noch(b.name));
   return {
     ...alt,
@@ -64,10 +64,19 @@ export async function angebotAendern(eintragId: number, roh: unknown, wer: strin
   if (angebotId) {
     // Gebuchte Module und Zusätze folgen den Positionen (für Verträge, Checkliste, Portal)
     const [a] = await db.select().from(schema.angebote).where(eq(schema.angebote.id, angebotId));
-    const { MODULE, ZUSAETZE } = await import("../katalog");
-    const drin = (name: string) => (neu.positionen ?? []).some((p) => p.text.startsWith(name));
-    const module = (a?.module ?? []).filter((k) => { const m = MODULE.find((x) => x.key === k); return !m || drin(m.name); });
+    // Aktuelle Stammdaten (Namen können dort geändert sein), nicht die festen Vorgaben
+    const { module: MODULE, zusaetze: ZUSAETZE } = await (await import("../katalog-db")).katalogLaden();
+    // Ein Modul gilt als gebucht, wenn eine Position seinen Namen enthält (auch „Modul Personal & Bewerbung“)
+    const drin = (name: string) => (neu.positionen ?? []).some((p) => p.text.toLowerCase().includes(name.toLowerCase()));
+    const module = MODULE.filter((m) => drin(m.name)).map((m) => m.key);
     const zusaetze = (a?.zusaetze ?? []).filter((k) => { const z = ZUSAETZE.find((x) => x.key === k); return !z || drin(z.name); });
+    // Anlage 1: wieder aufgenommene Module bekommen ihre Leistungsbeschreibung aus dem Katalog
+    const bausteine = neu.bausteine ?? [];
+    for (const m of MODULE.filter((x) => module.includes(x.key) && !bausteine.some((b) => b.name === x.name))) bausteine.push({ name: m.name, problem: m.problem, punkte: m.punkte?.length ? [...m.punkte] : [m.text] });
+    if (neu.bausteine || bausteine.length) {
+      neu.bausteine = bausteine;
+      await db.update(schema.dokumente).set({ daten: neu }).where(eq(schema.dokumente.id, d.id));
+    }
     await db.update(schema.angebote).set({ positionen: neu.positionen ?? [], einmalig: neu.einmalig, monatlich: neu.monatlich, module, zusaetze }).where(eq(schema.angebote.id, angebotId));
   }
   const erlaubteZahlen = [euro(neu.einmalig), euro(neu.monatlich), ...(neu.positionen ?? []).flatMap((p) => [euro(p.einmalig), euro(p.monatlich)])];
@@ -75,6 +84,16 @@ export async function angebotAendern(eintragId: number, roh: unknown, wer: strin
   await protokolliere(wer, `Angebot angepasst: ${euro(neu.einmalig)} + ${euro(neu.monatlich)}/Monat`, e.betriebId);
   // Neuer Einstieg auch in der Begleit-Mail; Freigaben zurücksetzen und Qualitätskontrolle neu starten
   const altEinleitung = (d.daten as AngebotDaten).einleitung;
-  const text = altEinleitung && e.text.includes(altEinleitung) ? e.text.replace(altEinleitung, neu.einleitung) : e.text;
-  await bearbeiten(eintragId, e.betreff, text, wer);
+  const text = altEinleitung && e.text.includes(altEinleitung) ? e.text.replace(altEinleitung, () => neu.einleitung) : e.text;
+  // Betreff an die verbliebenen Bausteine anpassen („… und 2 weitere Bausteine“)
+  const anzahl = neu.bausteine?.length ?? 0;
+  const betreff = /^Ihr Angebot von Levarex: /.test(e.betreff) && neu.paketName ? `Ihr Angebot von Levarex: ${neu.paketName}${anzahl ? ` und ${anzahl === 1 ? "ein weiterer Baustein" : `${anzahl} weitere Bausteine`}` : ""}` : e.betreff;
+  await bearbeiten(eintragId, betreff, text, wer);
+  if (altEinleitung && !e.text.includes(altEinleitung) && altEinleitung !== neu.einleitung) {
+    const db2 = await getDb();
+    const x = await eintrag(eintragId);
+    // In meta.vorab, damit die Qualitätskontrolle den Hinweis bei jedem Lauf wieder anzeigt
+    const vorab = [...((x.meta.vorab as string[] | undefined) ?? []), "Der Einstieg im PDF wurde geändert, der Mailtext aber vorher schon von Hand: bitte Mailtext prüfen."];
+    await db2.update(schema.postausgang).set({ meta: { ...x.meta, vorab } }).where(eq(schema.postausgang.id, eintragId));
+  }
 }

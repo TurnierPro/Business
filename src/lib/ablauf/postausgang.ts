@@ -113,7 +113,8 @@ export async function anhangEntfernen(id: number, dokumentId: number, wer: strin
   if (e.status !== "zur_freigabe") throw new Error("Nur bei Einträgen, die auf Freigabe warten.");
   const db = await getDb();
   const [d] = await db.select().from(schema.dokumente).where(eq(schema.dokumente.id, dokumentId));
-  if (!d || d.art === "angebot" || ["rahmenvertrag", "auftragsbestaetigung", "rechnung"].includes(d.art)) throw new Error("Dieser Anhang gehört fest dazu.");
+  if (!d || !e.anhaenge.includes(dokumentId)) throw new Error("Dieser Anhang gehört nicht zu diesem Eintrag.");
+  if (d.art !== "protokoll") throw new Error("Nur das Gesprächsprotokoll lässt sich weglassen; alle anderen Unterlagen gehören fest dazu.");
   await db.update(schema.postausgang).set({ anhaenge: e.anhaenge.filter((x) => x !== dokumentId), freigaben: [], qkStatus: "ausstehend", qkAm: null, text: e.zweck === "angebot" ? e.text.replace("das Protokoll mit Maßnahmenplan und das Angebot", "das Angebot") : e.text }).where(eq(schema.postausgang.id, id));
   await protokolliere(wer, `Anhang entfernt: ${d.titel}`, e.betriebId);
   await einreihen("qualitaetskontrolle", { eintragId: id });
@@ -244,8 +245,18 @@ export async function ablehnen(id: number, grund: string, wer: string): Promise<
   // Eine abgelehnte Angebots-Mail lässt das Angebot bewusst im Entwurf: Unterschrieben werden kann es weiter beim Termin auf dem Tablet.
 }
 
-/** Der einzige Ort, an dem etwas nach draußen geht. */
+/** Der einzige Ort, an dem etwas nach draußen geht. Jeder Fehler wird am Eintrag festgehalten (sichtbar in den Freigaben). */
 export async function versende(id: number): Promise<string> {
+  try {
+    return await versendeIntern(id);
+  } catch (err) {
+    const db = await getDb();
+    await db.update(schema.postausgang).set({ fehler: (err instanceof Error ? err.message : String(err)).slice(0, 500) }).where(and(eq(schema.postausgang.id, id), eq(schema.postausgang.status, "freigegeben")));
+    throw err;
+  }
+}
+
+async function versendeIntern(id: number): Promise<string> {
   const e = await eintrag(id);
   if (e.status !== "freigegeben") throw new Error(`Versand verweigert: Status ist „${e.status}“, nicht „freigegeben“.`);
   if (e.freigaben.length < e.noetigeFreigaben) throw new Error("Versand verweigert: Es fehlen Freigaben.");
@@ -275,7 +286,9 @@ export async function versende(id: number): Promise<string> {
       if (!n) continue;
       e.betreff = e.betreff.split(n.alt).join(n.neu);
       e.text = e.text.split(n.alt).join(n.neu);
-      await db.update(schema.postausgang).set({ betreff: e.betreff, text: e.text }).where(eq(schema.postausgang.id, e.id));
+      // Auch die Nummer im Eintrag nachziehen, sonst findet das Kundenportal die Rechnung nicht mehr
+      if (e.meta.rechnungsnummer === n.alt) e.meta = { ...e.meta, rechnungsnummer: n.neu };
+      await db.update(schema.postausgang).set({ betreff: e.betreff, text: e.text, meta: e.meta }).where(eq(schema.postausgang.id, e.id));
     }
     const frisch = doks.length ? await db.select().from(schema.dokumente).where(inArray(schema.dokumente.id, e.anhaenge)) : [];
     // Genau die versendeten PDFs werden eingefroren und liegen danach unverändert im Kundenportal

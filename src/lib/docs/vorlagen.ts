@@ -79,7 +79,7 @@ export type AuftragDaten = {
   positionen: { text: string; einmalig: number; monatlich: number }[];
   einmalig: number;
   monatlich: number;
-  annahme: { name: string; am: string; agbVersion: string; unternehmer: boolean };
+  annahme: { name: string; am: string; agbVersion: string; unternehmer: boolean; kanal?: "tablet" | "portal" };
   zahlweg: "ueberweisung";
 };
 export type AbnahmeDaten = {
@@ -288,7 +288,7 @@ export function auftragsbestaetigung(d: AuftragDaten): string {
 ${d.positionen.map((x) => `<tr><td>${esc(x.text)}</td><td class="zahl">${x.einmalig ? euro(x.einmalig) : "–"}</td><td class="zahl">${x.monatlich ? euro(x.monatlich) : "–"}</td></tr>`).join("")}
 <tr><td><b>Summe netto</b></td><td class="zahl"><b>${euro(d.einmalig)}</b></td><td class="zahl"><b>${euro(d.monatlich)}</b></td></tr>
 </tbody></table>
-<div class="box"><b>Annahme</b><br>Angenommen von ${esc(d.annahme.name)} am ${esc(am)} Uhr im Kundenportal.<br>Grundlage: unsere AGB für Unternehmer, Version ${esc(d.annahme.agbVersion)}.${d.annahme.unternehmer ? " Bestätigt: Der Auftrag wird für den Betrieb erteilt, nicht als Verbraucher (§ 14 BGB)." : ""}</div>
+<div class="box"><b>Annahme</b><br>Angenommen von ${esc(d.annahme.name)} am ${esc(am)} Uhr${d.annahme.kanal === "tablet" ? " mit Unterschrift beim Termin" : d.annahme.kanal === "portal" ? " im Kundenportal" : ""}.<br>Grundlage: unsere AGB für Unternehmer, Version ${esc(d.annahme.agbVersion)}.${d.annahme.unternehmer ? " Bestätigt: Der Auftrag wird für den Betrieb erteilt, nicht als Verbraucher (§ 14 BGB)." : ""}</div>
 <h2>Wie es weitergeht</h2><ul>
 <li>Die Rechnung über die erste Rate (50 %) kommt per E-Mail. Wir beginnen nach Zahlungseingang.</li>
 <li>Danach laden Sie Texte, Fotos und Logo im Kundenportal hoch.</li>

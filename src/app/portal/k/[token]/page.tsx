@@ -1,5 +1,5 @@
 import { notFound, redirect } from "next/navigation";
-import { betriebPerPortal, portalDaten, zugangPerPortal } from "@/lib/kundenportal";
+import { betriebPerPortal, gemeldeteInteressen, portalDaten, zugangPerPortal } from "@/lib/kundenportal";
 import { demoDatei, demosVon } from "@/lib/demos";
 import { PAKETE, PaketKey, euro, UST } from "@/lib/pakete";
 import { MailSymbol, TelefonSymbol } from "@/components/Symbole";
@@ -16,13 +16,26 @@ import { fotoEinwilligungen, fotoEinwilligungErteilen, fotoEinwilligungWiderrufe
 import { FOTO_ZWECKE } from "@/lib/docs/vorlagen";
 import { BEITRAG_ARTEN, KANAELE, beitraegeVon, beitragEntscheiden } from "@/lib/beitraege";
 import { kuendigungErfassen, laufzeitEnde } from "@/lib/ablauf/vertrag";
-import { MODULE } from "@/lib/katalog";
+import { katalogLaden } from "@/lib/katalog-db";
 import { gebuchteModule } from "@/lib/bausteine";
 import { KUENDIGUNG_MONATE_VOR_ENDE, LAUFZEIT_MONATE, VERLAENGERUNG_MONATE } from "@/lib/recht";
 import { headers } from "next/headers";
 import { clientIp, erlaubt, GRENZEN, versuchMerken } from "@/lib/sicherheit";
 
 export const metadata = { title: "Ihr Kundenportal", robots: { index: false } };
+
+// Der nächste Schritt als Vorhaben formuliert (die Titel im Fortschritt beschreiben den erledigten Zustand)
+const NAECHSTES: Record<string, string> = {
+  "Gespräch vor Ort": "Gespräch vor Ort mit Daniel Lück",
+  "Angebot erhalten": "Wir schicken Ihnen das Angebot",
+  "Angebot angenommen": "Unterschrift beim Termin",
+  "Anzahlung eingegangen": "Eingang der ersten Rate",
+  "Inhalte geliefert": "Ihre Texte und Fotos",
+  "Website gebaut und geprüft": "Wir bauen und prüfen Ihre Website",
+  "Website abgenommen": "Ihre Abnahme der Vorschau",
+  "Website live": "Ihre Website geht online",
+  "Betreuung läuft": "Start der Betreuung",
+};
 
 const tag = (d: Date | null) => (d ? new Date(d).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Europe/Berlin" }) : "");
 
@@ -39,7 +52,7 @@ async function abnehmen(f: FormData) {
   } catch {
     redirect(`/portal/k/${token}?abnahmefehler=1#abnahme`);
   }
-  redirect(`/portal/k/${token}?abnahme=${ergebnis}`);
+  redirect(`/portal/k/${token}?abnahme=${ergebnis}#abnahme-danke`);
 }
 
 // SEPA-Mandat selbst im Portal erteilen (wenn es beim Termin offen geblieben ist)
@@ -129,7 +142,7 @@ async function modulInteresse(f: FormData) {
   const ip = clientIp(await headers());
   if (!(await erlaubt("portal-modul", ip, GRENZEN.formularJeIp))) redirect(`/portal/k/${token}#module`);
   await versuchMerken("portal-modul", ip);
-  const m = MODULE.find((x) => x.key === String(f.get("modul")));
+  const m = (await katalogLaden()).module.find((x) => x.key === String(f.get("modul")));
   if (!m) redirect(`/portal/k/${token}#module`);
   const { systemAufgabe, VERTRIEB } = await import("@/lib/ablauf/crm");
   const { protokolliere } = await import("@/lib/protokoll");
@@ -153,6 +166,9 @@ async function ticketPortal(f: FormData) {
   const daten = await portalDaten(zugang.betrieb.id);
   const { ticketAnlegen } = await import("@/lib/ablauf/tickets");
   await ticketAnlegen({ betriebId: zugang.betrieb.id, projektId: daten.projekt?.id ?? null, betreff, beschreibung, kategorie: String(f.get("kategorie") ?? "aenderung"), quelle: "portal" }, `Kundenportal (${zugang.person ?? zugang.betrieb.name})`);
+  // Alle Kanäle laufen über die Nachrichten (CLAUDE.md): so steht die Anfrage auch im Verlauf des Betriebs
+  const { nachrichtEingang } = await import("@/lib/ablauf/nachrichten");
+  await nachrichtEingang({ kanal: "portal", absender: zugang.betrieb.email ?? `Kundenportal ${zugang.betrieb.name}`, name: zugang.person ?? null, betreff, inhalt: beschreibung, betriebId: zugang.betrieb.id, entwurf: false }, "Kundenportal");
   redirect(`/portal/k/${token}?ticket=1#wunsch`);
 }
 
@@ -172,7 +188,9 @@ export default async function Kundenportal({ params, searchParams }: { params: P
   const { gekuendigt, kuendigungfehler, interesse } = await searchParams;
   const liveProjekt = d.projekt?.liveAm ? d.projekt : null;
   const gebucht = liveProjekt ? await gebuchteModule(liveProjekt) : [];
-  const weitereModule = liveProjekt && !liveProjekt.gekuendigtAm ? MODULE.filter((m) => m.aktiv !== false && m.einmalig !== null && !gebucht.includes(m.key)) : [];
+  // Schon gemeldetes Interesse (offene Aufgabe) bleibt sichtbar und lässt sich nicht doppelt melden
+  const gemeldet = new Set(await gemeldeteInteressen(b.id));
+  const weitereModule = liveProjekt && !liveProjekt.gekuendigtAm ? (await katalogLaden()).module.filter((m) => m.aktiv !== false && m.einmalig !== null && !gebucht.includes(m.key)) : [];
   const mitBetreuung = d.projekt && ["live", "bereit", "bau", "pruefung"].includes(d.projekt.status);
   const k = mitBetreuung ? await kontingent(b.id) : null;
   const naechster = d.schritte.findIndex((s) => !s.erledigt);
@@ -198,7 +216,7 @@ export default async function Kundenportal({ params, searchParams }: { params: P
 
   // Nach einer Aktion zum passenden Abschnitt springen (der #anker geht bei der Weiterleitung verloren)
   const sp = await searchParams;
-  const anker = sp.mandatfehler || sp.mandat ? "mandat" : sp.fotofehler || sp.foto ? "fotos" : sp.beitragfehler || sp.beitrag ? "beitraege" : sp.abnahmefehler ? "abnahme" : sp.interesse ? "module" : sp.gekuendigt || sp.kuendigungfehler ? "vertrag" : sp.ticket || sp.ticketfehler ? "wunsch" : null;
+  const anker = sp.mandatfehler || sp.mandat ? "mandat" : sp.fotofehler || sp.foto ? "fotos" : sp.beitragfehler || sp.beitrag ? "beitraege" : sp.abnahmefehler ? "abnahme" : sp.abnahme ? "abnahme-danke" : sp.interesse ? "module" : sp.gekuendigt || sp.kuendigungfehler ? "vertrag" : sp.ticket || sp.ticketfehler ? "wunsch" : null;
 
   return (
     <>
@@ -215,7 +233,7 @@ export default async function Kundenportal({ params, searchParams }: { params: P
         <div className="portal-naechstes">
           <div>
             <div className="etikett">{handlung ? "Jetzt für Sie" : "Als Nächstes bei uns"}</div>
-            <div className="was">{handlung ? handlung.was : naechster >= 0 ? d.schritte[naechster].titel : "Alles erledigt. Wir kümmern uns um Ihre Website."}</div>
+            <div className="was">{handlung ? handlung.was : naechster >= 0 ? (NAECHSTES[d.schritte[naechster].titel] ?? d.schritte[naechster].titel) : "Alles erledigt. Wir kümmern uns um Ihre Website."}</div>
           </div>
           {handlung ? <a className="knopf haupt" href={handlung.href}>{handlung.knopf}</a> : null}
         </div>
@@ -233,7 +251,7 @@ export default async function Kundenportal({ params, searchParams }: { params: P
       ) : null}
       {danke ? <div className="hinweis ok" role="status">Vielen Dank. Ihr Angebot ist angenommen. Die Rechnung über die Anzahlung bekommen Sie in Kürze.</div> : null}
       {bezahlt ? <div className="hinweis ok" role="status">Vielen Dank für Ihre Zahlung. Die Rechnung kommt per E-Mail, und wir melden uns mit den nächsten Schritten.</div> : null}
-      {abnahme ? <div className="hinweis ok" role="status">{abnahme === "verweigert" ? "Danke für Ihre Rückmeldung. Wir beheben die Mängel und melden uns." : "Vielen Dank für die Abnahme. Das Protokoll bekommen Sie per E-Mail."}</div> : null}
+      {abnahme ? <div id="abnahme-danke" className="hinweis ok" role="status">{abnahme === "verweigert" ? "Danke für Ihre Rückmeldung. Wir beheben die Mängel und melden uns." : "Vielen Dank für die Abnahme. Das Protokoll bekommen Sie per E-Mail."}</div> : null}
       {abgebrochen ? <div className="hinweis" role="status">Die Zahlung wurde abgebrochen. Sie können sie jederzeit hier fortsetzen.</div> : null}
 
       {[d.angebotOffen, d.anzahlungOffen, d.inhalteOffen, d.abnahmeOffen, mandatFehlt, zuEntscheiden.length ? 1 : null].filter(Boolean).length + offeneRechnungen.filter((r) => r.id !== d.anzahlungOffen?.id).length > 1 ? (
@@ -298,6 +316,7 @@ export default async function Kundenportal({ params, searchParams }: { params: P
 
       {d.abnahmeOffen ? (
         <form id="abnahme" action={abnehmen} className="karte">
+          <UnterschriftPruefung formId="abnahme" zaehler={false} />
           <h2>Website abnehmen</h2>
           {abnahmefehler ? <div className="hinweis fehler" role="alert">Bitte Ihren Namen eintragen und bei Mängeln kurz beschreiben, was nicht passt.</div> : null}
           <p>Bitte prüfen Sie Ihre Website bis zum <b>{tag(d.abnahmeOffen.abnahmeFrist)}</b>, am Handy und am Computer. Erklären Sie bis dahin nichts und nennen keinen Mangel, gilt die Website als abgenommen (§ 640 Abs. 2 BGB). Online{d.projekt?.domain ? <> unter <b className="mono">{d.projekt.domain}</b></> : null} geht sie erst nach Ihrer Abnahme.</p>
@@ -331,13 +350,14 @@ export default async function Kundenportal({ params, searchParams }: { params: P
           <h2>Änderung oder Frage</h2>
           {sp.ticket ? <div className="hinweis ok" role="status">Danke, ist angekommen. Den Stand sehen Sie unten.</div> : null}
           {sp.ticketfehler ? <div className="hinweis fehler" role="alert">{sp.ticketfehler}</div> : null}
-          <form action={ticketPortal} style={{ display: "grid", gap: 10 }}>
+          <form id="ticket-form" action={ticketPortal} style={{ display: "grid", gap: 10 }}>
             <input type="hidden" name="token" value={token} />
             <div className="raster zwei">
               <label className="feld"><span>Worum geht es?</span><input name="betreff" required minLength={3} maxLength={120} placeholder="z. B. Neue Öffnungszeiten" /></label>
               <label className="feld"><span>Art</span><select name="kategorie"><option value="aenderung">Änderung an der Website</option><option value="frage">Frage</option><option value="fehler">Etwas funktioniert nicht</option><option value="wunsch">Wunsch für später</option></select></label>
             </div>
             <label className="feld"><span>Beschreibung</span><textarea name="beschreibung" rows={3} required /></label>
+            <UnterschriftPruefung formId="ticket-form" zaehler={false} />
             <div className="knopfreihe"><button className="knopf">Absenden</button></div>
           </form>
           <p className="leise klein" style={{ marginTop: 8 }}>Lieber direkt? E-Mail an <a className="knopf klein" href={`mailto:${marke.absender.email}`}>{marke.absender.email}</a> oder Telefon <a className="knopf klein" href={`tel:${marke.absender.telefon.replace(/\s/g, "")}`}>{marke.absender.telefon}</a></p>
@@ -480,7 +500,7 @@ export default async function Kundenportal({ params, searchParams }: { params: P
             {weitereModule.map((m) => (
               <li key={m.key} style={{ alignItems: "start" }}>
                 <div><div className="titel">{m.name}</div><div className="unter">{m.problem}</div><div className="klein leise" style={{ marginTop: 4 }}>{m.stufe === 2 ? "Vorher schauen wir uns Ihre Abläufe vor Ort an (Prozess-Check); danach bekommen Sie ein festes Angebot." : `${euro(m.einmalig ?? 0)} einmalig + ${euro(m.monatlich)} im Monat, netto`}</div></div>
-                {interesse === m.key ? <span className="status ok">gemeldet</span> : <form action={modulInteresse}><input type="hidden" name="token" value={token} /><input type="hidden" name="modul" value={m.key} /><button className="knopf klein">Interesse melden</button></form>}
+                {interesse === m.key || gemeldet.has(m.name) ? <span className="status ok">gemeldet</span> : <form action={modulInteresse}><input type="hidden" name="token" value={token} /><input type="hidden" name="modul" value={m.key} /><button className="knopf klein">Interesse melden</button></form>}
               </li>
             ))}
           </ul>

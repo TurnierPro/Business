@@ -1,5 +1,5 @@
 import crypto from "node:crypto";
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull } from "drizzle-orm";
 import { getDb, schema } from "./db";
 import { basisUrl } from "./ablauf/gemeinsam";
 
@@ -219,4 +219,11 @@ export async function zugangAnfordern(email: string): Promise<void> {
       meta: { angefordert: true },
     });
   }
+}
+
+/** Module, für die der Betrieb im Portal Interesse gemeldet hat und Daniel noch nicht angerufen hat (offene Aufgabe). */
+export async function gemeldeteInteressen(betriebId: number): Promise<string[]> {
+  const db = await getDb();
+  const offen = await db.select({ titel: schema.aktivitaeten.titel }).from(schema.aktivitaeten).where(and(eq(schema.aktivitaeten.betriebId, betriebId), isNull(schema.aktivitaeten.erledigtAm)));
+  return offen.map((a) => /^Interesse an (.+): anrufen$/.exec(a.titel)?.[1]).filter((x): x is string => !!x);
 }

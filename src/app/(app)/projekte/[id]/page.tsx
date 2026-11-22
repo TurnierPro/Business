@@ -27,12 +27,13 @@ const ABNAHME: Record<string, string> = { offen: "wartet auf Abnahme", abgenomme
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
   const db = await getDb();
-  const [x] = await db.select({ name: schema.betriebe.name }).from(schema.projekte).innerJoin(schema.betriebe, eq(schema.betriebe.id, schema.projekte.betriebId)).where(eq(schema.projekte.id, Number((await params).id)));
+  const [x] = await db.select({ name: schema.betriebe.name }).from(schema.projekte).innerJoin(schema.betriebe, eq(schema.betriebe.id, schema.projekte.betriebId)).where(eq(schema.projekte.id, Number((await params).id) || 0));
   return { title: x ? `Projekt ${x.name}` : "Projekt" };
 }
 
 export default async function Projekt({ params }: { params: Promise<{ id: string }> }) {
   const id = Number((await params).id);
+  if (!Number.isInteger(id) || id <= 0) notFound();
   const db = await getDb();
   const [p] = await db.select().from(schema.projekte).where(eq(schema.projekte.id, id));
   if (!p) notFound();

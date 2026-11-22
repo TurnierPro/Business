@@ -786,3 +786,11 @@ fieldset { min-width: 0; }
   /* Breite Tabellen scrollen in sich, statt abgeschnitten zu werden */
   .tabelle { display: block; overflow-x: auto; }
 }
+
+/* Kundenportal: Spalte nie breiter als der Bildschirm (sonst zieht eine Tabelle die ganze Seite auf) */
+.portal { grid-template-columns: minmax(0, 1fr); }
+/* Sprungziele nicht unter der festen Kopfzeile verstecken */
+.portal section[id], .portal form[id] { scroll-margin-top: 88px; }
+@media (max-width: 900px) {
+  .schnell-form { grid-template-columns: minmax(0, 1fr) !important; }
+}

@@ -11,6 +11,7 @@ export const metadata = { title: "Angebot erstellen" };
 
 export default async function AngebotErstellen({ params }: { params: Promise<{ id: string }> }) {
   const id = Number((await params).id);
+  if (!Number.isInteger(id) || id <= 0) notFound();
   const db = await getDb();
   const [b] = await db.select().from(schema.betriebe).where(eq(schema.betriebe.id, id));
   if (!b) notFound();

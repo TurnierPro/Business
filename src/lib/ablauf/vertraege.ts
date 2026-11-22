@@ -3,7 +3,6 @@ import { and, eq, inArray } from "drizzle-orm";
 import { getDb, schema } from "../db";
 import { protokolliere } from "../protokoll";
 import { AENDERUNGS_MINUTEN, PAKETE, type PaketKey } from "../pakete";
-import { MODULE } from "../katalog";
 import { AENDERUNG_STUNDENSATZ, AGB_VERSION, VERTRAGSWERK_VERSION } from "../recht";
 import { ZIEL_STUNDEN, ZIEL_STUNDEN_MODULE } from "./zeiten";
 import { anschrift, betrieb, neuesDokument } from "./gemeinsam";
@@ -101,7 +100,7 @@ export async function vertragsunterlagen(angebotId: number) {
   await neuesDokument({ betriebId: b.id, art: "av_vertrag", titel: `AV-Vertrag AV-${nr(jahr, a.id)}`, daten: { ...basis, nummer: `AV-${nr(jahr, a.id)}`, rahmenNummer, bausteine: positionen.map((x) => x.text.replace(/ \(Pilotpreis\)$/, "")), kundenmanagement, unterauftrag } });
   // Pilotpreis Kundenmanagement: eigene Vereinbarung (Referenz, Messung, Nachzahlung bei früher Kündigung)
   const pilotPos = a.positionen.find((x) => / \(Pilotpreis\)$/.test(x.text));
-  const km = MODULE.find((m) => m.key === "kundenmanagement");
+  const km = (await (await import("../katalog-db")).katalogLaden()).module.find((m) => m.key === "kundenmanagement");
   if (pilotPos && km) await neuesDokument({ betriebId: b.id, art: "pilotvereinbarung", titel: `Pilotvereinbarung PV-${nr(jahr, a.id)}`, daten: { ...basis, nummer: `PV-${nr(jahr, a.id)}`, rahmenNummer, regulaer: km.einmalig, pilot: pilotPos.einmalig } });
   await protokolliere("Levarex OS", `Vertragsunterlagen ${rahmenNummer} angelegt (${scheine.length} Leistungsscheine, AV-Vertrag${pilotPos ? ", Pilotvereinbarung" : ""})`, b.id);
   return vertragsunterlagen(angebotId);
@@ -157,7 +156,7 @@ export async function vertragUnterschreiben(e: UnterschriftEingabe): Promise<{ d
     await db.update(schema.dokumente).set({ daten: { ...daten, unterschriften } }).where(eq(schema.dokumente.id, d.id));
   }
   // Noch nicht versendete Angebots-Mail ist überholt: die Unterlagen gehen mit der Auftragsbestätigung raus
-  const offen = (await db.select().from(schema.postausgang).where(and(eq(schema.postausgang.betriebId, a.betriebId), eq(schema.postausgang.zweck, "angebot"), eq(schema.postausgang.status, "zur_freigabe")))).filter(
+  const offen = (await db.select().from(schema.postausgang).where(and(eq(schema.postausgang.betriebId, a.betriebId), eq(schema.postausgang.zweck, "angebot"), inArray(schema.postausgang.status, ["zur_freigabe", "freigegeben"])))).filter(
     (p) => Number(p.meta.angebotId) === a.id,
   );
   for (const p of offen) await db.update(schema.postausgang).set({ status: "abgelehnt", ablehnGrund: "Vor Ort unterschrieben; Unterlagen gehen mit der Auftragsbestätigung raus" }).where(eq(schema.postausgang.id, p.id));
@@ -166,6 +165,6 @@ export async function vertragUnterschreiben(e: UnterschriftEingabe): Promise<{ d
   await protokolliere(e.wer, `Verträge unterschrieben auf dem Tablet: ${name} (${doks.length} Dokumente)`, a.betriebId);
   const mandatId = mandat ? await mandatErteilen({ ...mandat, betriebId: a.betriebId, angebotId: a.id, wer: `${e.wer} (Tablet)` }) : null;
   const unterlagen = [...doks.map((d) => d.id), ...(mandatId ? [mandatId] : [])];
-  await unterschriftEingegangen(a.id, `${name} (Unterschrift auf dem Tablet, erfasst von ${e.wer})`, { name, am: am.toISOString(), agbVersion: AGB_VERSION, unternehmer: true }, [...angebotDok, ...unterlagen]);
+  await unterschriftEingegangen(a.id, `${name} (Unterschrift auf dem Tablet, erfasst von ${e.wer})`, { name, am: am.toISOString(), agbVersion: AGB_VERSION, unternehmer: true, kanal: "tablet" }, [...angebotDok, ...unterlagen]);
   return { dokumente: unterlagen };
 }

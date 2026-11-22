@@ -27,11 +27,14 @@ export function UnterschriftPruefung({ formId, zaehler = true }: { formId: strin
     const titel = (i: HTMLInputElement) => i.closest("section")?.querySelector("h2")?.textContent?.trim() || i.closest(".unterschrift-feld")?.querySelector("span")?.textContent?.trim() || i.name;
     // Texteingaben nach einem Serverfehler zurückholen
     try {
-      const alt = JSON.parse(sessionStorage.getItem(speicher) ?? "{}") as Record<string, string>;
+      const alt = JSON.parse(sessionStorage.getItem(speicher) ?? "{}") as Record<string, string[]>;
       if (/fehler=/.test(location.search)) {
-        for (const [k, v] of Object.entries(alt)) {
-          const el = form.elements.namedItem(k);
-          if (el instanceof HTMLInputElement && el.type !== "hidden" && el.type !== "checkbox") el.value = v;
+        // Alle sichtbaren Eingaben zurückholen: Text, Auswahl, Haken, Optionen
+        for (const el of form.querySelectorAll<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>("input:not([type=hidden]), textarea, select")) {
+          const werte = alt[el.name];
+          if (!werte) continue;
+          if (el instanceof HTMLInputElement && (el.type === "checkbox" || el.type === "radio")) el.checked = werte.includes(el.value);
+          else el.value = werte[0] ?? "";
         }
       } else sessionStorage.removeItem(speicher);
     } catch {
@@ -57,7 +60,8 @@ export function UnterschriftPruefung({ formId, zaehler = true }: { formId: strin
         if (el.name === "name") continue;
         const leer = el instanceof HTMLInputElement && el.type === "checkbox" ? !el.checked : !el.value.trim();
         if (!leer) continue;
-        const text = el.closest("label")?.textContent?.trim().slice(0, 90) ?? el.name;
+        const roh = el.closest("label")?.textContent?.trim() ?? el.name;
+        const text = roh.length > 120 ? `${roh.slice(0, roh.lastIndexOf(" ", 117))} …` : roh;
         liste.push(el instanceof HTMLInputElement && el.type === "checkbox" ? `Bitte bestätigen: ${text}` : `Bitte ausfüllen: ${text}`);
       }
       const nameFeld = form.elements.namedItem("name") as HTMLInputElement | null;
@@ -65,12 +69,17 @@ export function UnterschriftPruefung({ formId, zaehler = true }: { formId: strin
       setFehler(liste);
       if (liste.length) {
         e.preventDefault();
-        document.getElementById(`${formId}-fehler`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+        document.getElementById(`${formId}-fehler`)?.scrollIntoView({ behavior: "smooth", block: "start" });
         return;
       }
       try {
-        const werte: Record<string, string> = {};
-        for (const el of form.querySelectorAll<HTMLInputElement>("input:not([type=hidden]):not([type=checkbox])")) if (el.name) werte[el.name] = el.value;
+        const werte: Record<string, string[]> = {};
+        for (const el of form.querySelectorAll<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>("input:not([type=hidden]):not([type=file]), textarea, select")) {
+          if (!el.name) continue;
+          werte[el.name] ??= [];
+          if (el instanceof HTMLInputElement && (el.type === "checkbox" || el.type === "radio")) { if (el.checked) werte[el.name].push(el.value); }
+          else werte[el.name].push(el.value);
+        }
         sessionStorage.setItem(speicher, JSON.stringify(werte));
       } catch {
         /* egal */

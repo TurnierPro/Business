@@ -33,12 +33,15 @@ type Auswertung = { ziele?: string[]; probleme?: string[]; empfehlung?: { paket?
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
   const db = await getDb();
-  const [x] = await db.select({ name: schema.betriebe.name }).from(schema.betriebe).where(eq(schema.betriebe.id, Number((await params).id)));
+  const n = Number((await params).id);
+  if (!Number.isInteger(n) || n <= 0) return { title: "Kundenakte" };
+  const [x] = await db.select({ name: schema.betriebe.name }).from(schema.betriebe).where(eq(schema.betriebe.id, n));
   return { title: x?.name ?? "Kundenakte" };
 }
 
 export default async function Lead({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ tab?: string; erfassen?: string }> }) {
   const id = Number((await params).id);
+  if (!Number.isInteger(id) || id <= 0) notFound();
   const sp = await searchParams;
   const tabRoh = sp.tab;
   const tab = [...REITER, ...MEHR].some(([k]) => k === tabRoh) ? tabRoh! : "ueberblick";
