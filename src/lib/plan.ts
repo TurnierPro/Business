@@ -1,67 +1,76 @@
-// Business Case als Code (Stand 18.10.2026). Planzeitraum Dez 2026 bis Nov 2028.
-// Feste Werte stehen im Business Case. Wo er nur Spannen nennt, ist die Verteilung eine Annahme (unten markiert).
-// Ändert sich der Business Case, nur hier anpassen.
+// Business Case als Code (Stand November 2026, Liquiditätsmodell 17.11.2026). Planzeitraum Dezember 2026 bis Dezember 2029.
+// Quelle: Levarex Business Case, Kapitel 4 (Angebot), 9 (Kapazität), 10 (Finanzplan), 11 (Gehalt).
+// Wo der Business Case nichts festlegt, ist der Wert eine Annahme und mit [A] markiert. Ändert sich der Business Case, nur hier anpassen.
 
 import { PAKETE } from "./pakete";
 import { MODULE } from "./katalog";
 
+// Schlüssel bleiben aus technischen Gründen; die Namen sind die des Business Case.
 export type SzenarioKey = "vorsichtig" | "basis" | "ambitioniert";
 
 export const PLAN_START = "2026-12";
-export const PLAN_MONATE = Array.from({ length: 24 }, (_, i) => {
+export const PLAN_MONATE = Array.from({ length: 37 }, (_, i) => {
   const d = new Date(2026, 11 + i, 1);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 });
+export const PLAN_JAHRE = [2027, 2028, 2029];
 
-// Aufträge je Monat Dez 2026 … Nov 2028. Business Case: Startmonate und Spannen; Summen je Jahr stimmen exakt.
-// Annahme: Dezember ohne Aufträge (Akquise erst nach Notartermin), Spannen gleichmäßig aufgefüllt.
-const AUFTRAEGE: Record<SzenarioKey, number[]> = {
-  vorsichtig: [0, 1, 2, 1, 2, 2, 2, 3, 2, 3, 2, 3, /* Jahr 2 */ 3, 4, 4, 4, 4, 4, 4, 3, 3, 4, 4, 3],
-  basis: [0, 2, 3, 2, 3, 3, 3, 4, 3, 4, 4, 4, /* Jahr 2 */ 4, 5, 5, 5, 6, 6, 6, 6, 4, 6, 6, 6],
-  ambitioniert: [0, 3, 4, 4, 5, 6, 6, 6, 5, 6, 6, 7, /* Jahr 2 */ 6, 8, 8, 8, 8, 8, 8, 7, 6, 8, 8, 7],
-};
+const jahr = (monat: string) => Number(monat.slice(0, 4));
 
-export const SZENARIEN: Record<SzenarioKey, { name: string; beschreibung: string; umsatzJahr: [number, number]; auftraegeJahr: [number, number]; tiefsterKontostand: number; vollesGehaltAb: string; notgehaltMonate: number }> = {
-  vorsichtig: { name: "Vorsichtig", beschreibung: "1/2/1 Aufträge, dann 2–4", umsatzJahr: [10648600, 29169600], auftraegeJahr: [23, 44], tiefsterKontostand: -523600, vollesGehaltAb: "2028-07", notgehaltMonate: 7 },
-  basis: { name: "Basis", beschreibung: "2/3/2 Aufträge, dann 3–5, 2028 4–6", umsatzJahr: [16621900, 43643200], auftraegeJahr: [35, 65], tiefsterKontostand: -317200, vollesGehaltAb: "2028-01", notgehaltMonate: 0 },
-  ambitioniert: { name: "Ambitioniert", beschreibung: "3/4/4 Aufträge, dann 5–8", umsatzJahr: [27675800, 63357800], auftraegeJahr: [58, 90], tiefsterKontostand: -145500, vollesGehaltAb: "2027-07", notgehaltMonate: 0 },
+export const SZENARIEN: Record<SzenarioKey, { name: string; beschreibung: string; vollesGehaltAb: string; bc: { einnahmen: number[]; ergebnis: number[]; kontoEnde: number[]; tiefsterKontostand: number } }> = {
+  vorsichtig: { name: "Minimal", beschreibung: "4 Websites pro Monat (Anfang 2027) bis 8 (2029), je 1 Personal und Marketing pro Monat. Danach planen wir Liquidität und Gehalt.", vollesGehaltAb: "2027-11", bc: { einnahmen: [21000000, 39500000, 59000000], ergebnis: [300000, 6200000, 17300000], kontoEnde: [2167900, 8661300, 24460400], tiefsterKontostand: 448000 } },
+  basis: { name: "Neutral", beschreibung: "8 Websites pro Monat, Marketing bei 25 %, Personal bei 12,5 %, Nachkauf ≈ 22 % im ersten Jahr, Kundenmanagement 1 pro Monat (ab 2028: 2). Darauf arbeiten wir hin.", vollesGehaltAb: "2027-04", bc: { einnahmen: [42600000, 83700000, 116700000], ergebnis: [11000000, 39200000, 59800000], kontoEnde: [13892800, 50516900, 99217100], tiefsterKontostand: 670500 } },
+  ambitioniert: { name: "Best Case", beschreibung: "10 Websites pro Monat, Marketing bei 50 %, Personal bei 20 %, Nachkauf ≈ 30 %, Kundenmanagement 1 (2028: 2, 2029: 3). Das Ziel.", vollesGehaltAb: "2027-03", bc: { einnahmen: [67000000, 131100000, 189800000], ergebnis: [27000000, 71800000, 109800000], kontoEnde: [30683000, 95341300, 185238600], tiefsterKontostand: 801300 } },
 };
 
 export const BUSINESS_CASE = {
-  fixkostenMonat: 390000,
-  einmalkosten: 1675000,
-  variabelJeProjekt: 60000, // 700 € bei „Entlastet“
-  variabelL: 70000,
-  anteilL: 0.15,
-  oKaufpreis: 480000,
-  oBetreuung: 23300,
-  steuersatz: 0.315,
-  stammkapital: 1250000,
-  kredit: 3000000, // Auszahlung Feb 2027, 2 Jahre tilgungsfrei
-  kreditAb: "2027-02",
-  kontokorrent: 1000000,
-  kapitalbedarf: 2460000,
-  gehalt: { maxVoll: 780000, danielVoll: 830000, basis: 450000, not: 250000, danielStart: 100000 },
+  stammkapital: 1250000, // eingezahlt (je 6.250 €), kein Kredit
+  kredit: 0,
+  kreditAb: "2099-01",
+  steuersatz: 0.284, // Ertragsteuer Stutensee
+  kuendigungMonat: 0.004, // 0,4 % der Monatsbeiträge pro Monat
+  gehalt: { mindest: 593000, voll: 857000, steigerung: 0.1, danielAb: "2027-02", maximilianAb: "2027-04" },
   gehaltsregel: { voll: 2000000, basis: 0, not: -1500000, stichtag: "2027-03-15", auftraegeBisStichtag: 12 },
-  ziele: { stundenS: 12, betreuungStundenJeKunde: 1, prozessCheckQuote: 0.4, wochenBisLivegang: 6 },
+  // Für Pipeline und Kennzahlen
+  oKaufpreis: Math.round((3 * PAKETE.KOMPAKT.einmalig + PAKETE.PROFESSIONAL.einmalig) / 4),
+  ziele: { stundenS: 4, betreuungStundenJeKunde: 1, prozessCheckQuote: 0.4, wochenBisLivegang: 6 },
 };
 
-// Einmalkosten Dez–Mär (Summe 16.750 € laut Business Case). Annahme zur Verteilung auf die Monate.
+/** Laufende Kosten je Monat ohne Gehälter (Business Case, Grundannahmen). */
+export function laufendeKosten(monat: string): number {
+  if (monat < "2027-01") return 50800 + 26000; // Dezember 2026: Steuerberatung, Software und Hosting
+  const software = monat < "2027-05" ? 42000 : 47000;
+  const dienstwagen = monat >= "2027-02" ? 87000 : 0; // Daniel ab Februar
+  const versicherungen = monat.endsWith("-01") ? 296600 : 0; // jährlich im Januar
+  return 50800 + 6900 + software + 40000 + 15000 + dienstwagen + 30000 + versicherungen; // Steuerberatung, IHK u. a., Software, Rechtsberatung, Handy und Büro, Dienstwagen, KI
+}
+
+// [A] Laufende Kosten je Kunde mit Website (KI, Hosting, Betrieb). Der Business Case nennt „KI-Kosten 300 € + je Kunde“ ohne Betrag;
+// 25 € passt über alle drei Szenarien und Jahre am besten zu den Ergebnissen des Liquiditätsmodells.
+export const KOSTEN_JE_KUNDE = 2500;
+
+// Einstellungen (Business Case, Kapitel 9: erste Einstellung und Mitarbeitende Ende 2029); Vollzeitkraft ≈ 4.300 € im Monat.
+// [A] Verteilung der weiteren Einstellungen bis Ende 2029.
+const VOLLZEIT = 430000;
+const EINSTELLUNGEN: Record<SzenarioKey, string[]> = {
+  vorsichtig: ["2028-03", "2029-01"],
+  basis: ["2027-05", "2028-01", "2028-07", "2029-01"],
+  ambitioniert: ["2027-04", "2027-07", "2027-10", "2028-01", "2028-04", "2028-07", "2028-10", "2029-01", "2029-04"],
+};
+export const personal = (s: SzenarioKey, monat: string) => EINSTELLUNGEN[s].filter((ab) => monat >= ab).length;
+
+// Einmalige Kosten: Gründung und Anschaffungen (Business Case, Tabelle Seite 10)
 const EINMAL: Record<string, number> = {
-  "2026-12": 350000 + 400000 + 200000, // Gründung, Rechtsberatung, 2 iPhones
-  "2027-01": 350000, // MacBook Pro, Monitor, iPad, Zubehör
-  "2027-02": 155000, // MacBook Air Daniel
-  "2027-03": 100000 + 120000, // Leasing-Bereitstellung, Wallbox
+  "2026-12": 120000 + 200000 + 50000, // Notar und Handelsregister, Rechtsberatung 1. Rate, Gründungsnebenkosten
+  "2027-01": 200000 + 25000 + 90000 + 100000 + 34000, // Rechtsberatung 2. Rate, Lohnbuchhaltung, iPad Pro, Smartphone, Plaud Note Pro
 };
 
-function gehaelter(monat: string, s: SzenarioKey): number {
+/** Bruttogehälter beider Geschäftsführer (gleiches Gehalt; Mindestgehalt bis „volles Gehalt ab“, dann +10 % je Jahr). */
+export function gehaelter(monat: string, s: SzenarioKey): { daniel: number; maximilian: number } {
   const g = BUSINESS_CASE.gehalt;
   const voll = monat >= SZENARIEN[s].vollesGehaltAb;
-  const not = s === "vorsichtig" && monat >= "2027-12" && monat < "2028-07";
-  const stufe = (vollBetrag: number) => (voll ? vollBetrag : not ? g.not : g.basis);
-  const max = monat < "2027-04" ? 0 : stufe(g.maxVoll); // bis März zahlt Maximilian' Arbeitgeber
-  const daniel = monat < "2027-06" ? g.danielStart : stufe(g.danielVoll); // bis Mai 1.000 € plus Gründungszuschuss
-  return max + daniel;
+  const hoehe = voll ? Math.round((g.voll * (1 + g.steigerung) ** Math.max(0, jahr(monat) - 2027)) / 100) * 100 : g.mindest; // volle Euro: 8.570, 9.427, 10.370
+  return { daniel: monat >= g.danielAb ? hoehe : 0, maximilian: monat >= g.maximilianAb ? hoehe : 0 };
 }
 
 // Bausteine im Plan: zwei Webauftritte, drei Module. Preise kommen aus dem Baukasten (pakete.ts, katalog.ts).
@@ -72,33 +81,75 @@ export const PLAN_BAUSTEINE = [
 ] as const;
 export type Stueck = Record<string, number>;
 
-// [A] Annahmen je Szenario, bis Dok. 43 eigene Modulquoten liefert:
-// Anteil Professional an den Webauftritten und Modulquote je verkauftem Webauftritt.
-export const QUOTEN: Record<SzenarioKey, { PROFESSIONAL: number; personal: number; marketing: number; kundenmanagement: number }> = {
-  vorsichtig: { PROFESSIONAL: 0.3, personal: 0.1, marketing: 0.1, kundenmanagement: 0.05 },
-  basis: { PROFESSIONAL: 0.4, personal: 0.15, marketing: 0.15, kundenmanagement: 0.1 },
-  ambitioniert: { PROFESSIONAL: 0.5, personal: 0.2, marketing: 0.2, kundenmanagement: 0.15 },
+// Mengen je Szenario (Business Case, Tabelle „Drei Szenarien“)
+type Mengen = { websites: (monat: string) => number; anteilProfessional: number; personal: (w: number, monat: string) => number; marketing: (w: number, monat: string) => number; nachkauf: number; kundenmanagement: (monat: string) => number };
+export const MENGEN: Record<SzenarioKey, Mengen> = {
+  vorsichtig: {
+    // 4 (Anfang 2027) → 8 (2029); 2027 laut Monatstabelle 4/5/6, [A] 2028 7
+    websites: (m) => (m < "2027-01" ? 0 : m < "2027-05" ? 4 : m < "2027-09" ? 5 : m < "2028-01" ? 6 : m < "2029-01" ? 7 : 8),
+    anteilProfessional: 0.3, // je Monat gerundet: 4 → 1, 5 → 2, 6 → 2 Professional; ergibt genau die Einmalzahlungen der Monatstabelle
+    personal: (_w, m) => (m < "2027-01" ? 0 : 1),
+    marketing: (_w, m) => (m < "2027-01" ? 0 : 1),
+    nachkauf: 0,
+    kundenmanagement: () => 0,
+  },
+  basis: {
+    websites: (m) => (m < "2027-01" ? 0 : 8),
+    anteilProfessional: 0.3, // [A] wie Minimal
+    personal: (w) => w * 0.125,
+    marketing: (w) => w * 0.25,
+    nachkauf: 0.22,
+    kundenmanagement: (m) => (m < "2027-05" ? 0 : m < "2028-01" ? 1 : 2), // Pilotbetriebe ab Mai 2027
+  },
+  ambitioniert: {
+    websites: (m) => (m < "2027-01" ? 0 : 10),
+    anteilProfessional: 0.3, // [A] wie Minimal
+    personal: (w) => w * 0.2,
+    marketing: (w) => w * 0.5,
+    nachkauf: 0.3,
+    kundenmanagement: (m) => (m < "2027-05" ? 0 : m < "2028-01" ? 1 : m < "2029-01" ? 2 : 3),
+  },
 };
-// Bis April 2027 verkauft Daniel nur den Webauftritt (Beweisphase); Module ab Mai 2027 (Start Kundenmanagement-Pilot).
-export const MODULE_AB = "2027-05";
+// Für die Anzeige „Quoten im Szenario“
+export const QUOTEN: Record<SzenarioKey, { PROFESSIONAL: number; personal: string; marketing: string; nachkauf: number; kundenmanagement: string }> = {
+  vorsichtig: { PROFESSIONAL: 0.3, personal: "1 pro Monat", marketing: "1 pro Monat", nachkauf: 0, kundenmanagement: "–" },
+  basis: { PROFESSIONAL: 0.3, personal: "12,5 %", marketing: "25 %", nachkauf: 0.22, kundenmanagement: "1 pro Monat, ab 2028: 2" },
+  ambitioniert: { PROFESSIONAL: 0.3, personal: "20 %", marketing: "50 %", nachkauf: 0.3, kundenmanagement: "1, 2028: 2, 2029: 3 pro Monat" },
+};
+export const MODULE_AB = "2027-01";
 const PILOT_KM = 2; // die ersten zwei Kundenmanagement-Betriebe zum Pilotpreis
-const LIVE_NACH = 2; // Monate vom Auftrag bis zum Livegang
+const LIVE_NACH = 1; // Livegang einen Monat nach Auftrag (Business Case: zweite Hälfte „einen Monat später“)
 
-/** Stückzahlen je Monat und Baustein aus Aufträgen und Quoten (kumuliert gerundet, damit die Summen stimmen). */
+/** Stückzahlen je Monat und Baustein (kumuliert gerundet, damit Quoten über die Zeit stimmen). */
 export function planStueck(s: SzenarioKey): Stueck[] {
-  const a = AUFTRAEGE[s];
-  const q = QUOTEN[s];
-  const kum = (i: number, quote: number, ab = "") => Math.round(a.slice(0, i + 1).reduce((x, n, j) => x + (PLAN_MONATE[j] >= ab ? n : 0), 0) * quote);
-  return a.map((n, i) => {
-    const anteil = (k: keyof typeof q, ab = "") => kum(i, q[k], ab) - (i ? kum(i - 1, q[k], ab) : 0);
-    const pro = anteil("PROFESSIONAL");
-    return { KOMPAKT: n - pro, PROFESSIONAL: pro, personal: anteil("personal", MODULE_AB), marketing: anteil("marketing", MODULE_AB), kundenmanagement: anteil("kundenmanagement", MODULE_AB) };
+  const m = MENGEN[s];
+  const w = PLAN_MONATE.map((monat) => m.websites(monat));
+  const kum: Record<string, number> = { PROFESSIONAL: 0, personal: 0, marketing: 0, nachkauf: 0 };
+  const gerundet: Record<string, number> = { PROFESSIONAL: 0, personal: 0, marketing: 0, nachkauf: 0 };
+  const schritt = (k: string, wert: number) => {
+    kum[k] += wert;
+    const neu = Math.round(kum[k]) - gerundet[k];
+    gerundet[k] += neu;
+    return neu;
+  };
+  return PLAN_MONATE.map((monat, i) => {
+    const pro = Math.round(w[i] * m.anteilProfessional); // je Monat gerundet (so in der Monatstabelle des Business Case)
+    // Nachkauf: der Anteil der Kunden der letzten 12 Monate, der im ersten Jahr ein Modul dazukauft ([A] je zur Hälfte Personal und Marketing)
+    const nach = schritt("nachkauf", (m.nachkauf / 12) * w.slice(Math.max(0, i - 12), i).reduce((x, y) => x + y, 0));
+    const nachPersonal = Math.floor(nach / 2);
+    return {
+      KOMPAKT: w[i] - pro,
+      PROFESSIONAL: pro,
+      personal: schritt("personal", m.personal(w[i], monat)) + nachPersonal,
+      marketing: schritt("marketing", m.marketing(w[i], monat)) + (nach - nachPersonal),
+      kundenmanagement: m.kundenmanagement(monat),
+    };
   });
 }
 
 export type PlanUmsatz = { einmalig: number; beitraege: number; umsatz: number; vertraege: number };
 
-/** Umsatz aus Stückzahlen: einmalig 50 % bei Auftrag, 50 % beim Livegang (2 Monate später); Monatsbeitrag ab Livegang. */
+/** Umsatz aus Stückzahlen: einmalig 50 % bei Unterschrift, 50 % beim Livegang einen Monat später; Monatsbeitrag ab Livegang, 0,4 % Kündigungen im Monat. */
 export function umsatzAus(stueck: Stueck[]): PlanUmsatz[] {
   const kmPilot = MODULE.find((m) => m.key === "kundenmanagement")?.pilot?.einmalig;
   let kmBisher = 0;
@@ -113,33 +164,55 @@ export function umsatzAus(stueck: Stueck[]): PlanUmsatz[] {
       return x + n * b.einmalig;
     }, 0),
   );
+  const monatlichNeu = stueck.map((st) => PLAN_BAUSTEINE.reduce((y, b) => y + (st[b.key] ?? 0) * b.monatlich, 0));
+  let beitraege = 0;
+  let vertraege = 0;
   return stueck.map((_, i) => {
     const einmalig = Math.round(einmalJeMonat[i] / 2 + (einmalJeMonat[i - LIVE_NACH] ?? 0) / 2);
-    const live = stueck.slice(0, Math.max(0, i - LIVE_NACH + 1));
-    const beitraege = live.reduce((x, st) => x + PLAN_BAUSTEINE.reduce((y, b) => y + (st[b.key] ?? 0) * b.monatlich, 0), 0);
-    const vertraege = live.reduce((x, st) => x + (st.KOMPAKT ?? 0) + (st.PROFESSIONAL ?? 0), 0);
-    return { einmalig, beitraege, umsatz: einmalig + beitraege, vertraege };
+    beitraege = beitraege * (1 - BUSINESS_CASE.kuendigungMonat) + (monatlichNeu[i - LIVE_NACH] ?? 0);
+    vertraege += i >= LIVE_NACH ? (stueck[i - LIVE_NACH].KOMPAKT ?? 0) + (stueck[i - LIVE_NACH].PROFESSIONAL ?? 0) : 0;
+    const b = Math.round(beitraege / 100) * 100; // volle Euro
+    return { einmalig, beitraege: b, umsatz: einmalig + b, vertraege };
   });
 }
 
-export type PlanMonat = { monat: string; auftraege: number; stueck: Stueck; einmalig: number; beitraege: number; umsatz: number; kosten: number; ergebnis: number; betreuungskunden: number };
+export type PlanMonat = { monat: string; auftraege: number; stueck: Stueck; einmalig: number; beitraege: number; umsatz: number; kosten: number; gehalt: number; ergebnis: number; konto: number; betreuungskunden: number };
 
-/** Monatsplan je Szenario: Umsatz aus den Bausteinen, Kosten aus Fixkosten (Plan je Kategorie), Einmalkosten, Projektkosten und Gehältern. */
-export function monatsplan(s: SzenarioKey, fixkostenMonat: number = BUSINESS_CASE.fixkostenMonat): PlanMonat[] {
+/**
+ * Monatsplan je Szenario: Umsatz aus den Bausteinen; Kosten = laufende Kosten (Business Case oder Plan je Kategorie) + Einmalkosten;
+ * Gehälter getrennt. Konto ab Stammkapital, ohne Steuerzahlungen (die Rücklage von 28,4 % mindert nur das eigene Geld).
+ */
+export function monatsplan(s: SzenarioKey, fixkostenMonat?: number): PlanMonat[] {
   const stueck = planStueck(s);
   const u = umsatzAus(stueck);
-  const variabel = BUSINESS_CASE.variabelJeProjekt;
+  let konto = BUSINESS_CASE.stammkapital;
   return PLAN_MONATE.map((monat, i) => {
     const auftraege = (stueck[i].KOMPAKT ?? 0) + (stueck[i].PROFESSIONAL ?? 0);
-    const kosten = fixkostenMonat + (EINMAL[monat] ?? 0) + auftraege * variabel + gehaelter(monat, s);
-    return { monat, auftraege, stueck: stueck[i], einmalig: u[i].einmalig, beitraege: u[i].beitraege, umsatz: u[i].umsatz, kosten, ergebnis: u[i].umsatz - kosten, betreuungskunden: u[i].vertraege };
+    const laufend = fixkostenMonat !== undefined && monat >= "2027-01" ? fixkostenMonat : laufendeKosten(monat);
+    const kosten = laufend + (EINMAL[monat] ?? 0) + u[i].vertraege * KOSTEN_JE_KUNDE + personal(s, monat) * VOLLZEIT;
+    const g = gehaelter(monat, s);
+    const gehalt = g.daniel + g.maximilian;
+    const ergebnis = u[i].umsatz - kosten - gehalt;
+    konto += ergebnis;
+    return { monat, auftraege, stueck: stueck[i], einmalig: u[i].einmalig, beitraege: u[i].beitraege, umsatz: u[i].umsatz, kosten, gehalt, ergebnis, konto, betreuungskunden: u[i].vertraege };
+  });
+}
+
+/** Jahreswerte (Kalenderjahr) eines Monatsplans. */
+export function jahreswerte(plan: PlanMonat[]) {
+  return PLAN_JAHRE.map((j) => {
+    const l = plan.filter((m) => jahr(m.monat) === j);
+    const sum = (k: "umsatz" | "kosten" | "gehalt" | "ergebnis" | "auftraege") => l.reduce((x, m) => x + m[k], 0);
+    return { jahr: j, umsatz: sum("umsatz"), kosten: sum("kosten"), gehalt: sum("gehalt"), ergebnis: sum("ergebnis"), auftraege: sum("auftraege"), kontoEnde: l.at(-1)?.konto ?? 0 };
   });
 }
 
 export const ANNAHMEN = [
-  "[A] Webauftritte je Monat innerhalb der Spannen des Szenarios verteilt.",
-  "[A] Anteil Professional und Modulquoten je Szenario (siehe Tabelle oben), Module ab Mai 2027; die ersten zwei Kundenmanagement-Betriebe zum Pilotpreis.",
-  "Umsatz: einmalig 50 % bei Auftrag, 50 % beim Livegang zwei Monate später; Monatsbeiträge ab Livegang, laufend über 24 Monate.",
-  "Kosten: Plan je Kategorie aus den Finanzen, Einmalkosten Dez–Mär, 600 € je Webauftritt, Gehälter (Arbeitgeberkosten) nach Szenario.",
-  "Steuern (31,5 %), Kredit, Kontokorrent und Umsatzsteuer sind nicht im Monatsergebnis, sondern in der Gehaltsregel berücksichtigt.",
+  "Mengen, Modulquoten, Nachkauf und Kundenmanagement je Szenario aus dem Business Case (Tabelle „Drei Szenarien“).",
+  "Zahlung: 50 % bei Unterschrift, 50 % beim Livegang einen Monat später; Monatsbeitrag ab Livegang; 0,4 % Kündigungen im Monat.",
+  "Kosten: Steuerberatung 508 €, IHK u. a. 69 €, Software und Hosting 260/420/470 €, Rechtsberatung 400 €, Handy und Büro 150 €, Dienstwagen 870 € (ab Februar), KI 300 €, Versicherungen 2.966 € im Januar; Gründung und Anschaffungen Dezember/Januar.",
+  "Gehalt: beide gleich, Mindestgehalt 5.930 € brutto, volles Gehalt 8.570 € ab dem Monat laut Szenario, danach +10 % je Jahr; Daniel ab Februar, Maximilian ab April 2027.",
+  "Einstellungen: erste Einstellung Minimal März 2028, Neutral Mai 2027, Best Case April 2027; Ende 2029 2, 4 bzw. 9 Mitarbeitende zu je 4.300 € im Monat.",
+  "[A] Anteil Professional rund 30 % je Monat (aus der Monatstabelle Minimal abgeleitet), auch für Neutral und Best Case; Nachkauf je zur Hälfte Personal und Marketing; Minimal 2028 7 Websites pro Monat; Zeitpunkte der weiteren Einstellungen.",
+  "[A] 25 € laufende Kosten je Kunde und Monat (KI, Hosting, Betrieb); nicht im Modell: Freelancer-Spitzen, Büro ab der dritten Einstellung; Steuern als Rücklage (28,4 %), nicht als Zahlung. Abweichungen zum Liquiditätsmodell zeigt die Tabelle „Abgleich“.",
 ];

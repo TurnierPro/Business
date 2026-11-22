@@ -33,7 +33,7 @@ export async function planIst(s: SzenarioKey, heute = new Date()) {
   };
   const summe = (l: typeof monate, k: "umsatz" | "kosten" | "auftraege" | "ergebnis", ist: boolean) => l.reduce((x, m) => x + (ist ? (m.ist?.[k] ?? 0) : m[k]), 0);
   const bisHeute = monate.filter((m) => m.vorbei);
-  const jahr1 = monate.slice(0, 12);
+  const jahr1 = monate.filter((m) => m.monat <= "2027-12"); // erstes Geschäftsjahr: Dezember 2026 bis Dezember 2027
 
   // Gehaltsregel: eigenes Geld = Kontostand − KfW-Restschuld − fällige USt − Steuerrücklage
   const letzter = konto[0];
@@ -50,8 +50,7 @@ export async function planIst(s: SzenarioKey, heute = new Date()) {
     const stufe = eigenesGeld >= r.voll ? "voll" : eigenesGeld < r.not ? "not" : eigenesGeld < r.basis ? "basis" : "halten";
     const text =
       stufe === "voll" ? "Eigenes Geld ab 20.000 €: volles Gehalt ist erlaubt."
-      : stufe === "not" ? "Eigenes Geld unter −15.000 €: ab Folgemonat Notgehalt (2.500 €)."
-      : stufe === "basis" ? "Eigenes Geld unter 0 €: ab Folgemonat Basisgehalt (4.500 €)."
+      : stufe === "not" || stufe === "basis" ? "Eigenes Geld unter 0 €: ab Folgemonat wieder das Mindestgehalt (5.930 € brutto)."
       : "Zwischen 0 und 20.000 €: Gehaltsstufe beibehalten. Volle Gehälter nie aus dem Kredit.";
     gehalt = { monat: letzter.monat, kontostand: letzter.betrag, kredit, ust, ruecklage, eigenesGeld, stufe, text };
   }

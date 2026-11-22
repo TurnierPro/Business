@@ -12,21 +12,23 @@ import { UST } from "./pakete";
 // Finanzen: Ausgaben mit Belegen, Einnahmen aus den Rechnungen, Auswertung je Monat, Quartal, Jahr.
 // Das ist eure Steuerungsübersicht, keine Buchhaltung: Bilanz und Jahresabschluss macht der Steuerberater.
 
-// Planwerte je Monat aus dem Business Case (Fixkosten 3.900 €), in Cent.
+// Planwerte je Monat aus dem Business Case (Finanzplan, Grundannahmen „Laufende Kosten“, Stand ab Mai 2027), in Cent.
+// Gehälter, Einmalkosten und Kosten je Kunde rechnet „Plan und Soll“ getrennt; eigene Werte über Finanzen → Plan je Kategorie.
 export const KATEGORIEN: { key: string; name: string; planMonat: number }[] = [
-  { key: "steuerberater", name: "Steuerberater", planMonat: 50000 },
-  { key: "software", name: "Software, Server, KI", planMonat: 55000 },
-  { key: "rechtstexte", name: "Rechtstexte", planMonat: 5000 },
-  { key: "versicherungen", name: "Versicherungen", planMonat: 25000 },
-  { key: "marketing", name: "Marketing und Briefe", planMonat: 80000 },
-  { key: "firmenwagen", name: "Firmenwagen", planMonat: 65000 },
-  { key: "fahrten", name: "Fahrten", planMonat: 25000 },
-  { key: "mobilfunk", name: "Mobilfunk", planMonat: 8000 },
-  { key: "hardware_ruecklage", name: "Hardware-Rücklage", planMonat: 15000 },
-  { key: "buero", name: "Büro", planMonat: 22000 },
-  { key: "sonstiges", name: "IHK, Bank, Sonstiges", planMonat: 40000 },
+  { key: "steuerberater", name: "Steuerberatung", planMonat: 50800 },
+  { key: "software", name: "Software und Hosting", planMonat: 47000 },
+  { key: "ki", name: "KI-Kosten", planMonat: 30000 },
+  { key: "rechtstexte", name: "Rechtsberatung und Rechtstexte", planMonat: 40000 },
+  { key: "versicherungen", name: "Versicherungen (2.966 € im Jahr)", planMonat: 24700 },
+  { key: "firmenwagen", name: "Dienstwagen", planMonat: 87000 },
+  { key: "mobilfunk", name: "Handy und Büro", planMonat: 15000 },
+  { key: "sonstiges", name: "IHK, Bank, Sonstiges", planMonat: 6900 },
+  { key: "marketing", name: "Marketing und Briefe", planMonat: 0 },
+  { key: "fahrten", name: "Fahrten", planMonat: 0 },
+  { key: "buero", name: "Büro (Miete)", planMonat: 0 },
+  { key: "hardware_ruecklage", name: "Hardware-Rücklage", planMonat: 0 },
   { key: "gehaelter", name: "Gehälter", planMonat: 0 },
-  { key: "projektkosten", name: "Projektkosten (Fotograf, Lizenzen)", planMonat: 0 },
+  { key: "projektkosten", name: "Projektkosten (Fotograf, Freelancer, Lizenzen)", planMonat: 0 },
   { key: "hardware", name: "Hardware-Anschaffung", planMonat: 0 },
   { key: "gruendung", name: "Gründung und Beratung", planMonat: 0 },
 ];

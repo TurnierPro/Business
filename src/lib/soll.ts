@@ -3,7 +3,7 @@ import { getDb, schema } from "./db";
 import { protokolliere } from "./protokoll";
 import { PLAN_BAUSTEINE, PLAN_MONATE, monatsplan, umsatzAus, type Stueck } from "./plan";
 
-// Soll-Umsätze: wie wir uns entwickeln wollen. Vorgabe ist das Basis-Szenario des Business Case,
+// Soll-Umsätze: wie wir uns entwickeln wollen. Vorgabe ist das Szenario Neutral des Business Case,
 // jeder Monat lässt sich je Baustein unter Stammdaten → Soll-Umsätze anpassen.
 
 const monatVon = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
@@ -12,7 +12,7 @@ export type Soll = { monat: string; umsatz: number; auftraege: number; stueck: S
 
 const web = (st: Stueck) => (st.KOMPAKT ?? 0) + (st.PROFESSIONAL ?? 0);
 
-/** Soll je Monat: Stück je Baustein (Vorgabe Basis-Szenario, eigene Werte aus Stammdaten → Soll-Umsätze). Der Umsatz wird daraus gerechnet. */
+/** Soll je Monat: Stück je Baustein (Vorgabe Szenario Neutral, eigene Werte aus Stammdaten → Soll-Umsätze). Der Umsatz wird daraus gerechnet. */
 export async function sollwerte(): Promise<Soll[]> {
   const db = await getDb();
   const eigene = await db.select().from(schema.sollwerte);

@@ -475,7 +475,7 @@ export const katalogEintraege = pgTable("katalog_eintraege", {
   geaendertAm: timestamp("geaendert_am", { withTimezone: true }).defaultNow().notNull(),
 });
 
-// Soll-Umsätze und Ziel-Aufträge je Monat (Vorgabe: Basis-Szenario des Business Case)
+// Soll-Umsätze und Ziel-Aufträge je Monat (Vorgabe: Szenario Neutral des Business Case)
 export const sollwerte = pgTable("sollwerte", {
   monat: text("monat").primaryKey(), // JJJJ-MM
   umsatz: integer("umsatz").notNull(),
