@@ -3,18 +3,11 @@ import { desc, eq, ne } from "drizzle-orm";
 import { getDb, schema } from "@/lib/db";
 import { Status } from "@/components/Status";
 import { datumZeit, KANAL, ZWECK } from "@/lib/format";
+import { FREIGABE_GRUPPEN, gruppeVon, QK_REIHENFOLGE } from "@/lib/freigabe-gruppen";
 
 export const metadata = { title: "Freigaben" };
 
-// Gruppen nach Art, damit man gezielt z. B. alle Rechnungen am Stück prüfen kann
-const GRUPPEN: { key: string; name: string; zwecke: string[] }[] = [
-  { key: "akquise", name: "Akquise", zwecke: ["akquise_brief"] },
-  { key: "verkauf", name: "Angebote und Verträge", zwecke: ["angebot", "auftragsbestaetigung", "portal_zugang"] },
-  { key: "geld", name: "Rechnungen und Zahlungen", zwecke: ["rechnung", "schlussrechnung", "betreuungsrechnung", "zahlungserinnerung", "mahnung1", "mahnung2", "lastschrift_start", "lastschrift_ende", "kuendigung"] },
-  { key: "projekt", name: "Projekte", zwecke: ["kickoff", "inhalte_eingang", "abnahme_aufforderung", "abnahme_bestaetigung", "livegang", "umzug_anleitung", "umzug_fertig", "monatsreport"] },
-];
-const gruppeVon = (zweck: string) => GRUPPEN.find((g) => g.zwecke.includes(zweck))?.key ?? "sonstiges";
-const QK_REIHENFOLGE: Record<string, number> = { blockiert: 0, hinweise: 1, ausstehend: 2, bestanden: 3 };
+const GRUPPEN = FREIGABE_GRUPPEN;
 
 export default async function Freigaben({ searchParams }: { searchParams: Promise<{ art?: string }> }) {
   const { art = "alle" } = await searchParams;

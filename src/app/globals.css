@@ -686,3 +686,12 @@ details > summary.knopf::-webkit-details-marker { display: none; }
 @media (max-width: 700px) { .protokoll-tabelle td.wer { width: 110px; white-space: normal; } }
 fieldset { min-width: 0; }
 @media (max-width: 800px) { .blick-wert:last-child:nth-child(odd) { grid-column: 1 / -1; border-left: 0; } .blick-wert .wert { font-size: 20px; } }
+
+/* Zu tun: Freigaben nach Art in kurzen Zeilen */
+.freigabe-gruppen { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr)); gap: 8px 24px; }
+.freigabe-gruppe .gruppe-kopf { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; padding: 8px 0 4px; border-bottom: 1px solid var(--linie); }
+.freigabe-gruppe a.gruppe-titel { text-decoration: none; }
+.zeilen.kurz > li { padding: 8px 0; }
+.zeile-link { display: flex; flex-direction: column; min-width: 0; text-decoration: none; color: inherit; }
+.zeile-link .titel { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.zeile-link:hover .titel { text-decoration: underline; }

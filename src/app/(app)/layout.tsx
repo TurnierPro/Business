@@ -19,7 +19,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // Zwei-Faktor ist Pflicht: ohne eingerichtete App erst zur Einrichtung (auf dem eigenen Rechner nur ein Hinweis)
   const [ich] = await db.select({ totpAktiv: schema.benutzer.totpAktiv }).from(schema.benutzer).where(eq(schema.benutzer.id, b.id));
   if (ich && zweiFaktorPflichtFehlt(ich)) redirect("/zwei-faktor");
-  const zweiFaktorHinweis = ich && !ich.totpAktiv;
+  // Fehlt der zweite Faktor (nur lokal möglich, auf dem Server ist er Pflicht), erinnert „Zu tun“ unten daran.
   await katalogLaden(); // Stammdaten aktuell halten (eine kleine Abfrage)
   const heuteEnde = inTagen(1, "00:00"); // Mitternacht deutsche Zeit
   const [[offen], [aufgaben], [tickets]] = await Promise.all([
@@ -42,7 +42,6 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         </div>
       </aside>
       <main className="inhalt">
-        {zweiFaktorHinweis ? <a className="hinweis" href="/zwei-faktor" style={{ display: "block", textDecoration: "none" }}>Zwei-Faktor-Anmeldung noch nicht eingerichtet. Auf dem Server ist sie Pflicht; jetzt in zwei Minuten einrichten →</a> : null}
         <Unternavigation />
         <Suspense>
           <Meldung />

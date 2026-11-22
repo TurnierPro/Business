@@ -10,6 +10,7 @@ import { ETAPPEN, FRISTEN, stand, UNTERLAGEN } from "@/lib/unterlagen";
 import { offeneAufgaben } from "@/lib/ablauf/crm";
 import { AufgabenListe } from "@/components/AufgabenListe";
 import { ticketNummer } from "@/lib/ablauf/tickets";
+import { FREIGABE_GRUPPEN, gruppeVon, gruppenName, QK_REIHENFOLGE } from "@/lib/freigabe-gruppen";
 
 export const metadata = { title: "Zu tun" };
 
@@ -47,6 +48,7 @@ export default async function ZuTun() {
     db.select({ n: sql<number>`count(*)::int` }).from(schema.jobs).where(and(eq(schema.jobs.art, "beispieldaten"), inArray(schema.jobs.status, ["wartet", "laeuft"]))),
   ]);
   const unbekannt = await unbekannteNachrichten();
+  const [ich] = await db.select({ totpAktiv: schema.benutzer.totpAktiv }).from(schema.benutzer).where(eq(schema.benutzer.id, b.id));
   const betriebIds = [...new Set(freigaben.map((f) => f.betriebId).filter((x): x is number => !!x))];
   const namen = new Map((betriebIds.length ? await db.select({ id: schema.betriebe.id, name: schema.betriebe.name }).from(schema.betriebe).where(inArray(schema.betriebe.id, betriebIds)) : []).map((x) => [x.id, x.name]));
   const alleBetriebe = unbekannt.length ? await db.select({ id: schema.betriebe.id, name: schema.betriebe.name }).from(schema.betriebe).orderBy(schema.betriebe.name) : [];
@@ -57,14 +59,22 @@ export default async function ZuTun() {
   const etappe = ETAPPEN.filter((e) => e.nr > 0).find((e) => UNTERLAGEN.some((u) => u.etappe === e.nr && offen(u)));
   const frist = FRISTEN.find((f) => f.datum >= heute);
   const fristBald = frist && new Date(frist.datum).getTime() - jetzt.getTime() < 45 * 864e5;
-  const hinweise = [
-    ...(pannen.length ? [{ text: `${pannen.length} offene Datenpanne(n): Meldefrist 72 Stunden`, href: "/datenschutz", dringend: true }] : []),
-    ...(anfragenDs.length ? [{ text: `${anfragenDs.length} Anfrage(n) von Betroffenen offen: Frist ein Monat`, href: "/datenschutz", dringend: true }] : []),
-    ...(fehlerJobs[0].n ? [{ text: `${fehlerJobs[0].n} Hintergrund-Jobs mit Fehler`, href: "/system", dringend: true }] : []),
-    ...warnungen.map((m) => ({ text: m.titel, href: "/logs", dringend: true })),
-    ...(fristBald ? [{ text: `Frist ${new Date(frist!.datum).toLocaleDateString("de-DE")}: ${frist!.was}`, href: "/unterlagen", dringend: false }] : []),
-    ...(etappe ? [{ text: `Unterlagen „${etappe.name}“: ${UNTERLAGEN.filter((u) => u.etappe === etappe.nr && offen(u)).length} offen (bis ${new Date(etappe.bis).toLocaleDateString("de-DE")})`, href: `/unterlagen?etappe=${etappe.nr}`, dringend: false }] : []),
+  // Hinweise stehen unten in „Sonst noch zu erledigen“, nicht über „Mein Tag“. Dringendes zuerst.
+  type Hinweis = { text: string; href: string; art: "dringend" | "frist" | "erinnerung"; knopf: string };
+  const hinweise: Hinweis[] = [
+    ...(pannen.length ? [{ text: `${pannen.length} offene Datenpanne${pannen.length > 1 ? "n" : ""}: Meldefrist 72 Stunden`, href: "/datenschutz?reiter=vorfaelle", art: "dringend" as const, knopf: "Öffnen" }] : []),
+    ...(anfragenDs.length ? [{ text: `${anfragenDs.length} Anfrage${anfragenDs.length > 1 ? "n" : ""} von Betroffenen offen: Frist ein Monat`, href: "/datenschutz?reiter=vorfaelle", art: "dringend" as const, knopf: "Öffnen" }] : []),
+    ...(fehlerJobs[0].n ? [{ text: `${fehlerJobs[0].n} Hintergrund-Job${fehlerJobs[0].n > 1 ? "s" : ""} mit Fehler`, href: "/system?reiter=jobs", art: "dringend" as const, knopf: "Ansehen" }] : []),
+    ...warnungen.map((m) => ({ text: m.titel, href: "/system?reiter=meldungen", art: "dringend" as const, knopf: "Ansehen" })),
+    ...(fristBald ? [{ text: `${frist!.was} (bis ${new Date(frist!.datum).toLocaleDateString("de-DE")})`, href: "/unterlagen?reiter=fristen", art: "frist" as const, knopf: "Fristen" }] : []),
+    ...(etappe ? [{ text: `Unterlagen „${etappe.name}“: ${UNTERLAGEN.filter((u) => u.etappe === etappe.nr && offen(u)).length} offen (bis ${new Date(etappe.bis).toLocaleDateString("de-DE")})`, href: `/unterlagen?reiter=e${etappe.nr}`, art: "frist" as const, knopf: "Unterlagen" }] : []),
+    ...(ich && !ich.totpAktiv ? [{ text: "Zwei-Faktor-Anmeldung einrichten (auf dem Server Pflicht, dauert zwei Minuten)", href: "/zwei-faktor", art: "erinnerung" as const, knopf: "Einrichten" }] : []),
   ];
+  const HINWEIS_STATUS = { dringend: { klasse: "fehler", wort: "dringend" }, frist: { klasse: "warten", wort: "Frist" }, erinnerung: { klasse: "", wort: "Erinnerung" } };
+  // Freigaben nach Art gruppiert, je Gruppe höchstens drei, Blockiertes zuerst
+  const freigabeGruppen = [...FREIGABE_GRUPPEN.map((g) => g.key), "sonstiges"]
+    .map((key) => ({ key, name: gruppenName(key), eintraege: freigaben.filter((f) => gruppeVon(f.zweck) === key).sort((x, y) => (QK_REIHENFOLGE[x.qkStatus] ?? 9) - (QK_REIHENFOLGE[y.qkStatus] ?? 9)) }))
+    .filter((g) => g.eintraege.length);
   const nichts = !freigaben.length && !meineAufgaben.length && !neueLeads.length && !besuche.length && !tickets.length && !unbekannt.length;
 
   return (
@@ -83,12 +93,6 @@ export default async function ZuTun() {
           <p className="leise">16 erfundene Betriebe in allen Phasen, vom neuen Lead bis zur Website, die live ist. Unter Logs → Technik wieder entfernen.</p>
           <form action={beispieleLaden}><button className="knopf haupt">Beispieldaten laden</button></form>
         </section>
-      ) : null}
-
-      {hinweise.length ? (
-        <div className="raster" style={{ gap: 8, marginBottom: 16 }} aria-label="Hinweise">
-          {hinweise.map((h) => <Link key={h.text} href={h.href} className={`hinweis${h.dringend ? " fehler" : ""}`} style={{ marginBottom: 0, textDecoration: "none", display: "block" }}>{h.text}</Link>)}
-        </div>
       ) : null}
 
       {!nichts ? (
@@ -130,18 +134,30 @@ export default async function ZuTun() {
       </section>
 
       {freigaben.length ? (
-        <Block id="freigeben" titel="Freigeben" zahl={freigaben.length} erklaerung="Alles, was an Kunden geht (Briefe, Angebote, Rechnungen, Mails), wartet hier auf dein OK. Öffnen, Vorschau und Hinweise der Qualitätskontrolle lesen, dann freigeben, ändern oder ablehnen." mehr={freigaben.length > 5 ? { href: "/freigaben", text: "Alle anzeigen" } : undefined}>
-          <ul className="liste">
-            {freigaben.slice(0, 5).map((f) => (
-              <li key={f.id}>
-                <div style={{ flex: 1 }}><div className="titel">{f.betriebId && namen.get(f.betriebId) ? `${namen.get(f.betriebId)}: ` : ""}{ZWECK[f.zweck] ?? f.zweck}</div><div className="unter">{f.betreff} · {datumZeit(f.erstelltAm)}{f.qkStatus === "blockiert" ? " · blockiert" : f.hinweise.length ? ` · ${f.hinweise.length} Hinweis${f.hinweise.length > 1 ? "e" : ""}` : ""}</div></div>
-                <Link className="knopf klein" href={`/freigaben/${f.id}`}>Prüfen</Link>
-              </li>
+        <Block id="freigeben" titel="Freigeben" zahl={freigaben.length} erklaerung="Was an Kunden geht, wartet auf dein OK. Nach Art sortiert; Rotes zuerst." mehr={{ href: "/freigaben", text: "Alle Freigaben" }}>
+          <div className="freigabe-gruppen">
+            {freigabeGruppen.map((g) => (
+              <div key={g.key} className="freigabe-gruppe">
+                <div className="gruppe-kopf">
+                  <Link href={`/freigaben?art=${g.key}`} className="gruppe-titel" style={{ margin: 0 }}>{g.name} · {g.eintraege.length}</Link>
+                  {g.eintraege.length > 3 ? <Link className="klein" href={`/freigaben?art=${g.key}`}>alle {g.eintraege.length} →</Link> : null}
+                </div>
+                <ul className="zeilen kurz">
+                  {g.eintraege.slice(0, 3).map((f) => (
+                    <li key={f.id}>
+                      <Link href={`/freigaben/${f.id}`} className="zeile-link">
+                        <span className="titel">{f.betriebId && namen.get(f.betriebId) ? namen.get(f.betriebId) : "Levarex intern"}</span>
+                        <span className="unter">{ZWECK[f.zweck] ?? f.zweck}</span>
+                      </Link>
+                      <span className={`status ${f.qkStatus === "blockiert" ? "fehler" : f.hinweise.length ? "warten" : "ok"}`}>{f.qkStatus === "blockiert" ? "blockiert" : f.hinweise.length ? `${f.hinweise.length} Hinweis${f.hinweise.length > 1 ? "e" : ""}` : "OK"}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
             ))}
-          </ul>
+          </div>
         </Block>
       ) : null}
-
 
       {neueLeads.length ? (
         <Block id="einstufen" titel="Leads einstufen" zahl={neueLeads.length} erklaerung="„Interessant“ startet automatisch Online-Check, Demo-Seite und Akquise-Brief (zur Freigabe)." mehr={neueLeads.length > 5 ? { href: "/leads?status=neu", text: "Alle neuen" } : undefined}>
@@ -176,6 +192,22 @@ export default async function ZuTun() {
         <Block id="tickets" titel="Tickets von Kunden" zahl={tickets.length} erklaerung="Änderungswünsche und Fragen aus der Betreuung. Zeit buchen, antworten (geht über die Freigabe)." mehr={{ href: "/tickets", text: "Alle Tickets" }}>
           <ul className="liste">
             {tickets.slice(0, 5).map(({ t, name }) => <li key={t.id}><div style={{ flex: 1 }}><div className="titel">{ticketNummer(t.id)} {t.betreff}</div><div className="unter">{name}{t.prioritaet !== "normal" ? ` · ${t.prioritaet}` : ""}</div></div><Link className="knopf klein" href={`/tickets/${t.id}`}>Öffnen</Link></li>)}
+          </ul>
+        </Block>
+      ) : null}
+
+      {hinweise.length ? (
+        <Block id="hinweise" titel="Sonst noch zu erledigen" zahl={hinweise.length} erklaerung="Fristen, Unterlagen und Einstellungen. Nicht für heute, aber nicht vergessen.">
+          <ul className="zeilen">
+            {hinweise.map((h) => (
+              <li key={h.text}>
+                <div className="knopfreihe" style={{ gap: 10, flexWrap: "nowrap", alignItems: "baseline" }}>
+                  <span className={`status ${HINWEIS_STATUS[h.art].klasse}`}>{HINWEIS_STATUS[h.art].wort}</span>
+                  <span>{h.text}</span>
+                </div>
+                <Link className="knopf klein" href={h.href}>{h.knopf}</Link>
+              </li>
+            ))}
           </ul>
         </Block>
       ) : null}
