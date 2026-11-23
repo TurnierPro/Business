@@ -116,7 +116,7 @@ export default async function Lead({ params, searchParams }: { params: Promise<{
                     </details>
                   ) }
                 : angebot && ["entwurf", "versendet"].includes(angebot.status)
-                  ? { was: "Verträge auf dem Tablet unterschreiben", unter: `Angebot ${PAKETE[angebot.paket as PaketKey]?.name ?? angebot.paket} ${angebot.status === "versendet" ? "ist beim Kunden" : "ist erstellt"}. Beim Termin: Rahmenvertrag und je Baustein ein Leistungsschein.`, knopf: <Link className="knopf haupt" href={`/unterschrift/${angebot.id}`}>Unterschreiben lassen</Link> }
+                  ? { was: "Verträge auf dem Tablet unterschreiben", unter: `Angebot ${PAKETE[angebot.paket as PaketKey]?.name ?? angebot.paket} ${angebot.status === "versendet" ? "ist beim Kunden" : "ist erstellt"}. Beim Termin: Rahmenvertrag und je Baustein ein Leistungsschein.`, knopf: <div className="knopfreihe" style={{ gap: 8 }}><Link className="knopf haupt" href={`/unterschrift/${angebot.id}`}>Unterschreiben lassen</Link>{angebot.status === "entwurf" ? <Link className="knopf klein" href={`/leads/${id}/angebot/${angebot.id}`}>E-Mail zum Angebot</Link> : null}</div> }
                   : b.status === "angeschrieben"
                     ? { was: `Besuch vor Ort ab ${datum(b.besuchAb)}`, unter: "Demo zeigen, nach dem Gespräch kurz den Besuchsbericht ausfüllen oder das Gespräch aufnehmen.", knopf: <Link className="knopf haupt" href={`/leads/${id}?tab=aktivitaeten&erfassen=besuch`}>Besuch erfassen</Link> }
                     : ["interessant", "termin"].includes(b.status)

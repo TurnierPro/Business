@@ -15,7 +15,7 @@ import { datumDe } from "../docs/basis";
 import { NICHT_ENTHALTEN, PAKETE, PaketKey, euro, paketVorschlag, UST } from "../pakete";
 import { katalogLaden } from "../katalog-db";
 import { AGB_VERSION, ZAHLUNGSZIEL_TAGE } from "../recht";
-import type { ProtokollDaten } from "../docs/vorlagen";
+import type { AngebotDaten, ProtokollDaten } from "../docs/vorlagen";
 import { inPostausgang, istGesperrt } from "./postausgang";
 import { systemAufgabeErledigt } from "./crm";
 import { checklisteSicherstellen } from "./checkliste";
@@ -134,7 +134,7 @@ export async function auswertung(terminId: number): Promise<string> {
  * Angebot aus Paket, Modulen und Zusatzleistungen. Entsteht automatisch nach dem Termin oder live vor Ort
  * im Angebots-Konfigurator. Geht wie alles durch Qualitätskontrolle und Freigabe.
  */
-export async function erstelleAngebot(o: { betriebId: number; auswahl: Auswahl; einleitung?: string; vorAnhaenge?: number[]; meta?: Record<string, unknown>; wer: string }): Promise<{ angebotId: number; nummer: string; eintragId: number }> {
+export async function erstelleAngebot(o: { betriebId: number; auswahl: Auswahl; einleitung?: string; vorAnhaenge?: number[]; meta?: Record<string, unknown>; wer: string; /** false: nur Angebot und PDF speichern, die E-Mail schreibt man danach in Schritt 2 */ mail?: boolean }): Promise<{ angebotId: number; nummer: string; eintragId: number }> {
   const db = await getDb();
   const b = await betrieb(o.betriebId);
   // Sperrliste zuerst: dann entsteht gar nichts (kein Angebot, keine Nummer, kein Portal-Link)
@@ -161,20 +161,23 @@ export async function erstelleAngebot(o: { betriebId: number; auswahl: Auswahl; 
       paketName: p.name, paketProblem: p.problem, paketInhalt: [...p.inhalt], nichtEnthalten: NICHT_ENTHALTEN[o.auswahl.paket].filter((x) => !katalog.module.some((m) => o.auswahl.module.includes(m.key) && x.includes(m.name))), wochen: p.wochen,
       bausteine, mitKi: o.auswahl.module.some((m) => m === "marketing" || m === "kundenmanagement"), vorlage },
   });
-  const nachname = an.inhaber?.split(" ").slice(-1)[0];
-  const anrede = !an.inhaber ? "Guten Tag," : an.anrede === "Frau" ? `Sehr geehrte Frau ${nachname},` : an.anrede === "Herr" ? `Sehr geehrter Herr ${nachname},` : `Guten Tag ${an.inhaber},`;
-  const eintragId = await inPostausgang({
-    betriebId: b.id,
-    kanal: "mail",
-    zweck: "angebot",
-    empfaenger: b.email ?? "(E-Mail-Adresse fehlt)",
-    betreff: `Ihr Angebot von Levarex: ${p.name}${bausteine.length ? ` und ${bausteine.length === 1 ? "ein weiterer Baustein" : `${bausteine.length} weitere Bausteine`}` : ""}`,
-    text: fuelle(vorlage.mail, { anrede, einstieg: einleitung, anhaenge: o.vorAnhaenge?.length ? "das Protokoll mit Maßnahmenplan und das Angebot" : "das Angebot", portallink: await portalLink(b.id) }),
-    anhaenge: [...(o.vorAnhaenge ?? []), angebotDokId],
-    erlaubteZahlen: [euro(r.einmalig), euro(r.monatlich), ...r.positionen.flatMap((x) => [euro(x.einmalig), euro(x.monatlich)])],
-    hinweise: [...(b.email ? [] : ["E-Mail-Adresse fehlt. Beim Betrieb ergänzen und Empfänger anpassen."]), ...r.hinweise],
-    meta: { ...(o.meta ?? {}), angebotId: angebot.id },
-  });
+  const entwurf = await angebotMailEntwurf(angebot.id, o.vorAnhaenge?.length ? "das Protokoll mit Maßnahmenplan und das Angebot" : undefined);
+  // Ohne Mail (Angebot vor Ort zusammengestellt): Die E-Mail entsteht erst in Schritt 2, wenn das Angebot fertig ist
+  const eintragId =
+    o.mail === false
+      ? 0
+      : await inPostausgang({
+          betriebId: b.id,
+          kanal: "mail",
+          zweck: "angebot",
+          empfaenger: b.email ?? "(E-Mail-Adresse fehlt)",
+          betreff: entwurf.betreff,
+          text: entwurf.text,
+          anhaenge: [...(o.vorAnhaenge ?? []), angebotDokId],
+          erlaubteZahlen: entwurf.erlaubteZahlen,
+          hinweise: [...(b.email ? [] : ["E-Mail-Adresse fehlt. Beim Betrieb ergänzen und Empfänger anpassen."]), ...r.hinweise],
+          meta: { ...(o.meta ?? {}), angebotId: angebot.id },
+        });
   // Ältere, noch offene Angebote sind überholt: Mail nicht mehr senden, nicht mehr unterschreiben
   const alt = (await db.select().from(schema.angebote).where(eq(schema.angebote.betriebId, b.id))).filter((x) => x.id !== angebot.id && ["entwurf", "versendet"].includes(x.status));
   for (const x of alt) {
@@ -189,6 +192,59 @@ export async function erstelleAngebot(o: { betriebId: number; auswahl: Auswahl; 
   if (b.status !== "kunde") await setzeStatus(b.id, "angebot");
   await protokolliere(o.wer, `Angebot ${nummer} erstellt (${euro(r.einmalig)} + ${euro(r.monatlich)}/Monat)`, b.id);
   return { angebotId: angebot.id, nummer, eintragId };
+}
+
+/** Vorschlag für die Angebots-Mail (Betreff, Text, erlaubte Zahlen) aus Angebot, Vorlage und Betrieb. */
+export async function angebotMailEntwurf(angebotId: number, anhaenge = "das Angebot"): Promise<{ betreff: string; text: string; erlaubteZahlen: string[]; angebotDokId: number | null }> {
+  const db = await getDb();
+  const [a] = await db.select().from(schema.angebote).where(eq(schema.angebote.id, angebotId));
+  if (!a) throw new Error("Angebot nicht gefunden");
+  const b = await betrieb(a.betriebId);
+  const an = anschrift(b);
+  const nummer = `A-${a.erstelltAm.getFullYear()}-${String(a.id).padStart(4, "0")}`;
+  const dok = (await db.select().from(schema.dokumente).where(and(eq(schema.dokumente.betriebId, b.id), eq(schema.dokumente.art, "angebot")))).find((d) => (d.daten as AngebotDaten).nummer === nummer);
+  const daten = (dok?.daten ?? {}) as Partial<AngebotDaten>;
+  const vorlage = daten.vorlage ?? ANGEBOT_VORLAGE;
+  const paketName = daten.paketName ?? PAKETE[a.paket as PaketKey]?.name ?? a.paket;
+  const bausteine = daten.bausteine?.length ?? 0;
+  const nachname = an.inhaber?.split(" ").slice(-1)[0];
+  const anrede = !an.inhaber ? "Guten Tag," : an.anrede === "Frau" ? `Sehr geehrte Frau ${nachname},` : an.anrede === "Herr" ? `Sehr geehrter Herr ${nachname},` : `Guten Tag ${an.inhaber},`;
+  return {
+    betreff: `Ihr Angebot von Levarex: ${paketName}${bausteine ? ` und ${bausteine === 1 ? "ein weiterer Baustein" : `${bausteine} weitere Bausteine`}` : ""}`,
+    text: fuelle(vorlage.mail, { anrede, einstieg: daten.einleitung ?? fuelle(vorlage.einstieg, { betrieb: b.name }), anhaenge, portallink: await portalLink(b.id) }),
+    erlaubteZahlen: [euro(a.einmalig), euro(a.monatlich), ...a.positionen.flatMap((x) => [euro(x.einmalig), euro(x.monatlich)])],
+    angebotDokId: dok?.id ?? null,
+  };
+}
+
+/** Schritt 2: Die von Hand formulierte Angebots-Mail in die Freigaben legen (Qualitätskontrolle, dann Freigabe). */
+export async function angebotMailVorlegen(o: { angebotId: number; empfaenger: string; betreff: string; text: string; wer: string }): Promise<number> {
+  const db = await getDb();
+  const [a] = await db.select().from(schema.angebote).where(eq(schema.angebote.id, o.angebotId));
+  if (!a) throw new Error("Angebot nicht gefunden");
+  if (a.status !== "entwurf") throw new Error(`Das Angebot hat den Status „${a.status}“; eine neue Angebots-Mail ist nicht mehr nötig.`);
+  const offen = (await db.select().from(schema.postausgang).where(and(eq(schema.postausgang.betriebId, a.betriebId), eq(schema.postausgang.zweck, "angebot"), inArray(schema.postausgang.status, ["zur_freigabe", "freigegeben"])))).find((m) => Number(m.meta.angebotId) === a.id);
+  if (offen) return offen.id; // nicht doppelt
+  const empfaenger = o.empfaenger.trim();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(empfaenger)) throw new Error("Bitte eine gültige E-Mail-Adresse eintragen.");
+  if (o.betreff.trim().length < 3 || o.text.trim().length < 20) throw new Error("Betreff und Text der E-Mail fehlen.");
+  const entwurf = await angebotMailEntwurf(a.id);
+  if (!entwurf.angebotDokId) throw new Error("Das Angebots-PDF fehlt.");
+  const b = await betrieb(a.betriebId);
+  if (!b.email) await db.update(schema.betriebe).set({ email: empfaenger }).where(eq(schema.betriebe.id, b.id));
+  const id = await inPostausgang({
+    betriebId: a.betriebId,
+    kanal: "mail",
+    zweck: "angebot",
+    empfaenger,
+    betreff: o.betreff.trim(),
+    text: o.text.trim(),
+    anhaenge: [entwurf.angebotDokId],
+    erlaubteZahlen: entwurf.erlaubteZahlen,
+    meta: { angebotId: a.id },
+  });
+  await protokolliere(o.wer, `Angebots-Mail zur Freigabe vorgelegt`, a.betriebId);
+  return id;
 }
 
 export async function naechsteRechnungsnummer(jahr = new Date().getFullYear()): Promise<{ nummer: string; lfdNr: number; jahr: number }> {

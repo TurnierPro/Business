@@ -312,15 +312,12 @@ export async function berichtVorbereiten() {
 export async function angebotErstellen(f: FormData) {
   const id = zahl(f, "id");
   const { erstelleAngebot } = await import("@/lib/ablauf/verkauf");
-  await ausfuehren(`/leads/${id}/angebot`, "Angebot erstellt. Qualitätskontrolle läuft, danach freigeben.", async (wer) => {
-    const db = await getDb();
-    const email = text(f, "email");
-    if (email) await db.update(schema.betriebe).set({ email }).where(eq(schema.betriebe.id, id));
+  await ausfuehren(`/leads/${id}/angebot`, "Angebot gespeichert. Jetzt die E-Mail dazu schreiben oder direkt auf dem Tablet unterschreiben.", async (wer) => {
     const betrag = (k: string) => {
       const t = text(f, k);
       return t ? Math.round(Number(t.replace(/\./g, "").replace(",", ".")) * 100) : 0;
     };
-    const { eintragId } = await erstelleAngebot({
+    const { angebotId } = await erstelleAngebot({
       betriebId: id,
       auswahl: {
         paket: text(f, "paket") as import("@/lib/pakete").PaketKey,
@@ -332,8 +329,9 @@ export async function angebotErstellen(f: FormData) {
       },
       einleitung: text(f, "einleitung") || undefined,
       wer,
+      mail: false, // Schritt 2: E-Mail erst nach dem Speichern formulieren
     });
-    return { ziel: `/freigaben/${eintragId}` };
+    return { ziel: `/leads/${id}/angebot/${angebotId}` };
   });
 }
 
@@ -799,4 +797,14 @@ export async function protokollAusfuellen(f: FormData) {
 export async function anhangEntfernen(f: FormData) {
   const id = zahl(f, "eintragId");
   await ausfuehren(`/freigaben/${id}`, "Anhang entfernt. Die Prüfung läuft neu.", (wer) => post.anhangEntfernen(id, zahl(f, "dokumentId"), wer));
+}
+
+export async function angebotMailVorlegen(f: FormData) {
+  const id = zahl(f, "betriebId");
+  const angebotId = zahl(f, "angebotId");
+  await ausfuehren(`/leads/${id}/angebot/${angebotId}`, "E-Mail liegt in den Freigaben. Nach der Prüfung freigeben, dann geht sie an den Kunden.", async (wer) => {
+    const { angebotMailVorlegen: vorlegen } = await import("@/lib/ablauf/verkauf");
+    const eintrag = await vorlegen({ angebotId, empfaenger: text(f, "empfaenger"), betreff: text(f, "betreff"), text: String(f.get("text") ?? ""), wer });
+    return { ziel: `/freigaben/${eintrag}` };
+  });
 }

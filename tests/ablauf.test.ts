@@ -1182,6 +1182,30 @@ test("Korrekturen Runde 2: Unterschrift nach Freigabe, Schaltjahr, Anhänge, Mod
   assert.match(m2.betreff, /ein weiterer Baustein/);
 });
 
+test("Angebot in zwei Schritten: erst speichern (keine Mail), dann E-Mail formulieren und vorlegen", async () => {
+  const { id } = await akquise.legeBetriebAn({ name: "Zwei Schritte GmbH", gewerk: "SHK", score: 70, scoreGrund: "Test", website: "zwei-schritte.example", strasse: "Weg 8", plz: "76297", ort: "Stutensee" }, "Test", "Test");
+  const r = await verkauf.erstelleAngebot({ betriebId: id!, auswahl: { paket: "KOMPAKT", module: ["personal"], zusaetze: [] }, wer: "Daniel Lück", mail: false });
+  assert.equal(r.eintragId, 0);
+  const mails = async () => (await db.select().from(schema.postausgang).where(eq(schema.postausgang.betriebId, id!))).filter((e) => e.zweck === "angebot");
+  assert.equal((await mails()).length, 0, "Schritt 1 legt keine E-Mail an");
+  const entwurf = await verkauf.angebotMailEntwurf(r.angebotId);
+  assert.match(entwurf.betreff, /ein weiterer Baustein/);
+  assert.ok(entwurf.angebotDokId);
+  await assert.rejects(() => verkauf.angebotMailVorlegen({ angebotId: r.angebotId, empfaenger: "keine-mail", betreff: entwurf.betreff, text: entwurf.text, wer: "Test" }), /E-Mail-Adresse/);
+  const eintrag = await verkauf.angebotMailVorlegen({ angebotId: r.angebotId, empfaenger: "chef@zwei-schritte.example", betreff: "Ihr Angebot", text: `${entwurf.text}\n\nPS: Wie besprochen.`, wer: "Daniel Lück" });
+  assert.equal(await verkauf.angebotMailVorlegen({ angebotId: r.angebotId, empfaenger: "chef@zwei-schritte.example", betreff: "Ihr Angebot", text: entwurf.text, wer: "Daniel Lück" }), eintrag, "nicht doppelt");
+  const [m] = await mails();
+  assert.equal(m.id, eintrag);
+  assert.deepEqual(m.anhaenge, [entwurf.angebotDokId]);
+  assert.match(m.text, /PS: Wie besprochen/);
+  const [b] = await db.select().from(schema.betriebe).where(eq(schema.betriebe.id, id!));
+  assert.equal(b.email, "chef@zwei-schritte.example", "E-Mail beim Betrieb nachgetragen");
+  await abarbeiten();
+  await post_freigeben(eintrag);
+  const [a] = await db.select().from(schema.angebote).where(eq(schema.angebote.id, r.angebotId));
+  assert.equal(a.status, "versendet");
+});
+
 async function post_freigeben(id: number) {
   await post.freigeben(id, "Daniel Lück");
   await abarbeiten();

@@ -1,6 +1,6 @@
 "use client";
 import { useMemo, useState } from "react";
-import { AUSBAUSTUFEN, berechne, laufzeitSumme, type Auswahl, type Katalog } from "@/lib/katalog";
+import { berechne, laufzeitSumme, type Auswahl, type Katalog } from "@/lib/katalog";
 import { PaketKey, euro, UST } from "@/lib/pakete";
 import { SendenKnopf } from "./SendenKnopf";
 
@@ -23,22 +23,10 @@ export function AngebotKonfigurator({ gewerk, startPaket, katalog, email = "", i
   const auswahl: Auswahl = { paket, module, zusaetze, pilot, individuell: { einmalig: betrag(ind.einmalig), monatlich: betrag(ind.monatlich), text: ind.text }, prozessCheckAnrechnen: anrechnen };
   const r = useMemo(() => berechne(auswahl, katalog), [paket, module, zusaetze, pilot, ind, anrechnen]); // eslint-disable-line react-hooks/exhaustive-deps
   const summe = laufzeitSumme(r.einmalig, r.monatlich);
-  const stufe = (a: (typeof AUSBAUSTUFEN)[number]["auswahl"]) => {
-    setPaket(a.paket);
-    setModule([...a.module]);
-    setZusaetze([...a.zusaetze]);
-  };
-  // Welche Bausteine eine Ausbaustufe wählt, in Klartext (damit „Kunden“ nicht mit „Kundenmanagement“ verwechselt wird)
-  const bausteineVon = (a: (typeof AUSBAUSTUFEN)[number]["auswahl"]) =>
-    [PAKETE[a.paket]?.name, ...a.module.map((k) => katalog.module.find((m) => m.key === k)?.name ?? k), ...a.zusaetze.map((k) => katalog.zusaetze.find((z) => z.key === k)?.name ?? k)].filter(Boolean).join(" + ");
   const preis = (einmalig: number | null, monatlich: number) => (einmalig === null ? "Preis individuell" : `${euro(einmalig)}${monatlich ? ` + ${euro(monatlich)}/Monat` : ""}`);
 
   return (
     <div className="angebot-ablauf">
-      <nav className="reiter" aria-label="Schnellwahl Ausbaustufen" style={{ alignItems: "center" }}>
-        <span className="leise klein" style={{ marginRight: 4 }}>Schnellwahl:</span>
-        {AUSBAUSTUFEN.map((s) => <a key={s.nr} href="#webauftritt" role="button" title={bausteineVon(s.auswahl)} onClick={(e) => { e.preventDefault(); stufe(s.auswahl); }}>{s.nr}. {s.name}<span className="leise klein" style={{ display: "block", fontWeight: 400 }}>{bausteineVon(s.auswahl)}</span></a>)}
-      </nav>
 
       <section className="karte" id="webauftritt">
         <h2><span className="nr">1</span> Welcher Webauftritt?</h2>
@@ -128,14 +116,11 @@ export function AngebotKonfigurator({ gewerk, startPaket, katalog, email = "", i
       </section>
 
       <section className="karte" id="senden">
-        <h2><span className="nr">5</span> An wen geht das Angebot?</h2>
-        <div className="raster links-schmal" style={{ gap: 24, alignItems: "start" }}>
-          <label className="feld"><span>E-Mail-Adresse {inhaber ? `von ${inhaber}` : "des Kunden"}</span><input name="email" type="email" required defaultValue={email} placeholder="name@betrieb.de" /><small>Dorthin gehen Angebot und Link zum Kundenportal.</small></label>
-          <label className="feld"><span>Persönlicher Einstieg <em>optional</em></span><textarea name="einleitung" style={{ minHeight: 100 }} placeholder="z. B. vielen Dank für das gute Gespräch heute. Wie besprochen … (leer: Standardtext aus der Angebotsvorlage)" /></label>
-        </div>
+        <h2><span className="nr">5</span> Angebot speichern</h2>
+        <label className="feld"><span>Persönlicher Einstieg im Angebot <em>optional</em></span><textarea name="einleitung" style={{ minHeight: 100 }} placeholder="z. B. vielen Dank für das gute Gespräch heute. Wie besprochen … (leer: Standardtext aus der Angebotsvorlage)" /></label>
         <div className="knopfreihe" style={{ marginTop: 4 }}>
-          <SendenKnopf text="Angebot erstellen" warten="Angebot und PDF werden erstellt …" />
-          <span className="leise klein">Als Nächstes siehst du das fertige Angebot und die E-Mail dazu. Die Qualitätskontrolle prüft beides; erst mit deiner Freigabe geht es an den Kunden.</span>
+          <SendenKnopf text="Angebot speichern" warten="Angebot und PDF werden erstellt …" />
+          <span className="leise klein">Es geht noch nichts an den Kunden. Danach siehst du das PDF und schreibst in Schritt 2 die E-Mail dazu, oder ihr unterschreibt direkt auf dem Tablet.</span>
         </div>
       </section>
 
