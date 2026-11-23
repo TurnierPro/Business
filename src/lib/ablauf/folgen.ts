@@ -22,6 +22,7 @@ export async function nachVersand(e: Eintrag): Promise<void> {
     await crm.systemAufgabe({ betriebId: e.betriebId, titel: "Angebot nachfassen (zweiter Anruf)", text: "Letztes Nachfassen, kein Druck: „Ich überleg's mir“ ist eine gute Antwort.", inTagen: 14, zustaendig: crm.VERTRIEB });
   }
   if (e.zweck === "beitraege_vorlage" && Array.isArray(e.meta.beitragIds)) await (await import("../beitraege")).beitraegeBeimKunden((e.meta.beitragIds as unknown[]).map(Number).filter(Boolean));
+  if (e.zweck === "datei_portal" && Number(e.meta.dateiId)) await (await import("../dateien")).dateiImPortal(Number(e.meta.dateiId));
   if (e.zweck === "demo_portal" && Number(e.meta.demoId)) await (await import("../demos")).demoImPortal(Number(e.meta.demoId));
   if (e.zweck === "kickoff" && e.projektId) await hakeAb(e.projektId, "kickoff");
   if (e.zweck === "kickoff" && e.betriebId) {

@@ -11,12 +11,12 @@ export const metadata = { title: "Angebot: E-Mail schreiben" };
 
 // Schritt 2 nach dem Speichern: Angebot ansehen, dann die E-Mail an den Kunden formulieren.
 // Die E-Mail geht danach wie alles über Qualitätskontrolle und Freigabe raus.
-export default async function AngebotMail({ params, searchParams }: { params: Promise<{ id: string; angebotId: string }>; searchParams: Promise<{ ok?: string; fehler?: string }> }) {
+// Erfolgs- und Fehlermeldungen (?ok=, ?fehler=) zeigt das Layout oben an
+export default async function AngebotMail({ params }: { params: Promise<{ id: string; angebotId: string }> }) {
   const p = await params;
   const id = Number(p.id);
   const angebotId = Number(p.angebotId);
   if (!Number.isInteger(id) || !Number.isInteger(angebotId) || id <= 0 || angebotId <= 0) notFound();
-  const { ok, fehler } = await searchParams;
   const db = await getDb();
   const [a] = await db.select().from(schema.angebote).where(and(eq(schema.angebote.id, angebotId), eq(schema.angebote.betriebId, id)));
   if (!a) notFound();
@@ -29,8 +29,6 @@ export default async function AngebotMail({ params, searchParams }: { params: Pr
     <>
       <Link href={`/leads/${id}`} className="zurueck">← {b?.name}</Link>
       <div className="kopfzeile"><div><h1>Angebot {nummer}</h1><p>Schritt 1 ist erledigt: Das Angebot ist gespeichert. Jetzt die E-Mail dazu schreiben, oder direkt beim Termin auf dem Tablet unterschreiben.</p></div></div>
-      {ok ? <div className="hinweis ok" role="status">{ok}</div> : null}
-      {fehler ? <div className="hinweis fehler" role="alert">{fehler}</div> : null}
 
       <section className="karte abstand-klein">
         <div className="kopfzeile" style={{ marginBottom: 8 }}>

@@ -808,3 +808,26 @@ export async function angebotMailVorlegen(f: FormData) {
     return { ziel: `/freigaben/${eintrag}` };
   });
 }
+
+// ---------- Dateien mit dem Kunden ----------
+
+export async function dateiAnKunden(f: FormData) {
+  const id = zahl(f, "betriebId");
+  await ausfuehren(`/leads/${id}?tab=dokumente#dateien`, "Datei hochgeladen. Mit „Im Portal bereitstellen“ geht die Hinweis-Mail in die Freigaben.", async (wer) => {
+    const datei = f.get("datei");
+    await (await import("@/lib/dateien")).dateiAnKunden(id, datei instanceof File ? datei : (null as unknown as File), text(f, "notiz"), wer);
+  });
+}
+
+export async function dateiFreigeben(f: FormData) {
+  const id = zahl(f, "betriebId");
+  await ausfuehren(`/leads/${id}?tab=dokumente#dateien`, "Hinweis-Mail liegt in den Freigaben. Nach dem Versand sieht der Kunde die Datei.", async (wer) => {
+    const eintrag = await (await import("@/lib/dateien")).dateiFreigeben(zahl(f, "dateiId"), wer);
+    return { ziel: `/freigaben/${eintrag}` };
+  });
+}
+
+export async function dateiLoeschen(f: FormData) {
+  const id = zahl(f, "betriebId");
+  await ausfuehren(`/leads/${id}?tab=dokumente#dateien`, "Datei gelöscht.", async (wer) => (await import("@/lib/dateien")).dateiLoeschen(zahl(f, "dateiId"), wer));
+}

@@ -112,6 +112,7 @@ export const LOESCHFRISTEN: { was: string; tage: number | null; grund: string; a
   { was: "Zugänge zum Kundenportal (Name, E-Mail, letzte Nutzung)", tage: null, grund: "Mit dem Betrieb; bei Löschung oder Vertragsende sofort", automatisch: false },
   { was: "Unterschriften unter Verträgen (Bild, Name, Zeitpunkt)", tage: 6 * 365, grund: "Gehören zu Rahmenvertrag und Leistungsscheinen (§ 257 HGB, 6 Jahre ab Jahresende)", automatisch: false },
   { was: "SEPA-Mandate (Kontoinhaber, IBAN, Unterschrift)", tage: null, grund: "Solange eingezogen wird; danach 14 Monate (Erstattung bei nicht autorisierter Zahlung bis 13 Monate, § 676b BGB), als Beleg zum Vertrag 6 Jahre (§ 257 HGB)", automatisch: false },
+  { was: "Dateien im Kundenportal (Fotos, PDFs in beide Richtungen)", tage: null, grund: "Mit dem Betrieb; bei Löschung oder Vertragsende sofort, einzelne Dateien jederzeit auf Wunsch", automatisch: false },
   { was: "Foto-Einwilligungen von Mitarbeitenden (Name, Zwecke, Unterschrift)", tage: null, grund: "Nachweis der Einwilligung (Art. 7 Abs. 1 DSGVO): solange Fotos genutzt werden, nach Widerruf oder Vertragsende noch 3 Jahre (Verjährung)", automatisch: false },
   { was: "Beiträge und Bewertungsantworten (Entwürfe, Freigaben)", tage: null, grund: "Mit dem Betrieb; abgelehnte Entwürfe nach 90 Tagen", automatisch: false },
   { was: "Kundendaten nach Vertragsende", tage: null, grund: "Sperren statt löschen, solange Aufbewahrungspflichten laufen; danach löschen", automatisch: false },

@@ -169,6 +169,13 @@
       "when": 1795362062077,
       "tag": "0023_beitraege",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1795455813792,
+      "tag": "0024_dateien",
+      "breakpoints": true
     }
   ]
 }

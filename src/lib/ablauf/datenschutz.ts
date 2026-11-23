@@ -48,6 +48,7 @@ export async function datenauskunft(betriebId: number, wer: string) {
       const x = d.daten as { nummer?: string; konto?: unknown; ersetztAm?: string; unterschriften?: { name: string; am: string }[] };
       return { mandatsreferenz: x.nummer, konto: x.konto, unterschrieben: x.unterschriften?.map((u) => ({ name: u.name, am: u.am })), ersetztAm: x.ersetztAm ?? null };
     }),
+    dateien: (await db.select().from(schema.dateien).where(eq(schema.dateien.betriebId, betriebId))).map(({ richtung, name, typ, groesse, notiz, status, erstelltAm }) => ({ richtung, name, typ, groesse, notiz, status, erstelltAm })),
     beitraege: (await db.select().from(schema.beitraege).where(eq(schema.beitraege.betriebId, betriebId))).map(({ art, kanaele, text, bezug, status, kommentar, erstelltAm, entschiedenAm, veroeffentlichtAm }) => ({ art, kanaele, text, bezug, status, kommentar, erstelltAm, entschiedenAm, veroeffentlichtAm })),
     fotoEinwilligungen: (await db.select().from(schema.dokumente).where(and(eq(schema.dokumente.betriebId, betriebId), eq(schema.dokumente.art, "foto_einwilligung")))).map((d) => {
       const x = d.daten as { person?: string; zwecke?: string[]; video?: boolean; widerrufenAm?: string };
@@ -99,6 +100,8 @@ export async function allesLoeschen(betriebId: number, bestaetigung: string, wer
     fs.rmSync(path.join(datenOrdner("anfragen"), s.slug), { recursive: true, force: true });
   }
   (await import("../beitraege")).beitragsbilderLoeschen(betriebId);
+  (await import("../dateien")).dateienLoeschenAlle(betriebId);
+  await db.delete(schema.dateien).where(eq(schema.dateien.betriebId, betriebId));
   await db.delete(schema.beitraege).where(eq(schema.beitraege.betriebId, betriebId));
   const doks = await db.select().from(schema.dokumente).where(eq(schema.dokumente.betriebId, betriebId));
   for (const d of doks) if (d.archivPfad && !(rechnungen.length && AUFBEWAHREN.includes(d.art))) fs.rmSync(d.archivPfad, { force: true });

@@ -4,7 +4,7 @@ export const FREIGABE_GRUPPEN: { key: string; name: string; zwecke: string[] }[]
   { key: "akquise", name: "Akquise", zwecke: ["akquise_brief", "demo_portal"] },
   { key: "verkauf", name: "Angebote und Verträge", zwecke: ["angebot", "auftragsbestaetigung", "portal_zugang"] },
   { key: "geld", name: "Rechnungen und Zahlungen", zwecke: ["rechnung", "schlussrechnung", "betreuungsrechnung", "zahlungserinnerung", "mahnung1", "mahnung2", "lastschrift_start", "lastschrift_ende", "kuendigung"] },
-  { key: "projekt", name: "Projekte", zwecke: ["kickoff", "inhalte_eingang", "abnahme_aufforderung", "abnahme_bestaetigung", "livegang", "umzug_anleitung", "umzug_fertig", "monatsreport"] },
+  { key: "projekt", name: "Projekte", zwecke: ["kickoff", "inhalte_eingang", "abnahme_aufforderung", "abnahme_bestaetigung", "livegang", "umzug_anleitung", "umzug_fertig", "monatsreport", "datei_portal"] },
   { key: "marketing", name: "Marketing", zwecke: ["beitraege_vorlage"] },
 ];
 export const gruppeVon = (zweck: string) => FREIGABE_GRUPPEN.find((g) => g.zwecke.includes(zweck))?.key ?? "sonstiges";

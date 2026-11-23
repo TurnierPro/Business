@@ -12,7 +12,7 @@ import { portalBasis } from "@/lib/kundenportal";
 import { BesuchBerichtFelder } from "@/components/BesuchBericht";
 import { DEMO_STATUS, demosVon } from "@/lib/demos";
 import { linkSchluessel } from "@/lib/geheim";
-import { beitragAnlegen, beitraegeVorlegen, beitragUeberarbeiten, beitragVeroeffentlicht, beitragLoeschen, demoFreigeben, demoHochladen, demoLoeschen, demoZurueckziehen, gespraechImportieren, besuchErfassen, aktivitaetAnlegen, antwortEntwerfen, nachrichtErledigt, portalLinkErneuern, portalZugangAnlegen, portalZugangSperren, betriebSpeichern, betriebZuweisen, datenLoeschen, einstufen, kontaktLoeschen, kontaktSpeichern, widerspruch, zahlungSimulieren } from "../../aktionen";
+import { dateiAnKunden, dateiFreigeben, dateiLoeschen, beitragAnlegen, beitraegeVorlegen, beitragUeberarbeiten, beitragVeroeffentlicht, beitragLoeschen, demoFreigeben, demoHochladen, demoLoeschen, demoZurueckziehen, gespraechImportieren, besuchErfassen, aktivitaetAnlegen, antwortEntwerfen, nachrichtErledigt, portalLinkErneuern, portalZugangAnlegen, portalZugangSperren, betriebSpeichern, betriebZuweisen, datenLoeschen, einstufen, kontaktLoeschen, kontaktSpeichern, widerspruch, zahlungSimulieren } from "../../aktionen";
 import { AufgabenListe } from "@/components/AufgabenListe";
 import { ARTEN } from "@/lib/ablauf/crm";
 import { ticketNummer } from "@/lib/ablauf/tickets";
@@ -20,6 +20,7 @@ import { KANAELE } from "@/lib/ablauf/nachrichten";
 import { JETZT, WEG, wegIndex } from "@/lib/weg";
 import { ERGEBNISSE, KONTAKT } from "@/lib/ablauf/vertrieb";
 import { aktivesMandat, ibanMaskiert } from "@/lib/ablauf/mandat";
+import { dateienVon } from "@/lib/dateien";
 import { BEITRAG_ARTEN, BEITRAG_STATUS, KANAELE as BEITRAG_KANAELE, beitraegeVon } from "@/lib/beitraege";
 
 const PROJEKT_TEXT: Record<string, string> = { inhalte: "wartet auf Inhalte", bau: "wird gebaut", pruefung: "Prüfung nicht bestanden", bereit: "Vorschau beim Kunden", live: "live, Betreuung läuft", beendet: "beendet" };
@@ -76,6 +77,7 @@ export default async function Lead({ params, searchParams }: { params: Promise<{
   const angebot = angebote[0];
   const sepaMandat = await aktivesMandat(id);
   const beitraege = await beitraegeVon(id);
+  const dateien = await dateienVon(id);
   const mitMarketing = beitraege.length > 0 || angebote.some((a) => (a.module ?? []).includes("marketing") && a.unterschriebenAm);
   const projekt = projekte[0];
   const offenePost = post.filter((p) => p.status === "zur_freigabe");
@@ -522,6 +524,43 @@ export default async function Lead({ params, searchParams }: { params: Promise<{
                 <label className="feld"><span>Text</span><textarea name="text" rows={4} required maxLength={2200} /></label>
                 <label className="feld"><span>Bei Antworten: Text der Bewertung (ohne Namen)</span><textarea name="bezug" rows={2} /></label>
                 <button className="knopf klein">Entwurf speichern</button>
+              </form>
+            </details>
+          </section>
+        ) : null}
+        {b.portalToken || dateien.length ? (
+          <section className="karte abstand-klein" id="dateien" aria-labelledby="dateien-titel">
+            <div className="kopfzeile" style={{ marginBottom: 4 }}>
+              <h2 id="dateien-titel" style={{ margin: 0 }}>Dateien mit dem Kunden</h2>
+              <span className="leise klein">Fotos und PDFs über das Kundenportal, in beide Richtungen</span>
+            </div>
+            <p className="leise klein">Was der Kunde hochlädt, ist sofort hier (mit Aufgabe und Push-Meldung). Was ihr hochladet, sieht der Kunde erst, wenn die kurze Hinweis-Mail freigegeben und versendet ist.</p>
+            {dateien.length ? (
+              <ul className="zeilen">
+                {dateien.map((d) => (
+                  <li key={d.id}>
+                    <div>
+                      <div className="titel">{d.name}</div>
+                      <div className="unter">{d.richtung === "vom_kunden" ? "vom Kunden" : "von uns"} · {d.typ.toUpperCase()} · {(d.groesse / 1024 / 1024).toLocaleString("de-DE", { maximumFractionDigits: 1 })} MB · {datum(d.erstelltAm)}{d.notiz ? ` · „${d.notiz}“` : ""}</div>
+                    </div>
+                    <div className="knopfreihe" style={{ gap: 8 }}>
+                      <span className={`status ${d.status === "neu" || d.status === "zur_freigabe" ? "warten" : d.status === "entwurf" ? "" : "ok"}`}>{{ neu: "neu", gesehen: "angesehen", entwurf: "noch nicht beim Kunden", zur_freigabe: "Hinweis-Mail in den Freigaben", im_portal: "im Kundenportal" }[d.status] ?? d.status}</span>
+                      <a className="knopf klein" href={`/datei/${d.id}`} target="_blank">Öffnen</a>
+                      {d.richtung === "an_kunden" && d.status === "entwurf" ? <form action={dateiFreigeben}><input type="hidden" name="betriebId" value={id} /><input type="hidden" name="dateiId" value={d.id} /><button className="knopf klein">Im Portal bereitstellen</button></form> : null}
+                      {d.status === "zur_freigabe" && d.eintragId ? <Link className="knopf klein" href={`/freigaben/${d.eintragId}`}>Zur Freigabe</Link> : null}
+                      {d.status !== "zur_freigabe" ? <form action={dateiLoeschen}><input type="hidden" name="betriebId" value={id} /><input type="hidden" name="dateiId" value={d.id} /><button className="knopf klein gefahr" aria-label={`${d.name} löschen`}>Löschen</button></form> : null}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+            <details className="schnell-aufgabe">
+              <summary className="knopf klein">+ Datei für den Kunden hochladen</summary>
+              <form action={dateiAnKunden} className="schnell-form" style={{ gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr) auto" }}>
+                <input type="hidden" name="betriebId" value={id} />
+                <input type="file" name="datei" required accept="image/jpeg,image/png,image/webp,application/pdf" aria-label="Datei" />
+                <input name="notiz" placeholder="Kurzer Hinweis für den Kunden (freiwillig)" aria-label="Hinweis" />
+                <button className="knopf klein">Hochladen</button>
               </form>
             </details>
           </section>

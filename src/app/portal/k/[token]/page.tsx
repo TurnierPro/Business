@@ -172,7 +172,26 @@ async function ticketPortal(f: FormData) {
   redirect(`/portal/k/${token}?ticket=1#wunsch`);
 }
 
-export default async function Kundenportal({ params, searchParams }: { params: Promise<{ token: string }>; searchParams: Promise<{ fehler?: string; danke?: string; bezahlt?: string; abgebrochen?: string; abnahme?: string; abnahmefehler?: string; ticket?: string; ticketfehler?: string; mandat?: string; mandatfehler?: string; foto?: string; fotofehler?: string; beitrag?: string; beitragfehler?: string; gekuendigt?: string; kuendigungfehler?: string; interesse?: string }> }) {
+// Dateien an Levarex senden (Fotos, PDFs): landen sofort bei uns, mit Aufgabe und Push-Meldung
+async function dateiPortal(f: FormData) {
+  "use server";
+  const token = String(f.get("token"));
+  const zugang = await zugangPerPortal(token);
+  if (!zugang) notFound();
+  const ip = clientIp(await headers());
+  if (!(await erlaubt("portal-datei", ip, GRENZEN.formularJeIp))) redirect(`/portal/k/${token}?dateifehler=${encodeURIComponent("Zu viele Versuche. Bitte in einer Stunde noch einmal.")}#dateien`);
+  await versuchMerken("portal-datei", ip);
+  let fehler = "";
+  try {
+    const { dateiVomKunden } = await import("@/lib/dateien");
+    await dateiVomKunden(zugang.betrieb.id, f.getAll("dateien").filter((x): x is File => x instanceof File), String(f.get("notiz") ?? ""), `Kundenportal (${zugang.person ?? zugang.betrieb.name})`);
+  } catch (e) {
+    fehler = e instanceof Error ? e.message : "Das hat nicht geklappt.";
+  }
+  redirect(`/portal/k/${token}?${fehler ? `dateifehler=${encodeURIComponent(fehler.slice(0, 300))}` : "datei=1"}#dateien`);
+}
+
+export default async function Kundenportal({ params, searchParams }: { params: Promise<{ token: string }>; searchParams: Promise<{ fehler?: string; danke?: string; bezahlt?: string; abgebrochen?: string; abnahme?: string; abnahmefehler?: string; ticket?: string; ticketfehler?: string; mandat?: string; mandatfehler?: string; foto?: string; fotofehler?: string; beitrag?: string; beitragfehler?: string; gekuendigt?: string; kuendigungfehler?: string; interesse?: string; datei?: string; dateifehler?: string }> }) {
   const { token } = await params;
   const zugang = await zugangPerPortal(token);
   if (!zugang) notFound();
@@ -190,6 +209,7 @@ export default async function Kundenportal({ params, searchParams }: { params: P
   const gebucht = liveProjekt ? await gebuchteModule(liveProjekt) : [];
   // Schon gemeldetes Interesse (offene Aufgabe) bleibt sichtbar und lässt sich nicht doppelt melden
   const gemeldet = new Set(await gemeldeteInteressen(b.id));
+  const dateien = (await (await import("@/lib/dateien")).dateienVon(b.id)).filter((x) => x.richtung === "vom_kunden" || x.status === "im_portal");
   const weitereModule = liveProjekt && !liveProjekt.gekuendigtAm ? (await katalogLaden()).module.filter((m) => m.aktiv !== false && m.einmalig !== null && !gebucht.includes(m.key)) : [];
   const mitBetreuung = d.projekt && ["live", "bereit", "bau", "pruefung"].includes(d.projekt.status);
   const k = mitBetreuung ? await kontingent(b.id) : null;
@@ -216,7 +236,7 @@ export default async function Kundenportal({ params, searchParams }: { params: P
 
   // Nach einer Aktion zum passenden Abschnitt springen (der #anker geht bei der Weiterleitung verloren)
   const sp = await searchParams;
-  const anker = sp.mandatfehler || sp.mandat ? "mandat" : sp.fotofehler || sp.foto ? "fotos" : sp.beitragfehler || sp.beitrag ? "beitraege" : sp.abnahmefehler ? "abnahme" : sp.abnahme ? "abnahme-danke" : sp.interesse ? "module" : sp.gekuendigt || sp.kuendigungfehler ? "vertrag" : sp.ticket || sp.ticketfehler ? "wunsch" : null;
+  const anker = sp.mandatfehler || sp.mandat ? "mandat" : sp.fotofehler || sp.foto ? "fotos" : sp.beitragfehler || sp.beitrag ? "beitraege" : sp.abnahmefehler ? "abnahme" : sp.abnahme ? "abnahme-danke" : sp.interesse ? "module" : sp.gekuendigt || sp.kuendigungfehler ? "vertrag" : sp.ticket || sp.ticketfehler ? "wunsch" : sp.datei || sp.dateifehler ? "dateien" : null;
 
   return (
     <>
@@ -367,6 +387,32 @@ export default async function Kundenportal({ params, searchParams }: { params: P
               {d.tickets.map((t) => <li key={t.id}><div><div className="titel">{ticketNummer(t.id)} {t.betreff}</div><div className="unter">{tag(t.erstelltAm)}{t.erledigtAm ? ` · erledigt ${tag(t.erledigtAm)}` : ""}</div></div><span className={`status ${t.status === "erledigt" ? "ok" : "warten"}`}>{TICKET_STATUS[t.status]}</span></li>)}
             </ul>
           ) : null}
+        </section>
+      ) : null}
+
+      {d.angebotOffen || d.projekt || dateien.length ? (
+        <section id="dateien" className="karte">
+          <h2>Dateien</h2>
+          <p className="leise">Schicken Sie uns Fotos oder PDFs, zum Beispiel neue Bilder für die Website, Ihr Logo oder eine Preisliste. Was wir für Sie bereitstellen, finden Sie ebenfalls hier.</p>
+          {sp.datei ? <div className="hinweis ok" role="status">Danke, ist angekommen. Wir sehen es uns an.</div> : null}
+          {sp.dateifehler ? <div className="hinweis fehler" role="alert">{sp.dateifehler}</div> : null}
+          {dateien.length ? (
+            <ul className="liste">
+              {dateien.map((x) => (
+                <li key={x.id}>
+                  <div><div className="titel">{x.name}</div><div className="unter">{x.richtung === "vom_kunden" ? "von Ihnen" : "von Levarex"} · {tag(x.erstelltAm)}{x.notiz ? ` · ${x.notiz}` : ""}</div></div>
+                  <a className="knopf klein" href={`/portal/k/${token}/datei/${x.id}`} target="_blank">Öffnen</a>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          <form id="datei-form" action={dateiPortal} style={{ display: "grid", gap: 10, marginTop: 12 }}>
+            <input type="hidden" name="token" value={token} />
+            <label className="feld"><span>Dateien (Fotos oder PDF, je höchstens 20 MB)</span><input type="file" name="dateien" multiple required accept="image/jpeg,image/png,image/webp,image/heic,application/pdf" /></label>
+            <label className="feld"><span>Kurzer Hinweis (freiwillig)</span><input name="notiz" maxLength={500} placeholder="z. B. Neue Fotos vom Team für die Startseite" /></label>
+            <UnterschriftPruefung formId="datei-form" zaehler={false} />
+            <div className="knopfreihe"><button className="knopf">Senden</button></div>
+          </form>
         </section>
       ) : null}
 
@@ -530,7 +576,7 @@ export default async function Kundenportal({ params, searchParams }: { params: P
             )}
           </>
         ) : <p className="leise">Die Laufzeit beginnt mit dem Livegang Ihrer Website.</p>}
-        <p style={{ marginTop: 12 }}>Ihre Daten gehören Ihnen. Sie können sie jederzeit herunterladen:</p>
+        <p style={{ marginTop: 12 }}>Ihre Angaben, Anfragen, Tickets und Rechnungen bei uns können Sie jederzeit herunterladen:</p>
         <div className="knopfreihe"><a className="knopf klein" href={`/portal/k/${token}/export`}>Alle Daten (JSON)</a>{d.anfragen.length ? <a className="knopf klein" href={`/portal/k/${token}/export?format=csv`}>Anfragen als Tabelle (CSV)</a> : null}</div>
       </section>
 

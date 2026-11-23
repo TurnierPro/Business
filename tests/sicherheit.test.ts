@@ -478,3 +478,39 @@ test("Portal: Beitragsfotos nur für den eigenen Betrieb und erst nach der Vorla
   const r = await (await import("../src/app/api/v1/beitraege/route")).POST(new Request("http://localhost/api/v1/beitraege", { method: "POST", headers: { Authorization: `Bearer ${schluessel}`, "Content-Type": "application/json" }, body: JSON.stringify({ betriebId: b.id, kanaele: ["instagram"], text: "x" }) }));
   assert.equal(r.status, 403);
 });
+
+test("Dateien im Kundenportal: nur echte Fotos/PDFs, nur der eigene Betrieb, Dateien von Levarex erst nach Freigabe", async () => {
+  const dt = await import("../src/lib/dateien");
+  const kp = await import("../src/lib/kundenportal");
+  const route = await import("../src/app/portal/k/[token]/datei/[id]/route");
+  const [b] = await db.insert(schema.betriebe).values({ name: "Datei Sicher GmbH", gewerk: "SHK", email: "chef@datei-sicher.example" }).returning();
+  const [fremd] = await db.insert(schema.betriebe).values({ name: "Datei Fremd GmbH", gewerk: "SHK", email: "chef@datei-fremd.example" }).returning();
+  const png = new Uint8Array(Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==", "base64"));
+  // HTML als .pdf getarnt: abgelehnt, nichts gespeichert
+  await assert.rejects(() => dt.dateiVomKunden(b.id, [new File(["<script>alert(1)</script>"], "rechnung.pdf", { type: "application/pdf" })], "", "Test"), /gehen nicht/);
+  assert.equal((await dt.dateienVon(b.id)).length, 0);
+  // Gefährlicher Dateiname wird bereinigt
+  const [vom] = await dt.dateiVomKunden(b.id, [new File([png], "../../etc/<x>.png", { type: "image/png" })], "Logo", "Test");
+  const gespeichert = (await dt.dateienVon(b.id)).find((d) => d.id === vom)!;
+  assert.ok(!gespeichert.name.includes("/") && !gespeichert.name.includes("<"), gespeichert.name);
+  assert.match(gespeichert.pfad, /^datei-\d+\.png$/);
+  const an = await dt.dateiAnKunden(b.id, new File([png], "entwurf.png", { type: "image/png" }), "Ihr Entwurf", "Test");
+  const token = (await kp.portalLink(b.id)).split("/").pop()!;
+  const tokenFremd = (await kp.portalLink(fremd.id)).split("/").pop()!;
+  const holen = (t: string, id: number) => route.GET(new Request("http://localhost/"), { params: Promise.resolve({ token: t, id: String(id) }) });
+  assert.equal((await holen(token, vom)).status, 200, "eigene Datei");
+  assert.equal((await holen(tokenFremd, vom)).status, 404, "fremder Betrieb");
+  assert.equal((await holen(token, an)).status, 404, "Datei von Levarex vor der Freigabe");
+  const r = await holen(token, vom);
+  assert.equal(r.headers.get("X-Content-Type-Options"), "nosniff");
+  assert.match(r.headers.get("Content-Security-Policy") ?? "", /sandbox/);
+  // Freigabe: Hinweis-Mail in den Postausgang, nach Versand sichtbar
+  const eintrag = await dt.dateiFreigeben(an, "Test");
+  const [m] = await db.select().from(schema.postausgang).where(eq(schema.postausgang.id, eintrag));
+  assert.equal(m.zweck, "datei_portal");
+  await dt.dateiImPortal(an);
+  assert.equal((await holen(token, an)).status, 200);
+  // Löschen entfernt die Datei
+  await dt.dateiLoeschen(vom, "Test");
+  assert.equal((await holen(token, vom)).status, 404);
+});

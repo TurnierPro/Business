@@ -252,6 +252,23 @@ export const beitraege = pgTable("beitraege", {
   erstelltAm: timestamp("erstellt_am", { withTimezone: true }).defaultNow().notNull(),
 });
 
+// Dateien zwischen Betrieb und Levarex im Kundenportal: Der Kunde lädt hoch (vom_kunden, sofort bei uns),
+// wir legen etwas bereit (an_kunden, erst nach Freigabe der Hinweis-Mail im Portal sichtbar).
+export const dateien = pgTable("dateien", {
+  id: serial("id").primaryKey(),
+  betriebId: integer("betrieb_id").notNull().references(() => betriebe.id, { onDelete: "cascade" }),
+  richtung: text("richtung").notNull(), // vom_kunden | an_kunden
+  name: text("name").notNull(), // Anzeigename (Originalname, bereinigt)
+  pfad: text("pfad").notNull(), // Dateiname im Ordner dateien/<betriebId>
+  typ: text("typ").notNull(), // jpg | png | webp | gif | heic | pdf
+  groesse: integer("groesse").notNull(),
+  notiz: text("notiz"),
+  status: text("status").notNull().default("neu"), // vom_kunden: neu | gesehen; an_kunden: entwurf | zur_freigabe | im_portal
+  eintragId: integer("eintrag_id"),
+  erstelltVon: text("erstellt_von").notNull(),
+  erstelltAm: timestamp("erstellt_am", { withTimezone: true }).defaultNow().notNull(),
+});
+
 export const jobs = pgTable("jobs", {
   id: serial("id").primaryKey(),
   art: text("art").notNull(),
