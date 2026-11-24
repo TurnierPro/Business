@@ -8,6 +8,7 @@ import { clientIp, erlaubt, GRENZEN, versuchMerken, versucheLoeschen } from "@/l
 import { protokolliere } from "@/lib/protokoll";
 import { Logo } from "@/components/Logo";
 import { marke } from "@/lib/marke";
+import { VERSION, VERSION_DATUM } from "@/lib/version";
 
 export const metadata = { title: "Anmelden" };
 
@@ -47,6 +48,7 @@ export default async function Login({ searchParams }: { searchParams: Promise<{ 
   const entwicklung = process.env.NODE_ENV !== "production" || lokalerStart();
   return (
     <div className="zentriert">
+      <div className="versionsnummer" title={`Stand ${VERSION_DATUM}`}>Version {VERSION}</div>
       <div className="schmal">
         <div style={{ marginBottom: 32 }}>
           <Logo hoehe={30} />
