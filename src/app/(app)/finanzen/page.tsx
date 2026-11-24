@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { auswertung, kategorieName, monatName, nachbar, zeitraum } from "@/lib/finanzen";
-import { umsatzDiagramm, FARBEN_DUNKEL } from "@/lib/diagramm";
+import { umsatzDiagramm, FARBEN_HELL } from "@/lib/diagramm";
 import { euro, PAKETE, PaketKey, UST } from "@/lib/pakete";
 import { datum } from "@/lib/format";
 import { Status } from "@/components/Status";
@@ -112,7 +112,7 @@ export default async function Finanzen({ searchParams }: { searchParams: Promise
 
       <section className="karte abstand">
         <h2>Umsatz und Ausgaben je Monat {jahr}</h2>
-        <div className="diagramm-rahmen" dangerouslySetInnerHTML={{ __html: umsatzDiagramm(jahresverlauf.map((m) => ({ name: monatName(m.monat), umsatz: m.umsatz, ausgaben: m.ausgaben })), FARBEN_DUNKEL, 1400) }} />
+        <div className="diagramm-rahmen" dangerouslySetInnerHTML={{ __html: umsatzDiagramm(jahresverlauf.map((m) => ({ name: monatName(m.monat), umsatz: m.umsatz, ausgaben: m.ausgaben })), FARBEN_HELL, 1100) }} />
         <details style={{ marginTop: 8 }}>
           <summary className="leise klein" style={{ cursor: "pointer" }}>Als Tabelle</summary>
           <table className="tabelle"><thead><tr><th>Monat</th><th className="zahl">Umsatz</th><th className="zahl">Ausgaben</th><th className="zahl">Ergebnis</th></tr></thead>

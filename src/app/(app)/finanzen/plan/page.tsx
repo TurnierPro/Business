@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { planIst } from "@/lib/plan-ist";
 import { ANNAHMEN, PLAN_BAUSTEINE, PLAN_JAHRE, QUOTEN, SZENARIEN, jahreswerte, type SzenarioKey } from "@/lib/plan";
-import { planIstDiagramm, FARBEN_DUNKEL } from "@/lib/diagramm";
+import { planIstDiagramm, FARBEN_HELL } from "@/lib/diagramm";
 import { monatName } from "@/lib/finanzen";
 import { euro } from "@/lib/pakete";
 import { Fortschritt } from "@/components/FinanzReiter";
@@ -60,7 +60,7 @@ export default async function Plan({ searchParams }: { searchParams: Promise<{ s
 
       <section className="karte abstand">
         <h2>Umsatz kumuliert: Plan und Ist</h2>
-        <div className="diagramm-rahmen" dangerouslySetInnerHTML={{ __html: planIstDiagramm(p.monate.map((m) => ({ name: monatName(m.monat), plan: m.umsatz, ist: m.ist ? m.ist.umsatz : null })), FARBEN_DUNKEL, 1400) }} />
+        <div className="diagramm-rahmen" dangerouslySetInnerHTML={{ __html: planIstDiagramm(p.monate.map((m) => ({ name: monatName(m.monat), plan: m.umsatz, ist: m.ist ? m.ist.umsatz : null })), FARBEN_HELL, 1100) }} />
       </section>
 
       <section className="karte abstand">
