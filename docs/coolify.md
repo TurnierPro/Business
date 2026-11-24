@@ -52,3 +52,16 @@ Levarex OS meldet sich dabei einmal an und speichert das Passwort verschlüsselt
 - In der Freigabe steht vor dem Versand, von welchem Postfach die Mail rausgeht.
 - Wichtig: Wird `SESSION_SECRET` geändert, lassen sich die gespeicherten Passwörter nicht mehr lesen.
   Dann jedes Postfach einmal neu verbinden.
+
+## Anmeldung klappt nicht
+
+Konten beim ersten Start: `maximilian@levarex-consulting.de` und `daniel@levarex-consulting.de`, Passwort = `LEVAREX_START_PASSWORT`.
+Die Konten entstehen beim allerersten Aufruf der Anmeldeseite mit dem Passwort, das **in diesem Moment** gesetzt war.
+Wurde es danach in Coolify geändert, gilt noch das alte. Dann in Coolify **app → Terminal**:
+
+```
+npx tsx scripts/passwort-zuruecksetzen.ts maximilian@levarex-consulting.de
+```
+
+Setzt das Passwort auf den aktuellen Wert von `LEVAREX_START_PASSWORT`, hebt die Sperre nach Fehlversuchen auf und
+beendet alle Sitzungen. Mit `--ohne-2fa` zusätzlich die Zwei-Faktor-Anmeldung zurücksetzen (z. B. Handy verloren).
