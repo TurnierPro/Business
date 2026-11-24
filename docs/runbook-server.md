@@ -2,6 +2,8 @@
 
 Für Daniel und Maximilian. Jeder Schritt lässt sich ohne Programmierkenntnisse ausführen. Was du brauchst, steht in Bitwarden in der Sammlung **„Levarex Server“** (Notfallzugang für beide).
 
+**Mit Coolify (aktueller Hostinger-Server):** Einrichtung und Unterschiede stehen in `docs/coolify.md`. Teil A unten gilt nur für einen Server ohne Coolify.
+
 **Ziel:** Nach einem Totalausfall läuft Levarex OS innerhalb eines Werktags wieder (Service-Level Dok. 20). Jede echte Wiederherstellung und jeder Probelauf wird mit Dauer unten in der Tabelle eingetragen.
 
 ## Was wo liegt
@@ -31,8 +33,8 @@ Für Daniel und Maximilian. Jeder Schritt lässt sich ohne Programmierkenntnisse
 6. **Starten:**
    ```
    cd /opt/levarex
-   docker compose run --rm caddy caddy validate --config /etc/caddy/Caddyfile
-   docker compose up -d --build
+   docker compose -f deploy/docker-compose.ohne-coolify.yml run --rm caddy caddy validate --config /etc/caddy/Caddyfile
+   docker compose -f deploy/docker-compose.ohne-coolify.yml up -d --build
    ```
    Die erste Zeile prüft die Caddy-Einstellungen; sie muss mit „Valid configuration“ enden.
    Nach etwa 5 Minuten: `https://os.levarex-consulting.de` öffnen. Die Anmeldeseite erscheint.
@@ -60,7 +62,7 @@ Beim allerersten Aufsetzen (keine Sicherung vorhanden) ist hier Schluss: anmelde
 ## C. Updates und Patches
 
 - **Betriebssystem:** spielt Sicherheits-Updates selbst ein, Neustart falls nötig um 4 Uhr.
-- **Levarex OS:** nur Maximilian, nach grünen Tests: `cd /opt/levarex && git pull && docker compose up -d --build`.
+- **Levarex OS:** nur Maximilian, nach grünen Tests: `cd /opt/levarex && git pull && docker compose -f deploy/docker-compose.ohne-coolify.yml up -d --build`.
 - **PostgreSQL, Caddy, n8n:** einmal im Monat (erster Montag) prüfen, ob es Sicherheits-Updates gibt. n8n: Version in der `.env` (`N8N_VERSION`) erhöhen, vorher die Änderungsliste lesen, dann `docker compose up -d n8n`. Nie „latest“.
 - Jedes Update steht mit Datum im Änderungsprotokoll (Bitwarden-Notiz „Server-Änderungen“ oder Dok. 40).
 

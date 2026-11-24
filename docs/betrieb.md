@@ -7,8 +7,8 @@ Was jede Meldung bedeutet und was du tust. Meldungen erscheinen unter **Logs →
 | Meldung | Bedeutung | Was tun |
 |---|---|---|
 | Backup erstellt, nicht extern | Sicherung liegt nur auf dem Server | `S3_*` und `BACKUP_SCHLUESSEL` in der `.env` prüfen. Bis das läuft, ist ein Serverausfall ein Datenverlust. |
-| Probe-Rücksicherung fehlgeschlagen | Das letzte Backup ließ sich nicht einspielen | Sofort prüfen: Logs → Technik und Agenten → Backup „Jetzt“, dann Rücksicherung „Jetzt“. Klappt es nicht: `docker compose logs app` auf dem Server. |
-| Seite(n) nicht erreichbar | Eine Kunden-Website antwortet nicht | Auf dem Server `docker compose ps`: laufen alle Dienste? DNS beim Kunden geändert? Zertifikat: `docker compose logs caddy`. |
+| Probe-Rücksicherung fehlgeschlagen | Das letzte Backup ließ sich nicht einspielen | Sofort prüfen: Logs → Technik und Agenten → Backup „Jetzt“, dann Rücksicherung „Jetzt“. Klappt es nicht: in Coolify app → Logs. |
+| Seite(n) nicht erreichbar | Eine Kunden-Website antwortet nicht | In Coolify: laufen alle Dienste? DNS beim Kunden geändert? Zertifikat: in Coolify bei app → Domains prüfen, ob die Kunden-Domain eingetragen ist. |
 | Lieferfrist knapp / verfehlt | Vorschau nicht rechtzeitig beim Kunden | Projekt öffnen, Kunden anrufen. Verfehlt: ein Monat Betreuung ohne Berechnung vormerken. |
 | Tagesbericht: bitte prüfen | Fehlgeschlagene Jobs oder Warnungen in den letzten 24 h | System → Hintergrund-Jobs, Fehlertext lesen, „Wiederholen“. |
 | Job mit Status Fehler | Ein Ablauf ist nach 3 Versuchen gescheitert | Fehlertext lesen. Häufig: fehlende Zugangsdaten eines Dienstes oder Dienst nicht erreichbar. |

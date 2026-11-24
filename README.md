@@ -128,7 +128,7 @@ Jeder Dienst hat einen Simulator und wird „echt“, sobald seine Zugangsdaten 
 
 ## Auf den Server (Hostinger)
 
-Der Server läuft bei Hostinger mit `docker-compose.yml`: Caddy (HTTPS), App, PostgreSQL und n8n in getrennten Netzen; Sicherung täglich verschlüsselt bei IONOS. Vorlage für die `.env` auf dem Server: [`deploy/server.env.example`](deploy/server.env.example). Aufsetzen und Wiederherstellen Schritt für Schritt: [`docs/runbook-server.md`](docs/runbook-server.md); Meldungen und feste Zeiten: [`docs/betrieb.md`](docs/betrieb.md).
+Der Server läuft bei Hostinger mit Coolify und `docker-compose.yml`: App, PostgreSQL und n8n, Domains und HTTPS macht Coolify (Einrichtung: [`docs/coolify.md`](docs/coolify.md); ohne Coolify mit Caddy: `deploy/docker-compose.ohne-coolify.yml`); Sicherung täglich verschlüsselt bei IONOS. Vorlage für die `.env` auf dem Server: [`deploy/server.env.example`](deploy/server.env.example). Aufsetzen und Wiederherstellen Schritt für Schritt: [`docs/runbook-server.md`](docs/runbook-server.md); Meldungen und feste Zeiten: [`docs/betrieb.md`](docs/betrieb.md).
 
 ## Aufbau
 

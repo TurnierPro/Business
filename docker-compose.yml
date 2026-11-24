@@ -1,71 +1,114 @@
-# Levarex OS bei Hostinger (ein VPS): Caddy (HTTPS), App, PostgreSQL, n8n.
-# Geheimnisse stehen in der .env auf dem Server (Vorlage: deploy/server.env.example), nie hier und nie im Git.
+# Levarex OS auf dem Hostinger-Server mit Coolify: App, PostgreSQL, n8n.
 #
-# Netze (Trennung):
-#   db-netz  – nur App und PostgreSQL. n8n ist NICHT drin: n8n kennt weder Datenbank noch Zugangsdaten.
-#   web-netz – Caddy, App, n8n. n8n spricht mit Levarex OS nur über http://app:3000/api/v1 mit eigenem API-Schlüssel.
-# Von außen erreichbar ist nur Caddy (Ports 80 und 443).
+# Coolify übernimmt Domains, HTTPS-Zertifikate und das Weiterleiten (Traefik). Deshalb gibt es hier
+# keinen eigenen Webserver (Caddy) und keine Ports nach außen. Domains trägst du in Coolify je Dienst ein:
+#   app → https://os.levarex-consulting.de,https://portal.levarex-consulting.de   (Port 3000)
+#   n8n → https://n8n.levarex-consulting.de                                       (Port 5678)
+# Geheimnisse stehen in Coolify unter „Environment Variables“, nie hier und nie im Git.
+# Fassung für einen Server ohne Coolify (mit Caddy): deploy/docker-compose.ohne-coolify.yml
+#
+# Trennung: Die Datenbank hängt nur im internen Netz „db-netz“ (kein Weg nach außen). n8n ist dort nicht drin:
+# n8n kennt weder Datenbank noch Zugangsdaten und spricht mit Levarex OS nur über http://app:3000/api/v1.
 
 services:
-  caddy:
-    image: caddy:2.8
-    restart: unless-stopped
-    ports:
-      - "80:80"
-      - "443:443"
-    environment:
-      OS_DOMAIN: ${OS_DOMAIN}
-      PORTAL_DOMAIN: ${PORTAL_DOMAIN}
-      N8N_DOMAIN: ${N8N_DOMAIN}
-      ACME_EMAIL: ${ACME_EMAIL}
-    volumes:
-      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy-daten:/data
-      - caddy-config:/config
-    networks: [web-netz]
-    depends_on: [app]
-
   app:
     build: .
     restart: unless-stopped
-    env_file: .env
     environment:
-      DATABASE_URL: postgres://levarex:${POSTGRES_PASSWORD}@db:5432/levarex
-      BASE_URL: https://${OS_DOMAIN}
-      PORTAL_URL: https://${PORTAL_DOMAIN}
-      LEVAREX_HOSTS: ${OS_DOMAIN},${PORTAL_DOMAIN}
+      # Coolify: Dienst lauscht auf Port 3000 (Domains stellst du in Coolify ein)
+      SERVICE_FQDN_APP_3000: ""
+      DATABASE_URL: postgres://levarex:${SERVICE_PASSWORD_POSTGRES}@db:5432/levarex
+      # Eigene Adressen von Levarex OS und Kundenportal (müssen zu den Domains in Coolify passen)
+      BASE_URL: ${BASE_URL:-https://os.levarex-consulting.de}
+      PORTAL_URL: ${PORTAL_URL:-https://portal.levarex-consulting.de}
+      LEVAREX_HOSTS: ${LEVAREX_HOSTS:-os.levarex-consulting.de,portal.levarex-consulting.de}
       DATA_DIR: /data
       N8N_DATEN: /n8n-daten
+      # Pflicht: je mindestens 32 zufällige Zeichen (openssl rand -base64 32), in Bitwarden ablegen
+      SESSION_SECRET: ${SESSION_SECRET:?SESSION_SECRET fehlt (in Coolify unter Environment Variables eintragen)}
+      LEVAREX_START_PASSWORT: ${LEVAREX_START_PASSWORT:?LEVAREX_START_PASSWORT fehlt (Passwort für die erste Anmeldung)}
+      # Freiwillig: leer = Simulator. Erst eintragen, wenn der Dienst wirklich angebunden werden soll.
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      MAIL_DIENST: ${MAIL_DIENST:-}
+      MAIL_ABSENDER_NAME: ${MAIL_ABSENDER_NAME:-}
+      MAIL_ANTWORT_AN: ${MAIL_ANTWORT_AN:-}
+      MS_TENANT_ID: ${MS_TENANT_ID:-}
+      MS_CLIENT_ID: ${MS_CLIENT_ID:-}
+      MS_CLIENT_SECRET: ${MS_CLIENT_SECRET:-}
+      MS_ABSENDER: ${MS_ABSENDER:-}
+      GOOGLE_CLIENT_EMAIL: ${GOOGLE_CLIENT_EMAIL:-}
+      GOOGLE_PRIVATE_KEY: ${GOOGLE_PRIVATE_KEY:-}
+      GOOGLE_ABSENDER: ${GOOGLE_ABSENDER:-}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      MAIL_FROM: ${MAIL_FROM:-}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      SMTP_FROM: ${SMTP_FROM:-}
+      WHATSAPP_TOKEN: ${WHATSAPP_TOKEN:-}
+      WHATSAPP_TELEFON_ID: ${WHATSAPP_TELEFON_ID:-}
+      WHATSAPP_APP_SECRET: ${WHATSAPP_APP_SECRET:-}
+      WHATSAPP_VERIFY_TOKEN: ${WHATSAPP_VERIFY_TOKEN:-}
+      BRIEFDIENST_API_KEY: ${BRIEFDIENST_API_KEY:-}
+      AKQUISE_FREIGESCHALTET: ${AKQUISE_FREIGESCHALTET:-}
+      DOCUSEAL_URL: ${DOCUSEAL_URL:-}
+      DOCUSEAL_TOKEN: ${DOCUSEAL_TOKEN:-}
+      WHISPER_URL: ${WHISPER_URL:-}
+      WHISPER_MODELL: ${WHISPER_MODELL:-}
+      STEUERBERATER_EMAIL: ${STEUERBERATER_EMAIL:-}
+      NTFY_URL: ${NTFY_URL:-}
+      S3_ENDPOINT: ${S3_ENDPOINT:-}
+      S3_REGION: ${S3_REGION:-}
+      S3_BUCKET: ${S3_BUCKET:-}
+      S3_ZUGRIFF: ${S3_ZUGRIFF:-}
+      S3_GEHEIM: ${S3_GEHEIM:-}
+      BACKUP_SCHLUESSEL: ${BACKUP_SCHLUESSEL:-}
+      SERVER_IP: ${SERVER_IP:-}
+      DNS_SERVER: ${DNS_SERVER:-}
+      LEXWARE_API_KEY: ${LEXWARE_API_KEY:-}
+      QONTO_ACCESS_TOKEN: ${QONTO_ACCESS_TOKEN:-}
+      QONTO_KONTO_ID: ${QONTO_KONTO_ID:-}
+      GLAEUBIGER_ID: ${GLAEUBIGER_ID:-}
     volumes:
       - levarex-daten:/data
       # Nur für die tägliche Sicherung der n8n-Abläufe (und die Wiederherstellung)
       - n8n-daten:/n8n-daten
-    networks: [db-netz, web-netz]
-    depends_on: [db]
+    networks: [db-netz, default]
+    depends_on:
+      db:
+        condition: service_healthy
 
   db:
     image: postgres:17
     restart: unless-stopped
     environment:
       POSTGRES_USER: levarex
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      # Coolify erzeugt das Passwort beim ersten Deploy selbst und zeigt es unter Environment Variables (in Bitwarden sichern)
+      POSTGRES_PASSWORD: ${SERVICE_PASSWORD_POSTGRES}
       POSTGRES_DB: levarex
     volumes:
       - levarex-db:/var/lib/postgresql/data
+    # Nur im internen Netz: von außen und von n8n nicht erreichbar
     networks: [db-netz]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U levarex"]
-      interval: 30s
+      interval: 10s
+      timeout: 5s
+      retries: 10
 
   n8n:
-    # Version fest eintragen (N8N_VERSION in der .env) und nur bewusst erhöhen (Runbook „Updates“)
-    image: n8nio/n8n:${N8N_VERSION}
+    # Version fest (z. B. 1.xx.x von https://github.com/n8n-io/n8n/releases) und nur bewusst erhöhen
+    image: n8nio/n8n:${N8N_VERSION:?N8N_VERSION fehlt (feste Version eintragen, nie latest)}
     restart: unless-stopped
     environment:
-      N8N_HOST: ${N8N_DOMAIN}
+      # Coolify: Dienst lauscht auf Port 5678 (Domain n8n.levarex-consulting.de in Coolify eintragen)
+      SERVICE_FQDN_N8N_5678: ""
+      N8N_HOST: ${N8N_DOMAIN:-n8n.levarex-consulting.de}
       N8N_PROTOCOL: https
-      WEBHOOK_URL: https://${N8N_DOMAIN}/
-      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY}
+      N8N_PROXY_HOPS: "1"
+      WEBHOOK_URL: https://${N8N_DOMAIN:-n8n.levarex-consulting.de}/
+      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY:?N8N_ENCRYPTION_KEY fehlt (in Bitwarden sichern, sonst sind die Zugangsdaten in n8n verloren)}
       GENERIC_TIMEZONE: Europe/Berlin
       TZ: Europe/Berlin
       # Sicherheit: keine Community-Knoten, kein Zugriff auf Umgebungsvariablen aus Abläufen, keine Telemetrie
@@ -76,19 +119,15 @@ services:
       N8N_PERSONALIZATION_ENABLED: "false"
       N8N_SECURE_COOKIE: "true"
       N8N_RUNNERS_ENABLED: "true"
-      # Levarex OS erreicht n8n intern unter http://app:3000/api/v1 (Schlüssel im n8n-Tresor, nicht hier)
     volumes:
       - n8n-daten:/home/node/.n8n
-    networks: [web-netz]
+    networks: [default]
 
 networks:
   db-netz:
     internal: true
-  web-netz:
 
 volumes:
   levarex-daten:
   levarex-db:
   n8n-daten:
-  caddy-daten:
-  caddy-config:
