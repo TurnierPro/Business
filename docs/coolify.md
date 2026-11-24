@@ -24,7 +24,8 @@ Deshalb nutzt Coolify die `docker-compose.yml` im Hauptordner: **ohne Caddy, ohn
    | `N8N_VERSION` | ja | feste Version, z. B. aus github.com/n8n-io/n8n/releases (nie `latest`) |
    | `N8N_ENCRYPTION_KEY` | ja | `openssl rand -base64 32`, **unbedingt in Bitwarden**, sonst sind die Zugangsdaten in n8n bei einer Wiederherstellung verloren |
    | `SERVICE_PASSWORD_POSTGRES` | – | erzeugt Coolify selbst; nach dem ersten Deploy in Bitwarden sichern |
-   | `BASE_URL`, `PORTAL_URL`, `LEVAREX_HOSTS`, `N8N_DOMAIN` | – | nur ändern, wenn die Domains anders heißen |
+   | `BASE_URL`, `LEVAREX_HOSTS`, `N8N_DOMAIN` | – | nur ändern, wenn die Domains anders heißen |
+   | `PORTAL_URL` | – | leer lassen: Portal läuft unter der OS-Adresse. Erst `https://portal.levarex-consulting.de` setzen, wenn diese Domain in Coolify unter Domains steht (sonst Zertifikatsfehler) |
    | `TESTPHASE` | Testphase: `ja` | Mails nur an interne Adressen (`TESTPHASE_DOMAINS`, Standard levarex-consulting.de), keine Briefe/WhatsApp, Platzhalter-IBAN nur Hinweis. Vor dem ersten echten Kunden entfernen |
    | `MAIL_DIENST`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM` | für echten Mailversand | **allgemeiner Absender `info@levarex-consulting.de`** (Systemmails, Portal-Zugang, Mails ohne persönliche Unterschrift): `MAIL_DIENST=smtp`, Host aus dem netcup-CCP (z. B. `mxXXXXXX.netcup.net`), Port `587`, Benutzer und Absender = `info@levarex-consulting.de` |
    | alle anderen (Lexware, Qonto, S3 …) | – | leer lassen = Simulator; erst eintragen, wenn der Dienst angebunden wird |

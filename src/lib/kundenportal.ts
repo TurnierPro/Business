@@ -8,7 +8,7 @@ import { basisUrl } from "./ablauf/gemeinsam";
 
 /** Adresse des Kundenportals: eigene Adresse (PORTAL_URL), sonst dieselbe wie Levarex OS (lokal). */
 export function portalBasis(): string {
-  return (process.env.PORTAL_URL ?? basisUrl()).replace(/\/$/, "");
+  return (process.env.PORTAL_URL || basisUrl()).replace(/\/$/, "");
 }
 
 export async function portalLink(betriebId: number): Promise<string> {

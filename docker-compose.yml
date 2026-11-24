@@ -20,7 +20,9 @@ services:
       DATABASE_URL: postgres://levarex:${SERVICE_PASSWORD_POSTGRES}@db:5432/levarex
       # Eigene Adressen von Levarex OS und Kundenportal (müssen zu den Domains in Coolify passen)
       BASE_URL: ${BASE_URL:-https://os.levarex-consulting.de}
-      PORTAL_URL: ${PORTAL_URL:-https://portal.levarex-consulting.de}
+      # Eigene Portal-Adresse erst setzen, wenn sie in Coolify unter Domains eingetragen ist (sonst kein Zertifikat).
+      # Leer: das Portal läuft unter der OS-Adresse (/portal/k/…).
+      PORTAL_URL: ${PORTAL_URL:-}
       LEVAREX_HOSTS: ${LEVAREX_HOSTS:-os.levarex-consulting.de,portal.levarex-consulting.de}
       DATA_DIR: /data
       N8N_DATEN: /n8n-daten
