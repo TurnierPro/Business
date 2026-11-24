@@ -25,7 +25,9 @@ Deshalb nutzt Coolify die `docker-compose.yml` im Hauptordner: **ohne Caddy, ohn
    | `N8N_ENCRYPTION_KEY` | ja | `openssl rand -base64 32`, **unbedingt in Bitwarden**, sonst sind die Zugangsdaten in n8n bei einer Wiederherstellung verloren |
    | `SERVICE_PASSWORD_POSTGRES` | – | erzeugt Coolify selbst; nach dem ersten Deploy in Bitwarden sichern |
    | `BASE_URL`, `PORTAL_URL`, `LEVAREX_HOSTS`, `N8N_DOMAIN` | – | nur ändern, wenn die Domains anders heißen |
-   | alle anderen (Mail, Lexware, Qonto, S3 …) | – | leer lassen = Simulator; erst eintragen, wenn der Dienst angebunden wird |
+   | `TESTPHASE` | Testphase: `ja` | Mails nur an interne Adressen (`TESTPHASE_DOMAINS`, Standard levarex-consulting.de), keine Briefe/WhatsApp, Platzhalter-IBAN nur Hinweis. Vor dem ersten echten Kunden entfernen |
+   | `MAIL_DIENST`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM` | für echten Mailversand | netcup-Postfach: `MAIL_DIENST=smtp`, Host aus dem netcup-CCP (z. B. `mxXXXXXX.netcup.net`), Port `587`, Benutzer = volle Mailadresse |
+   | alle anderen (Lexware, Qonto, S3 …) | – | leer lassen = Simulator; erst eintragen, wenn der Dienst angebunden wird |
 4. **Deploy.** Nach ein paar Minuten `https://os.levarex-consulting.de` öffnen, mit dem Start-Passwort anmelden,
    Passwort ändern, Zwei-Faktor einrichten.
 

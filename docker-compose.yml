@@ -70,6 +70,10 @@ services:
       QONTO_ACCESS_TOKEN: ${QONTO_ACCESS_TOKEN:-}
       QONTO_KONTO_ID: ${QONTO_KONTO_ID:-}
       GLAEUBIGER_ID: ${GLAEUBIGER_ID:-}
+      # Testbetrieb: „ja“ = Mails nur an interne Adressen, keine Briefe/WhatsApp, Platzhalter-IBAN nur Hinweis.
+      # Vor dem ersten echten Kunden entfernen.
+      TESTPHASE: ${TESTPHASE:-}
+      TESTPHASE_DOMAINS: ${TESTPHASE_DOMAINS:-levarex-consulting.de}
     volumes:
       - levarex-daten:/data
       # Nur für die tägliche Sicherung der n8n-Abläufe (und die Wiederherstellung)

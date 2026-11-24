@@ -120,6 +120,24 @@ export async function anhangEntfernen(id: number, dokumentId: number, wer: strin
   await einreihen("qualitaetskontrolle", { eintragId: id });
 }
 
+// ---------- Testbetrieb (TESTPHASE=ja) ----------
+// Für den Ende-zu-Ende-Test auf dem echten Server: Mails gehen nur an interne Adressen (Standard @levarex-consulting.de,
+// weitere mit TESTPHASE_DOMAINS, kommagetrennt). Briefe und WhatsApp gehen gar nicht raus. Platzhalter in den
+// Pflichtangaben (IBAN) sind dann nur ein Hinweis. Vor dem ersten echten Kunden TESTPHASE entfernen.
+export const testbetrieb = () => process.env.TESTPHASE === "ja";
+export const testDomains = () => (process.env.TESTPHASE_DOMAINS ?? "levarex-consulting.de").split(",").map((d) => d.trim().toLowerCase().replace(/^@/, "")).filter(Boolean);
+
+/** Grund, warum dieser Eintrag im Testbetrieb nicht raus darf, sonst null. */
+export function testbetriebVerbietet(e: { kanal: string; empfaenger: string }): string | null {
+  if (!testbetrieb()) return null;
+  if (e.kanal === "brief" || e.kanal === "whatsapp") return `Testbetrieb: ${e.kanal === "brief" ? "Briefe" : "WhatsApp"} gehen nicht raus.`;
+  if (e.kanal === "mail") {
+    const domain = e.empfaenger.trim().toLowerCase().split("@")[1] ?? "";
+    if (!testDomains().includes(domain)) return `Testbetrieb: Mails nur an interne Adressen (@${testDomains().join(", @")}). Empfänger „${e.empfaenger}“ bitte ändern.`;
+  }
+  return null;
+}
+
 const MAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 /**
@@ -182,8 +200,11 @@ export async function qualitaetskontrolle(id: number): Promise<string> {
     const platzhalter: string[] = [];
     if (doks.length && /^DE00\s?0000/.test(marke.absender.iban)) platzhalter.push("IBAN im Fuß der PDFs ist noch ein Platzhalter (brand/tokens.json)");
     if (/https?:\/\/(localhost|127\.0\.0\.1)/.test(e.text)) platzhalter.push("Link zeigt auf localhost: BASE_URL ist nicht gesetzt");
-    for (const x of platzhalter) (produktiv ? blocker : hinweise).push(`${x}.`);
+    // Im Testbetrieb (nur interne Empfänger) reicht ein Hinweis, sonst sperrt der Platzhalter auf dem Server
+    for (const x of platzhalter) (produktiv && !testbetrieb() ? blocker : hinweise).push(`${x}.`);
   }
+  const testFehler = testbetriebVerbietet(e);
+  if (testFehler) blocker.push(testFehler);
   if (e.kanal === "livegang" && typeof e.meta.slug === "string") {
     const fehler = pruefeSeite(e.meta.slug).filter((x) => !x.ok);
     for (const f of fehler) blocker.push(`Website-Prüfung „${f.name}“: ${f.detail}`);
@@ -261,6 +282,9 @@ export async function versende(id: number): Promise<string> {
 async function versendeIntern(id: number): Promise<string> {
   const e = await eintrag(id);
   if (e.status !== "freigegeben") throw new Error(`Versand verweigert: Status ist „${e.status}“, nicht „freigegeben“.`);
+  // Zweite Sicherung neben der Qualitätskontrolle: im Testbetrieb nie an fremde Empfänger
+  const testFehler = testbetriebVerbietet(e);
+  if (testFehler) throw new Error(`Versand verweigert: ${testFehler}`);
   if (e.freigaben.length < e.noetigeFreigaben) throw new Error("Versand verweigert: Es fehlen Freigaben.");
   if (await istGesperrt(e.betriebId)) {
     const db = await getDb();

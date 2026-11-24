@@ -514,3 +514,28 @@ test("Dateien im Kundenportal: nur echte Fotos/PDFs, nur der eigene Betrieb, Dat
   await dt.dateiLoeschen(vom, "Test");
   assert.equal((await holen(token, vom)).status, 404);
 });
+
+test("Testbetrieb: Mails nur an interne Adressen, keine Briefe; Versand verweigert auch ohne Prüfung", async () => {
+  const post = await import("../src/lib/ablauf/postausgang");
+  const env = process.env as Record<string, string | undefined>;
+  const vorher = { t: env.TESTPHASE, d: env.TESTPHASE_DOMAINS };
+  try {
+    env.TESTPHASE = "ja";
+    delete env.TESTPHASE_DOMAINS;
+    assert.equal(post.testbetriebVerbietet({ kanal: "mail", empfaenger: "m.steiner@levarex-consulting.de" }), null);
+    assert.match(post.testbetriebVerbietet({ kanal: "mail", empfaenger: "chef@kunde.example" }) ?? "", /interne Adressen/);
+    assert.match(post.testbetriebVerbietet({ kanal: "mail", empfaenger: "x@levarex-consulting.de.evil.example" }) ?? "", /interne Adressen/, "keine Domain-Tricks");
+    assert.match(post.testbetriebVerbietet({ kanal: "brief", empfaenger: "Musterweg 1" }) ?? "", /Briefe/);
+    env.TESTPHASE_DOMAINS = "levarex-consulting.de, @gmx.net";
+    assert.equal(post.testbetriebVerbietet({ kanal: "mail", empfaenger: "test@GMX.net" }), null);
+    // Auch ein (z. B. von Hand) freigegebener Eintrag an eine fremde Adresse geht nicht raus
+    const [b] = await db.insert(schema.betriebe).values({ name: "Testbetrieb Sicher GmbH", gewerk: "SHK" }).returning();
+    const [e] = await db.insert(schema.postausgang).values({ betriebId: b.id, kanal: "mail", zweck: "test", empfaenger: "chef@kunde.example", betreff: "Test", text: "Test", status: "freigegeben", freigaben: [{ name: "Test", am: new Date().toISOString() }] }).returning();
+    await assert.rejects(() => post.versende(e.id), /Testbetrieb/);
+    env.TESTPHASE = "";
+    assert.equal(post.testbetriebVerbietet({ kanal: "mail", empfaenger: "chef@kunde.example" }), null, "ohne Testbetrieb keine Einschränkung");
+  } finally {
+    if (vorher.t === undefined) delete env.TESTPHASE; else env.TESTPHASE = vorher.t;
+    if (vorher.d === undefined) delete env.TESTPHASE_DOMAINS; else env.TESTPHASE_DOMAINS = vorher.d;
+  }
+});
