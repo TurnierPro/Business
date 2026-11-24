@@ -24,7 +24,7 @@ export type Konnektor = {
 const gesetzt = (keys: string[]) => keys.length > 0 && keys.every((k) => !!process.env[k]);
 const s = (keys: string[]): KonnektorStatus => (gesetzt(keys) ? "aktiv" : "simulator");
 
-export const KATEGORIEN = ["E-Mail", "Nachrichten-Eingang", "Geld", "Dokumente und Post", "KI und Sprache", "Technik", "Schnittstelle"];
+export const KATEGORIEN = ["E-Mail", "Nachrichten-Eingang", "Geld", "Kalender", "KI und Sprache", "Technik", "Schnittstelle"];
 
 export async function konnektoren(): Promise<Konnektor[]> {
   const mail = aktiverMailDienst();
@@ -43,25 +43,11 @@ export async function konnektoren(): Promise<Konnektor[]> {
   });
 
   return [
-    mailKonnektor("microsoft", [
-      "Im Microsoft Entra Admin Center: App-Registrierung „Levarex OS“ anlegen.",
-      "API-Berechtigungen → Microsoft Graph → Anwendungsberechtigung „Mail.Send“ → Administratorzustimmung erteilen.",
-      "Zertifikate & Geheimnisse → Neuer geheimer Clientschlüssel. Wert sofort in den Passwortmanager.",
-      "Mit einer Application Access Policy (Exchange Online PowerShell) den Zugriff auf das Absender-Postfach beschränken, z. B. hallo@levarex…",
-      "MS_TENANT_ID, MS_CLIENT_ID, MS_CLIENT_SECRET, MS_ABSENDER setzen. Gesendete Mails liegen danach auch in Outlook unter „Gesendete Elemente“.",
-    ], "Microsoft 365 mit EU-Datengrenze; Auftragsverarbeitung über die Microsoft-Produktbedingungen (DPA)."),
-    mailKonnektor("google", [
-      "Google Cloud Console: Projekt anlegen, Gmail-API aktivieren.",
-      "Dienstkonto anlegen, JSON-Schlüssel erzeugen (client_email und private_key daraus).",
-      "Google Admin-Konsole → Sicherheit → API-Steuerung → Domainweite Delegierung: Client-ID des Dienstkontos mit Bereich https://www.googleapis.com/auth/gmail.send.",
-      "GOOGLE_CLIENT_EMAIL, GOOGLE_PRIVATE_KEY, GOOGLE_ABSENDER setzen.",
-    ], "Google Workspace: Auftragsverarbeitung (Cloud Data Processing Addendum) in der Admin-Konsole annehmen."),
-    mailKonnektor("smtp", [
-      "Zugangsdaten beim Mail-Anbieter (netcup, IONOS, STRATO, mailbox.org …) nachsehen.",
-      "Bei Outlook.com oder Gmail per SMTP: App-Passwort erzeugen, nie das Hauptpasswort.",
-      "SMTP_HOST, SMTP_PORT (587 oder 465), SMTP_USER, SMTP_PASS, SMTP_FROM setzen.",
-    ], "Am einfachsten mit einem deutschen Anbieter, AV-Vertrag abschließen."),
-    mailKonnektor("resend", ["Konto bei Resend, Domain bestätigen (SPF, DKIM).", "RESEND_API_KEY und MAIL_FROM setzen."], "Sitz USA: AV-Vertrag und Drittlandübermittlung prüfen."),
+    { ...mailKonnektor("smtp", [
+      "Eigenes Postfach je Person: Einstellungen → Mein Postfach. Mails, die Daniel unterschreibt, gehen von Daniels Postfach raus, die von Maximilian von seinem, und liegen danach im Ordner „Gesendet“.",
+      "Allgemeiner Absender (info@) für alles andere: in Coolify SMTP_HOST, SMTP_PORT (587 oder 465), SMTP_USER, SMTP_PASS, SMTP_FROM setzen.",
+      "Zugangsdaten stehen bei netcup im Kundenbereich (Webhosting → E-Mail).",
+    ], "Postfächer bei netcup (Deutschland), AV-Vertrag im netcup-Kundenbereich."), name: "E-Mail (netcup per SMTP)" },
     {
       key: "whatsapp",
       kategorie: "Nachrichten-Eingang",
@@ -79,19 +65,6 @@ export async function konnektoren(): Promise<Konnektor[]> {
       datenschutz: "Meta Platforms Ireland als Auftragsverarbeiter (WhatsApp Business Data Processing Terms). Im Datenschutzhinweis der Website erwähnen.",
     },
     {
-      key: "mail-eingang",
-      kategorie: "Nachrichten-Eingang",
-      name: "Mail-Eingang (Outlook oder Gmail über n8n)",
-      zweck: "Neue Mails im Postfach landen als Nachricht beim richtigen Betrieb, mit Aufgabe und Antwortentwurf.",
-      status: apiFuer("nachrichten") ? "aktiv" : "bereit",
-      braucht: [],
-      schritte: [
-        "Unter Stammdaten → Benutzer und Sicherheit einen API-Schlüssel mit Recht „Nachrichten einliefern“ erzeugen.",
-        "In n8n: Auslöser „Microsoft Outlook Trigger“ oder „Gmail Trigger“.",
-        "HTTP-Knoten: POST <BASE_URL>/api/v1/nachrichten, Kopfzeile Authorization: Bearer lvx_…, Inhalt { kanal: \"mail\", absender, betreff, inhalt, externeId: Message-ID }.",
-      ],
-    },
-    {
       key: "telefon",
       kategorie: "Nachrichten-Eingang",
       name: "Telefonanlage (sipgate, Placetel …)",
@@ -105,28 +78,12 @@ export async function konnektoren(): Promise<Konnektor[]> {
       ],
       datenschutz: "Gespräche nie ohne ausdrückliche Einwilligung aufzeichnen (§ 201 StGB).",
     },
-    {
-      key: "telefonbot",
-      kategorie: "Nachrichten-Eingang",
-      name: "KI-Telefon- oder WhatsApp-Bot",
-      zweck: "Datenstruktur und Schnittstelle sind vorbereitet: Ein Bot liefert Nachrichten über /api/v1/nachrichten ein, Antworten gehen nur über den Postausgang.",
-      status: "bewusst_aus",
-      braucht: [],
-      schritte: [
-        "Laut Business Case nicht angeboten (AI Act Art. 50 Kennzeichnung, § 201 StGB, DSGVO, Haftung). Neue Entscheidung im Herbst 2027.",
-        "Wenn ja: Bot muss sich als KI zu erkennen geben, darf nichts zusagen und schreibt nur Entwürfe.",
-      ],
-    },
     { key: "qonto", kategorie: "Geld", name: "Qonto (SEPA-Lastschrift)", zweck: "Monatsbeitrag per Lastschrift; der Kunde unterschreibt das Mandat über einen Link von Qonto, Qonto kündigt jeden Einzug an", status: qontoEcht() ? "aktiv" : "simulator", braucht: QONTO_BRAUCHT, schritte: ["SEPA-Lastschrift im Qonto-Konto freischalten lassen (Gläubiger-ID).", "Qonto Business API: OAuth-App anlegen, Bereich sepa_direct_debit.write, Zugriffstoken erzeugen.", "QONTO_ACCESS_TOKEN und QONTO_KONTO_ID (Bankkonto-ID) setzen.", "Bis dahin: Monatsbeitrag per Überweisung, Levarex OS schreibt das automatisch in die Rechnung."], datenschutz: "Kontodaten des Kunden liegen nur bei Qonto, Levarex OS speichert nur die IDs." },
     { key: "lexware", kategorie: "Geld", name: "Lexware Office", zweck: "Rechnungen und E-Rechnung: angelegt beim freigegebenen Versand, Nummer und PDF von Lexware, täglicher Zahlstatus", status: lexwareEcht() ? "aktiv" : "simulator", braucht: LEXWARE_BRAUCHT, schritte: ["In Lexware Office: Einstellungen → Öffentliche API → Schlüssel erzeugen.", "LEXWARE_API_KEY setzen (optional LEXWARE_BASIS_URL).", "Mit dem Steuerberater klären: Nummernkreis, E-Rechnung (ZUGFeRD/XRechnung), Kontenrahmen.", "Ohne Schlüssel: eigene Rechnungsnummern und PDFs aus Levarex OS."], datenschutz: "AV-Vertrag in Lexware Office abschließen." },
-    { key: "docuseal", kategorie: "Dokumente und Post", name: "E-Signatur (Docuseal)", zweck: "Angebote digital unterschreiben", status: s(["DOCUSEAL_URL", "DOCUSEAL_TOKEN"]), braucht: ["DOCUSEAL_URL", "DOCUSEAL_TOKEN"], schritte: ["Docuseal auf dem eigenen Server starten.", "DOCUSEAL_URL und DOCUSEAL_TOKEN setzen."] },
-    { key: "brief", kategorie: "Dokumente und Post", name: "Briefdienst", zweck: "Akquise-Briefe drucken und versenden (erst nach dem Notartermin)", status: s(["BRIEFDIENST_API_KEY"]), braucht: ["BRIEFDIENST_API_KEY", "AKQUISE_FREIGESCHALTET"], schritte: ["Anbieter mit Sitz in Deutschland wählen, AV-Vertrag.", "BRIEFDIENST_API_KEY setzen; AKQUISE_FREIGESCHALTET=ja erst nach Gründung."] },
-    { key: "kalender", kategorie: "Dokumente und Post", name: "Kalender (Outlook, Google, Apple)", zweck: "Termine und Aufgaben als Kalender-Abo", status: "aktiv", braucht: [], schritte: ["Unter Stammdaten → Benutzer und Sicherheit den persönlichen Kalender-Link kopieren und in Outlook oder Google Kalender abonnieren."] },
+    { key: "kalender", kategorie: "Kalender", name: "Kalender (Outlook, Google, Apple)", zweck: "Termine und Aufgaben als Kalender-Abo", status: "aktiv", braucht: [], schritte: ["Unter Stammdaten → Benutzer und Sicherheit den persönlichen Kalender-Link kopieren und in Outlook oder Google Kalender abonnieren."] },
     { key: "ki", kategorie: "KI und Sprache", name: "Claude (Anthropic)", zweck: "Entwürfe, Antwortvorschläge, Protokolle, zweite Qualitätskontrolle", status: s(["ANTHROPIC_API_KEY"]), braucht: ["ANTHROPIC_API_KEY"], schritte: ["API-Schlüssel in der Anthropic Console, AV-Vertrag (DPA) abschließen.", "ANTHROPIC_API_KEY setzen."] },
-    { key: "whisper", kategorie: "KI und Sprache", name: "Transkription (Whisper, eigener Server)", zweck: "Vor-Ort-Gespräche zu Text", status: s(["WHISPER_URL"]), braucht: ["WHISPER_URL"], schritte: ["faster-whisper-server auf dem eigenen Server starten, WHISPER_URL setzen."] },
-    { key: "dns", kategorie: "Technik", name: "Server und Domain-Umzug", zweck: "Kunden-Domains prüfen und umziehen, Zertifikate", status: s(["SERVER_IP"]), braucht: ["SERVER_IP"], schritte: ["Öffentliche IPv4 des Servers als SERVER_IP setzen."] },
     { key: "ntfy", kategorie: "Technik", name: "Push aufs Handy (ntfy)", zweck: "Warnungen und Tagesbericht", status: s(["NTFY_URL"]), braucht: ["NTFY_URL"], schritte: ["ntfy selbst betreiben oder ntfy.sh, Thema als NTFY_URL setzen."] },
-    { key: "gespraeche", kategorie: "KI und Sprache", name: "Gespräche aus Claude", zweck: "Meeting-Zusammenfassungen aus Claude beim Betrieb ablegen; daraus entstehen Protokoll und Angebotsentwurf (zur Freigabe)", status: "bereit", braucht: [], schritte: ["Von Hand: Kundenakte → Aktivitäten → Erfassen → „Gespräch importieren“, Text aus Claude einfügen.", "Automatisch: in n8n einen API-Schlüssel mit dem Recht „Gespräche einliefern“ nutzen und POST /api/v1/gespraeche aufrufen (Betrieb per E-Mail oder Telefon).", "Nur mit Einwilligung des Betriebs mitschreiben; der Text wird wie eine Aufnahme behandelt und nach dem Versand des Protokolls gelöscht."], datenschutz: "Gesprächsinhalte: gleiche Löschfrist wie Gesprächsaufnahmen (30 Tage)." },
+    { key: "gespraeche", kategorie: "KI und Sprache", name: "Gespräche aus Plaud", zweck: "Transkripte und Zusammenfassungen von Plaud beim Betrieb ablegen; daraus entstehen Protokoll und Angebotsentwurf (zur Freigabe)", status: "bereit", braucht: [], schritte: ["Von Hand: Kundenakte → Aktivitäten → Erfassen → „Gespräch importieren“, Transkript oder Zusammenfassung aus der Plaud-App einfügen.", "Automatisch: in n8n einen API-Schlüssel mit dem Recht „Gespräche einliefern“ nutzen und POST /api/v1/gespraeche aufrufen (Betrieb per E-Mail oder Telefon).", "Nur mit Einwilligung des Betriebs mitschreiben; der Text wird wie eine Aufnahme behandelt und nach dem Versand des Protokolls gelöscht."], datenschutz: "Gesprächsinhalte: gleiche Löschfrist wie Gesprächsaufnahmen (30 Tage)." },
     { key: "api", kategorie: "Schnittstelle", name: "Levarex-API und n8n", zweck: "Werkzeuge wie n8n anbinden: Leads, Kontakte, Aufgaben, Tickets, Nachrichten einliefern, Unterlagen lesen, Mail-Entwürfe in den Postausgang; Webhooks bei Ereignissen", status: schluessel.length ? "aktiv" : "bereit", braucht: [], schritte: ["Unter Benutzer und Sicherheit einen API-Schlüssel je n8n-Ablauf mit genau den nötigen Rechten erzeugen.", "In n8n die Beschreibung /api/v1/openapi.json importieren oder den HTTP-Knoten mit Authorization: Bearer lvx_… nutzen.", "Webhooks anlegen (https), Geheimnis in n8n hinterlegen und die Signatur prüfen.", "Versenden geht nie über die Schnittstelle: Entwürfe landen in den Freigaben."] },
   ];
 }

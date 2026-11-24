@@ -48,6 +48,14 @@ function rahmenErlaubt(portal: boolean): string {
   return `frame-ancestors 'self'${os ? ` ${os}` : ""}`;
 }
 
+function portalHerkunft(): string {
+  try {
+    return process.env.PORTAL_URL ? new URL(process.env.PORTAL_URL).origin : "";
+  } catch {
+    return "";
+  }
+}
+
 function cspApp(nonce: string, portal = false): string {
   return [
     "default-src 'self'",
@@ -57,7 +65,8 @@ function cspApp(nonce: string, portal = false): string {
     "font-src 'self' data:",
     "connect-src 'self'",
     "media-src 'self' blob:",
-    "frame-src 'self'",
+    // Reiter „Kundenportal“ in der Kundenakte bettet das Portal unter seiner eigenen Adresse ein
+    `frame-src 'self'${portalHerkunft() ? ` ${portalHerkunft()}` : ""}`,
     rahmenErlaubt(portal),
     "form-action 'self'",
     "base-uri 'self'",

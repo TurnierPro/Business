@@ -19,11 +19,11 @@ export default async function Konnektoren({ searchParams }: { searchParams: Prom
 
   return (
     <>
-      <SeitenKopf titel="Konnektoren" text="Anschlüsse an Outlook oder Gmail, WhatsApp, Telefonanlage, Lexware Office, Qonto und mehr. Ohne Zugangsdaten läuft jeder Anschluss im Simulator.">
-        {darf(ich, "aendern") ? <form action={testmailAnMich}><button className="knopf" title="Landet zuerst in den Freigaben, dort mit Vorschau im Mail-Design">Testmail an mich</button></form> : null}
+      <SeitenKopf titel="Konnektoren" text="Anschlüsse an E-Mail, WhatsApp, Lexware Office, Qonto, Plaud und n8n. Ohne Zugangsdaten läuft jeder Anschluss im Simulator.">
+        {darf(ich, "aendern") ? <form action={testmailAnMich}><button className="knopf" title="Landet zuerst in den Freigaben, dort mit Vorschau im Mail-Design. Nach der Freigabe geht sie an deine Adresse.">Testmail an mich</button></form> : null}
       </SeitenKopf>
       <AufEinenBlick werte={[
-        { wert: MAIL_DIENSTE[mail].name, name: "E-Mail-Versand läuft über", ton: mail === "simulator" ? "warten" : "ok" },
+        { wert: mail === "simulator" ? "Simulator" : mail === "smtp" ? "netcup" : MAIL_DIENSTE[mail].name, name: "E-Mail-Versand läuft über", ton: mail === "simulator" ? "warten" : "ok" },
         { wert: zahl("aktiv"), name: "aktiv angebunden", ton: "ok" },
         { wert: zahl("simulator"), name: "im Simulator", ton: zahl("simulator") ? "warten" : undefined },
         { wert: zahl("bereit"), name: "bereit zum Anschließen" },
@@ -59,10 +59,10 @@ export default async function Konnektoren({ searchParams }: { searchParams: Prom
       })}
 
       {reiter === "alle" || reiter === "E-Mail" ? (
-        <p className="leise klein">E-Mails gehen in zwei Fassungen raus: im Levarex-Design und als reiner Text. Den Weg legt der erste vollständige Zugang fest, oder fest mit <span className="mono">MAIL_DIENST</span> (microsoft, google, smtp, resend, simulator).</p>
+        <p className="leise klein">E-Mails gehen in zwei Fassungen raus: im Levarex-Design und als reiner Text, vom Postfach der Person, die unterschreibt (Einstellungen → Mein Postfach), sonst vom allgemeinen Absender.</p>
       ) : null}
       <div className="hinweis" role="note">
-        Zugangsdaten nie hier eintippen oder in den Chat kopieren. Sie gehören in die Datei <span className="mono">.env</span> auf dem Server (Vorlage: <span className="mono">.env.example</span>) und in euren Passwortmanager. Nach dem Eintragen den Server neu starten.
+        Zugangsdaten nie hier eintippen oder in den Chat kopieren. Sie gehören in Coolify unter <span className="mono">Environment Variables</span> und in Bitwarden. Nach dem Eintragen in Coolify neu deployen. Ausnahme: das eigene Postfach unter Einstellungen → Mein Postfach (dort verschlüsselt gespeichert).
       </div>
     </>
   );

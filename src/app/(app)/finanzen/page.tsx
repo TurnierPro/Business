@@ -112,7 +112,7 @@ export default async function Finanzen({ searchParams }: { searchParams: Promise
 
       <section className="karte abstand">
         <h2>Umsatz und Ausgaben je Monat {jahr}</h2>
-        <div dangerouslySetInnerHTML={{ __html: umsatzDiagramm(jahresverlauf.map((m) => ({ name: monatName(m.monat), umsatz: m.umsatz, ausgaben: m.ausgaben })), FARBEN_DUNKEL) }} />
+        <div className="diagramm-rahmen" dangerouslySetInnerHTML={{ __html: umsatzDiagramm(jahresverlauf.map((m) => ({ name: monatName(m.monat), umsatz: m.umsatz, ausgaben: m.ausgaben })), FARBEN_DUNKEL, 1400) }} />
         <details style={{ marginTop: 8 }}>
           <summary className="leise klein" style={{ cursor: "pointer" }}>Als Tabelle</summary>
           <table className="tabelle"><thead><tr><th>Monat</th><th className="zahl">Umsatz</th><th className="zahl">Ausgaben</th><th className="zahl">Ergebnis</th></tr></thead>

@@ -12,7 +12,7 @@ import { datum, datumZeit } from "@/lib/format";
 import { entschluessele } from "@/lib/geheim";
 import { postfachEntfernen, postfachSpeichern, ueberallAbmelden } from "../aktionen";
 import { AufEinenBlick, SeitenKopf, SeitenReiter, reiterWahl } from "@/components/Seite";
-import { apiSchluesselErzeugen, apiSchluesselWiderrufen, webhookAnlegen, webhookLoeschen, benutzerAendern, benutzerAnlegen, leadsImportieren, zweiFaktorBestaetigen, zweiFaktorStarten } from "../aktionen";
+import { apiSchluesselErzeugen, apiSchluesselWiderrufen, webhookAnlegen, webhookLoeschen, benutzerAendern, benutzerAnlegen, zweiFaktorBestaetigen, zweiFaktorStarten } from "../aktionen";
 
 export const metadata = { title: "Benutzer und Sicherheit" };
 
@@ -39,12 +39,11 @@ export default async function Einstellungen({ searchParams }: { searchParams: Pr
     { key: "konto", name: "Mein Konto", zahl: mein.totpAktiv ? undefined : "2FA aus", ton: mein.totpAktiv ? undefined : ("warten" as const) },
     { key: "benutzer", name: "Benutzer und Rollen", zahl: aktiveBenutzer.length },
     { key: "schnittstelle", name: "Schnittstelle und n8n", zahl: aktiveSchluessel.length + hooks.length },
-    { key: "import", name: "Leads importieren" },
   ];
   const reiter = reiterWahl((await searchParams).reiter ?? (neuerSchluessel || neuesGeheimnis ? "schnittstelle" : undefined), liste);
   return (
     <>
-      <SeitenKopf titel="Benutzer und Sicherheit" text="Dein Konto, wer Zugang hat, Schnittstelle für n8n und der Import von Leads." />
+      <SeitenKopf titel="Benutzer und Sicherheit" text="Dein Konto mit Postfach, wer Zugang hat und die Schnittstelle für n8n." />
       <AufEinenBlick werte={[
         { wert: mein.totpAktiv ? "an" : "aus", name: "deine Zwei-Faktor-Anmeldung", ton: mein.totpAktiv ? "ok" : "warten", href: "/einstellungen?reiter=konto" },
         { wert: aktiveBenutzer.length, name: "aktive Benutzer", href: "/einstellungen?reiter=benutzer" },
@@ -55,7 +54,8 @@ export default async function Einstellungen({ searchParams }: { searchParams: Pr
       <SeitenReiter basis="/einstellungen" aktiv={reiter} liste={liste} />
 
       {reiter === "konto" ? (
-      <div className="raster zwei" style={{ alignItems: "start" }}>
+      <>
+      <div className="raster drei" style={{ alignItems: "stretch" }}>
         <section className="karte" id="zwei-faktor">
           <h2>Zwei-Faktor-Anmeldung</h2>
           {mein.totpAktiv ? (
@@ -78,7 +78,19 @@ export default async function Einstellungen({ searchParams }: { searchParams: Pr
           )}
         </section>
 
-        <section className="karte" id="postfach">
+        <section className="karte">
+          <h2>Passwort und Sitzungen</h2>
+          <p>Passwort ändern beendet alle anderen Sitzungen. „Überall abmelden“ hilft, wenn ein Gerät verloren ging.</p>
+          <div className="knopfreihe"><a className="knopf" href="/passwort">Passwort ändern</a><form action={ueberallAbmelden}><button className="knopf">Überall abmelden</button></form></div>
+        </section>
+        <section className="karte">
+          <h2>Kalender abonnieren</h2>
+          <p>Deine Termine und fälligen Aufgaben im Handy-Kalender. In iPhone: Einstellungen → Kalender → Accounts → Kalenderabo hinzufügen. In Outlook oder Google: „Aus dem Internet“ bzw. „Per URL“.</p>
+          <p className="mono klein" style={{ wordBreak: "break-all", userSelect: "all" }}>{kalender}</p>
+          <p className="leise klein">Der Link ist geheim. Nicht weitergeben.</p>
+        </section>
+      </div>
+        <section className="karte abstand-oben" id="postfach">
           <h2>Mein Postfach</h2>
           <p className="leise klein">Mails, die du unterschreibst (oder freigibst), gehen von deinem eigenen Postfach raus und liegen danach in deinem Ordner „Gesendet“. Ohne eigenes Postfach gilt der allgemeine Absender. Das Passwort wird verschlüsselt gespeichert und nie wieder angezeigt.</p>
           {meinPostfach ? (
@@ -87,7 +99,7 @@ export default async function Einstellungen({ searchParams }: { searchParams: Pr
           <details open={!meinPostfach} style={{ marginTop: 8 }}>
             <summary className="knopf klein">{meinPostfach ? "Ändern" : "Postfach verbinden"}</summary>
             <form action={postfachSpeichern} style={{ display: "grid", gap: 10, marginTop: 10 }}>
-              <div className="raster zwei">
+              <div className="raster vier">
                 <label className="feld"><span>Absender-Adresse</span><input name="absender" type="email" required defaultValue={meinPostfach?.absender ?? ""} placeholder="m.steiner@levarex-consulting.de" autoComplete="off" /></label>
                 <label className="feld"><span>Name als Absender</span><input name="name" defaultValue={meinPostfach?.name ?? ich.name} /></label>
                 <label className="feld"><span>Mailserver (SMTP)</span><input name="host" required defaultValue={meinPostfach?.host ?? ""} placeholder="z. B. mx2f3a.netcup.net (netcup: Webhosting → E-Mail)" autoComplete="off" /></label>
@@ -106,18 +118,7 @@ export default async function Einstellungen({ searchParams }: { searchParams: Pr
           </details>
         </section>
 
-        <section className="karte">
-          <h2>Passwort und Sitzungen</h2>
-          <p>Passwort ändern beendet alle anderen Sitzungen. „Überall abmelden“ hilft, wenn ein Gerät verloren ging.</p>
-          <div className="knopfreihe"><a className="knopf" href="/passwort">Passwort ändern</a><form action={ueberallAbmelden}><button className="knopf">Überall abmelden</button></form></div>
-        </section>
-        <section className="karte">
-          <h2>Kalender abonnieren</h2>
-          <p>Deine Termine und fälligen Aufgaben im Handy-Kalender. In iPhone: Einstellungen → Kalender → Accounts → Kalenderabo hinzufügen. In Outlook oder Google: „Aus dem Internet“ bzw. „Per URL“.</p>
-          <p className="mono klein" style={{ wordBreak: "break-all", userSelect: "all" }}>{kalender}</p>
-          <p className="leise klein">Der Link ist geheim. Nicht weitergeben.</p>
-        </section>
-      </div>
+      </>
       ) : null}
 
       {reiter === "benutzer" ? (
@@ -241,16 +242,6 @@ export default async function Einstellungen({ searchParams }: { searchParams: Pr
       </div>
       ) : null}
 
-      {reiter === "import" ? (
-      <section className="karte">
-        <h2>Leads importieren (CSV)</h2>
-        <p className="leise klein">Aus Excel oder einem alten CRM. Erste Zeile: Spaltennamen, z. B. <span className="mono">Firma;Gewerk;Ansprechpartner;Straße;PLZ;Ort;Telefon;E-Mail;Website;Quelle</span>. Doppelte und Betriebe auf der Sperrliste werden übersprungen. Die Quelle (Art. 14 DSGVO) wird gespeichert.</p>
-        <form action={leadsImportieren} encType="multipart/form-data" className="knopfreihe">
-          <input type="file" name="datei" accept=".csv,text/csv" required aria-label="CSV-Datei" style={{ maxWidth: 320 }} />
-          <button className="knopf">Importieren</button>
-        </form>
-      </section>
-      ) : null}
     </>
   );
 }

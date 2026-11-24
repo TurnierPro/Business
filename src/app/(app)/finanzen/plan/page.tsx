@@ -60,7 +60,7 @@ export default async function Plan({ searchParams }: { searchParams: Promise<{ s
 
       <section className="karte abstand">
         <h2>Umsatz kumuliert: Plan und Ist</h2>
-        <div dangerouslySetInnerHTML={{ __html: planIstDiagramm(p.monate.map((m) => ({ name: monatName(m.monat), plan: m.umsatz, ist: m.ist ? m.ist.umsatz : null })), FARBEN_DUNKEL) }} />
+        <div className="diagramm-rahmen" dangerouslySetInnerHTML={{ __html: planIstDiagramm(p.monate.map((m) => ({ name: monatName(m.monat), plan: m.umsatz, ist: m.ist ? m.ist.umsatz : null })), FARBEN_DUNKEL, 1400) }} />
       </section>
 
       <section className="karte abstand">

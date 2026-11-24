@@ -23,7 +23,7 @@ export function AusgabeFelder({ a = {} }: { a?: A }) {
         <input type="checkbox" name="bezahlt" value="ja" defaultChecked={a.bezahlt ?? true} />
         <span>Schon bezahlt (zählt dann für die Vorsteuer)</span>
       </label>
-      <label className="feld"><span>Beleg (Foto oder PDF)</span><input type="file" name="beleg" accept="image/*,application/pdf" capture="environment" /></label>
+      <label className="feld"><span>Beleg (Foto oder PDF)</span><input type="file" name="beleg" accept="image/*,application/pdf" /></label>
     </>
   );
 }

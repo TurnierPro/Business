@@ -88,7 +88,7 @@ export function dateiTyp(b: Uint8Array): "jpg" | "png" | "webp" | "gif" | "heic"
   if (b[0] === 0x89 && s(1, "PNG")) return "png";
   if (s(0, "RIFF") && s(8, "WEBP")) return "webp";
   if (s(0, "GIF8")) return "gif";
-  if (s(4, "ftyp") && (s(8, "heic") || s(8, "heix") || s(8, "mif1") || s(8, "heif"))) return "heic";
+  if (s(4, "ftyp") && ["heic", "heix", "heim", "heis", "hevc", "hevx", "mif1", "heif"].some((m) => s(8, m))) return "heic";
   if (s(0, "%PDF-")) return "pdf";
   if (b[0] === 0x50 && b[1] === 0x4b && b[2] === 0x03 && b[3] === 0x04) return "zip";
   return null;

@@ -41,7 +41,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           <form action={abmelden}><button>Abmelden</button></form>
         </div>
       </aside>
-      <div className="versionsnummer" aria-label={`Version ${VERSION} vom ${VERSION_DATUM}`} title={`Stand ${VERSION_DATUM}`}>Version {VERSION}</div>
+      <div className="versionsnummer" aria-label={`Version ${VERSION} vom ${VERSION_DATUM}`} title={`Stand ${VERSION_DATUM}`}>Version {VERSION}{process.env.TESTPHASE === "ja" ? " · Testbetrieb" : ""}</div>
       <main className="inhalt">
         <Unternavigation />
         <Suspense>

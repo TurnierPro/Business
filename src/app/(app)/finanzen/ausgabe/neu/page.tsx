@@ -13,7 +13,7 @@ export default function NeueAusgabe() {
         <form action={ausgabeSpeichern} className="karte">
           <h2>Nur Beleg hochladen</h2>
           <input type="hidden" name="nurBeleg" value="ja" />
-          <label className="feld"><span>Beleg (Foto oder PDF)</span><input type="file" name="beleg" accept="image/*,application/pdf" capture="environment" required /></label>
+          <label className="feld"><span>Beleg (Foto oder PDF)</span><input type="file" name="beleg" accept="image/*,application/pdf" required /></label><span className="leise klein">Am Handy: „Foto aufnehmen“, „Dokumente scannen“ oder ein vorhandenes Foto oder PDF wählen.</span>
           <button className="knopf haupt">Hochladen</button>
           <p className="leise klein" style={{ marginTop: 8 }}>Ohne eingerichtete KI trägst du die Werte danach selbst ein.</p>
         </form>
