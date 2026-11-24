@@ -1,3 +1,4 @@
+import { AnmeldeFuss } from "@/components/AnmeldeFuss";
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import { eq } from "drizzle-orm";
@@ -8,7 +9,6 @@ import { clientIp, erlaubt, GRENZEN, versuchMerken, versucheLoeschen } from "@/l
 import { protokolliere } from "@/lib/protokoll";
 import { Logo } from "@/components/Logo";
 import { marke } from "@/lib/marke";
-import { VERSION, VERSION_DATUM } from "@/lib/version";
 
 export const metadata = { title: "Anmelden" };
 
@@ -47,8 +47,8 @@ export default async function Login({ searchParams }: { searchParams: Promise<{ 
   const { fehler, gesperrt } = await searchParams;
   const entwicklung = process.env.NODE_ENV !== "production" || lokalerStart();
   return (
+    <div className="anmelde-rahmen">
     <div className="zentriert">
-      <div className="versionsnummer" title={`Stand ${VERSION_DATUM}`}>Version {VERSION}</div>
       <div className="schmal">
         <div style={{ marginBottom: 32 }}>
           <Logo hoehe={30} />
@@ -75,6 +75,8 @@ export default async function Login({ searchParams }: { searchParams: Promise<{ 
           </p>
         ) : erster ? <p className="leise klein" style={{ marginTop: 16 }}>Konten angelegt. Start-Passwort aus LEVAREX_START_PASSWORT, beim ersten Anmelden ändern.</p> : null}
       </div>
+    </div>
+    <AnmeldeFuss />
     </div>
   );
 }

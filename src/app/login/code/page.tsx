@@ -1,3 +1,4 @@
+import { AnmeldeFuss } from "@/components/AnmeldeFuss";
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import { eq } from "drizzle-orm";
@@ -43,6 +44,7 @@ export default async function Code({ searchParams }: { searchParams: Promise<{ f
   if (!liesZwischen((await cookies()).get(COOKIE_2FA)?.value)) redirect("/login");
   const { fehler } = await searchParams;
   return (
+    <div className="anmelde-rahmen">
     <div className="zentriert">
       <div className="schmal">
         <div style={{ marginBottom: 32 }}><Logo hoehe={30} /></div>
@@ -54,6 +56,8 @@ export default async function Code({ searchParams }: { searchParams: Promise<{ f
           <button className="knopf haupt" style={{ width: "100%" }}>Anmelden</button>
         </form>
       </div>
+    </div>
+    <AnmeldeFuss />
     </div>
   );
 }
