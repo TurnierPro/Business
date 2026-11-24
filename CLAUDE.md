@@ -14,4 +14,5 @@
 - Datenschutz: Neue personenbezogene Daten → Löschfrist in `LOESCHFRISTEN` (`recht.ts`), Eintrag im Verzeichnis (`src/lib/datenschutz-doku.ts`), Datenauskunft und Löschung (`ablauf/datenschutz.ts`) ergänzen.
 - Texte für Kunden folgen `brand/stimme.md`. Keine Preise, Zahlen oder Zusagen, die nicht in den Daten stehen.
 - Schemaänderung: `src/lib/db/schema.ts` ändern, dann `npm run db:generate`, Migration mit committen.
+- Versionsnummer in `src/lib/version.ts` (unten rechts sichtbar): Bei jeder Änderung, die auf den Server geht, hochzählen. Kleine Änderung → hinten um 01 (1.00 → 1.01), größere Änderung (neuer Bereich, Umbau) → vorne (1.xx → 2.00). Datum mitziehen und eine Zeile in `docs/versionen.md` ergänzen.
 - Vor dem Commit: `npm run typecheck` und `npm test` (Tests brauchen Chromium, ggf. `CHROMIUM_PATH` setzen).

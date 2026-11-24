@@ -1,3 +1,4 @@
+import { VERSION, VERSION_DATUM } from "@/lib/version";
 import { Suspense } from "react";
 import { and, eq, isNull, lte, ne, sql } from "drizzle-orm";
 import { redirect } from "next/navigation";
@@ -40,6 +41,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           <form action={abmelden}><button>Abmelden</button></form>
         </div>
       </aside>
+      <div className="versionsnummer" aria-label={`Version ${VERSION} vom ${VERSION_DATUM}`} title={`Stand ${VERSION_DATUM}`}>Version {VERSION}</div>
       <main className="inhalt">
         <Unternavigation />
         <Suspense>

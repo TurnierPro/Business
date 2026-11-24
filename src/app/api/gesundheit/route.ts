@@ -1,3 +1,4 @@
+import { VERSION } from "@/lib/version";
 import { sql } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 
@@ -6,7 +7,7 @@ export async function GET() {
   try {
     const db = await getDb();
     await db.execute(sql`select 1`);
-    return Response.json({ ok: true, zeit: new Date().toISOString() });
+    return Response.json({ ok: true, version: VERSION, zeit: new Date().toISOString() });
   } catch (e) {
     console.error("Gesundheit:", e); // Details nur ins Server-Log, nicht nach außen
     return Response.json({ ok: false }, { status: 503 });

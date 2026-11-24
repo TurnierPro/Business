@@ -1320,3 +1320,12 @@ test("Qualitätskontrolle: feste Konditionen sind belegt, erfundene Zahlen nicht
   assert.equal(pruefeText("Wir garantieren 50 % mehr Anfragen.").length, 1, "50 % ohne Zahlungsbezug bleibt verdächtig");
   assert.equal(pruefeText("Das ist garantiert günstig.").length, 1);
 });
+
+test("Versionsnummer: Format 1.00, 1.01 … und in docs/versionen.md eingetragen", async () => {
+  const { VERSION, VERSION_DATUM } = await import("../src/lib/version");
+  const fs = await import("node:fs");
+  assert.match(VERSION, /^\d+\.\d{2}$/, "zwei Stellen hinten, z. B. 2.01");
+  assert.match(VERSION_DATUM, /^\d{2}\.\d{2}\.\d{4}$/);
+  const liste = fs.readFileSync(new URL("../docs/versionen.md", import.meta.url), "utf8");
+  assert.ok(liste.includes(`| ${VERSION} |`), "neue Version bitte in docs/versionen.md eintragen");
+});
