@@ -28,6 +28,8 @@ export const benutzer = pgTable("benutzer", {
   mussPasswortAendern: boolean("muss_passwort_aendern").notNull().default(false),
   // Wird erhöht bei Passwortwechsel oder „überall abmelden“: alte Sitzungen werden ungültig
   sitzungVersion: integer("sitzung_version").notNull().default(0),
+  // Eigenes Postfach (SMTP zum Senden, IMAP für „Gesendet“). Passwort verschlüsselt (geheim.ts), nie im Klartext.
+  postfach: jsonb("postfach").$type<{ host: string; port: number; benutzer: string; passwort: string; absender: string; name: string; imapHost: string; imapPort: number; geprueftAm?: string } | null>(),
   // Geheimer Link für das Kalender-Abo (Termine und Aufgaben)
   kalenderToken: text("kalender_token"),
   erstelltAm: timestamp("erstellt_am", { withTimezone: true }).defaultNow().notNull(),

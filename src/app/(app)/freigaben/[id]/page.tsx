@@ -28,6 +28,8 @@ export default async function Eintrag({ params }: { params: Promise<{ id: string
     .sort((x, y) => e.anhaenge.indexOf(x.id) - e.anhaenge.indexOf(y.id))
     .sort((x, y) => Number(HAUPT.includes(y.art)) - Number(HAUPT.includes(x.art)));
   const offen = e.status === "zur_freigabe";
+  // Von wessen Postfach die Mail rausgehen wird (wer unterschreibt, sonst wer zuerst freigibt)
+  const absender = e.kanal === "mail" ? await (await import("@/lib/postfach")).absenderFuer({ text: e.text, freigaben: e.freigaben.length ? e.freigaben : [{ name: ich.name }] }) : null;
   const angebotDok = e.zweck === "angebot" ? doks.find((d) => d.art === "angebot" && !d.archivPfad) : undefined;
   const schonFreigegeben = e.freigaben.some((f) => f.name === ich.name);
   const slug = typeof e.meta.slug === "string" ? e.meta.slug : null;
@@ -101,6 +103,7 @@ export default async function Eintrag({ params }: { params: Promise<{ id: string
             {e.kanal === "mail" ? (
               <div className="karte">
                 <h3 style={{ marginTop: 0 }}>So kommt sie an</h3>
+                <p className="klein"><b>Von:</b> {absender ? <>{absender.konto.name} &lt;{absender.konto.absender}&gt; <span className="leise">(Postfach von {absender.benutzer}, danach in „Gesendet“)</span></> : <>{process.env.SMTP_FROM || process.env.MAIL_FROM || "allgemeiner Absender"} <span className="leise">(allgemein; eigenes Postfach unter Einstellungen → Konto)</span></>}</p>
                 <p><b>Betreff:</b> {e.betreff}</p>
                 {/* sandbox: keine Skripte, keine Formulare, Links öffnen nichts im System */}
                 <iframe className="vorschau mailvorschau" sandbox="" srcDoc={mailHtml({ betreff: e.betreff, text: e.text, vorschau: true })} title="Vorschau der E-Mail" />

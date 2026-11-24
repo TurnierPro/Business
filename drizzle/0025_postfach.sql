@@ -1,0 +1,1 @@
+ALTER TABLE "benutzer" ADD COLUMN "postfach" jsonb;

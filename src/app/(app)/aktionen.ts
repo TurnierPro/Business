@@ -831,3 +831,19 @@ export async function dateiLoeschen(f: FormData) {
   const id = zahl(f, "betriebId");
   await ausfuehren(`/leads/${id}?tab=dokumente#dateien`, "Datei gelöscht.", async (wer) => (await import("@/lib/dateien")).dateiLoeschen(zahl(f, "dateiId"), wer));
 }
+
+// ---------- Eigenes Postfach (Einstellungen → Konto) ----------
+
+export async function postfachSpeichern(f: FormData) {
+  await ausfuehren("/einstellungen?reiter=konto#postfach", "Postfach verbunden. Mails, die du unterschreibst oder freigibst, gehen ab jetzt von deinem Postfach raus.", async (wer) => {
+    const ich = await brauchtBenutzer();
+    await (await import("@/lib/postfach")).postfachSpeichern(ich.id, { host: text(f, "host"), port: Number(text(f, "port")), benutzer: text(f, "benutzer"), passwort: String(f.get("passwort") ?? ""), absender: text(f, "absender"), name: text(f, "name"), imapHost: text(f, "imapHost"), imapPort: Number(text(f, "imapPort")) }, wer);
+  });
+}
+
+export async function postfachEntfernen() {
+  await ausfuehren("/einstellungen?reiter=konto#postfach", "Postfach getrennt. Deine Mails gehen wieder über den allgemeinen Absender.", async (wer) => {
+    const ich = await brauchtBenutzer();
+    await (await import("@/lib/postfach")).postfachEntfernen(ich.id, wer);
+  });
+}

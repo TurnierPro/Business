@@ -539,3 +539,95 @@ test("Testbetrieb: Mails nur an interne Adressen, keine Briefe; Versand verweige
     if (vorher.d === undefined) delete env.TESTPHASE_DOMAINS; else env.TESTPHASE_DOMAINS = vorher.d;
   }
 });
+
+test("Eigenes Postfach: Passwort verschlüsselt, interne Server verboten, Absender = wer unterschreibt, Ablage in „Gesendet“", async () => {
+  const pf = await import("../src/lib/postfach");
+  const mail = await import("../src/lib/adapters/mail");
+  const net = await import("node:net");
+  const [mx] = await db.insert(schema.benutzer).values({ email: "mx-test@levarex-consulting.de", name: "Maxi Test", passwortHash: "x" }).returning();
+  const [dl] = await db.insert(schema.benutzer).values({ email: "dl-test@levarex-consulting.de", name: "Dana Test", passwortHash: "x" }).returning();
+  // Ungültige oder interne Server und Ports werden abgelehnt
+  const basis = { host: "mx.example.org", port: 587, benutzer: "", passwort: "geheim-123", absender: "m.steiner@levarex-consulting.de", name: "" };
+  await assert.rejects(() => pf.postfachSpeichern(mx.id, { ...basis, host: "localhost" }, "Test"), /gültiger Servername/);
+  await assert.rejects(() => pf.postfachSpeichern(mx.id, { ...basis, host: "127.0.0.1" }, "Test"), /gültiger Servername/);
+  await assert.rejects(() => pf.postfachSpeichern(mx.id, { ...basis, port: 25 }, "Test", { hostPruefen: false, verbindungTesten: false }), /587/);
+  await assert.rejects(() => pf.postfachSpeichern(mx.id, { ...basis, absender: "kein-mail" }, "Test", { hostPruefen: false, verbindungTesten: false }), /Absender/);
+  // Speichern: Passwort steht nicht im Klartext in der Datenbank
+  await pf.postfachSpeichern(mx.id, basis, "Test", { hostPruefen: false, verbindungTesten: false });
+  await pf.postfachSpeichern(dl.id, { ...basis, absender: "d.lueck@levarex-consulting.de", passwort: "anderes-456" }, "Test", { hostPruefen: false, verbindungTesten: false });
+  const [roh] = await db.select().from(schema.benutzer).where(eq(schema.benutzer.id, mx.id));
+  assert.ok(roh.postfach && !JSON.stringify(roh.postfach).includes("geheim-123"), "Passwort verschlüsselt");
+  assert.equal(pf.kontoAus(roh.postfach)!.passwort, "geheim-123");
+  assert.equal(roh.postfach!.benutzer, "m.steiner@levarex-consulting.de", "Benutzername = Absender, wenn leer");
+  // Leeres Passwort beim Ändern behält das alte
+  await pf.postfachSpeichern(mx.id, { ...basis, passwort: "", name: "Maxi T." }, "Test", { hostPruefen: false, verbindungTesten: false });
+  const [neu] = await db.select().from(schema.benutzer).where(eq(schema.benutzer.id, mx.id));
+  assert.equal(pf.kontoAus(neu.postfach)!.passwort, "geheim-123");
+  // Absender: wer unterschreibt, sonst wer freigibt
+  assert.equal((await pf.absenderFuer({ text: "Hallo\n\nMit freundlichen Grüßen\nDana Test\nLevarex Consulting", freigaben: [{ name: "Maxi Test" }] }))?.konto.absender, "d.lueck@levarex-consulting.de");
+  assert.equal((await pf.absenderFuer({ text: "Hallo\n\nGruß\nIhr Team", freigaben: [{ name: "Maxi Test" }] }))?.konto.absender, "m.steiner@levarex-consulting.de");
+  assert.equal(await pf.absenderFuer({ text: "Hallo\n\nGruß\nIhr Team", freigaben: [{ name: "Jemand anderes" }] }), null, "ohne Postfach: allgemeiner Absender");
+  // Versand über das Konto: eine MIME-Fassung geht raus und wird abgelegt
+  let gesendet: { von: string; an: string[]; mime: string } | null = null;
+  let abgelegt = "";
+  mail.setzeTestPostfach(async (_k, umschlag, mime) => ((gesendet = { von: umschlag.from, an: umschlag.to, mime: mime.toString() }), "<id@test>"), async (_k, mime) => ((abgelegt = mime.toString()), "Sent"));
+  try {
+    const r = await mail.sendeMail({ an: "kunde@levarex-consulting.de", betreff: "Test", text: "Hallo", anhaenge: [] }, pf.kontoAus(neu.postfach));
+    assert.match(r, /Versendet von m\.steiner@levarex-consulting\.de.*„Sent“/);
+    assert.equal(gesendet!.von, "m.steiner@levarex-consulting.de");
+    assert.equal(abgelegt, gesendet!.mime, "dieselbe Mail liegt in „Gesendet“");
+    assert.match(gesendet!.mime, /From: "?Maxi T\."? <m\.steiner@levarex-consulting\.de>/);
+  } finally {
+    mail.setzeTestPostfach(null, null);
+  }
+  // Ordner „Gesendet“ erkennen
+  assert.equal(pf.gesendetOrdner(['* LIST (\\HasNoChildren) "." "INBOX"', '* LIST (\\HasNoChildren \\Sent) "." "Sent"']), "Sent");
+  assert.equal(pf.gesendetOrdner(['* LIST (\\HasNoChildren) "." "INBOX.Gesendet"']), "INBOX.Gesendet");
+  // IMAP gegen einen kleinen nachgebauten Server: Anmelden, Ordner finden, Mail ablegen
+  const befehle: string[] = [];
+  let erhalten = "";
+  const server = net.createServer((s) => {
+    s.write("* OK bereit\r\n");
+    let puffer = "";
+    let literal = 0;
+    let literalTag = "";
+    s.on("data", (d) => {
+      puffer += d.toString();
+      for (;;) {
+        if (literal) {
+          if (puffer.length < literal + 2) return;
+          erhalten = puffer.slice(0, literal);
+          puffer = puffer.slice(literal + 2);
+          literal = 0;
+          s.write(`${literalTag} OK APPEND fertig\r\n`);
+          continue;
+        }
+        const i = puffer.indexOf("\r\n");
+        if (i < 0) return;
+        const z = puffer.slice(0, i);
+        puffer = puffer.slice(i + 2);
+        const [tag, cmd] = z.split(" ");
+        befehle.push(cmd);
+        if (cmd === "LOGIN") s.write(z.includes('"geheim-123"') ? `${tag} OK angemeldet\r\n` : `${tag} NO falsch\r\n`);
+        else if (cmd === "LIST") s.write(`* LIST (\\HasNoChildren) "." "INBOX"\r\n* LIST (\\HasNoChildren \\Sent) "." "Gesendete Objekte"\r\n${tag} OK LIST\r\n`);
+        else if (cmd === "APPEND") {
+          literal = Number(/\{(\d+)\}$/.exec(z)![1]);
+          literalTag = tag;
+          s.write("+ weiter\r\n");
+        } else if (cmd === "LOGOUT") s.end(`* BYE\r\n${tag} OK\r\n`);
+      }
+    });
+  });
+  await new Promise<void>((ja) => server.listen(0, "127.0.0.1", () => ja()));
+  try {
+    const port = (server.address() as { port: number }).port;
+    const k = { ...pf.kontoAus(neu.postfach)!, imapHost: "127.0.0.1", imapPort: port };
+    const ordner = await pf.imGesendetAblegen(k, Buffer.from("Subject: Test\r\n\r\nHallo"), { unsicherFuerTest: true });
+    assert.equal(ordner, "Gesendete Objekte");
+    assert.deepEqual(befehle, ["LOGIN", "LIST", "APPEND", "LOGOUT"]);
+    assert.equal(erhalten, "Subject: Test\r\n\r\nHallo");
+    await assert.rejects(() => pf.imGesendetAblegen({ ...k, passwort: "falsch" }, Buffer.from("x"), { unsicherFuerTest: true }), /falsch/);
+  } finally {
+    server.close();
+  }
+});

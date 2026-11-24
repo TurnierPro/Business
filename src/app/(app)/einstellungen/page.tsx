@@ -10,7 +10,7 @@ import { EREIGNISSE } from "@/lib/webhooks";
 import { basisUrl } from "@/lib/ablauf/gemeinsam";
 import { datum, datumZeit } from "@/lib/format";
 import { entschluessele } from "@/lib/geheim";
-import { ueberallAbmelden } from "../aktionen";
+import { postfachEntfernen, postfachSpeichern, ueberallAbmelden } from "../aktionen";
 import { AufEinenBlick, SeitenKopf, SeitenReiter, reiterWahl } from "@/components/Seite";
 import { apiSchluesselErzeugen, apiSchluesselWiderrufen, webhookAnlegen, webhookLoeschen, benutzerAendern, benutzerAnlegen, leadsImportieren, zweiFaktorBestaetigen, zweiFaktorStarten } from "../aktionen";
 
@@ -32,6 +32,7 @@ export default async function Einstellungen({ searchParams }: { searchParams: Pr
   const qr = geheim ? await QRCode.toDataURL(otpauthUrl(geheim, mein.email), { margin: 1, width: 220 }) : null;
   const kalender = await kalenderLink(ich.id);
   const aktiveBenutzer = benutzer.filter((b) => b.aktiv);
+  const meinPostfach = benutzer.find((b) => b.id === ich.id)?.postfach ?? null;
   const mitFaktor = aktiveBenutzer.filter((b) => b.totpAktiv).length;
   const aktiveSchluessel = schluessel.filter((x) => !x.widerrufenAm);
   const liste = [
@@ -77,6 +78,34 @@ export default async function Einstellungen({ searchParams }: { searchParams: Pr
           )}
         </section>
 
+        <section className="karte" id="postfach">
+          <h2>Mein Postfach</h2>
+          <p className="leise klein">Mails, die du unterschreibst (oder freigibst), gehen von deinem eigenen Postfach raus und liegen danach in deinem Ordner „Gesendet“. Ohne eigenes Postfach gilt der allgemeine Absender. Das Passwort wird verschlüsselt gespeichert und nie wieder angezeigt.</p>
+          {meinPostfach ? (
+            <p><span className="status ok">verbunden</span> <span className="mono">{meinPostfach.name} &lt;{meinPostfach.absender}&gt;</span> über <span className="mono">{meinPostfach.host}:{meinPostfach.port}</span>{meinPostfach.geprueftAm ? <span className="leise klein"> · geprüft {datum(new Date(meinPostfach.geprueftAm))}</span> : null}</p>
+          ) : <p><span className="status warten">nicht verbunden</span> Deine Mails gehen über den allgemeinen Absender.</p>}
+          <details open={!meinPostfach} style={{ marginTop: 8 }}>
+            <summary className="knopf klein">{meinPostfach ? "Ändern" : "Postfach verbinden"}</summary>
+            <form action={postfachSpeichern} style={{ display: "grid", gap: 10, marginTop: 10 }}>
+              <div className="raster zwei">
+                <label className="feld"><span>Absender-Adresse</span><input name="absender" type="email" required defaultValue={meinPostfach?.absender ?? ""} placeholder="m.steiner@levarex-consulting.de" autoComplete="off" /></label>
+                <label className="feld"><span>Name als Absender</span><input name="name" defaultValue={meinPostfach?.name ?? ich.name} /></label>
+                <label className="feld"><span>Mailserver (SMTP)</span><input name="host" required defaultValue={meinPostfach?.host ?? ""} placeholder="z. B. mx2f3a.netcup.net (netcup: Webhosting → E-Mail)" autoComplete="off" /></label>
+                <label className="feld"><span>SMTP-Port</span><select name="port" defaultValue={String(meinPostfach?.port ?? 587)}><option value="587">587 (STARTTLS, empfohlen)</option><option value="465">465 (SSL)</option></select></label>
+                <label className="feld"><span>Benutzername</span><input name="benutzer" defaultValue={meinPostfach?.benutzer ?? ""} placeholder="meist die volle Mailadresse" autoComplete="off" /></label>
+                <label className="feld"><span>Passwort {meinPostfach ? "(leer lassen = bisheriges behalten)" : ""}</span><input name="passwort" type="password" required={!meinPostfach} autoComplete="new-password" /></label>
+                <label className="feld"><span>IMAP-Server (für „Gesendet“)</span><input name="imapHost" defaultValue={meinPostfach?.imapHost ?? ""} placeholder="leer = wie SMTP-Server" autoComplete="off" /></label>
+                <label className="feld"><span>IMAP-Port</span><input name="imapPort" defaultValue={String(meinPostfach?.imapPort ?? 993)} inputMode="numeric" /></label>
+              </div>
+              <div className="knopfreihe">
+                <button className="knopf">Prüfen und speichern</button>
+                <span className="leise klein">Levarex OS meldet sich einmal an (SMTP und IMAP) und schickt dabei nichts.</span>
+              </div>
+            </form>
+            {meinPostfach ? <form action={postfachEntfernen} style={{ marginTop: 8 }}><button className="knopf klein gefahr">Postfach trennen</button></form> : null}
+          </details>
+        </section>
+
         <section className="karte">
           <h2>Passwort und Sitzungen</h2>
           <p>Passwort ändern beendet alle anderen Sitzungen. „Überall abmelden“ hilft, wenn ein Gerät verloren ging.</p>
@@ -104,6 +133,7 @@ export default async function Einstellungen({ searchParams }: { searchParams: Pr
               <div className="knopfreihe" style={{ gap: 8 }}>
                 <span className="marke-klein" style={{ margin: 0 }}>{ROLLEN[b.rolle as keyof typeof ROLLEN]}</span>
                 <span className={`status ${b.totpAktiv ? "ok" : "warten"}`}>2FA {b.totpAktiv ? "an" : "aus"}</span>
+                <span className={`status ${b.postfach ? "ok" : ""}`} title={b.postfach?.absender ?? "allgemeiner Absender"}>Postfach {b.postfach ? "eigenes" : "allgemein"}</span>
                 <span className={`status ${b.aktiv ? "ok" : "fehler"}`}>{b.aktiv ? "aktiv" : "gesperrt"}</span>
               </div>
               {admin ? (

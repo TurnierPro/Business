@@ -323,7 +323,9 @@ async function versendeIntern(id: number): Promise<string> {
     const anhaenge = await Promise.all(frisch.map(async (d) => ({ name: `${d.titel}.pdf`, inhalt: await archivieren(d) })));
     // Pflichtangaben nach § 35a GmbHG hängen an jeder Mail
     // Immer zwei Fassungen: Nur-Text (mit Signatur) und HTML im Levarex-Design
-    ergebnis = await sendeMail({ an: e.empfaenger, betreff: e.betreff, text: e.text + mailSignatur(), html: mailHtml({ betreff: e.betreff, text: e.text }), anhaenge });
+    // Vom Postfach der Person, die unterschreibt (bzw. freigegeben hat); sonst allgemeiner Absender
+    const absender = await (await import("../postfach")).absenderFuer(e);
+    ergebnis = await sendeMail({ an: e.empfaenger, betreff: e.betreff, text: e.text + mailSignatur(), html: mailHtml({ betreff: e.betreff, text: e.text }), anhaenge }, absender?.konto);
   } else if (e.kanal === "whatsapp") {
     // Das 24-Stunden-Fenster kann sich seit der Qualitätskontrolle geschlossen haben
     const { whatsappFensterOffen } = await import("./nachrichten");

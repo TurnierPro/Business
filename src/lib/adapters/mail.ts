@@ -33,7 +33,9 @@ export function aktiverMailDienst(): MailDienst {
 
 const absenderName = () => process.env.MAIL_ABSENDER_NAME ?? marke.name;
 
-export async function sendeMail(m: Mail): Promise<string> {
+/** Mail senden. Mit `konto` vom eigenen Postfach einer Person (und Ablage in deren „Gesendet“), sonst über den allgemeinen Weg. */
+export async function sendeMail(m: Mail, konto?: import("../postfach").SmtpKonto | null): Promise<string> {
+  if (konto) return sendeUeberKonto(m, konto);
   const dienst = aktiverMailDienst();
   if (dienst !== "simulator" && !gesetzt(dienst)) throw new Error(`${MAIL_DIENSTE[dienst].name}: es fehlen ${MAIL_DIENSTE[dienst].braucht.filter((k) => !process.env[k]).join(", ")}`);
   switch (dienst) {
@@ -173,4 +175,49 @@ async function sendeUeberSmtp(m: Mail): Promise<string> {
     attachments: m.anhaenge.map((a) => ({ filename: a.name, content: a.inhalt })),
   });
   return `Versendet über SMTP: ${info.messageId}`;
+}
+
+// ---------- Eigenes Postfach einer Person (SMTP + Ablage in „Gesendet“ per IMAP) ----------
+
+type Versand = (k: import("../postfach").SmtpKonto, umschlag: { from: string; to: string[] }, mime: Buffer) => Promise<string>;
+let testVersand: Versand | null = null;
+let testAblage: ((k: import("../postfach").SmtpKonto, mime: Buffer) => Promise<string>) | null = null;
+/** Nur für Tests: SMTP und IMAP ersetzen. */
+export function setzeTestPostfach(versand: Versand | null, ablage: typeof testAblage): void {
+  testVersand = versand;
+  testAblage = ablage;
+}
+
+async function sendeUeberKonto(m: Mail, k: import("../postfach").SmtpKonto): Promise<string> {
+  const nodemailer = await import("nodemailer");
+  const MailComposer = (await import("nodemailer/lib/mail-composer")).default;
+  // Einmal zusammenbauen: genau diese Fassung geht raus und liegt danach in „Gesendet“
+  const mime = await new MailComposer({
+    from: { name: k.name, address: k.absender },
+    to: m.an,
+    subject: m.betreff,
+    text: m.text,
+    html: m.html,
+    date: new Date(),
+    attachments: m.anhaenge.map((a) => ({ filename: a.name, content: a.inhalt })),
+  })
+    .compile()
+    .build();
+  const umschlag = { from: k.absender, to: [m.an] };
+  let id: string;
+  if (testVersand) id = await testVersand(k, umschlag, mime);
+  else {
+    const t = nodemailer.createTransport({ host: k.host, port: k.port, secure: k.port === 465, requireTLS: k.port !== 465, auth: { user: k.benutzer, pass: k.passwort }, connectionTimeout: 20_000 });
+    id = (await t.sendMail({ envelope: umschlag, raw: mime })).messageId;
+  }
+  // Ablage in „Gesendet“: Fehler hier stoppen den Versand nicht (die Mail ist schon raus), aber wir melden es
+  let ablage = "";
+  try {
+    const ordner = testAblage ? await testAblage(k, mime) : await (await import("../postfach")).imGesendetAblegen(k, mime);
+    ablage = `, abgelegt in „${ordner}“`;
+  } catch (err) {
+    ablage = ", nicht in „Gesendet“ abgelegt";
+    await (await import("./push")).melde("mail", false, `Mail an ${m.an} nicht in „Gesendet“ abgelegt`, err instanceof Error ? err.message : String(err));
+  }
+  return `Versendet von ${k.absender}${id ? ` (${id})` : ""}${ablage}`;
 }

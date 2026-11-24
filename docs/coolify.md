@@ -26,7 +26,7 @@ Deshalb nutzt Coolify die `docker-compose.yml` im Hauptordner: **ohne Caddy, ohn
    | `SERVICE_PASSWORD_POSTGRES` | – | erzeugt Coolify selbst; nach dem ersten Deploy in Bitwarden sichern |
    | `BASE_URL`, `PORTAL_URL`, `LEVAREX_HOSTS`, `N8N_DOMAIN` | – | nur ändern, wenn die Domains anders heißen |
    | `TESTPHASE` | Testphase: `ja` | Mails nur an interne Adressen (`TESTPHASE_DOMAINS`, Standard levarex-consulting.de), keine Briefe/WhatsApp, Platzhalter-IBAN nur Hinweis. Vor dem ersten echten Kunden entfernen |
-   | `MAIL_DIENST`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM` | für echten Mailversand | netcup-Postfach: `MAIL_DIENST=smtp`, Host aus dem netcup-CCP (z. B. `mxXXXXXX.netcup.net`), Port `587`, Benutzer = volle Mailadresse |
+   | `MAIL_DIENST`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM` | für echten Mailversand | **allgemeiner Absender `info@levarex-consulting.de`** (Systemmails, Portal-Zugang, Mails ohne persönliche Unterschrift): `MAIL_DIENST=smtp`, Host aus dem netcup-CCP (z. B. `mxXXXXXX.netcup.net`), Port `587`, Benutzer und Absender = `info@levarex-consulting.de` |
    | alle anderen (Lexware, Qonto, S3 …) | – | leer lassen = Simulator; erst eintragen, wenn der Dienst angebunden wird |
 4. **Deploy.** Nach ein paar Minuten `https://os.levarex-consulting.de` öffnen, mit dem Start-Passwort anmelden,
    Passwort ändern, Zwei-Faktor einrichten.
@@ -39,3 +39,16 @@ Deshalb nutzt Coolify die `docker-compose.yml` im Hauptordner: **ohne Caddy, ohn
   Vorher müssen `npm run typecheck` und `npm test` grün sein.
 - **Sicherung und Wiederherstellung** wie im Runbook (`docs/runbook-server.md`, Teil B); Befehle in Coolify unter
   **app → Terminal** statt `docker compose exec app`.
+
+## Eigenes Postfach je Person
+
+Jede Person verbindet ihr Postfach einmal in Levarex OS unter **Einstellungen → Konto → Mein Postfach**
+(Absender, SMTP-Server und Port 587, Benutzer, Passwort; IMAP-Server und Port 993 für „Gesendet“).
+Levarex OS meldet sich dabei einmal an und speichert das Passwort verschlüsselt.
+
+- Eine Mail geht vom Postfach der Person raus, die sie **unterschreibt** (z. B. Angebot: „Daniel Lück“),
+  sonst von der Person, die sie **freigibt**. Ohne eigenes Postfach: allgemeiner Absender (`info@`).
+- Danach legt Levarex OS dieselbe Mail per IMAP in den Ordner **„Gesendet“** dieses Postfachs.
+- In der Freigabe steht vor dem Versand, von welchem Postfach die Mail rausgeht.
+- Wichtig: Wird `SESSION_SECRET` geändert, lassen sich die gespeicherten Passwörter nicht mehr lesen.
+  Dann jedes Postfach einmal neu verbinden.
