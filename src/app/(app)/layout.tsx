@@ -39,15 +39,17 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           {b.name}
           <br />
           <form action={abmelden}><button>Abmelden</button></form>
+          {/* In der Seitenleiste statt schwebend in der Ecke: liegt so nie über Knöpfen oder Inhalten */}
+          <div className="versionsnummer" aria-label={`Version ${VERSION} vom ${VERSION_DATUM}`} title={`Stand ${VERSION_DATUM}`}>Version {VERSION}{process.env.TESTPHASE === "ja" ? " · Testbetrieb" : ""}</div>
         </div>
       </aside>
-      <div className="versionsnummer" aria-label={`Version ${VERSION} vom ${VERSION_DATUM}`} title={`Stand ${VERSION_DATUM}`}>Version {VERSION}{process.env.TESTPHASE === "ja" ? " · Testbetrieb" : ""}</div>
       <main className="inhalt">
         <Unternavigation />
         <Suspense>
           <Meldung />
         </Suspense>
         {children}
+        <div className="versionsnummer nur-mobil">Version {VERSION}{process.env.TESTPHASE === "ja" ? " · Testbetrieb" : ""}</div>
       </main>
     </div>
   );

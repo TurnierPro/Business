@@ -5,7 +5,7 @@ Die Nummer steht unten rechts in Levarex OS und unter `/api/gesundheit`. Regel: 
 
 | Version | Datum | Was ist neu |
 |---|---|---|
-| 2.04 | 25.11.2026 | Neue Benutzer müssen ihr Start-Passwort bei der ersten Anmeldung ändern |
+| 2.04 | 25.11.2026 | Funde aus dem Live-Test: Versandfehler sichtbar mit „Erneut senden“, Begrüßung nach Uhrzeit, einheitliche Fristen und Anreden, Portal-Schritte und Dateien nach Unterschrift, übersprungene Schritte, Eingabeprüfungen, Versionsnummer in der Seitenleiste, Start-Passwort muss geändert werden |
 | 2.03 | 25.11.2026 | Testbetrieb: TESTPHASE_DOMAINS kann auf eine einzelne Adresse begrenzt werden (z. B. nur info@) |
 | 2.02 | 24.11.2026 | Schwarzer Fuß wie auf der Website auf den Anmeldeseiten (Impressum, Datenschutz, Barrierefreiheit, Version) |
 | 2.01 | 24.11.2026 | Zu tun: alles unter „Mein Tag“ mit Reitern Heute, Nächste 7 Tage, Später; Grund einer Sperre direkt sichtbar; Portal vorerst unter der OS-Adresse |

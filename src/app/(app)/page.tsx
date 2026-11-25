@@ -86,7 +86,8 @@ export default async function ZuTun({ searchParams }: { searchParams: Promise<{ 
     .filter((g) => g.eintraege.length);
   const dringend = hinweise.filter((h) => h.art === "dringend");
   const erinnerungen = hinweise.filter((h) => h.art !== "dringend");
-  const heuteZahl = heuteFaellig.length + besuche.length + freigaben.length + neueLeads.length + tickets.length + unbekannt.length + dringend.length;
+  // Gleiche Zählung wie die Zahl im Menü (zuTunZahlen), dazu dringende Hinweise (z. B. Versand fehlgeschlagen)
+  const heuteZahl = zahlen.gesamt + dringend.length;
   const zeiten = [
     { key: "heute", name: "Heute", zahl: heuteZahl, ton: dringend.length || heuteFaellig.some((x) => x.a.faelligAm! < inTagen(0, "00:00")) ? ("fehler" as const) : undefined },
     { key: "woche", name: "Nächste 7 Tage", zahl: demnaechst.length },

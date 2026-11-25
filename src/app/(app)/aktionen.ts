@@ -69,7 +69,17 @@ function geburtsdatumAus(f: FormData): string | null {
 function websiteAus(f: FormData): string | null {
   const w = text(f, "website");
   if (!w && f.get("keineWebsite") !== "ja") throw new Error("Bitte die Website eintragen oder „Keine Website vorhanden“ ankreuzen.");
-  return f.get("keineWebsite") === "ja" ? null : w;
+  if (f.get("keineWebsite") === "ja") return null;
+  // Nur echte Adressen wie „beispiel.de“ oder „https://www.beispiel.de/kontakt“
+  if (!/^(https?:\/\/)?([a-z0-9äöüß]([a-z0-9äöüß-]{0,61}[a-z0-9äöüß])?\.)+[a-z]{2,}(\/\S*)?$/i.test(w)) throw new Error(`„${w.slice(0, 60)}“ ist keine Website-Adresse. Bitte z. B. „beispiel.de“ eintragen.`);
+  return w;
+}
+
+/** PLZ ist freiwillig; wenn angegeben, dann fünf Ziffern. */
+function plzAus(f: FormData): string | null {
+  const p = text(f, "plz").replace(/\s/g, "");
+  if (p && !/^\d{5}$/.test(p)) throw new Error("Die PLZ hat fünf Ziffern, z. B. 76297.");
+  return p || null;
 }
 
 export async function leadAnlegen(f: FormData) {
@@ -82,7 +92,7 @@ export async function leadAnlegen(f: FormData) {
         anrede: text(f, "anrede"),
         inhaber: text(f, "inhaber"),
         strasse: text(f, "strasse"),
-        plz: text(f, "plz"),
+        plz: plzAus(f) ?? "",
         ort: text(f, "ort"),
         telefon: text(f, "telefon"),
         email: text(f, "email"),
@@ -90,7 +100,7 @@ export async function leadAnlegen(f: FormData) {
         datenquelle: text(f, "datenquelle") || undefined,
         mitarbeiter: f.get("mitarbeiter") ? zahl(f, "mitarbeiter") : undefined,
         score: f.get("score") ? zahl(f, "score") : 50,
-        scoreGrund: text(f, "notizen") || "manuell angelegt",
+        scoreGrund: "von Hand angelegt",
         notizen: text(f, "notizen"),
       },
       "manuell",
@@ -116,7 +126,7 @@ export async function betriebSpeichern(f: FormData) {
         inhaber: text(f, "inhaber") || null,
         inhaberGeburtsdatum: geburtsdatumAus(f),
         strasse: text(f, "strasse") || null,
-        plz: text(f, "plz") || null,
+        plz: plzAus(f),
         ort: text(f, "ort") || null,
         telefon: text(f, "telefon") || null,
         email: text(f, "email") || null,

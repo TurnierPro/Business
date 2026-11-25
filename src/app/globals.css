@@ -748,7 +748,7 @@ fieldset { min-width: 0; }
 .schnell-aufgabe > summary::-webkit-details-marker { display: none; }
 .schnell-form { display: grid; grid-template-columns: minmax(0, 1fr) 150px 140px auto; gap: 8px; margin-top: 10px; align-items: center; }
 @media (max-width: 700px) { .schnell-form { grid-template-columns: 1fr 1fr; } .schnell-form input[name=titel] { grid-column: 1 / -1; } }
-.zeitleiste .art-log { opacity: 0.75; }
+.zeitleiste .art-log { color: var(--leise); }
 
 /* Freigabe in Schritten: Dokument → Nachricht → Prüfen und freigeben */
 .schrittleiste { display: flex; gap: 8px; flex-wrap: wrap; margin: 0 0 16px; }
@@ -796,7 +796,7 @@ fieldset { min-width: 0; }
 }
 
 /* Versionsnummer unten rechts: klein, ruhig, verdeckt nichts (Klicks gehen durch) */
-.versionsnummer { position: fixed; right: 10px; bottom: 6px; z-index: 5; font-family: var(--mono); font-size: 11px; color: var(--leise); pointer-events: none; }
+.versionsnummer { margin-top: 10px; font-family: var(--mono); font-size: 11px; color: var(--leise); }
 @media print { .versionsnummer { display: none; } }
 /* Diagramme: am Bildschirm breites Raster (kleine Schrift), auf dem Handy seitlich wischen statt winziger Schrift */
 .diagramm-rahmen { overflow-x: auto; }
@@ -819,3 +819,5 @@ fieldset { min-width: 0; }
 .anmelde-fuss a:hover { text-decoration: underline; text-decoration-color: #c9a35c; }
 .anmelde-fuss a:focus-visible { outline-color: #c9a35c; }
 .anmelde-version { font-family: var(--mono); font-size: 11px; color: #a29d93; }
+.versionsnummer.nur-mobil { display: none; }
+@media (max-width: 900px) { .versionsnummer.nur-mobil { display: block; text-align: right; margin: 24px 0 8px; } }

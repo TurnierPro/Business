@@ -176,7 +176,7 @@ export default async function Finanzen({ searchParams }: { searchParams: Promise
                   <tbody>
                     {g.liste.map((x) => (
                       <tr key={x.a.id}>
-                        <td><Link href={`/leads/${x.a.betriebId}?reiter=dokumente`}>{x.kunde}</Link><div className="leise klein">{PAKETE[x.a.paket as PaketKey]?.name ?? x.a.paket}</div></td>
+                        <td><Link href={`/leads/${x.a.betriebId}?tab=unterlagen`}>{x.kunde}</Link><div className="leise klein">{PAKETE[x.a.paket as PaketKey]?.name ?? x.a.paket}</div></td>
                         <td className="weg-mobil mono klein">{datum(g.datumVon(x))}</td>
                         <td className="zahl">{euro(x.a.einmalig)}</td>
                         <td className="zahl">{euro(x.a.monatlich)}</td>

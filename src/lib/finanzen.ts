@@ -44,7 +44,8 @@ const MONATE = ["Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "A
 export function zeitraum(key?: string): Zeitraum {
   const jetzt = new Date();
   const k = key ?? `${jetzt.getFullYear()}-Q${Math.floor(jetzt.getMonth() / 3) + 1}`;
-  const m = k.match(/^(\d{4})(?:-(Q[1-4]|\d{2}))?$/);
+  // Monat nur 01–12 (sonst „undefined 2026“ bei z=2026-13)
+  const m = k.match(/^(\d{4})(?:-(Q[1-4]|0[1-9]|1[0-2]))?$/);
   if (!m) return zeitraum();
   const jahr = Number(m[1]);
   const monatsliste = (von: number, anzahl: number) => Array.from({ length: anzahl }, (_, i) => `${jahr}-${String(von + i + 1).padStart(2, "0")}`);
@@ -164,6 +165,7 @@ export async function ausgabeSpeichern(f: FormData, wer: string, id?: number): P
   }
   const satz = Number(f.get("ustSatz") ?? 19);
   const brutto = inCent(String(f.get("brutto") ?? "0"));
+  if (!Number.isFinite(brutto) || brutto <= 0) throw new Error("Bitte einen Betrag über 0 € eintragen (brutto, z. B. 49,90). Gutschriften bitte mit Notiz an den Steuerberater.");
   const netto = Math.round(brutto / (1 + satz / 100));
   const werte = {
     datum: new Date(String(f.get("datum"))),
