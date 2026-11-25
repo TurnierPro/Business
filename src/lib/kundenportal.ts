@@ -224,7 +224,7 @@ export async function zugangAnfordern(email: string): Promise<void> {
       zweck: "portal_zugang",
       empfaenger: b.email!,
       betreff: "Ihr Zugang zum Kundenportal",
-      text: `Guten Tag,\n\nSie haben Ihren Zugang zum Kundenportal angefordert. Hier ist Ihr persönlicher Link:\n${await portalLink(b.id)}\n\nDer Link ist nur für Sie. Bitte nicht weitergeben. Wenn Sie den Zugang nicht angefordert haben, können Sie diese Mail ignorieren.\n\nMit freundlichen Grüßen\nIhr Team von Levarex Consulting`,
+      text: `${(await import("./ablauf/gemeinsam")).mailAnrede(b)}\n\nSie haben Ihren Zugang zum Kundenportal angefordert. Hier ist Ihr persönlicher Link:\n${await portalLink(b.id)}\n\nDer Link ist nur für Sie. Bitte nicht weitergeben. Wenn Sie den Zugang nicht angefordert haben, können Sie diese Mail ignorieren.\n\nMit freundlichen Grüßen\nIhr Team von Levarex Consulting`,
       meta: { angefordert: true },
     });
   }

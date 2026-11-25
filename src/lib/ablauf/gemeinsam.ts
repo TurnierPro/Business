@@ -54,3 +54,10 @@ export function sperrSchluessel(name: string, website?: string | null): string {
   const domain = (website ?? "").toLowerCase().replace(/^https?:\/\//, "").replace(/^www\./, "").split("/")[0];
   return domain || name.toLowerCase().replace(/gmbh|kg|& co\.?|ug|e\.k\.|[^a-z0-9äöüß]/g, "");
 }
+
+/** Persönliche Anrede für Mails, wenn der Inhaber bekannt ist; sonst „Guten Tag,“. */
+export function mailAnrede(b: { inhaber?: string | null; anrede?: string | null }): string {
+  if (!b.inhaber) return "Guten Tag,";
+  const nachname = b.inhaber.trim().split(" ").slice(-1)[0];
+  return b.anrede === "Frau" ? `Sehr geehrte Frau ${nachname},` : b.anrede === "Herr" ? `Sehr geehrter Herr ${nachname},` : `Guten Tag ${b.inhaber.trim()},`;
+}

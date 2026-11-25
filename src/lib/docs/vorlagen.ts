@@ -282,7 +282,7 @@ export function auftragsbestaetigung(d: AuftragDaten): string {
     extraCss: dinCss,
     inhalt: `<div class="seite din">${falzmarken}${kopf()}${anschriftfeld(d.an)}
 <div class="infoblock">Auftragsbestätigung<br><b class="mono">${esc(d.nummer)}</b><br><br>Zu Angebot<br><b class="mono">${esc(d.angebotNummer)}</b><br><br>Datum<br><b class="mono">${esc(d.datum)}</b></div>
-<div class="briefkoerper"><h1>Auftragsbestätigung: ${esc(p.name)}</h1>
+<div class="briefkoerper"><h1>Auftragsbestätigung</h1>
 <p>vielen Dank für Ihren Auftrag. Hiermit bestätigen wir den Vertrag zu unserem Angebot ${esc(d.angebotNummer)}.</p>
 <table><thead><tr><th>Leistung</th><th class="zahl">Einmalig netto</th><th class="zahl">Monatlich netto</th></tr></thead><tbody>
 ${d.positionen.map((x) => `<tr><td>${esc(x.text)}</td><td class="zahl">${x.einmalig ? euro(x.einmalig) : "–"}</td><td class="zahl">${x.monatlich ? euro(x.monatlich) : "–"}</td></tr>`).join("")}

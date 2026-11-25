@@ -52,7 +52,7 @@ export async function dateiVomKunden(betriebId: number, dateien: File[], notiz: 
   for (const f of echt) ids.push(await speichern(betriebId, f, "vom_kunden", notiz, wer));
   const [b] = await db.select({ name: schema.betriebe.name }).from(schema.betriebe).where(eq(schema.betriebe.id, betriebId));
   const { systemAufgabe, TECHNIK } = await import("./ablauf/crm");
-  await systemAufgabe({ betriebId, titel: "Neue Dateien vom Kunden ansehen", text: `${ids.length} Datei${ids.length > 1 ? "en" : ""} im Kundenportal hochgeladen${notiz.trim() ? `: „${notiz.trim().slice(0, 200)}“` : ""}. Kundenakte → Unterlagen → Dateien.`, inTagen: 1, zustaendig: TECHNIK });
+  await systemAufgabe({ betriebId, titel: "Neue Dateien vom Kunden ansehen", text: `${ids.length} Datei${ids.length > 1 ? "en" : ""} im Kundenportal hochgeladen${notiz.trim() ? `: „${notiz.trim().slice(0, 200)}“` : ""}. Kundenakte → Unterlagen → Dateien.`, inTagen: 0, zustaendig: TECHNIK });
   await (await import("./adapters/push")).melde("eingang", true, `Neue Dateien von ${b?.name ?? "einem Kunden"}`, `${ids.length} Datei${ids.length > 1 ? "en" : ""} im Kundenportal`);
   await protokolliere(wer, `${ids.length} Datei${ids.length > 1 ? "en" : ""} im Kundenportal hochgeladen`, betriebId, echt.map((f) => f.name).join(", "));
   return ids;
@@ -82,7 +82,7 @@ export async function dateiFreigeben(id: number, wer: string): Promise<number> {
     zweck: "datei_portal",
     empfaenger: b.email ?? "(E-Mail-Adresse fehlt)",
     betreff: `Neue Unterlage im Kundenportal: ${d.name}`,
-    text: `Guten Tag,\n\nin Ihrem Kundenportal liegt eine neue Unterlage für Sie: ${d.name}.${d.notiz ? `\n\n${d.notiz}` : ""}\n\nSie finden sie unter „Dateien“:\n${await portalLink(b.id)}#dateien\n\nMit freundlichen Grüßen\nMaximilian Steiner\nLevarex Consulting`,
+    text: `${(await import("./ablauf/gemeinsam")).mailAnrede(b)}\n\nin Ihrem Kundenportal liegt eine neue Unterlage für Sie: ${d.name}.${d.notiz ? `\n\n${d.notiz}` : ""}\n\nSie finden sie unter „Dateien“:\n${await portalLink(b.id)}#dateien\n\nMit freundlichen Grüßen\nMaximilian Steiner\nLevarex Consulting`,
     hinweise: b.email ? [] : ["E-Mail-Adresse fehlt. Beim Betrieb ergänzen und Empfänger anpassen."],
     meta: { dateiId: d.id },
   });

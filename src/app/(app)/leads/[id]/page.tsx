@@ -141,9 +141,9 @@ export default async function Lead({ params, searchParams }: { params: Promise<{
 
   // Datum je Schritt (wie im Kundenportal), soweit bekannt
   const brief = post.find((p) => p.zweck === "akquise_brief" && p.versendetAm);
-  const daten: (Date | null | undefined)[] = [b.erstelltAm, brief?.versendetAm, termine[0]?.datum, angebot?.erstelltAm, angebot?.unterschriebenAm, angebot?.angezahltAm, projekt?.inhalteAm, projekt?.abnahmeAm, projekt?.liveAm];
+  const daten: (Date | null | undefined)[] = [b.erstelltAm, brief?.versendetAm, termine[0]?.datum ?? besuche[0]?.am, angebot?.erstelltAm, angebot?.unterschriebenAm, angebot?.angezahltAm, projekt?.inhalteAm, projekt?.abnahmeAm, projekt?.liveAm];
   // Schritte, die es bei diesem Betrieb nie gab (z. B. kein Brief, weil der Kontakt anders zustande kam), heißen „übersprungen“, nicht „erledigt“
-  const gespraechGab = termine.length > 0 || aktivitaeten.some((x) => ["besuch", "gespraech", "termin"].includes(x.art));
+  const gespraechGab = termine.length > 0 || besuche.length > 0 || aktivitaeten.some((x) => ["besuch", "gespraech", "termin"].includes(x.art));
   const uebersprungen = (i: number) => i < index && ((i === 1 && !brief?.versendetAm) || (i === 2 && !gespraechGab));
   const anzahlungsRechnung = rechnungen.find((r) => r.art === "anzahlung");
   const summe24 = angebot ? angebot.einmalig + angebot.monatlich * 24 : 0;

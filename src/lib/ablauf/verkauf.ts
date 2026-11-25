@@ -14,6 +14,7 @@ import { aktuellerKatalog, berechne, type Auswahl } from "../katalog";
 import { datumDe } from "../docs/basis";
 import { NICHT_ENTHALTEN, PAKETE, PaketKey, euro, paketVorschlag, UST } from "../pakete";
 import { katalogLaden } from "../katalog-db";
+import { mailAnrede } from "./gemeinsam";
 import { AGB_VERSION, ERSTE_RATE_FAELLIG_TAGE, ZAHLUNGSZIEL_TAGE } from "../recht";
 import type { AngebotDaten, ProtokollDaten } from "../docs/vorlagen";
 import { inPostausgang, istGesperrt } from "./postausgang";
@@ -245,13 +246,6 @@ export async function angebotMailVorlegen(o: { angebotId: number; empfaenger: st
   });
   await protokolliere(o.wer, `Angebots-Mail zur Freigabe vorgelegt`, a.betriebId);
   return id;
-}
-
-/** Persönliche Anrede für Mails, wenn der Inhaber bekannt ist; sonst „Guten Tag,“. */
-function mailAnrede(b: { inhaber?: string | null; anrede?: string | null }): string {
-  if (!b.inhaber) return "Guten Tag,";
-  const nachname = b.inhaber.trim().split(" ").slice(-1)[0];
-  return b.anrede === "Frau" ? `Sehr geehrte Frau ${nachname},` : b.anrede === "Herr" ? `Sehr geehrter Herr ${nachname},` : `Guten Tag ${b.inhaber.trim()},`;
 }
 
 export async function naechsteRechnungsnummer(jahr = new Date().getFullYear()): Promise<{ nummer: string; lfdNr: number; jahr: number }> {

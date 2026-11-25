@@ -5,6 +5,7 @@ Die Nummer steht unten rechts in Levarex OS und unter `/api/gesundheit`. Regel: 
 
 | Version | Datum | Was ist neu |
 |---|---|---|
+| 2.11 | 25.11.2026 | Funde aus dem kompletten Live-Durchlauf: Portal-Link in Mails als Knopf, persönliche Anrede auch in Zugangs- und Datei-Mails, erfasster Besuch zählt als Gespräch, Upload-Aufgabe sofort fällig, Rechnungs-Mail ohne Widerspruch, Checkliste vor dem ersten Kunden |
 | 2.10 | 25.11.2026 | Tab-Symbol: das X im Quadrat auch vor der Anmeldung (Symboldateien frei zugänglich, dazu favicon.ico und Symbol für den iPhone-Startbildschirm) |
 | 2.09 | 25.11.2026 | Absender immer passend zum Postfach (fremde Domains wie levax.de werden ersetzt), Vorgaben auf info@levarex-consulting.de |
 | 2.08 | 25.11.2026 | Konnektoren: „Verbindung prüfen“ für den Mailversand (zeigt Server, Port, Benutzer, Passwortlänge und Ergebnis, nie das Passwort) |
