@@ -221,3 +221,38 @@ async function sendeUeberKonto(m: Mail, k: import("../postfach").SmtpKonto): Pro
   }
   return `Versendet von ${k.absender}${id ? ` (${id})` : ""}${ablage}`;
 }
+
+/**
+ * Verbindungsprüfung für den allgemeinen SMTP-Zugang (Coolify-Variablen), ohne etwas zu senden.
+ * Zeigt, was die App wirklich bekommt; das Passwort nie, nur Länge und auffällige Zeichen
+ * (z. B. Leerzeichen am Rand oder Anführungszeichen, typische Kopierfehler; ein „$“ verschluckt Coolify ohne „Is Literal“).
+ */
+export async function smtpDiagnose(): Promise<{ host: string; port: number; benutzer: string; absender: string; passwortLaenge: number; auffaellig: string[]; ergebnis: string; ok: boolean }> {
+  const host = process.env.SMTP_HOST ?? "";
+  const port = Number(process.env.SMTP_PORT ?? 587);
+  const benutzer = process.env.SMTP_USER ?? "";
+  const pass = process.env.SMTP_PASS ?? "";
+  const auffaellig: string[] = [];
+  if (!host) auffaellig.push("SMTP_HOST fehlt.");
+  if (!benutzer.includes("@")) auffaellig.push("SMTP_USER ist keine volle Adresse (bei netcup z. B. info@levarex-consulting.de).");
+  if (benutzer !== benutzer.trim()) auffaellig.push("SMTP_USER hat Leerzeichen am Anfang oder Ende.");
+  if (!pass) auffaellig.push("SMTP_PASS fehlt oder ist leer.");
+  if (pass !== pass.trim()) auffaellig.push("SMTP_PASS hat Leerzeichen am Anfang oder Ende.");
+  if (/^["']|["']$/.test(pass)) auffaellig.push("SMTP_PASS beginnt oder endet mit einem Anführungszeichen (mitkopiert?).");
+  if (![465, 587].includes(port)) auffaellig.push(`SMTP_PORT ist ${port}; üblich sind 465 (SSL) oder 587 (STARTTLS).`);
+  if (/levax/i.test(process.env.SMTP_FROM ?? "") || /levax/i.test(process.env.MAIL_FROM ?? "")) auffaellig.push("Absender enthält noch „Levax“ (SMTP_FROM oder MAIL_FROM).");
+  let ergebnis = "nicht geprüft";
+  let ok = false;
+  if (host && benutzer && pass) {
+    const nodemailer = await import("nodemailer");
+    const t = nodemailer.createTransport({ host, port, secure: port === 465, requireTLS: port !== 465, auth: { user: benutzer, pass }, connectionTimeout: 15_000, greetingTimeout: 15_000 });
+    try {
+      await t.verify();
+      ok = true;
+      ergebnis = "Anmeldung beim Mailserver erfolgreich.";
+    } catch (err) {
+      ergebnis = err instanceof Error ? err.message : String(err);
+    }
+  }
+  return { host, port, benutzer, absender: process.env.SMTP_FROM ?? "", passwortLaenge: pass.length, auffaellig, ergebnis, ok };
+}

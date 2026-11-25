@@ -1,6 +1,6 @@
 import { brauchtBenutzer, darf } from "@/lib/auth";
 import { KATEGORIEN, konnektoren } from "@/lib/konnektoren";
-import { aktiverMailDienst, MAIL_DIENSTE } from "@/lib/adapters/mail";
+import { aktiverMailDienst, MAIL_DIENSTE, smtpDiagnose } from "@/lib/adapters/mail";
 import { Status } from "@/components/Status";
 import { AufEinenBlick, SeitenKopf, SeitenReiter, reiterWahl } from "@/components/Seite";
 import { testmailAnMich } from "../../aktionen";
@@ -8,18 +8,22 @@ import { testmailAnMich } from "../../aktionen";
 export const metadata = { title: "Konnektoren" };
 
 // Anschlüsse an eure Werkzeuge. Ohne Zugangsdaten läuft jeder im Simulator; nach draußen geht trotzdem alles nur über die Freigaben.
-export default async function Konnektoren({ searchParams }: { searchParams: Promise<{ reiter?: string }> }) {
+export default async function Konnektoren({ searchParams }: { searchParams: Promise<{ reiter?: string; pruefen?: string }> }) {
   const ich = await brauchtBenutzer();
   const alle = await konnektoren();
   const mail = aktiverMailDienst();
   const zahl = (st: string) => alle.filter((k) => k.status === st).length;
   const liste = [{ key: "alle", name: "Alle", zahl: alle.length }, ...KATEGORIEN.filter((k) => alle.some((x) => x.kategorie === k)).map((k) => ({ key: k, name: k, zahl: alle.filter((x) => x.kategorie === k).length }))];
-  const reiter = reiterWahl((await searchParams).reiter, liste);
+  const sp = await searchParams;
+  const reiter = reiterWahl(sp.reiter, liste);
+  // Verbindungsprüfung nur auf Knopfdruck (meldet sich einmal beim Mailserver an, sendet nichts)
+  const diagnose = sp.pruefen === "smtp" && darf(ich, "aendern") ? await smtpDiagnose() : null;
   const kategorien = reiter === "alle" ? KATEGORIEN : [reiter];
 
   return (
     <>
       <SeitenKopf titel="Konnektoren" text="Anschlüsse an E-Mail, WhatsApp, Lexware Office, Qonto, Plaud und n8n. Ohne Zugangsdaten läuft jeder Anschluss im Simulator.">
+        {darf(ich, "aendern") ? <a className="knopf" href="/stammdaten/konnektoren?reiter=E-Mail&pruefen=smtp#smtp-pruefung">Verbindung prüfen</a> : null}
         {darf(ich, "aendern") ? <form action={testmailAnMich}><button className="knopf" title="Landet zuerst in den Freigaben, dort mit Vorschau im Mail-Design. Nach der Freigabe geht sie an deine Adresse.">Testmail an mich</button></form> : null}
       </SeitenKopf>
       <AufEinenBlick werte={[
@@ -30,6 +34,14 @@ export default async function Konnektoren({ searchParams }: { searchParams: Prom
         { wert: zahl("bewusst_aus"), name: "bewusst aus" },
       ]} />
       <SeitenReiter basis="/stammdaten/konnektoren" aktiv={reiter} liste={liste} />
+      {diagnose ? (
+        <section className={`hinweis ${diagnose.ok ? "ok" : "fehler"}`} id="smtp-pruefung" role="status" style={{ marginBottom: 16 }}>
+          <p style={{ margin: "0 0 8px" }}><strong>{diagnose.ok ? "Verbindung in Ordnung." : "Verbindung klappt nicht."}</strong> {diagnose.ergebnis}</p>
+          <p className="klein mono" style={{ margin: "0 0 8px" }}>Server {diagnose.host || "–"} · Port {diagnose.port} · Benutzer {diagnose.benutzer || "–"} · Passwort {diagnose.passwortLaenge} Zeichen · Absender {diagnose.absender || "–"}</p>
+          {diagnose.auffaellig.length ? <ul className="klein" style={{ margin: 0 }}>{diagnose.auffaellig.map((a) => <li key={a}>{a}</li>)}</ul> : null}
+          {!diagnose.ok ? <p className="klein" style={{ margin: "8px 0 0" }}>Stimmt die Zahl der Zeichen nicht mit eurem Passwort überein, hat Coolify es verändert (oft wegen „$“): bei SMTP_PASS „Is Literal“ setzen, speichern, neu deployen.</p> : null}
+        </section>
+      ) : null}
 
       {kategorien.map((kat) => {
         const teil = alle.filter((k) => k.kategorie === kat);
