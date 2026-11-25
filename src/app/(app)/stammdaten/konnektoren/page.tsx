@@ -3,7 +3,7 @@ import { KATEGORIEN, konnektoren } from "@/lib/konnektoren";
 import { aktiverMailDienst, MAIL_DIENSTE, smtpDiagnose } from "@/lib/adapters/mail";
 import { Status } from "@/components/Status";
 import { AufEinenBlick, SeitenKopf, SeitenReiter, reiterWahl } from "@/components/Seite";
-import { testmailAnMich } from "../../aktionen";
+import { pushTestenAktion, testmailAnMich } from "../../aktionen";
 
 export const metadata = { title: "Konnektoren" };
 
@@ -24,6 +24,7 @@ export default async function Konnektoren({ searchParams }: { searchParams: Prom
     <>
       <SeitenKopf titel="Konnektoren" text="Anschlüsse an E-Mail, WhatsApp, Lexware Office, Qonto, Plaud und n8n. Ohne Zugangsdaten läuft jeder Anschluss im Simulator.">
         {darf(ich, "aendern") ? <a className="knopf" href="/stammdaten/konnektoren?reiter=E-Mail&pruefen=smtp#smtp-pruefung">Verbindung prüfen</a> : null}
+        {darf(ich, "aendern") && process.env.NTFY_URL ? <form action={pushTestenAktion}><button className="knopf">Push testen</button></form> : null}
         {darf(ich, "aendern") ? <form action={testmailAnMich}><button className="knopf" title="Landet zuerst in den Freigaben, dort mit Vorschau im Mail-Design. Nach der Freigabe geht sie an deine Adresse.">Testmail an mich</button></form> : null}
       </SeitenKopf>
       <AufEinenBlick werte={[

@@ -681,6 +681,12 @@ export async function sollSpeichern(f: FormData) {
   }, "verwalten");
 }
 
+export async function pushTestenAktion() {
+  await ausfuehren("/stammdaten/konnektoren?reiter=Technik", "Testnachricht verschickt. Sie sollte jetzt auf dem Handy erscheinen.", async () => {
+    await (await import("@/lib/adapters/push")).pushTesten();
+  });
+}
+
 export async function testmailAnMich() {
   const ich = await brauchtBenutzer();
   await ausfuehren("/stammdaten/konnektoren", "Testmail liegt in den Freigaben", async (wer) => {
