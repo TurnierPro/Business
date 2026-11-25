@@ -11,6 +11,7 @@ import { AngebotEditor } from "@/components/AngebotEditor";
 import type { AngebotDaten } from "@/lib/docs/vorlagen";
 import { mailSignatur } from "@/lib/recht";
 import { mailHtml } from "@/lib/docs/mailvorlage";
+import { smtpAbsender } from "@/lib/adapters/mail";
 
 export const metadata = { title: "Freigabe prüfen" };
 
@@ -109,7 +110,7 @@ export default async function Eintrag({ params }: { params: Promise<{ id: string
             {e.kanal === "mail" ? (
               <div className="karte">
                 <h3 style={{ marginTop: 0 }}>So kommt sie an</h3>
-                <p className="klein"><b>Von:</b> {absender ? <>{absender.konto.name} &lt;{absender.konto.absender}&gt; <span className="leise">(Postfach von {absender.benutzer}, danach in „Gesendet“)</span></> : <>{process.env.SMTP_FROM || process.env.MAIL_FROM || "allgemeiner Absender"} <span className="leise">(allgemein; eigenes Postfach unter Einstellungen → Konto)</span></>}</p>
+                <p className="klein"><b>Von:</b> {absender ? <>{absender.konto.name} &lt;{absender.konto.absender}&gt; <span className="leise">(Postfach von {absender.benutzer}, danach in „Gesendet“)</span></> : <>{smtpAbsender() || process.env.MAIL_FROM || "allgemeiner Absender"} <span className="leise">(allgemein; eigenes Postfach unter Einstellungen → Konto)</span></>}</p>
                 <p><b>Betreff:</b> {e.betreff}</p>
                 {/* sandbox: keine Skripte, keine Formulare, Links öffnen nichts im System */}
                 <iframe className="vorschau mailvorschau" sandbox="" srcDoc={mailHtml({ betreff: e.betreff, text: e.text, vorschau: true })} title="Vorschau der E-Mail" />

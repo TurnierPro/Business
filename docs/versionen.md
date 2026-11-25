@@ -5,6 +5,7 @@ Die Nummer steht unten rechts in Levarex OS und unter `/api/gesundheit`. Regel: 
 
 | Version | Datum | Was ist neu |
 |---|---|---|
+| 2.09 | 25.11.2026 | Absender immer passend zum Postfach (fremde Domains wie levax.de werden ersetzt), Vorgaben auf info@levarex-consulting.de |
 | 2.08 | 25.11.2026 | Konnektoren: „Verbindung prüfen“ für den Mailversand (zeigt Server, Port, Benutzer, Passwortlänge und Ergebnis, nie das Passwort) |
 | 2.07 | 25.11.2026 | Kundenportal: Knopf „Barrierefreiheit“ mit Schriftgröße, hohem Kontrast, unterstrichenen Links und Bewegung aus (je Browser gemerkt) |
 | 2.06 | 25.11.2026 | Barrierefreiheit im Kundenportal: Kontakt- und Fußlinks mit 24 px Klickfläche (WCAG 2.2) |

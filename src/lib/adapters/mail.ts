@@ -18,7 +18,7 @@ export const MAIL_DIENSTE: Record<MailDienst, { name: string; braucht: string[];
   microsoft: { name: "Microsoft 365 (Outlook)", braucht: ["MS_TENANT_ID", "MS_CLIENT_ID", "MS_CLIENT_SECRET", "MS_ABSENDER"], hinweis: "App-Registrierung in Entra ID mit Anwendungsberechtigung Mail.Send, Zugriff per Application Access Policy auf das Absender-Postfach beschränken." },
   google: { name: "Google Workspace (Gmail)", braucht: ["GOOGLE_CLIENT_EMAIL", "GOOGLE_PRIVATE_KEY", "GOOGLE_ABSENDER"], hinweis: "Dienstkonto in der Google Cloud, Gmail-API aktivieren, in der Admin-Konsole domänenweite Delegierung mit Bereich gmail.send." },
   resend: { name: "Resend", braucht: ["RESEND_API_KEY", "MAIL_FROM"], hinweis: "Domain bei Resend bestätigen (SPF, DKIM). Server in den USA: AV-Vertrag und Drittland prüfen." },
-  smtp: { name: "SMTP (beliebiger Anbieter)", braucht: ["SMTP_HOST", "SMTP_USER", "SMTP_PASS", "SMTP_FROM"], hinweis: "Zugangsdaten vom Mail-Anbieter. Bei Outlook oder Gmail per SMTP: App-Passwort statt Hauptpasswort." },
+  smtp: { name: "SMTP (beliebiger Anbieter)", braucht: ["SMTP_HOST", "SMTP_USER", "SMTP_PASS"], hinweis: "Zugangsdaten vom Mail-Anbieter. Bei Outlook oder Gmail per SMTP: App-Passwort statt Hauptpasswort." },
   simulator: { name: "Simulator", braucht: [], hinweis: "Nichts verlässt das System. Mails liegen unter Logs → Simulator-Postfach." },
 };
 
@@ -161,12 +161,26 @@ async function sendeUeberResend(m: Mail): Promise<string> {
 
 // ---------- SMTP ----------
 
+/**
+ * Absender für den allgemeinen SMTP-Zugang. SMTP_FROM gilt nur, wenn seine Adresse zur Domain des Postfachs (SMTP_USER) passt.
+ * Sonst (fehlt, alte Domain wie „levax.de“, Tippfehler) schicken wir als „Levarex Consulting <SMTP_USER>“: Der Mailserver
+ * würde fremde Absender ohnehin ablehnen, und der Kunde sähe keine falsche Adresse.
+ */
+export function smtpAbsender(): string {
+  const user = (process.env.SMTP_USER ?? "").trim();
+  const roh = (process.env.SMTP_FROM ?? "").trim();
+  const adresse = (roh.match(/<([^>]+)>/)?.[1] ?? roh).trim().toLowerCase();
+  const domain = (a: string) => a.split("@")[1] ?? "";
+  if (adresse.includes("@") && domain(adresse) === domain(user.toLowerCase())) return roh;
+  return user.includes("@") ? `Levarex Consulting <${user}>` : roh;
+}
+
 async function sendeUeberSmtp(m: Mail): Promise<string> {
   const nodemailer = await import("nodemailer");
   const port = Number(process.env.SMTP_PORT ?? 587);
   const transport = nodemailer.createTransport({ host: process.env.SMTP_HOST, port, secure: port === 465, requireTLS: port !== 465, auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS } });
   const info = await transport.sendMail({
-    from: process.env.SMTP_FROM,
+    from: smtpAbsender(),
     to: m.an,
     replyTo: process.env.MAIL_ANTWORT_AN,
     subject: m.betreff,
@@ -240,7 +254,7 @@ export async function smtpDiagnose(): Promise<{ host: string; port: number; benu
   if (pass !== pass.trim()) auffaellig.push("SMTP_PASS hat Leerzeichen am Anfang oder Ende.");
   if (/^["']|["']$/.test(pass)) auffaellig.push("SMTP_PASS beginnt oder endet mit einem Anführungszeichen (mitkopiert?).");
   if (![465, 587].includes(port)) auffaellig.push(`SMTP_PORT ist ${port}; üblich sind 465 (SSL) oder 587 (STARTTLS).`);
-  if (/levax/i.test(process.env.SMTP_FROM ?? "") || /levax/i.test(process.env.MAIL_FROM ?? "")) auffaellig.push("Absender enthält noch „Levax“ (SMTP_FROM oder MAIL_FROM).");
+  if ((process.env.SMTP_FROM ?? "").trim() && smtpAbsender() !== (process.env.SMTP_FROM ?? "").trim()) auffaellig.push(`SMTP_FROM („${process.env.SMTP_FROM}“) passt nicht zum Postfach und wird ignoriert; verschickt wird als ${smtpAbsender()}. Bitte in Coolify korrigieren oder löschen.`);
   let ergebnis = "nicht geprüft";
   let ok = false;
   if (host && benutzer && pass) {
@@ -254,5 +268,5 @@ export async function smtpDiagnose(): Promise<{ host: string; port: number; benu
       ergebnis = err instanceof Error ? err.message : String(err);
     }
   }
-  return { host, port, benutzer, absender: process.env.SMTP_FROM ?? "", passwortLaenge: pass.length, auffaellig, ergebnis, ok };
+  return { host, port, benutzer, absender: smtpAbsender(), passwortLaenge: pass.length, auffaellig, ergebnis, ok };
 }

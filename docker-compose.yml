@@ -42,12 +42,12 @@ services:
       GOOGLE_PRIVATE_KEY: ${GOOGLE_PRIVATE_KEY:-}
       GOOGLE_ABSENDER: ${GOOGLE_ABSENDER:-}
       RESEND_API_KEY: ${RESEND_API_KEY:-}
-      MAIL_FROM: ${MAIL_FROM:-}
+      MAIL_FROM: ${MAIL_FROM:-Levarex Consulting <info@levarex-consulting.de>}
       SMTP_HOST: ${SMTP_HOST:-}
       SMTP_PORT: ${SMTP_PORT:-}
       SMTP_USER: ${SMTP_USER:-}
       SMTP_PASS: ${SMTP_PASS:-}
-      SMTP_FROM: ${SMTP_FROM:-}
+      SMTP_FROM: ${SMTP_FROM:-Levarex Consulting <info@levarex-consulting.de>}
       WHATSAPP_TOKEN: ${WHATSAPP_TOKEN:-}
       WHATSAPP_TELEFON_ID: ${WHATSAPP_TELEFON_ID:-}
       WHATSAPP_APP_SECRET: ${WHATSAPP_APP_SECRET:-}

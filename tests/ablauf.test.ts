@@ -1329,3 +1329,21 @@ test("Versionsnummer: Format 1.00, 1.01 … und in docs/versionen.md eingetragen
   const liste = fs.readFileSync(new URL("../docs/versionen.md", import.meta.url), "utf8");
   assert.ok(liste.includes(`| ${VERSION} |`), "neue Version bitte in docs/versionen.md eintragen");
 });
+
+test("Absender: SMTP_FROM nur mit der Domain des Postfachs, sonst Levarex mit der Postfach-Adresse", async () => {
+  const { smtpAbsender } = await import("../src/lib/adapters/mail");
+  const env = process.env as Record<string, string | undefined>;
+  const vorher = { u: env.SMTP_USER, f: env.SMTP_FROM };
+  try {
+    env.SMTP_USER = "info@levarex-consulting.de";
+    env.SMTP_FROM = "Levax Consulting <hallo@levax.de>";
+    assert.equal(smtpAbsender(), "Levarex Consulting <info@levarex-consulting.de>", "fremde Domain wird ersetzt");
+    env.SMTP_FROM = "Levarex Consulting <info@levarex-consulting.de>";
+    assert.equal(smtpAbsender(), "Levarex Consulting <info@levarex-consulting.de>");
+    delete env.SMTP_FROM;
+    assert.equal(smtpAbsender(), "Levarex Consulting <info@levarex-consulting.de>", "ohne SMTP_FROM: Postfach-Adresse");
+  } finally {
+    if (vorher.u === undefined) delete env.SMTP_USER; else env.SMTP_USER = vorher.u;
+    if (vorher.f === undefined) delete env.SMTP_FROM; else env.SMTP_FROM = vorher.f;
+  }
+});

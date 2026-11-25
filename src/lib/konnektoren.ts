@@ -45,7 +45,7 @@ export async function konnektoren(): Promise<Konnektor[]> {
   return [
     { ...mailKonnektor("smtp", [
       "Eigenes Postfach je Person: Einstellungen → Mein Postfach. Mails, die Daniel unterschreibt, gehen von Daniels Postfach raus, die von Maximilian von seinem, und liegen danach im Ordner „Gesendet“.",
-      "Allgemeiner Absender (info@) für alles andere: in Coolify SMTP_HOST, SMTP_PORT (587 oder 465), SMTP_USER, SMTP_PASS, SMTP_FROM setzen.",
+      "Allgemeiner Absender (info@) für alles andere: in Coolify SMTP_HOST (netcup: mx9810.netcup.net), SMTP_PORT 465, SMTP_USER (volle Adresse), SMTP_PASS setzen. Absender ist automatisch „Levarex Consulting <SMTP_USER>“.",
       "Zugangsdaten stehen bei netcup im Kundenbereich (Webhosting → E-Mail).",
     ], "Postfächer bei netcup (Deutschland), AV-Vertrag im netcup-Kundenbereich."), name: "E-Mail (netcup per SMTP)" },
     {
