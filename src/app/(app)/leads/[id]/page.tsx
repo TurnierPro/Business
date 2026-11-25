@@ -4,7 +4,7 @@ import { and, desc, eq, inArray } from "drizzle-orm";
 import { getDb, schema } from "@/lib/db";
 import { Status } from "@/components/Status";
 import { BetriebFelder } from "@/components/BetriebFelder";
-import { datum, datumZeit, DOKART, ZWECK } from "@/lib/format";
+import { dateiGroesse, datum, datumZeit, DOKART, ZWECK } from "@/lib/format";
 import { PAKETE, PaketKey, euro } from "@/lib/pakete";
 import { istEcht } from "@/lib/adapters/dienste";
 import { basisUrl } from "@/lib/ablauf/gemeinsam";
@@ -81,6 +81,7 @@ export default async function Lead({ params, searchParams }: { params: Promise<{
   const mitMarketing = beitraege.length > 0 || angebote.some((a) => (a.module ?? []).includes("marketing") && a.unterschriebenAm);
   const projekt = projekte[0];
   const offenePost = post.filter((p) => p.status === "zur_freigabe");
+  const fehlPost = post.filter((p) => p.status === "freigegeben" && p.fehler);
   const gesperrt = b.status === "gesperrt";
   const lexwareAktiv = istEcht("buchhaltung");
   const index = wegIndex(b, angebot, projekt);
@@ -141,6 +142,9 @@ export default async function Lead({ params, searchParams }: { params: Promise<{
   // Datum je Schritt (wie im Kundenportal), soweit bekannt
   const brief = post.find((p) => p.zweck === "akquise_brief" && p.versendetAm);
   const daten: (Date | null | undefined)[] = [b.erstelltAm, brief?.versendetAm, termine[0]?.datum, angebot?.erstelltAm, angebot?.unterschriebenAm, angebot?.angezahltAm, projekt?.inhalteAm, projekt?.abnahmeAm, projekt?.liveAm];
+  // Schritte, die es bei diesem Betrieb nie gab (z. B. kein Brief, weil der Kontakt anders zustande kam), heißen „übersprungen“, nicht „erledigt“
+  const gespraechGab = termine.length > 0 || aktivitaeten.some((x) => ["besuch", "gespraech", "termin"].includes(x.art));
+  const uebersprungen = (i: number) => i < index && ((i === 1 && !brief?.versendetAm) || (i === 2 && !gespraechGab));
   const anzahlungsRechnung = rechnungen.find((r) => r.art === "anzahlung");
   const summe24 = angebot ? angebot.einmalig + angebot.monatlich * 24 : 0;
 
@@ -192,11 +196,11 @@ export default async function Lead({ params, searchParams }: { params: Promise<{
               </div>
               <ol className="fortschritt">
                 {WEG.map((titel, i) => (
-                  <li key={titel} className={i < index ? "erledigt" : i === index ? "aktuell" : ""}>
-                    <span className="punkt" aria-hidden="true">{i < index ? "✓" : i + 1}</span>
+                  <li key={titel} className={uebersprungen(i) ? "" : i < index ? "erledigt" : i === index ? "aktuell" : ""}>
+                    <span className="punkt" aria-hidden="true">{uebersprungen(i) ? "–" : i < index ? "✓" : i + 1}</span>
                     <div>
-                      <div className="titel">{titel}{i < index ? <span className="sr-only"> (erledigt)</span> : i === index ? <span className="leise klein"> · jetzt</span> : null}</div>
-                      <div className="unter">{i < index ? (daten[i] ? datum(daten[i]) : "erledigt") : i === index ? JETZT[i] : ""}</div>
+                      <div className="titel">{titel}{uebersprungen(i) ? <span className="leise klein"> · übersprungen</span> : i < index ? <span className="sr-only"> (erledigt)</span> : i === index ? <span className="leise klein"> · jetzt</span> : null}</div>
+                      <div className="unter">{uebersprungen(i) ? "" : i < index ? (daten[i] ? datum(daten[i]) : "erledigt") : i === index ? JETZT[i] : ""}</div>
                     </div>
                   </li>
                 ))}
@@ -266,6 +270,19 @@ export default async function Lead({ params, searchParams }: { params: Promise<{
                 ) : <p className="leise klein">Noch keine. Sie entstehen nach „Interessant“ und nach dem Gespräch.</p>}
               </section>
 
+              {fehlPost.length ? (
+                <section className="karte" aria-labelledby="versandfehler">
+                  <h2 id="versandfehler">Nicht versendet</h2>
+                  <ul className="liste">
+                    {fehlPost.map((p) => (
+                      <li key={p.id}>
+                        <div><div className="titel">{ZWECK[p.zweck] ?? p.zweck} <span className="status fehler">Versand fehlgeschlagen</span></div><div className="unter">{p.fehler}</div></div>
+                        <Link className="knopf klein" href={`/freigaben/${p.id}`}>Ansehen</Link>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              ) : null}
               {offenePost.length ? (
                 <section className="karte" aria-labelledby="freigaben">
                   <h2 id="freigaben">Wartet auf Freigabe</h2>
@@ -452,7 +469,7 @@ export default async function Lead({ params, searchParams }: { params: Promise<{
                 <li key={d.id}>
                   <div>
                     <div className="titel">{d.titel}</div>
-                    <div className="unter">{d.dateien} Dateien · {(d.groesse / 1024 / 1024).toLocaleString("de-DE", { maximumFractionDigits: 1 })} MB · hochgeladen {datum(d.erstelltAm)} von {d.erstelltVon}{d.imPortalAm ? ` · im Portal seit ${datum(d.imPortalAm)}` : ""}</div>
+                    <div className="unter">{d.dateien} Dateien · {dateiGroesse(d.groesse)} · hochgeladen {datum(d.erstelltAm)} von {d.erstelltVon}{d.imPortalAm ? ` · im Portal seit ${datum(d.imPortalAm)}` : ""}</div>
                   </div>
                   <div className="knopfreihe" style={{ gap: 8 }}>
                     <span className={`status ${d.status === "im_portal" ? "ok" : d.status === "zur_freigabe" ? "warten" : ""}`}>{DEMO_STATUS[d.status] ?? d.status}</span>
@@ -541,7 +558,7 @@ export default async function Lead({ params, searchParams }: { params: Promise<{
                   <li key={d.id}>
                     <div>
                       <div className="titel">{d.name}</div>
-                      <div className="unter">{d.richtung === "vom_kunden" ? "vom Kunden" : "von uns"} · {d.typ.toUpperCase()} · {(d.groesse / 1024 / 1024).toLocaleString("de-DE", { maximumFractionDigits: 1 })} MB · {datum(d.erstelltAm)}{d.notiz ? ` · „${d.notiz}“` : ""}</div>
+                      <div className="unter">{d.richtung === "vom_kunden" ? "vom Kunden" : "von uns"} · {d.typ.toUpperCase()} · {dateiGroesse(d.groesse)} · {datum(d.erstelltAm)}{d.notiz ? ` · „${d.notiz}“` : ""}</div>
                     </div>
                     <div className="knopfreihe" style={{ gap: 8 }}>
                       <span className={`status ${d.status === "neu" || d.status === "zur_freigabe" ? "warten" : d.status === "entwurf" ? "" : "ok"}`}>{{ neu: "neu", gesehen: "angesehen", entwurf: "noch nicht beim Kunden", zur_freigabe: "Hinweis-Mail in den Freigaben", im_portal: "im Kundenportal" }[d.status] ?? d.status}</span>

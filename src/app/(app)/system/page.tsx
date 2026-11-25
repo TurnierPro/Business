@@ -44,7 +44,7 @@ export default async function System({ searchParams }: { searchParams: Promise<{
     { key: "agenten", name: "KI-Helfer", zahl: AGENTEN.length },
   ];
   const reiter = reiterWahl((await searchParams).reiter, liste);
-  const uhr = (d: Date) => d.toLocaleString("de-DE", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+  const uhr = (d: Date) => d.toLocaleString("de-DE", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Berlin" });
   const meldungsListe = (l: typeof meldungen) => (
     <ul className="zeilen">
       {l.map((m) => (

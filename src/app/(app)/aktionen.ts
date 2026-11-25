@@ -122,6 +122,7 @@ export async function betriebSpeichern(f: FormData) {
         email: text(f, "email") || null,
         website: websiteAus(f),
         datenquelle: text(f, "datenquelle") || null,
+        mitarbeiter: f.get("mitarbeiter") ? Math.max(0, Math.round(zahl(f, "mitarbeiter"))) || null : null,
         notizen: text(f, "notizen") || null,
         letzteAktivitaet: new Date(),
       })
@@ -139,6 +140,19 @@ export async function einstufen(f: FormData) {
 export async function widerspruch(f: FormData) {
   const id = zahl(f, "id");
   await ausfuehren(`/leads/${id}`, "Auf Sperrliste gesetzt. Offene Post gestoppt, Demo gelöscht.", (wer) => akquise.widerspruch(id, wer, text(f, "grund") || "Widerspruch"));
+}
+
+/** Versand nach einem Fehler (z. B. Mailserver nicht erreichbar) erneut anstoßen. Inhalt und Freigabe bleiben gleich. */
+export async function versandWiederholen(f: FormData) {
+  const id = zahl(f, "id");
+  await ausfuehren(`/freigaben/${id}`, "Versand wird erneut versucht. In einer Minute neu laden.", async (wer) => {
+    const e = await post.eintrag(id);
+    if (e.status !== "freigegeben" || !e.fehler) throw new Error("Hier gibt es nichts erneut zu senden.");
+    const db = await getDb();
+    await db.update(schema.postausgang).set({ fehler: null }).where(eq(schema.postausgang.id, id));
+    await (await import("@/lib/jobs/warteschlange")).einreihen("versand", { eintragId: id });
+    await protokolliere(wer, `Versand erneut angestoßen: ${e.betreff}`, e.betriebId);
+  });
 }
 
 export async function freigeben(f: FormData) {

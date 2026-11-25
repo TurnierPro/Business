@@ -13,7 +13,8 @@ export type AngebotVorlage = {
 
 export const WERK_ANGEBOT_VORLAGE: AngebotVorlage = {
   gueltigTage: 30,
-  einstieg: "vielen Dank für das Gespräch bei {betrieb}. Wie besprochen erhalten Sie unser Angebot mit den Bausteinen, die wir gemeinsam ausgewählt haben.",
+  // Neutral: stimmt auch, wenn vorher kein Gespräch erfasst ist (sonst behauptet die Mail etwas, das nicht passiert ist)
+  einstieg: "anbei erhalten Sie unser Angebot für {betrieb} mit den passenden Bausteinen.",
   ablauf: [
     "Zahlung: 50 % bei Unterschrift, fällig {erste_rate_tage} Tage nach Vertragsschluss und nicht vor Arbeitsbeginn; 50 % beim Livegang nach Ihrer Abnahme. Keine Ratenzahlung.",
     "Monatsbeitrag per SEPA-Lastschrift mit Vorabankündigung 5 Kalendertage vor dem Einzug; bis der Einzug eingerichtet ist, per Überweisung.",

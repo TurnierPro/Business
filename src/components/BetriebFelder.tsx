@@ -1,4 +1,4 @@
-type B = { inhaberGeburtsdatum?: string | null; name?: string; gewerk?: string; anrede?: string | null; inhaber?: string | null; strasse?: string | null; plz?: string | null; ort?: string | null; telefon?: string | null; email?: string | null; website?: string | null; notizen?: string | null; datenquelle?: string | null };
+type B = { inhaberGeburtsdatum?: string | null; name?: string; gewerk?: string; anrede?: string | null; inhaber?: string | null; strasse?: string | null; plz?: string | null; ort?: string | null; telefon?: string | null; email?: string | null; website?: string | null; notizen?: string | null; datenquelle?: string | null; mitarbeiter?: number | null };
 
 export const GEWERKE = ["SHK", "Elektro", "Schreiner", "Maler", "Ausbau", "Kfz"];
 
@@ -17,10 +17,11 @@ export function BetriebFelder({ b = {} }: { b?: B }) {
           <label className="feld"><span>PLZ</span><input name="plz" defaultValue={b.plz ?? ""} inputMode="numeric" /></label>
           <label className="feld"><span>Ort</span><input name="ort" defaultValue={b.ort ?? ""} /></label>
           <label className="feld"><span>Website <em className="pflicht">Pflicht</em></span><input name="website" defaultValue={b.website ?? ""} placeholder="beispiel.de" /></label>
-          <div className="feld" style={{ gridColumn: "span 2" }}>
+          <div className="feld">
             <span aria-hidden="true">&nbsp;</span>
             <label className="haken feldhoch"><input type="checkbox" name="keineWebsite" value="ja" defaultChecked={b.name !== undefined && !b.website} /><span>Keine Website vorhanden</span></label>
           </div>
+          <label className="feld"><span>Mitarbeitende <em>für das passende Paket</em></span><input name="mitarbeiter" type="number" min={0} max={9999} inputMode="numeric" defaultValue={b.mitarbeiter ?? ""} placeholder="z. B. 8" /></label>
         </div>
       </fieldset>
 

@@ -75,3 +75,14 @@ export function inTagen(n: number, uhr = "09:00"): Date {
   const tag = new Date(Date.now() + n * 864e5).toLocaleDateString("sv-SE", { timeZone: "Europe/Berlin" });
   return berlinZeit(tag, uhr);
 }
+
+/** Stunde (0–23) in Berlin. „toLocaleString“ liefert „09 Uhr“, daraus wird keine Zahl; deshalb über formatToParts. */
+export function berlinStunde(d = new Date()): number {
+  const teil = new Intl.DateTimeFormat("de-DE", { hour: "numeric", hourCycle: "h23", timeZone: "Europe/Berlin" }).formatToParts(d).find((t) => t.type === "hour");
+  return Number(teil?.value ?? 12);
+}
+
+/** Dateigröße lesbar: unter 1 MB in KB (sonst stünde bei kleinen Dateien „0 MB“). */
+export function dateiGroesse(bytes: number): string {
+  return bytes < 1024 * 1024 ? `${Math.max(1, Math.round(bytes / 1024)).toLocaleString("de-DE")} KB` : `${(bytes / 1024 / 1024).toLocaleString("de-DE", { maximumFractionDigits: 1 })} MB`;
+}

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { brauchtBenutzer } from "@/lib/auth";
 import { getDb, schema } from "@/lib/db";
 import { Logo } from "@/components/Logo";
@@ -31,6 +31,9 @@ export default async function Unterschrift({ params, searchParams }: { params: P
   const doks = offen ? await vertragsunterlagen(angebotId) : [];
   const summe = laufzeitSumme(a.einmalig, a.monatlich);
   const mandat = offen && a.monatlich > 0 ? await aktivesMandat(b.id) : null;
+  // Wo steht die Angebots-Mail? Noch zur Freigabe, freigegeben (Versand läuft oder scheiterte) oder schon raus
+  const mails = a.status === "entwurf" ? (await db.select({ status: schema.postausgang.status, fehler: schema.postausgang.fehler, meta: schema.postausgang.meta }).from(schema.postausgang).where(and(eq(schema.postausgang.betriebId, b.id), eq(schema.postausgang.zweck, "angebot")))).filter((m) => (m.meta as { angebotId?: number }).angebotId === a.id) : [];
+  const mailStand = mails.some((m) => m.status === "zur_freigabe") ? "freigabe" : mails.some((m) => m.status === "freigegeben" && m.fehler) ? "fehler" : mails.some((m) => m.status === "freigegeben") ? "unterwegs" : null;
 
   return (
     <div className="portal-seite">
@@ -51,7 +54,9 @@ export default async function Unterschrift({ params, searchParams }: { params: P
               <p className="leise klein" style={{ margin: 0 }}>Gesamt {summe.monate} Monate {euro(summe.gesamt)} netto, im Schnitt {euro(summe.schnitt)} im Monat. Bitte jedes Dokument ansehen und einzeln unterschreiben.</p>
             </section>
             {fehler ? <div className="hinweis fehler" role="alert">{fehler}</div> : null}
-            {a.status === "entwurf" ? <div className="hinweis">Die Angebots-Mail liegt noch in den Freigaben. Unterschreiben vor Ort geht trotzdem; die Mail wird dann automatisch zurückgezogen.</div> : null}
+            {mailStand === "freigabe" ? <div className="hinweis">Die Angebots-Mail liegt noch in den Freigaben. Unterschreiben vor Ort geht trotzdem; die Mail wird dann automatisch zurückgezogen.</div> : null}
+            {mailStand === "fehler" ? <div className="hinweis">Die Angebots-Mail ist freigegeben, konnte aber nicht versendet werden. Unterschreiben vor Ort geht trotzdem.</div> : null}
+            {mailStand === "unterwegs" ? <div className="hinweis">Die Angebots-Mail ist freigegeben und wird gerade versendet.</div> : null}
 
             {doks.map((d) => (
               <section key={d.id} className="karte">

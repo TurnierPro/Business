@@ -60,7 +60,7 @@ export default async function Freigaben({ searchParams }: { searchParams: Promis
                 <tr key={e.id}>
                   <td><Link href={`/freigaben/${e.id}`}>{e.betreff}</Link><div className="leise klein">{ZWECK[e.zweck] ?? e.zweck}</div></td>
                   <td className="weg-mobil">{name ?? "–"}</td>
-                  <td><Status wert={e.status} />{e.fehler ? <div className="klein" style={{ color: "var(--fehler)" }}>{e.fehler}</div> : null}</td>
+                  <td>{e.status === "freigegeben" && e.fehler ? <span className="status fehler">Versand fehlgeschlagen</span> : <Status wert={e.status} />}{e.fehler ? <div className="klein" style={{ color: "var(--fehler)" }}>{e.fehler}</div> : null}</td>
                   <td className="weg-mobil leise klein">{e.freigaben.map((f) => `${f.name} ${datumZeit(f.am)}`).join(", ") || e.ablehnGrund || "–"}</td>
                 </tr>
               ))}

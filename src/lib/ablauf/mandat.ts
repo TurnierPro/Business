@@ -124,5 +124,11 @@ export async function mandatErteilen(e: MandatEingabe): Promise<number> {
       .where(eq(schema.postausgang.id, l.id));
   }
   await protokolliere(e.wer, `SEPA-Mandat erteilt: ${referenz}, Konto ${ibanMaskiert(iban)}${alt ? ` (ersetzt ${alt.daten.nummer})` : ""}`, b.id);
+  // Im Portal erteilt: Levarex muss davon erfahren (Einzug bei Qonto einrichten oder nachtragen)
+  if (daten.kanal === "portal") {
+    const { systemAufgabe, VERTRIEB } = await import("./crm");
+    await systemAufgabe({ betriebId: b.id, titel: "SEPA-Mandat im Kundenportal erteilt", text: `Mandatsreferenz ${referenz}, Konto ${ibanMaskiert(iban)}. Einzug für den Monatsbeitrag bei Qonto einrichten bzw. prüfen.`, inTagen: 1, zustaendig: VERTRIEB });
+    await (await import("../adapters/push")).melde("eingang", true, `SEPA-Mandat von ${b.name}`, "Im Kundenportal erteilt");
+  }
   return id;
 }

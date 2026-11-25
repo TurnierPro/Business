@@ -6,7 +6,7 @@ import { brauchtBenutzer } from "@/lib/auth";
 import { Status } from "@/components/Status";
 import { NeuLaden } from "@/components/NeuLaden";
 import { datumZeit, DOKART, KANAL, ZWECK } from "@/lib/format";
-import { ablehnen, angebotAendern, anhangEntfernen, eintragSpeichern, freigeben, protokollAusfuellen } from "../../aktionen";
+import { ablehnen, angebotAendern, anhangEntfernen, eintragSpeichern, freigeben, protokollAusfuellen, versandWiederholen } from "../../aktionen";
 import { AngebotEditor } from "@/components/AngebotEditor";
 import type { AngebotDaten } from "@/lib/docs/vorlagen";
 import { mailSignatur } from "@/lib/recht";
@@ -59,11 +59,17 @@ export default async function Eintrag({ params }: { params: Promise<{ id: string
           <h1>{ZWECK[e.zweck] ?? e.zweck}{betrieb ? ` · ${betrieb.name}` : ""}</h1>
           <p>{KANAL[e.kanal]} an {e.empfaenger}{betrieb ? <> · <Link href={`/leads/${betrieb.id}`}>zur Kundenakte</Link></> : null}</p>
         </div>
-        <div className="knopfreihe"><Status wert={e.qkStatus} /><Status wert={e.status} /></div>
+        <div className="knopfreihe"><Status wert={e.qkStatus} />{e.status === "freigegeben" && e.fehler ? <span className="status fehler">Versand fehlgeschlagen</span> : <Status wert={e.status} />}</div>
       </div>
       {offen ? <nav className="schrittleiste" aria-label="Ablauf">{hatDokument ? <a href="#schritt-dokument"><span className="nr">{n.dok}</span> {angebotDok ? "Angebot" : "Dokument"}</a> : null}{nachricht ? <a href="#schritt-nachricht"><span className="nr">{n.msg}</span> {e.kanal === "mail" ? "E-Mail" : "WhatsApp"}</a> : null}<a href="#schritt-freigeben"><span className="nr">{n.ok}</span> Prüfen und freigeben</a></nav> : null}
       {e.status === "abgelehnt" ? <div className="hinweis fehler">Abgelehnt: {e.ablehnGrund}</div> : null}
-      {e.fehler ? <div className="hinweis fehler">Fehler beim Versand: {e.fehler}</div> : null}
+      {e.fehler ? (
+        <div className="hinweis fehler" role="alert">
+          <p style={{ margin: "0 0 8px" }}><strong>Nicht versendet.</strong> Der Mailserver meldet: {e.fehler}</p>
+          <p className="klein" style={{ margin: "0 0 8px" }}>Meist stimmen die Zugangsdaten des Postfachs nicht (Einstellungen → Mein Postfach oder SMTP in Coolify). Danach erneut senden; Inhalt und Freigabe bleiben gleich.</p>
+          {e.status === "freigegeben" ? <form action={versandWiederholen}><input type="hidden" name="id" value={e.id} /><button className="knopf klein">Erneut senden</button></form> : null}
+        </div>
+      ) : null}
 
       {hatDokument ? (
         <section className="schritt" id="schritt-dokument">

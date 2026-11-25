@@ -181,6 +181,8 @@ Levarex Consulting`;
     anhaenge: [briefId],
     hinweise: [
       ...(!b.strasse || !b.plz ? ["Anschrift unvollständig. Vor Freigabe ergänzen."] : []),
+      // Art. 14 DSGVO: Der Brief nennt die Quelle der Anschrift. Bei von Hand erfassten Leads ohne Website ist sie unklar.
+      ...(!b.website && /^(manuell|eigen)/.test(b.datenquelle ?? "") ? ["Quelle der Anschrift unklar (von Hand erfasst). Im Fuß steht „öffentliche Quelle“: bitte in den Stammdaten die echte Quelle eintragen (Art. 14 DSGVO)."] : []),
       ...(process.env.AKQUISE_FREIGESCHALTET === "ja" ? [] : ["Akquise ist noch gesperrt (vor Notartermin und Gründungszuschuss). Der Brief geht nur an den Simulator."]),
     ],
   });

@@ -1,7 +1,7 @@
 import Link from "next/link";
-import { and, desc, eq, inArray, isNull, lte, ne, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNotNull, isNull, lte, ne, sql } from "drizzle-orm";
 import { getDb, schema } from "@/lib/db";
-import { datumZeit, inTagen, ZWECK } from "@/lib/format";
+import { berlinStunde, datumZeit, inTagen, ZWECK } from "@/lib/format";
 import { brauchtBenutzer } from "@/lib/auth";
 import { beispieleErlaubt } from "@/lib/beispiele";
 import { beispieleLaden, nachrichtErledigt, nachrichtZuordnen } from "./aktionen";
@@ -40,6 +40,7 @@ export default async function ZuTun({ searchParams }: { searchParams: Promise<{ 
   const b = await brauchtBenutzer();
   const db = await getDb();
   const jetzt = new Date();
+  const versandFehler = await db.select({ id: schema.postausgang.id, fehler: schema.postausgang.fehler }).from(schema.postausgang).where(and(eq(schema.postausgang.status, "freigegeben"), isNotNull(schema.postausgang.fehler)));
   const [freigaben, neueLeads, besuche, tickets, fehlerJobs, warnungen, pannen, anfragenDs, meineAufgaben, [{ n: anzahlBetriebe }], [{ n: laedt }]] = await Promise.all([
     db.select().from(schema.postausgang).where(eq(schema.postausgang.status, "zur_freigabe")).orderBy(schema.postausgang.erstelltAm),
     db.select().from(schema.betriebe).where(eq(schema.betriebe.status, "neu")).orderBy(desc(schema.betriebe.score)),
@@ -65,7 +66,7 @@ export default async function ZuTun({ searchParams }: { searchParams: Promise<{ 
   const betriebIds = [...new Set(freigaben.map((f) => f.betriebId).filter((x): x is number => !!x))];
   const namen = new Map((betriebIds.length ? await db.select({ id: schema.betriebe.id, name: schema.betriebe.name }).from(schema.betriebe).where(inArray(schema.betriebe.id, betriebIds)) : []).map((x) => [x.id, x.name]));
   const alleBetriebe = unbekannt.length ? await db.select({ id: schema.betriebe.id, name: schema.betriebe.name }).from(schema.betriebe).orderBy(schema.betriebe.name) : [];
-  const stunde = Number(jetzt.toLocaleString("de-DE", { hour: "numeric", hourCycle: "h23", timeZone: "Europe/Berlin" }));
+  const stunde = berlinStunde(jetzt);
   const gruss = stunde < 11 ? "Guten Morgen" : stunde < 18 ? "Hallo" : "Guten Abend";
   const heute = jetzt.toISOString().slice(0, 10);
   // Hinweise: Dringendes gehört zu „Heute“, Erinnerungen zu „Später“
@@ -73,6 +74,7 @@ export default async function ZuTun({ searchParams }: { searchParams: Promise<{ 
   const hinweise: Hinweis[] = [
     ...(pannen.length ? [{ text: `${pannen.length} offene Datenpanne${pannen.length > 1 ? "n" : ""}: Meldefrist 72 Stunden`, href: "/datenschutz?reiter=vorfaelle", art: "dringend" as const, knopf: "Öffnen" }] : []),
     ...(anfragenDs.length ? [{ text: `${anfragenDs.length} Anfrage${anfragenDs.length > 1 ? "n" : ""} von Betroffenen offen: Frist ein Monat`, href: "/datenschutz?reiter=vorfaelle", art: "dringend" as const, knopf: "Öffnen" }] : []),
+    ...(versandFehler.length ? [{ text: `${versandFehler.length} freigegebene Nachricht${versandFehler.length > 1 ? "en" : ""} nicht versendet: ${kurz(versandFehler[0].fehler ?? "")}`, href: versandFehler.length === 1 ? `/freigaben/${versandFehler[0].id}` : "/freigaben", art: "dringend" as const, knopf: "Ansehen" }] : []),
     ...(fehlerJobs[0].n ? [{ text: `${fehlerJobs[0].n} Hintergrund-Job${fehlerJobs[0].n > 1 ? "s" : ""} mit Fehler`, href: "/system?reiter=jobs", art: "dringend" as const, knopf: "Ansehen" }] : []),
     ...warnungen.map((m) => ({ text: m.titel, href: "/system?reiter=meldungen", art: "dringend" as const, knopf: "Ansehen" })),
     ...(ich && !ich.totpAktiv ? [{ text: "Zwei-Faktor-Anmeldung einrichten (auf dem Server Pflicht, dauert zwei Minuten)", href: "/zwei-faktor", art: "erinnerung" as const, knopf: "Einrichten" }] : []),

@@ -14,7 +14,7 @@ import { aktuellerKatalog, berechne, type Auswahl } from "../katalog";
 import { datumDe } from "../docs/basis";
 import { NICHT_ENTHALTEN, PAKETE, PaketKey, euro, paketVorschlag, UST } from "../pakete";
 import { katalogLaden } from "../katalog-db";
-import { AGB_VERSION, ZAHLUNGSZIEL_TAGE } from "../recht";
+import { AGB_VERSION, ERSTE_RATE_FAELLIG_TAGE, ZAHLUNGSZIEL_TAGE } from "../recht";
 import type { AngebotDaten, ProtokollDaten } from "../docs/vorlagen";
 import { inPostausgang, istGesperrt } from "./postausgang";
 import { systemAufgabeErledigt } from "./crm";
@@ -247,6 +247,13 @@ export async function angebotMailVorlegen(o: { angebotId: number; empfaenger: st
   return id;
 }
 
+/** Persönliche Anrede für Mails, wenn der Inhaber bekannt ist; sonst „Guten Tag,“. */
+function mailAnrede(b: { inhaber?: string | null; anrede?: string | null }): string {
+  if (!b.inhaber) return "Guten Tag,";
+  const nachname = b.inhaber.trim().split(" ").slice(-1)[0];
+  return b.anrede === "Frau" ? `Sehr geehrte Frau ${nachname},` : b.anrede === "Herr" ? `Sehr geehrter Herr ${nachname},` : `Guten Tag ${b.inhaber.trim()},`;
+}
+
 export async function naechsteRechnungsnummer(jahr = new Date().getFullYear()): Promise<{ nummer: string; lfdNr: number; jahr: number }> {
   const db = await getDb();
   const [r] = await db.select({ m: max(schema.rechnungen.lfdNr) }).from(schema.rechnungen).where(eq(schema.rechnungen.jahr, jahr));
@@ -270,7 +277,9 @@ export async function erstelleRechnung(o: {
   const positionen = o.positionen ?? [{ text: o.positionstext, netto: o.netto }];
   if (positionen.reduce((x, p) => x + p.netto, 0) !== o.netto) throw new Error("Rechnungspositionen ergeben nicht den Rechnungsbetrag.");
   // Zahlungsziel als Kalenderdatum: dann tritt Verzug ohne Mahnung ein (§ 286 BGB)
-  const faellig = new Date(Date.now() + ZAHLUNGSZIEL_TAGE * 864e5);
+  // Erste Rate: wie im Angebot zugesagt (ERSTE_RATE_FAELLIG_TAGE), alle anderen Rechnungen: übliches Zahlungsziel
+  const zielTage = o.art === "anzahlung" ? ERSTE_RATE_FAELLIG_TAGE : ZAHLUNGSZIEL_TAGE;
+  const faellig = new Date(Date.now() + zielTage * 864e5);
   const db = await getDb();
   const b = await betrieb(o.betriebId);
   // Die eindeutige Rechnungsnummer verhindert Doppelte; bei Kollision nochmal versuchen.
@@ -290,7 +299,7 @@ export async function erstelleRechnung(o: {
     projektId: o.projektId,
     art: "rechnung",
     titel: `Rechnung ${n.nummer}`,
-    daten: { an: anschrift(b), nummer: n.nummer, datum: datumDe(), art: o.art, positionen, zahlungszielTage: ZAHLUNGSZIEL_TAGE, zahlbarBis: datumDe(faellig), leistung: o.leistung },
+    daten: { an: anschrift(b), nummer: n.nummer, datum: datumDe(), art: o.art, positionen, zahlungszielTage: zielTage, zahlbarBis: datumDe(faellig), leistung: o.leistung },
   });
   const brutto = Math.round(o.netto * (1 + UST));
   // Monatsbeitrag: Einzug per SEPA-Lastschrift über Qonto, sobald der Einzug eingerichtet ist, sonst Überweisung
@@ -303,7 +312,7 @@ export async function erstelleRechnung(o: {
     zweck: o.art === "anzahlung" ? "rechnung" : o.art === "schluss" ? "schlussrechnung" : "betreuungsrechnung",
     empfaenger: b.email ?? "(E-Mail-Adresse fehlt)",
     betreff: `Rechnung ${n.nummer} von Levarex`,
-    text: `Guten Tag,\n\nim Anhang finden Sie die Rechnung ${n.nummer} über ${euro(brutto)} (brutto). ${lastschrift ? "" : `Bitte überweisen Sie den Betrag bis zum ${datumDe(faellig)}.`}\n\n${o.art === "anzahlung" ? "Nach Zahlungseingang starten wir; Texte und Fotos laden Sie dann in Ihrem Kundenportal hoch." : o.art === "schluss" ? "Vielen Dank für die Zusammenarbeit. Ab jetzt läuft die Betreuung." : lastschrift ? "Den Betrag ziehen wir frühestens 5 Kalendertage nach dieser Mitteilung per SEPA-Lastschrift von Ihrem Konto ein." : "Vielen Dank."}\n\nMit freundlichen Grüßen\nMaximilian Steiner\nLevarex Consulting`,
+    text: `${mailAnrede(b)}\n\nim Anhang finden Sie die Rechnung ${n.nummer} über ${euro(brutto)} (brutto). ${lastschrift ? "" : `Bitte überweisen Sie den Betrag bis zum ${datumDe(faellig)}.`}\n\n${o.art === "anzahlung" ? "Nach Zahlungseingang starten wir; Texte und Fotos laden Sie dann in Ihrem Kundenportal hoch." : o.art === "schluss" ? "Vielen Dank für die Zusammenarbeit. Ab jetzt läuft die Betreuung." : lastschrift ? "Den Betrag ziehen wir frühestens 5 Kalendertage nach dieser Mitteilung per SEPA-Lastschrift von Ihrem Konto ein." : "Vielen Dank."}\n\nMit freundlichen Grüßen\nMaximilian Steiner\nLevarex Consulting`,
     anhaenge: [...(o.anhaenge ?? []), dokId],
     // Regel aus dem Business Case: Rechnungen über 10.000 € brauchen zwei Freigaben.
     noetigeFreigaben: brutto > 1_000_000 ? 2 : 1,
@@ -326,6 +335,9 @@ export async function unterschriftEingegangen(angebotId: number, wer: string, an
   await db.update(schema.angebote).set({ status: "unterschrieben", unterschriebenAm: new Date(), annahme: nachweis }).where(eq(schema.angebote.id, angebotId));
   await setzeStatus(a.betriebId, "kunde");
   await systemAufgabeErledigt(a.betriebId, "Angebot nachfassen");
+  // Nachfassen nach dem Besuch erübrigt sich mit der Unterschrift
+  await systemAufgabeErledigt(a.betriebId, "Nachfass-Mail");
+  await systemAufgabeErledigt(a.betriebId, "Nachfassen per Anruf");
   await systemAufgabeErledigt(a.betriebId, "Besuch vor Ort");
   // Ein noch offener Akquise-Brief darf an einen Kunden nicht mehr raus
   for (const m of await db.select().from(schema.postausgang).where(and(eq(schema.postausgang.betriebId, a.betriebId), eq(schema.postausgang.zweck, "akquise_brief"), inArray(schema.postausgang.status, ["zur_freigabe", "freigegeben"])))) {
@@ -353,7 +365,7 @@ export async function unterschriftEingegangen(angebotId: number, wer: string, an
     zweck: "auftragsbestaetigung",
     empfaenger: b.email ?? "(E-Mail-Adresse fehlt)",
     betreff: `Auftragsbestätigung ${nummer}`,
-    text: `Guten Tag,\n\nvielen Dank für Ihren Auftrag. Im Anhang finden Sie die Auftragsbestätigung zu unserem Angebot ${angebotNummer}${vertragsDokumente.length ? ` und die unterschriebenen Verträge (Rahmenvertrag, Leistungsscheine${mitPilot ? ", Pilotvereinbarung" : ""} und Vertrag zur Auftragsverarbeitung${mitMandat ? ", dazu Ihr SEPA-Lastschriftmandat" : ""})` : ""}. Alles liegt auch in Ihrem Kundenportal:\n${await portalLink(b.id)}\n\nDie Rechnung über die erste Rate (50 %) kommt in einer eigenen E-Mail. Danach geht es los.\n\nMit freundlichen Grüßen\nDaniel Lück\nLevarex Consulting`,
+    text: `${mailAnrede(b)}\n\nvielen Dank für Ihren Auftrag. Im Anhang finden Sie die Auftragsbestätigung zu unserem Angebot ${angebotNummer}${vertragsDokumente.length ? ` und die unterschriebenen Verträge (Rahmenvertrag, Leistungsscheine${mitPilot ? ", Pilotvereinbarung" : ""} und Vertrag zur Auftragsverarbeitung${mitMandat ? ", dazu Ihr SEPA-Lastschriftmandat" : ""})` : ""}. Alles liegt auch in Ihrem Kundenportal:\n${await portalLink(b.id)}\n\nDie Rechnung über die erste Rate (50 %) kommt in einer eigenen E-Mail. Danach geht es los.\n\nMit freundlichen Grüßen\nDaniel Lück\nLevarex Consulting`,
     anhaenge: [dokId, ...vertragsDokumente],
     erlaubteZahlen: [euro(a.einmalig), euro(a.monatlich), ...positionen.flatMap((x) => [euro(x.einmalig), euro(x.monatlich)])],
     hinweise: nachweis.unternehmer ? [] : ["Annahme ohne Unternehmer-Bestätigung (intern erfasst). Bitte mit dem Kunden klären."],
@@ -387,7 +399,7 @@ export async function zahlungEingegangen(angebotId: number, wer: string): Promis
     zweck: "kickoff",
     empfaenger: b.email ?? "(E-Mail-Adresse fehlt)",
     betreff: "Los geht's: Ihr Zugang für Texte und Fotos",
-    text: `Guten Tag,\n\ndie Anzahlung ist da, vielen Dank. Jetzt brauchen wir Ihre Inhalte. Über diesen Link laden Sie Texte, Fotos und Ihr Logo hoch, ganz ohne Anmeldung:\n${basisUrl()}/portal/${token}\n\nDen Stand Ihres Projekts, Ihre Unterlagen und Rechnungen finden Sie wie immer in Ihrem Kundenportal:\n${await portalLink(a.betriebId)}\n\nSobald alles da ist, bauen wir Ihre Seite. Den Livegang planen wir ${PAKETE[a.paket as PaketKey].wochen <= 4 ? "30 Tage" : `${PAKETE[a.paket as PaketKey].wochen} Wochen`} nach Erhalt der Inhalte.\n\nMit freundlichen Grüßen\nMaximilian Steiner\nLevarex Consulting`,
+    text: `${mailAnrede(b)}\n\ndie Anzahlung ist da, vielen Dank. Jetzt brauchen wir Ihre Inhalte. Über diesen Link laden Sie Texte, Fotos und Ihr Logo hoch, ganz ohne Anmeldung:\n${basisUrl()}/portal/${token}\n\nDen Stand Ihres Projekts, Ihre Unterlagen und Rechnungen finden Sie wie immer in Ihrem Kundenportal:\n${await portalLink(a.betriebId)}\n\nSobald alles da ist, bauen wir Ihre Seite. Den Livegang planen wir ${PAKETE[a.paket as PaketKey].wochen} Wochen nach Erhalt der Inhalte.\n\nMit freundlichen Grüßen\nMaximilian Steiner\nLevarex Consulting`,
     meta: { projektId: p.id },
   });
   return p.id;

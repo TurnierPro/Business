@@ -4,7 +4,7 @@ import { demoDatei, demosVon } from "@/lib/demos";
 import { PAKETE, PaketKey, euro, UST } from "@/lib/pakete";
 import { MailSymbol, TelefonSymbol } from "@/components/Symbole";
 import { marke } from "@/lib/marke";
-import { DOKART } from "@/lib/format";
+import { berlinStunde, DOKART } from "@/lib/format";
 import { abnahmeErklaeren } from "@/lib/ablauf/vertrag";
 import { kontingent, ticketNummer, TICKET_STATUS } from "@/lib/ablauf/tickets";
 import { aktivesMandat, ibanMaskiert, mandatErteilen, mandatOffen } from "@/lib/ablauf/mandat";
@@ -217,7 +217,7 @@ export default async function Kundenportal({ params, searchParams }: { params: P
   const offeneRechnungen = d.rechnungen.filter((r) => r.status === "offen");
   const erledigt = d.schritte.filter((s) => s.erledigt).length;
   const prozent = d.schritte.length ? Math.round((erledigt / d.schritte.length) * 100) : 0;
-  const stunde = Number(new Date().toLocaleString("de-DE", { hour: "numeric", hourCycle: "h23", timeZone: "Europe/Berlin" }));
+  const stunde = berlinStunde();
   const gruss = stunde < 11 ? "Guten Morgen" : stunde < 18 ? "Guten Tag" : "Guten Abend";
   // Der wichtigste offene Schritt für den Kunden: zuerst, was er tun muss, sonst unser nächster Schritt
   const handlung = d.angebotOffen
@@ -390,7 +390,7 @@ export default async function Kundenportal({ params, searchParams }: { params: P
         </section>
       ) : null}
 
-      {d.angebotOffen || d.projekt || dateien.length ? (
+      {d.angebotOffen || d.auftrag || d.projekt || dateien.length ? (
         <section id="dateien" className="karte">
           <h2>Dateien</h2>
           <p className="leise">Schicken Sie uns Fotos oder PDFs, zum Beispiel neue Bilder für die Website, Ihr Logo oder eine Preisliste. Was wir für Sie bereitstellen, finden Sie ebenfalls hier.</p>
@@ -494,7 +494,7 @@ export default async function Kundenportal({ params, searchParams }: { params: P
         </section>
       ) : null}
 
-      {d.projekt ? (
+      {d.projekt || d.auftrag ? (
         <section id="fotos" className="karte">
           <h2>Fotos von Mitarbeitenden</h2>
           <p className="leise">Wer auf Fotos oder Videos für Ihre Website und Ihre Profile zu sehen ist, willigt hier selbst ein. Freiwillig und jederzeit widerrufbar; nach einem Widerruf entfernen wir die Fotos binnen {ENTFERNEN_TAGE} Tagen.</p>

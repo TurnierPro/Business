@@ -129,16 +129,21 @@ export async function schritte(betriebId: number): Promise<Schritt[]> {
   const nachBau = p && ["bereit", "live", "beendet"].includes(p.status);
   const [besuch] = await db.select({ am: schema.besuche.am }).from(schema.besuche).where(eq(schema.besuche.betriebId, betriebId)).orderBy(desc(schema.besuche.am)).limit(1);
   const protokollVersendet = angebotVersendet?.anhaenge.length ? (await db.select({ art: schema.dokumente.art }).from(schema.dokumente).where(inArray(schema.dokumente.id, angebotVersendet.anhaenge))).some((d) => d.art === "protokoll") : false;
+  // Je Schritt zwei Texte: erledigt (Vergangenheit) und offen (was als Nächstes passiert)
+  const s = (titel: string, erledigt: boolean, fertig: string, offen: string, datum: Date | null): Schritt => ({ titel, text: erledigt ? fertig : offen, erledigt, datum });
+  const angebotText = angebotVersendet
+    ? protokollVersendet ? "Protokoll, Maßnahmenplan und Angebot liegen unten bei Ihren Unterlagen." : "Das Angebot liegt unten bei Ihren Unterlagen."
+    : "Beim Termin vorgelegt. Die Unterlagen schicken wir Ihnen zusammen mit der Auftragsbestätigung.";
   return [
-    { titel: "Gespräch vor Ort", text: "Wir haben Ihren Betrieb kennengelernt und Ziele festgehalten.", erledigt: termine.length > 0 || !!besuch || !!a?.unterschriebenAm || !!angebotVersendet, datum: termine[0]?.datum ?? besuch?.am ?? null },
-    { titel: "Angebot erhalten", text: protokollVersendet ? "Protokoll, Maßnahmenplan und Angebot liegen unten bei Ihren Unterlagen." : "Das Angebot liegt unten bei Ihren Unterlagen.", erledigt: !!angebotVersendet || !!a?.unterschriebenAm, datum: angebotVersendet?.versendetAm ?? null },
-    { titel: "Angebot angenommen", text: "Danke für Ihr Vertrauen.", erledigt: !!a?.unterschriebenAm, datum: a?.unterschriebenAm ?? null },
-    { titel: "Anzahlung eingegangen", text: "Damit starten wir Ihr Projekt.", erledigt: !!a?.angezahltAm, datum: a?.angezahltAm ?? null },
-    { titel: "Inhalte geliefert", text: "Texte und Fotos von Ihnen sind da.", erledigt: !!p?.inhalteAm, datum: p?.inhalteAm ?? null },
-    { titel: "Website gebaut und geprüft", text: "Ladezeit, Barrierefreiheit, Formulare und Rechtstexte geprüft. Sie sehen die Seite als Vorschau.", erledigt: !!nachBau, datum: null },
-    { titel: "Website abgenommen", text: "Sie haben die Vorschau geprüft und abgenommen.", erledigt: ["abgenommen", "vorbehalt", "fiktion"].includes(p?.abnahmeStatus ?? ""), datum: p?.abnahmeAm ?? null },
-    { titel: "Website live", text: "Ihre Seite ist unter Ihrer Domain erreichbar.", erledigt: !!p?.liveAm, datum: p?.liveAm ?? null },
-    { titel: "Betreuung läuft", text: "Wir kümmern uns um Technik, Sicherheit und Änderungen.", erledigt: !!p?.aboAb, datum: p?.aboAb ?? null },
+    s("Gespräch vor Ort", termine.length > 0 || !!besuch || !!a?.unterschriebenAm || !!angebotVersendet, "Wir haben Ihren Betrieb kennengelernt und Ziele festgehalten.", "Wir lernen Ihren Betrieb kennen und halten fest, was Sie am meisten entlastet.", termine[0]?.datum ?? besuch?.am ?? null),
+    s("Angebot erhalten", !!angebotVersendet || !!a?.unterschriebenAm, angebotText, "Sie bekommen unser Angebot per E-Mail und hier im Portal.", angebotVersendet?.versendetAm ?? null),
+    s("Angebot angenommen", !!a?.unterschriebenAm, "Danke für Ihr Vertrauen.", "Sie unterschreiben Rahmenvertrag und Leistungsscheine, wenn alles passt.", a?.unterschriebenAm ?? null),
+    s("Anzahlung eingegangen", !!a?.angezahltAm, "Damit starten wir Ihr Projekt.", "Mit der ersten Rate starten wir Ihr Projekt.", a?.angezahltAm ?? null),
+    s("Inhalte geliefert", !!p?.inhalteAm, "Texte und Fotos von Ihnen sind da.", "Sie schicken uns Texte und Fotos, am einfachsten hier unter „Dateien“.", p?.inhalteAm ?? null),
+    s("Website gebaut und geprüft", !!nachBau, "Ladezeit, Barrierefreiheit, Formulare und Rechtstexte geprüft. Sie sehen die Seite als Vorschau.", "Wir bauen Ihre Website und prüfen Ladezeit, Barrierefreiheit, Formulare und Rechtstexte.", null),
+    s("Website abgenommen", ["abgenommen", "vorbehalt", "fiktion"].includes(p?.abnahmeStatus ?? ""), "Sie haben die Vorschau geprüft und abgenommen.", "Sie prüfen die Vorschau und nehmen sie ab.", p?.abnahmeAm ?? null),
+    s("Website live", !!p?.liveAm, "Ihre Seite ist unter Ihrer Domain erreichbar.", "Nach Ihrer Abnahme geht die Seite unter Ihrer Domain online.", p?.liveAm ?? null),
+    s("Betreuung läuft", !!p?.aboAb, "Wir kümmern uns um Technik, Sicherheit und Änderungen.", "Danach kümmern wir uns um Technik, Sicherheit und Änderungen.", p?.aboAb ?? null),
   ];
 }
 
@@ -172,6 +177,8 @@ export async function portalDaten(betriebId: number) {
     rechnungen: sichtbareRechnungen,
     // Das zuletzt verschickte, noch offene Angebot (ein neuer Entwurf versteckt es nicht)
     angebotOffen: angebote.find((x) => x.status === "versendet") ?? null,
+    // Unterschriebener Auftrag (auch ohne Projekt, das erst mit der Anzahlung entsteht): Dateien und Einwilligungen gehen schon
+    auftrag: angebote.find((x) => ["unterschrieben", "angezahlt", "abgeschlossen"].includes(x.status)) ?? null,
     // Erste Rate: verschickte, noch offene Anzahlungsrechnung (der Kunde überweist; Zahlung per Karte gibt es nicht)
     anzahlungOffen: sichtbareRechnungen.find((r) => r.art === "anzahlung" && r.status === "offen") ?? null,
     inhalteOffen: projekt?.status === "inhalte" ? projekt : null,

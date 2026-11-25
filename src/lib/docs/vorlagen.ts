@@ -290,7 +290,7 @@ ${d.positionen.map((x) => `<tr><td>${esc(x.text)}</td><td class="zahl">${x.einma
 </tbody></table>
 <div class="box"><b>Annahme</b><br>Angenommen von ${esc(d.annahme.name)} am ${esc(am)} Uhr${d.annahme.kanal === "tablet" ? " mit Unterschrift beim Termin" : d.annahme.kanal === "portal" ? " im Kundenportal" : ""}.<br>Grundlage: unsere AGB für Unternehmer, Version ${esc(d.annahme.agbVersion)}.${d.annahme.unternehmer ? " Bestätigt: Der Auftrag wird für den Betrieb erteilt, nicht als Verbraucher (§ 14 BGB)." : ""}</div>
 <h2>Wie es weitergeht</h2><ul>
-<li>Die Rechnung über die erste Rate (50 %) kommt per E-Mail. Wir beginnen nach Zahlungseingang.</li>
+<li>Mit dieser Bestätigung beginnen wir mit der Ausführung. Die Rechnung über die erste Rate (50 %) kommt per E-Mail, fällig ${ERSTE_RATE_FAELLIG_TAGE} Tage nach Vertragsschluss.</li>
 <li>Danach laden Sie Texte, Fotos und Logo im Kundenportal hoch.</li>
 <li>Die restlichen 50 % werden beim Livegang nach Ihrer Abnahme fällig.</li></ul>
 </div>${fuss()}</div>`,
