@@ -18,6 +18,12 @@ export type Datei = typeof schema.dateien.$inferSelect;
 const ordner = (betriebId: number) => datenOrdner("dateien", String(betriebId));
 const sauber = (name: string) => (name.normalize("NFC").replace(/[^\p{L}\p{N} ._()-]/gu, "_").replace(/\s+/g, " ").trim() || "Datei").slice(0, 120);
 
+/** „entwurf_startseite-v2.pdf“ → „Entwurf startseite v2“ */
+export function lesbarerName(name: string): string {
+  const ohne = name.replace(/\.[a-z0-9]{2,5}$/i, "").replace(/[-_]+/g, " ").replace(/\s+/g, " ").trim() || "Unterlage";
+  return ohne.charAt(0).toUpperCase() + ohne.slice(1);
+}
+
 export async function dateienVon(betriebId: number): Promise<Datei[]> {
   const db = await getDb();
   return db.select().from(schema.dateien).where(eq(schema.dateien.betriebId, betriebId)).orderBy(desc(schema.dateien.erstelltAm));
@@ -76,13 +82,15 @@ export async function dateiFreigeben(id: number, wer: string): Promise<number> {
   const [b] = await db.select().from(schema.betriebe).where(eq(schema.betriebe.id, d.betriebId));
   const { inPostausgang } = await import("./ablauf/postausgang");
   const { portalLink } = await import("./kundenportal");
+  // Für den Kunden lesbar: unsere Notiz als Titel, sonst der Dateiname ohne Endung und Bindestriche
+  const titel = d.notiz?.trim() || lesbarerName(d.name);
   const eintragId = await inPostausgang({
     betriebId: b.id,
     kanal: "mail",
     zweck: "datei_portal",
     empfaenger: b.email ?? "(E-Mail-Adresse fehlt)",
-    betreff: `Neue Unterlage im Kundenportal: ${d.name}`,
-    text: `${(await import("./ablauf/gemeinsam")).mailAnrede(b)}\n\nin Ihrem Kundenportal liegt eine neue Unterlage für Sie: ${d.name}.${d.notiz ? `\n\n${d.notiz}` : ""}\n\nSie finden sie unter „Dateien“:\n${await portalLink(b.id)}#dateien\n\nMit freundlichen Grüßen\nMaximilian Steiner\nLevarex Consulting`,
+    betreff: `Neue Unterlage im Kundenportal: ${titel.slice(0, 70)}`,
+    text: `${(await import("./ablauf/gemeinsam")).mailAnrede(b)}\n\nin Ihrem Kundenportal liegt eine neue Unterlage für Sie: „${titel}“.\n\nSie finden sie unter „Dateien“:\n${await portalLink(b.id)}#dateien\n\nMit freundlichen Grüßen\nMaximilian Steiner\nLevarex Consulting`,
     hinweise: b.email ? [] : ["E-Mail-Adresse fehlt. Beim Betrieb ergänzen und Empfänger anpassen."],
     meta: { dateiId: d.id },
   });

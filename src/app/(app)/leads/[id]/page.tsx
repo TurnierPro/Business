@@ -576,7 +576,7 @@ export default async function Lead({ params, searchParams }: { params: Promise<{
               <form action={dateiAnKunden} className="schnell-form" style={{ gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr) auto" }}>
                 <input type="hidden" name="betriebId" value={id} />
                 <input type="file" name="datei" required accept="image/jpeg,image/png,image/webp,application/pdf" aria-label="Datei" />
-                <input name="notiz" placeholder="Kurzer Hinweis für den Kunden (freiwillig)" aria-label="Hinweis" />
+                <input name="notiz" placeholder="Titel für den Kunden, z. B. Entwurf Startseite (steht so in der Mail)" aria-label="Titel für den Kunden" />
                 <button className="knopf klein">Hochladen</button>
               </form>
             </details>

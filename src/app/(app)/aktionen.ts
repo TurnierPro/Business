@@ -696,7 +696,7 @@ export async function testmailAnMich() {
       zweck: "testmail",
       empfaenger: ich.email,
       betreff: "Testmail aus Levarex OS",
-      text: `Hallo ${wer.split(" ")[0]},\n\ndiese Mail prüft den Versand aus Levarex OS. Sie geht von deinem eigenen Postfach raus, wenn es unter Einstellungen → Mein Postfach verbunden ist, sonst vom allgemeinen Absender (${MAIL_DIENSTE[aktiverMailDienst()].name}). Kommt sie im Levarex-Design an und liegt sie in deinem Ordner „Gesendet“, ist alles richtig angeschlossen.\n\nAuch Testmails gehen nur nach Qualitätskontrolle und Freigabe raus.`,
+      text: `Hallo ${wer.split(" ")[0]},\n\ndiese Mail prüft den Versand aus Levarex OS. Sie geht von deinem eigenen Postfach raus, wenn es unter Einstellungen → Mein Postfach verbunden ist, sonst vom allgemeinen Absender (${aktiverMailDienst() === "smtp" ? "netcup" : MAIL_DIENSTE[aktiverMailDienst()].name}). Kommt sie im Levarex-Design an und liegt sie in deinem Ordner „Gesendet“, ist alles richtig angeschlossen.\n\nAuch Testmails gehen nur nach Qualitätskontrolle und Freigabe raus.\n\nViele Grüße\nLevarex OS`,
     });
     return { ziel: `/freigaben/${id}` };
   });
