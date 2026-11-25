@@ -170,7 +170,7 @@ ${tabelle(["Zweck", "Womit", "Stand"], konnektoren, ["22%", "50%", "28%"])}
 <h3>E-Mail im bekannten Design</h3>
 <p>Jede Mail geht in zwei Fassungen raus: im Levarex-Design (hell, Logo, Signatur mit Pflichtangaben nach § 35a GmbHG) und als reiner Text. Das Design ist für Outlook, Gmail und Apple Mail gebaut (Tabellen, keine Skripte, keine Grafiken, die blockiert werden). Bei Microsoft 365 liegt die Mail danach auch in Outlook unter „Gesendete Elemente“. In der Freigabe sieht man die Mail genau so, wie sie ankommt.</p>
 ${frage([
-  "Antworten der Kunden: ins gemeinsame Postfach (hallo@…) oder an den Zuständigen?",
+  "Antworten der Kunden: ins gemeinsame Postfach (info@…) oder an den Zuständigen?",
   "Soll Levarex OS Mails auch aus dem persönlichen Postfach von Daniel oder Maximilian senden?",
 ])}
 

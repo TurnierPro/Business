@@ -252,7 +252,8 @@ dl.daten dd { margin: 0; }
 /* ---------- Kundenportal „Mein Levarex“: weicher und ruhiger als das OS ----------
    Entscheidung Maximilian 21.11.2026: im Portal runde Ecken statt Radius 0 (Abweichung von der Markenregel, nur Portal).
    Weiter ohne Schatten und Verläufe; Tiefe entsteht über Flächen und Abstand. */
-.portal-seite { --r-karte: 18px; --r-feld: 12px; min-height: 100vh; }
+.portal-seite { --r-karte: 18px; --r-feld: 12px; min-height: 100vh; display: flex; flex-direction: column; }
+.portal-seite > main { flex: 1; padding-bottom: 48px; }
 .portal-kopf { position: sticky; top: 0; z-index: 5; background: color-mix(in srgb, var(--grund) 92%, transparent); backdrop-filter: blur(8px); border-bottom: 1px solid var(--linie); }
 .portal-kopf .innen { max-width: 880px; margin: 0 auto; padding: 14px 20px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 .portal-kopf .etikett { font-family: var(--mono); font-size: 11.5px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--leise); }
@@ -821,3 +822,4 @@ fieldset { min-width: 0; }
 .anmelde-version { font-family: var(--mono); font-size: 11px; color: #a29d93; }
 .versionsnummer.nur-mobil { display: none; }
 @media (max-width: 900px) { .versionsnummer.nur-mobil { display: block; text-align: right; margin: 24px 0 8px; } }
+.anmelde-kontakt { display: flex; flex-wrap: wrap; gap: 8px 22px; }

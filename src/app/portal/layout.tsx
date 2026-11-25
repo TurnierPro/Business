@@ -1,5 +1,5 @@
 import { Logo } from "@/components/Logo";
-import { marke } from "@/lib/marke";
+import { AnmeldeFuss } from "@/components/AnmeldeFuss";
 
 export const dynamic = "force-dynamic";
 
@@ -13,12 +13,8 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
         </div>
       </header>
       <main className="portal">{children}</main>
-      <footer className="portal-fuss">
-        {marke.absender.firma} · Sitz {marke.absender.sitz} · Tel. {marke.absender.telefon} · {marke.absender.email}
-        <br />
-        {/* Pflichtangaben (§ 5 DDG) und Datenschutzhinweise (Art. 13 DSGVO) für alle, die das Portal nutzen */}
-        <a href={`https://${marke.absender.web}/impressum`} rel="noreferrer" target="_blank">Impressum</a> · <a href={`https://${marke.absender.web}/datenschutz`} rel="noreferrer" target="_blank">Datenschutz</a> · Keine Cookies, kein Tracking.
-      </footer>
+      {/* Pflichtangaben (§ 5 DDG) und Datenschutzhinweise (Art. 13 DSGVO) für alle, die das Portal nutzen; keine Cookies, kein Tracking */}
+      <AnmeldeFuss mitKontakt mitVersion={false} />
     </div>
   );
 }
