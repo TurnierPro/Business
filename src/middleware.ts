@@ -2,11 +2,11 @@ import { NextResponse, type NextRequest } from "next/server";
 
 // Schneller Vorabcheck: ohne Sitzungs-Cookie direkt zur Anmeldung.
 // Die echte Prüfung der Signatur passiert serverseitig in jeder geschützten Seite.
-const OFFEN = ["/login", "/vorschau", "/demo-ansicht", "/portal", "/api/gesundheit", "/api/tls-erlaubt", "/api/v1", "/api/whatsapp", "/kalender", "/_next", "/favicon", "/marke"];
+const OFFEN = ["/login", "/icon", "/apple-icon", "/vorschau", "/demo-ansicht", "/portal", "/api/gesundheit", "/api/tls-erlaubt", "/api/v1", "/api/whatsapp", "/kalender", "/_next", "/favicon", "/marke"];
 
 const hostVon = (url?: string) => (url ?? "").trim().replace(/^https?:\/\//, "").split("/")[0].split(":")[0].toLowerCase();
 // Eigene Adresse des Kundenportals (z. B. portal.levarex-consulting.de). Dort gibt es nur das Portal.
-const PORTAL_PFADE = ["/portal", "/marke", "/_next", "/favicon", "/icon", "/api/gesundheit"];
+const PORTAL_PFADE = ["/portal", "/marke", "/_next", "/favicon", "/icon", "/apple-icon", "/api/gesundheit"];
 
 // Hosts von Levarex OS selbst. Jeder andere Host ist eine Kunden-Domain und bekommt die Kunden-Website.
 function eigenerHost(host: string): boolean {

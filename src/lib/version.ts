@@ -2,5 +2,5 @@
 // Regel (siehe CLAUDE.md): kleine Änderung → hinten um 01 hoch (1.00 → 1.01 → 1.02),
 // größere Änderung (neuer Bereich, Umbau, neue Datenbank-Tabellen mit neuem Ablauf) → vorne hoch (1.xx → 2.00).
 // Jede neue Nummer bekommt eine Zeile in docs/versionen.md.
-export const VERSION = "2.09";
+export const VERSION = "2.10";
 export const VERSION_DATUM = "25.11.2026";
