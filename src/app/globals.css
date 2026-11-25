@@ -823,3 +823,5 @@ fieldset { min-width: 0; }
 .versionsnummer.nur-mobil { display: none; }
 @media (max-width: 900px) { .versionsnummer.nur-mobil { display: block; text-align: right; margin: 24px 0 8px; } }
 .anmelde-kontakt { display: flex; flex-wrap: wrap; gap: 8px 22px; }
+/* Barrierefreiheit (WCAG 2.2, 2.5.8): Kontakt- und Fußlinks mindestens 24 px hoch antippbar */
+.portal a[href^="tel:"], .portal a[href^="mailto:"], .anmelde-fuss a { display: inline-block; padding: 3px 0; min-height: 24px; line-height: 18px; }
