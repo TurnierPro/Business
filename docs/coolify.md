@@ -66,3 +66,12 @@ npx tsx scripts/passwort-zuruecksetzen.ts maximilian@levarex-consulting.de
 
 Setzt das Passwort auf den aktuellen Wert von `LEVAREX_START_PASSWORT`, hebt die Sperre nach Fehlversuchen auf und
 beendet alle Sitzungen. Mit `--ohne-2fa` zusätzlich die Zwei-Faktor-Anmeldung zurücksetzen (z. B. Handy verloren).
+
+## Vor dem ersten echten Kunden (Checkliste)
+
+- [ ] `TESTPHASE` entfernen (dann gehen Mails an echte Kunden; vorher alles in den Freigaben prüfen).
+- [ ] `SMTP_FROM` korrigieren oder löschen (alt: „Levax Consulting <hallo@levax.de>“; die App verschickt ohnehin als `Levarex Consulting <SMTP_USER>`).
+- [ ] **Push aufs Handy einrichten:** App **ntfy** auf beiden Handys installieren, ein geheimes Thema abonnieren (z. B. `levarex-` + 20 Zufallszeichen) und in Coolify `NTFY_URL=https://ntfy.sh/<thema>` setzen. Dann meldet sich das Handy bei Uploads, SEPA-Mandaten, Tickets und Fehlern. Bis dahin: Hinweise nur in der App unter „Zu tun“ (Entscheidung 25.11.2026).
+- [ ] Echte IBAN in `brand/tokens.json`, `GLAEUBIGER_ID` setzen, AGB-Fassung statt Entwurf.
+- [ ] Testkonto „Testlauf Claude“ unter Benutzer und Rollen auf „nicht aktiv“, Testbetriebe „… (TEST)“ aufräumen.
+- [ ] Externes Backup (S3 + `BACKUP_SCHLUESSEL`) eingerichtet und einmal wiederhergestellt.
