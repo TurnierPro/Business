@@ -312,7 +312,7 @@ export async function erstelleRechnung(o: {
     zweck: o.art === "anzahlung" ? "rechnung" : o.art === "schluss" ? "schlussrechnung" : "betreuungsrechnung",
     empfaenger: b.email ?? "(E-Mail-Adresse fehlt)",
     betreff: `Rechnung ${n.nummer} von Levarex`,
-    text: `${mailAnrede(b)}\n\nim Anhang finden Sie die Rechnung ${n.nummer} über ${euro(brutto)} (brutto). ${lastschrift ? "" : `Bitte überweisen Sie den Betrag bis zum ${datumDe(faellig)}.`}\n\n${o.art === "anzahlung" ? "Nach Zahlungseingang starten wir; Texte und Fotos laden Sie dann in Ihrem Kundenportal hoch." : o.art === "schluss" ? "Vielen Dank für die Zusammenarbeit. Ab jetzt läuft die Betreuung." : lastschrift ? "Den Betrag ziehen wir frühestens 5 Kalendertage nach dieser Mitteilung per SEPA-Lastschrift von Ihrem Konto ein." : "Vielen Dank."}\n\nMit freundlichen Grüßen\nMaximilian Steiner\nLevarex Consulting`,
+    text: `${mailAnrede(b)}\n\nim Anhang finden Sie die Rechnung ${n.nummer} über ${euro(brutto)} (brutto). ${lastschrift ? "" : `Bitte überweisen Sie den Betrag bis zum ${datumDe(faellig)}.`}\n\n${o.art === "anzahlung" ? "Texte, Fotos und Ihr Logo laden Sie am einfachsten in Ihrem Kundenportal hoch." : o.art === "schluss" ? "Vielen Dank für die Zusammenarbeit. Ab jetzt läuft die Betreuung." : lastschrift ? "Den Betrag ziehen wir frühestens 5 Kalendertage nach dieser Mitteilung per SEPA-Lastschrift von Ihrem Konto ein." : "Vielen Dank."}\n\nMit freundlichen Grüßen\nMaximilian Steiner\nLevarex Consulting`,
     anhaenge: [...(o.anhaenge ?? []), dokId],
     // Regel aus dem Business Case: Rechnungen über 10.000 € brauchen zwei Freigaben.
     noetigeFreigaben: brutto > 1_000_000 ? 2 : 1,

@@ -17,6 +17,17 @@ function textAlsHtml(text: string): string {
     .trim()
     .split(/\n\s*\n/)
     .map((absatz) => {
+      // Eine Zeile, die nur aus einem Portal-Link besteht, wird ein Knopf (die lange Adresse wirkt technisch).
+      // Die Textfassung der Mail behält die Adresse.
+      const zeilen = absatz.split("\n");
+      const knopf = zeilen.findIndex((z) => /^https?:\/\/\S+\/portal\/\S+$/.test(z.trim()));
+      if (knopf >= 0) {
+        const url = zeilen[knopf].trim();
+        const davor = zeilen.slice(0, knopf).join("\n");
+        const danach = zeilen.slice(knopf + 1).join("\n");
+        const absatzHtml = (x: string) => (x.trim() ? `<p style="margin:0 0 14px;font-size:15px;line-height:1.55;color:${t.text}">${esc(x).replace(/\n/g, "<br>")}</p>` : "");
+        return `${absatzHtml(davor)}<p style="margin:0 0 18px"><a href="${esc(url)}" style="display:inline-block;background:${t.akzent};color:${t.grund};text-decoration:none;font-weight:600;font-size:15px;padding:11px 20px;border-radius:2px">Kundenportal öffnen</a></p>${absatzHtml(danach)}`;
+      }
       const html = esc(absatz)
         .replace(/(https?:\/\/[^\s<]+[^\s<.,;:!?)])/g, (u) => `<a href="${u}" style="color:${t.akzent};word-break:break-all">${u}</a>`)
         .replace(/\n/g, "<br>");
