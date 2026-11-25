@@ -99,7 +99,7 @@ npx playwright-core install chromium   # einmalig, für die PDFs
 npm run dev
 ```
 
-Dann <http://localhost:3000> öffnen. Beim ersten Start werden die Konten `maximilian@levarex-consulting.de` und `daniel@levarex-consulting.de` angelegt, das Start-Passwort steht auf der Anmeldeseite. Danach unter **System** ändern.
+Dann <http://localhost:3000> öffnen. Beim ersten Start werden die Konten `m.steiner@levarex-consulting.de` und `d.lueck@levarex-consulting.de` angelegt, das Start-Passwort steht auf der Anmeldeseite. Danach unter **System** ändern.
 
 Ohne weitere Einstellungen läuft alles mit **Simulatoren**: Mails und Briefe landen unter **Simulator**, nichts verlässt den Rechner. Die Daten liegen im Ordner `data/` (nicht im Git).
 

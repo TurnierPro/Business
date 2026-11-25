@@ -5,6 +5,7 @@ Die Nummer steht unten rechts in Levarex OS und unter `/api/gesundheit`. Regel: 
 
 | Version | Datum | Was ist neu |
 |---|---|---|
+| 2.15 | 25.11.2026 | Anmelde-Adresse unter Benutzer und Rollen änderbar (m.steiner@ / d.lueck@), Standardkonten neu so benannt, Werkzeug zum Löschen der Testdaten und Testmeldungen |
 | 2.14 | 25.11.2026 | Konten mit „Nur lesen“ dürfen ihr eigenes Konto absichern (Zwei-Faktor einrichten, eigenes Postfach) |
 | 2.13 | 25.11.2026 | Mails: Datei-Hinweis mit lesbarem Titel statt Dateiname (auch im Betreff), Auftragsbestätigung ohne „Danach geht es los“, Testmail mit Gruß und „netcup“ |
 | 2.12 | 25.11.2026 | Push aufs Handy: ntfy mit Zugangsschlüssel (NTFY_TOKEN), Knopf „Push testen“ unter Konnektoren, Anleitung für eigenen ntfy-Server in Coolify |

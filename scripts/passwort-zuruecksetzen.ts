@@ -3,8 +3,8 @@
 // und beendet alle Sitzungen. Beim nächsten Anmelden muss ein neues Passwort gewählt werden.
 // Die Zwei-Faktor-Anmeldung bleibt, außer mit --ohne-2fa (z. B. Handy verloren).
 // Aufruf im App-Container (Coolify → app → Terminal):
-//   npx tsx scripts/passwort-zuruecksetzen.ts maximilian@levarex-consulting.de
-//   npx tsx scripts/passwort-zuruecksetzen.ts maximilian@levarex-consulting.de --ohne-2fa
+//   npx tsx scripts/passwort-zuruecksetzen.ts m.steiner@levarex-consulting.de
+//   npx tsx scripts/passwort-zuruecksetzen.ts m.steiner@levarex-consulting.de --ohne-2fa
 export {};
 const { eq, like } = await import("drizzle-orm");
 const { getDb, schema } = await import("../src/lib/db");

@@ -548,9 +548,15 @@ export async function benutzerAendern(f: FormData) {
     const aktiv = f.get("aktiv") === "ja";
     if (id === ich.id && (!aktiv || rolle !== "admin")) throw new Error("Du kannst dich nicht selbst sperren oder herabstufen.");
     if (!["admin", "vertrieb", "technik", "lesen"].includes(rolle)) throw new Error("Rolle ungültig");
+    // Anmelde-Adresse ändern (z. B. auf m.steiner@…): muss eindeutig sein
+    const [vorher] = await db.select().from(schema.benutzer).where(eq(schema.benutzer.id, id));
+    if (!vorher) throw new Error("Benutzer nicht gefunden");
+    const email = (text(f, "email") || vorher.email).trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error("E-Mail ungültig");
+    if (email !== vorher.email && (await db.select({ id: schema.benutzer.id }).from(schema.benutzer).where(eq(schema.benutzer.email, email))).length) throw new Error(`Die Adresse ${email} gehört schon zu einem anderen Konto. Das andere Konto zuerst ändern oder sperren.`);
     await (await import("@/lib/zweiter-faktor")).technikMitCode(wer, text(f, "code"), `Benutzer ${id} ändern`);
-    await db.update(schema.benutzer).set({ rolle, aktiv, ...(f.get("zweiFaktorAus") === "ja" ? { totpAktiv: false, totpGeheim: null } : {}) }).where(eq(schema.benutzer.id, id));
-    await protokolliere(wer, `Benutzer ${id}: ${rolle}${aktiv ? "" : ", gesperrt"}`);
+    await db.update(schema.benutzer).set({ email, rolle, aktiv, ...(f.get("zweiFaktorAus") === "ja" ? { totpAktiv: false, totpGeheim: null } : {}) }).where(eq(schema.benutzer.id, id));
+    await protokolliere(wer, `Benutzer ${id}: ${rolle}${aktiv ? "" : ", gesperrt"}${email !== vorher.email ? `, Anmeldung jetzt mit ${email}` : ""}`);
   }, "verwalten");
 }
 

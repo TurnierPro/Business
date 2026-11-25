@@ -142,6 +142,7 @@ export default async function Einstellungen({ searchParams }: { searchParams: Pr
                   <summary className="klein">Ändern</summary>
                   <form action={benutzerAendern} className="knopfreihe" style={{ marginTop: 8 }}>
                     <input type="hidden" name="id" value={b.id} />
+                    <label className="feld" style={{ margin: 0 }}><span>Anmelde-Adresse</span><input name="email" type="email" required defaultValue={b.email} style={{ minWidth: 260 }} /></label>
                     <label className="feld" style={{ margin: 0 }}><span>Rolle</span><select name="rolle" defaultValue={b.rolle} aria-label={`Rolle ${b.name}`}>{Object.entries(ROLLEN).map(([k, n]) => <option key={k} value={k}>{n}</option>)}</select></label>
                     <label className="haken"><input type="checkbox" name="aktiv" value="ja" defaultChecked={b.aktiv} /><span>aktiv</span></label>
                     {b.totpAktiv ? <label className="haken"><input type="checkbox" name="zweiFaktorAus" value="ja" /><span>Zwei-Faktor zurücksetzen</span></label> : null}

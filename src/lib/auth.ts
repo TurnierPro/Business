@@ -63,8 +63,8 @@ export async function startBenutzer(): Promise<boolean> {
   if (vorhanden.length) return false;
   if (startPasswortUnsicher()) return false;
   await db.insert(schema.benutzer).values([
-    { email: "maximilian@levarex-consulting.de", name: "Maximilian Steiner", passwortHash: hashPasswort(START_PASSWORT), mussPasswortAendern: true },
-    { email: "daniel@levarex-consulting.de", name: "Daniel Lück", passwortHash: hashPasswort(START_PASSWORT), mussPasswortAendern: true },
+    { email: "m.steiner@levarex-consulting.de", name: "Maximilian Steiner", passwortHash: hashPasswort(START_PASSWORT), mussPasswortAendern: true },
+    { email: "d.lueck@levarex-consulting.de", name: "Daniel Lück", passwortHash: hashPasswort(START_PASSWORT), mussPasswortAendern: true },
   ]);
   return true;
 }

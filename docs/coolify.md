@@ -56,12 +56,12 @@ Levarex OS meldet sich dabei einmal an und speichert das Passwort verschlüsselt
 
 ## Anmeldung klappt nicht
 
-Konten beim ersten Start: `maximilian@levarex-consulting.de` und `daniel@levarex-consulting.de`, Passwort = `LEVAREX_START_PASSWORT`.
+Konten beim ersten Start: `m.steiner@levarex-consulting.de` und `d.lueck@levarex-consulting.de`, Passwort = `LEVAREX_START_PASSWORT`.
 Die Konten entstehen beim allerersten Aufruf der Anmeldeseite mit dem Passwort, das **in diesem Moment** gesetzt war.
 Wurde es danach in Coolify geändert, gilt noch das alte. Dann in Coolify **app → Terminal**:
 
 ```
-npx tsx scripts/passwort-zuruecksetzen.ts maximilian@levarex-consulting.de
+npx tsx scripts/passwort-zuruecksetzen.ts m.steiner@levarex-consulting.de
 ```
 
 Setzt das Passwort auf den aktuellen Wert von `LEVAREX_START_PASSWORT`, hebt die Sperre nach Fehlversuchen auf und
@@ -73,5 +73,6 @@ beendet alle Sitzungen. Mit `--ohne-2fa` zusätzlich die Zwei-Faktor-Anmeldung z
 - [ ] `SMTP_FROM` korrigieren oder löschen (alt: „Levax Consulting <hallo@levax.de>“; die App verschickt ohnehin als `Levarex Consulting <SMTP_USER>`).
 - [ ] **Push aufs Handy einrichten:** App **ntfy** auf beiden Handys installieren, ein geheimes Thema abonnieren (z. B. `levarex-` + 20 Zufallszeichen) und in Coolify `NTFY_URL=https://ntfy.sh/<thema>` setzen. Dann meldet sich das Handy bei Uploads, SEPA-Mandaten, Tickets und Fehlern. Bis dahin: Hinweise nur in der App unter „Zu tun“ (Entscheidung 25.11.2026).
 - [ ] Echte IBAN in `brand/tokens.json`, `GLAEUBIGER_ID` setzen, AGB-Fassung statt Entwurf.
-- [ ] Testkonto „Testlauf Claude“ unter Benutzer und Rollen auf „nicht aktiv“, Testbetriebe „… (TEST)“ aufräumen.
+- [ ] Testkonto „Testlauf Claude“ (info@…) unter Benutzer und Rollen auf „nicht aktiv“.
+- [ ] Testdaten aufräumen: Coolify → app → Terminal → `npx tsx scripts/testdaten-loeschen.ts` (zeigt nur an), dann mit `--wirklich` löschen. Entfernt Betriebe mit „(TEST)“ samt Angeboten, Rechnungen, Dateien und Freigaben, Test-Ausgaben, Testmails, Meldungen und fehlgeschlagene Jobs.
 - [ ] Externes Backup (S3 + `BACKUP_SCHLUESSEL`) eingerichtet und einmal wiederhergestellt.
