@@ -1,5 +1,6 @@
 import { Logo } from "@/components/Logo";
 import { AnmeldeFuss } from "@/components/AnmeldeFuss";
+import { Barrierefreiheit } from "@/components/Barrierefreiheit";
 
 export const dynamic = "force-dynamic";
 
@@ -9,7 +10,10 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
       <header className="portal-kopf">
         <div className="innen">
           <Logo hoehe={26} />
-          <span className="etikett">Mein Levarex</span>
+          <div className="portal-kopf-rechts">
+            <span className="etikett">Mein Levarex</span>
+            <Barrierefreiheit />
+          </div>
         </div>
       </header>
       <main className="portal">{children}</main>

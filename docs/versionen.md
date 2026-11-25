@@ -5,6 +5,7 @@ Die Nummer steht unten rechts in Levarex OS und unter `/api/gesundheit`. Regel: 
 
 | Version | Datum | Was ist neu |
 |---|---|---|
+| 2.07 | 25.11.2026 | Kundenportal: Knopf „Barrierefreiheit“ mit Schriftgröße, hohem Kontrast, unterstrichenen Links und Bewegung aus (je Browser gemerkt) |
 | 2.06 | 25.11.2026 | Barrierefreiheit im Kundenportal: Kontakt- und Fußlinks mit 24 px Klickfläche (WCAG 2.2) |
 | 2.05 | 25.11.2026 | Kundenportal mit schwarzem Fuß wie die Website (Telefon, E-Mail, Impressum, Datenschutz, Barrierefreiheit); Kontaktadresse überall info@levarex-consulting.de |
 | 2.04 | 25.11.2026 | Funde aus dem Live-Test: Versandfehler sichtbar mit „Erneut senden“, Begrüßung nach Uhrzeit, einheitliche Fristen und Anreden, Portal-Schritte und Dateien nach Unterschrift, übersprungene Schritte, Eingabeprüfungen, Versionsnummer in der Seitenleiste, Start-Passwort muss geändert werden |

@@ -825,3 +825,26 @@ fieldset { min-width: 0; }
 .anmelde-kontakt { display: flex; flex-wrap: wrap; gap: 8px 22px; }
 /* Barrierefreiheit (WCAG 2.2, 2.5.8): Kontakt- und Fußlinks mindestens 24 px hoch antippbar */
 .portal a[href^="tel:"], .portal a[href^="mailto:"], .anmelde-fuss a { display: inline-block; padding: 3px 0; min-height: 24px; line-height: 18px; }
+
+/* ---------- Barrierefreiheit im Portal (Knopf oben rechts, Einstellungen je Browser) ---------- */
+.portal-kopf-rechts { display: flex; align-items: center; gap: 16px; }
+.bf { position: relative; }
+.bf-knopf { display: inline-flex; align-items: center; gap: 8px; min-height: 36px; padding: 6px 12px; border: 1px solid var(--rahmen); border-radius: 999px; background: var(--grund); color: var(--text); font: inherit; font-size: 14px; cursor: pointer; }
+.bf-knopf:hover { border-color: var(--text); }
+.bf-fenster { position: absolute; right: 0; top: calc(100% + 8px); z-index: 20; width: min(320px, calc(100vw - 32px)); padding: 16px; border: 1px solid var(--rahmen); border-radius: 14px; background: var(--grund); display: grid; gap: 14px; }
+.bf-fenster fieldset { border: 0; padding: 0; margin: 0; }
+.bf-fenster legend { font-weight: 600; font-size: 14px; margin-bottom: 6px; }
+.bf-wahl { display: flex; gap: 6px; flex-wrap: wrap; }
+.bf-wahl button, .bf-zurueck { min-height: 36px; padding: 6px 12px; border: 1px solid var(--rahmen); border-radius: 999px; background: var(--flaeche); color: var(--text); font: inherit; font-size: 14px; cursor: pointer; }
+.bf-wahl button[aria-pressed="true"] { background: var(--text); color: var(--grund); border-color: var(--text); }
+.bf-zurueck:disabled { opacity: 0.6; cursor: default; }
+.bf-fuss { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+@media (max-width: 600px) { .bf-knopf span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; } .bf-knopf { padding: 6px 9px; } }
+/* Wirkung der Einstellungen */
+.portal-seite[data-schrift="gross"] > main { zoom: 1.15; }
+.portal-seite[data-schrift="sehrgross"] > main { zoom: 1.3; }
+.portal-seite[data-kontrast="hoch"] { --leise: #151816; --linie: #5b574f; --rahmen: #151816; --flaeche: #f5f3ee; --akzent: #5a4318; }
+.portal-seite[data-kontrast="hoch"] .karte, .portal-seite[data-kontrast="hoch"] .portal-held { border-width: 2px; }
+.portal-seite[data-links="an"] main a { text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 3px; }
+.portal-seite[data-bewegung="aus"] *, .portal-seite[data-bewegung="aus"] *::before, .portal-seite[data-bewegung="aus"] *::after { transition: none !important; animation: none !important; scroll-behavior: auto !important; }
+@media (prefers-reduced-motion: reduce) { .portal-seite * { transition: none !important; animation: none !important; } }
