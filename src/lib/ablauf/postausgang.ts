@@ -125,15 +125,20 @@ export async function anhangEntfernen(id: number, dokumentId: number, wer: strin
 // weitere mit TESTPHASE_DOMAINS, kommagetrennt). Briefe und WhatsApp gehen gar nicht raus. Platzhalter in den
 // Pflichtangaben (IBAN) sind dann nur ein Hinweis. Vor dem ersten echten Kunden TESTPHASE entfernen.
 export const testbetrieb = () => process.env.TESTPHASE === "ja";
+// Einträge mit „name@domain“ erlauben genau diese eine Adresse (z. B. nur info@levarex-consulting.de), sonst die ganze Domain.
 export const testDomains = () => (process.env.TESTPHASE_DOMAINS ?? "levarex-consulting.de").split(",").map((d) => d.trim().toLowerCase().replace(/^@/, "")).filter(Boolean);
+const testErlaubt = (adresse: string) => {
+  const a = adresse.trim().toLowerCase();
+  const domain = a.split("@")[1] ?? "";
+  return testDomains().some((d) => (d.includes("@") ? a === d : domain === d));
+};
 
 /** Grund, warum dieser Eintrag im Testbetrieb nicht raus darf, sonst null. */
 export function testbetriebVerbietet(e: { kanal: string; empfaenger: string }): string | null {
   if (!testbetrieb()) return null;
   if (e.kanal === "brief" || e.kanal === "whatsapp") return `Testbetrieb: ${e.kanal === "brief" ? "Briefe" : "WhatsApp"} gehen nicht raus.`;
   if (e.kanal === "mail") {
-    const domain = e.empfaenger.trim().toLowerCase().split("@")[1] ?? "";
-    if (!testDomains().includes(domain)) return `Testbetrieb: Mails nur an interne Adressen (@${testDomains().join(", @")}). Empfänger „${e.empfaenger}“ bitte ändern.`;
+    if (!testErlaubt(e.empfaenger)) return `Testbetrieb: Mails nur an interne Adressen (${testDomains().map((d) => (d.includes("@") ? d : `@${d}`)).join(", ")}). Empfänger „${e.empfaenger}“ bitte ändern.`;
   }
   return null;
 }

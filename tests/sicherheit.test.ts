@@ -528,6 +528,11 @@ test("Testbetrieb: Mails nur an interne Adressen, keine Briefe; Versand verweige
     assert.match(post.testbetriebVerbietet({ kanal: "brief", empfaenger: "Musterweg 1" }) ?? "", /Briefe/);
     env.TESTPHASE_DOMAINS = "levarex-consulting.de, @gmx.net";
     assert.equal(post.testbetriebVerbietet({ kanal: "mail", empfaenger: "test@GMX.net" }), null);
+    // Nur eine bestimmte Adresse erlaubt: andere Adressen derselben Domain sind gesperrt
+    env.TESTPHASE_DOMAINS = "info@levarex-consulting.de";
+    assert.equal(post.testbetriebVerbietet({ kanal: "mail", empfaenger: "Info@Levarex-Consulting.de" }), null);
+    assert.match(post.testbetriebVerbietet({ kanal: "mail", empfaenger: "m.steiner@levarex-consulting.de" }) ?? "", /interne Adressen/);
+    assert.match(post.testbetriebVerbietet({ kanal: "mail", empfaenger: "xinfo@levarex-consulting.de" }) ?? "", /interne Adressen/);
     // Auch ein (z. B. von Hand) freigegebener Eintrag an eine fremde Adresse geht nicht raus
     const [b] = await db.insert(schema.betriebe).values({ name: "Testbetrieb Sicher GmbH", gewerk: "SHK" }).returning();
     const [e] = await db.insert(schema.postausgang).values({ betriebId: b.id, kanal: "mail", zweck: "test", empfaenger: "chef@kunde.example", betreff: "Test", text: "Test", status: "freigegeben", freigaben: [{ name: "Test", am: new Date().toISOString() }] }).returning();

@@ -5,6 +5,7 @@ Die Nummer steht unten rechts in Levarex OS und unter `/api/gesundheit`. Regel: 
 
 | Version | Datum | Was ist neu |
 |---|---|---|
+| 2.03 | 25.11.2026 | Testbetrieb: TESTPHASE_DOMAINS kann auf eine einzelne Adresse begrenzt werden (z. B. nur info@) |
 | 2.02 | 24.11.2026 | Schwarzer Fuß wie auf der Website auf den Anmeldeseiten (Impressum, Datenschutz, Barrierefreiheit, Version) |
 | 2.01 | 24.11.2026 | Zu tun: alles unter „Mein Tag“ mit Reitern Heute, Nächste 7 Tage, Später; Grund einer Sperre direkt sichtbar; Portal vorerst unter der OS-Adresse |
 | 2.00 | 24.11.2026 | Helles Design in Creme und Messing wie die Website; alle Seiten auf Lesbarkeit (Kontrast) geprüft |
