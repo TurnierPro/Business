@@ -19,11 +19,12 @@ import { entschluessele, verschluessele } from "@/lib/geheim";
 
 type Ergebnis = { ziel?: string; ok?: string } | void | unknown;
 
-async function ausfuehren(ziel: string, ok: string, fn: (wer: string) => Promise<Ergebnis>, recht: "aendern" | "verwalten" = "aendern"): Promise<never> {
+// recht „selbst“: das eigene Konto absichern (Zwei-Faktor, Postfach, abmelden) darf jede Rolle, auch „Nur lesen“
+async function ausfuehren(ziel: string, ok: string, fn: (wer: string) => Promise<Ergebnis>, recht: "aendern" | "verwalten" | "selbst" = "aendern"): Promise<never> {
   const b = await brauchtBenutzer();
   let fehler: string | null = null;
   try {
-    if (!darf(b, recht)) throw new Error(recht === "verwalten" ? "Das darf nur ein Admin." : "Dein Konto darf nur lesen.");
+    if (recht !== "selbst" && !darf(b, recht)) throw new Error(recht === "verwalten" ? "Das darf nur ein Admin." : "Dein Konto darf nur lesen.");
     const r = (await fn(b.name)) as { ziel?: string; ok?: string } | undefined;
     if (r && typeof r === "object") {
       ziel = r.ziel ?? ziel;
@@ -559,7 +560,7 @@ export async function zweiFaktorStarten(f?: FormData) {
     const db = await getDb();
     // Geheimnis verschlüsselt speichern: ein Datenbank-Abzug allein reicht nicht für den zweiten Faktor
     await db.update(schema.benutzer).set({ totpGeheim: verschluessele((await import("@/lib/totp")).neuesGeheimnis()), totpAktiv: false, totpLetzterSchritt: null }).where(eq(schema.benutzer.id, ich.id));
-  });
+  }, "selbst");
 }
 
 export async function zweiFaktorBestaetigen(f: FormData) {
@@ -571,7 +572,7 @@ export async function zweiFaktorBestaetigen(f: FormData) {
     if (schritt === null) throw new Error("Der Code stimmt nicht. Uhrzeit am Handy prüfen und den aktuellen Code eingeben.");
     await db.update(schema.benutzer).set({ totpAktiv: true, totpLetzterSchritt: schritt }).where(eq(schema.benutzer.id, ich.id));
     await protokolliere(wer, "Zwei-Faktor-Anmeldung eingeschaltet");
-  });
+  }, "selbst");
 }
 
 export async function apiSchluesselErzeugen(f: FormData) {
@@ -869,12 +870,12 @@ export async function postfachSpeichern(f: FormData) {
   await ausfuehren("/einstellungen?reiter=konto#postfach", "Postfach verbunden. Mails, die du unterschreibst oder freigibst, gehen ab jetzt von deinem Postfach raus.", async (wer) => {
     const ich = await brauchtBenutzer();
     await (await import("@/lib/postfach")).postfachSpeichern(ich.id, { host: text(f, "host"), port: Number(text(f, "port")), benutzer: text(f, "benutzer"), passwort: String(f.get("passwort") ?? ""), absender: text(f, "absender"), name: text(f, "name"), imapHost: text(f, "imapHost"), imapPort: Number(text(f, "imapPort")) }, wer);
-  });
+  }, "selbst");
 }
 
 export async function postfachEntfernen() {
   await ausfuehren("/einstellungen?reiter=konto#postfach", "Postfach getrennt. Deine Mails gehen wieder über den allgemeinen Absender.", async (wer) => {
     const ich = await brauchtBenutzer();
     await (await import("@/lib/postfach")).postfachEntfernen(ich.id, wer);
-  });
+  }, "selbst");
 }
