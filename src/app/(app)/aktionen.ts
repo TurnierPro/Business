@@ -508,7 +508,8 @@ export async function benutzerAnlegen(f: FormData) {
     if (text(f, "passwort").length < 10) throw new Error("Start-Passwort: mindestens 10 Zeichen");
     await (await import("@/lib/zweiter-faktor")).technikMitCode(wer, text(f, "code"), `Benutzer anlegen: ${email}`);
     const db = await getDb();
-    await db.insert(schema.benutzer).values({ email, name: text(f, "name"), rolle, passwortHash: hashPasswort(text(f, "passwort")) });
+    // Start-Passwort ist nur zum ersten Anmelden: danach muss die Person ein eigenes wählen
+    await db.insert(schema.benutzer).values({ email, name: text(f, "name"), rolle, passwortHash: hashPasswort(text(f, "passwort")), mussPasswortAendern: true });
     await protokolliere(wer, `Benutzer angelegt: ${email} (${rolle})`);
   }, "verwalten");
 }
