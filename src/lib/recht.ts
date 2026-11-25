@@ -7,6 +7,9 @@ import { marke } from "./marke";
 export const AGB_VERSION = process.env.AGB_VERSION ?? "Entwurf 10/2026";
 export const AGB_URL = `https://${marke.absender.web}/agb`;
 
+/** Wer für Levarex Verträge unterschreiben darf: nur die Geschäftsführer (aus brand/tokens.json). */
+export const GESCHAEFTSFUEHRER: string[] = marke.absender.geschaeftsfuehrer.split(",").map((n) => n.trim()).filter(Boolean);
+
 /** Zahlungsziel als Kalenderdatum: Verzug tritt dann ohne Mahnung ein (§ 286 Abs. 2 BGB). */
 export const ZAHLUNGSZIEL_TAGE = 14;
 

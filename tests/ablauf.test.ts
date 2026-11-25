@@ -882,11 +882,20 @@ test("Verträge: Rahmenvertrag und Leistungsscheine, Unterschrift auf dem Tablet
   assert.deepEqual(doks.map((d) => d.art), ["rahmenvertrag", "leistungsschein_erstellung", "leistungsschein_betrieb", "leistungsschein_erstellung", "leistungsschein_betrieb", "leistungsschein_erstellung", "av_vertrag"]);
   assert.equal((await vt.vertragsunterlagen(angebotId)).length, 7, "nicht doppelt");
   const ls = doks[1].daten as { punkte: string[]; preis: number; kalkulation: { stunden: number } };
-  assert.equal(ls.punkte.length, 5);
+  // Hosting und Wartung stehen im Schein „Betrieb“, nicht in „Erstellung“
+  assert.equal(ls.punkte.length, 4);
+  assert.ok(!ls.punkte.some((x) => /Hosting/.test(x)));
+  assert.ok((doks[2].daten as { punkte: string[] }).punkte.some((x) => /^Hosting/.test(x)));
+  // AV-Vertrag: Bewerberdaten (Personal & Bewerbung gebucht) und Anlage mit Schutzmaßnahmen
+  const av = doks[6].daten as { bewerbung?: boolean; massnahmen?: unknown[] };
+  assert.equal(av.bewerbung, true);
+  assert.ok((av.massnahmen ?? []).length > 0);
   assert.equal(ls.preis, 299000);
   assert.equal(ls.kalkulation.stunden, 8, "Kalkulation je Leistung dokumentiert");
 
   const eingabe = { angebotId, kunde: { name: "Paul Tablet", funktion: "Inhaber", unternehmer: true }, bilder: Object.fromEntries(doks.map((d) => [d.id, bild])), levarex: { name: "Daniel Lück", bild }, wer: "Daniel Lück" };
+  // Für Levarex unterschreibt nur ein Geschäftsführer, nicht wer gerade angemeldet ist
+  await assert.rejects(() => vt.vertragUnterschreiben({ ...eingabe, levarex: { name: "Testlauf Claude", bild } }), /Geschäftsführer/);
   // Ohne jede einzelne Unterschrift geht nichts
   await assert.rejects(() => vt.vertragUnterschreiben({ ...eingabe, bilder: { [doks[0].id]: bild } }), /Unterschrift fehlt: Leistungsschein/);
   await assert.rejects(() => vt.vertragUnterschreiben({ ...eingabe, kunde: { ...eingabe.kunde, unternehmer: false } }), /§ 14 BGB/);
@@ -1345,5 +1354,19 @@ test("Absender: SMTP_FROM nur mit der Domain des Postfachs, sonst Levarex mit de
   } finally {
     if (vorher.u === undefined) delete env.SMTP_USER; else env.SMTP_USER = vorher.u;
     if (vorher.f === undefined) delete env.SMTP_FROM; else env.SMTP_FROM = vorher.f;
+  }
+});
+
+test("Mailversand: Levarex OS meldet sich beim Mailserver mit dem eigenen Namen statt [127.0.0.1]", async () => {
+  const { heloName } = await import("../src/lib/adapters/mail");
+  const env = process.env as Record<string, string | undefined>;
+  const vorher = env.BASE_URL;
+  try {
+    env.BASE_URL = "https://os.levarex-consulting.de";
+    assert.equal(heloName(), "os.levarex-consulting.de");
+    env.BASE_URL = "http://localhost:3000";
+    assert.equal(heloName(), undefined, "lokal: Standard von nodemailer");
+  } finally {
+    if (vorher === undefined) delete env.BASE_URL; else env.BASE_URL = vorher;
   }
 });

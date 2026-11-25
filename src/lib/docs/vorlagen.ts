@@ -509,13 +509,17 @@ export type AvVertragDaten = VertragBasis & {
   /** Gebuchte Bausteine, aus denen sich die Verarbeitung ergibt */
   bausteine: string[];
   kundenmanagement: boolean;
+  /** Baustein „Personal & Bewerbung“ gebucht: Bewerberdaten */
+  bewerbung?: boolean;
+  /** Anlage: technische und organisatorische Maßnahmen (eingefroren) */
+  massnahmen?: { bereich: string; massnahme: string }[];
   /** Unterauftragsverarbeiter zum Zeitpunkt des Vertrags (eingefroren) */
   unterauftrag: { name: string; wofuer: string; sitz: string }[];
 };
 
 export function avVertrag(d: AvVertragDaten): string {
   const p = (nr: number, titel: string, text: string) => `<div class="paragraf"><h3>§ ${nr} ${esc(titel)}</h3>${text}</div>`;
-  const daten = ["Anfragen über die Website (Name, Telefon, E-Mail, Nachricht, mitgeschickte Fotos)", ...(d.kundenmanagement ? ["Kundendaten im Kundenmanagement (Name, Anschrift, Telefon, E-Mail, Fahrzeuge oder Anlagen, Fälligkeiten, Termine, Angebote, Nachrichten über Telefon, WhatsApp und Website)"] : [])];
+  const daten = ["Anfragen über die Website (Name, Telefon, E-Mail, Nachricht, mitgeschickte Fotos)", ...(d.bewerbung ? ["Bewerbungen über Karriereseite und WhatsApp (Name, Telefon, E-Mail, Angaben zur Person und zur Stelle, mitgeschickte Unterlagen)"] : []), ...(d.kundenmanagement ? ["Kundendaten im Kundenmanagement (Name, Anschrift, Telefon, E-Mail, Fahrzeuge oder Anlagen, Fälligkeiten, Termine, Angebote, Nachrichten über Telefon, WhatsApp und Website)"] : [])];
   return druckSeite({
     titel: `AV-Vertrag ${d.nummer}`,
     extraCss: vertragCss,
@@ -524,15 +528,16 @@ export function avVertrag(d: AvVertragDaten): string {
 ${vertragsKopf(d, "AV-VERTRAG NACH ART. 28 DSGVO")}
 <p>Der Auftraggeber ist Verantwortlicher, Levarex ist Auftragsverarbeiter. Zum Rahmenvertrag <span class="mono">${esc(d.rahmenNummer)}</span>.</p>
 ${p(1, "Gegenstand und Dauer", `<p>Levarex verarbeitet personenbezogene Daten im Auftrag, soweit das für diese Bausteine nötig ist: ${d.bausteine.map(esc).join(", ")}. Der Vertrag läuft, solange Levarex für den Auftraggeber Daten verarbeitet.</p>`)}
-${p(2, "Art der Daten und Betroffene", `<ul>${daten.map((x) => `<li>${esc(x)}</li>`).join("")}</ul><p>Betroffen sind Kunden, Interessenten und Ansprechpartner des Auftraggebers. Besondere Kategorien (z. B. Gesundheitsdaten) verarbeitet Levarex nicht.</p>`)}
+${p(2, "Art der Daten und Betroffene", `<ul>${daten.map((x) => `<li>${esc(x)}</li>`).join("")}</ul><p>Betroffen sind Kunden, Interessenten${d.bewerbung ? ", Bewerberinnen und Bewerber" : ""} und Ansprechpartner des Auftraggebers. Besondere Kategorien (z. B. Gesundheitsdaten) verarbeitet Levarex nicht.</p>`)}
 ${p(3, "Weisungen", `<p>Levarex verarbeitet die Daten nur auf dokumentierte Weisung des Auftraggebers; Weisungen erteilt er in Textform, auch über das Kundenportal. Hält Levarex eine Weisung für rechtswidrig, sagt Levarex das sofort.</p>`)}
-${p(4, "Vertraulichkeit und Sicherheit", `<p>Alle Personen mit Zugang sind zur Vertraulichkeit verpflichtet. Levarex trifft die technischen und organisatorischen Maßnahmen nach Art. 32 DSGVO (Anlage: Liste der Maßnahmen), unter anderem Zwei-Faktor-Anmeldung, verschlüsselte Übertragung, tägliche Sicherung mit 30 Tagen Aufbewahrung, Protokoll aller Zugriffe und Trennung der Daten je Betrieb.</p>`)}
-${p(5, "Unterauftragsverarbeiter", `<p>Der Auftraggeber stimmt diesen Unterauftragsverarbeitern zu:</p><table><thead><tr><th>Dienst</th><th>Wofür</th><th>Sitz</th></tr></thead><tbody>${d.unterauftrag.map((u) => `<tr><td>${esc(u.name)}</td><td>${esc(u.wofuer)}</td><td>${esc(u.sitz)}</td></tr>`).join("")}</tbody></table><p>Einen neuen Unterauftragsverarbeiter kündigt Levarex vorher in Textform an; der Auftraggeber kann binnen ${UNTERAUFTRAG_WIDERSPRUCH_TAGE} Tagen widersprechen.</p>`)}
+${p(4, "Vertraulichkeit und Sicherheit", `<p>Alle Personen mit Zugang sind zur Vertraulichkeit verpflichtet. Levarex trifft die technischen und organisatorischen Maßnahmen nach Art. 32 DSGVO (${d.massnahmen?.length ? "Liste in der Anlage" : "Anlage: Liste der Maßnahmen"}), unter anderem Zwei-Faktor-Anmeldung, verschlüsselte Übertragung, tägliche Sicherung mit 30 Tagen Aufbewahrung, Protokoll aller Zugriffe und Trennung der Daten je Betrieb.</p>`)}
+${p(5, "Unterauftragsverarbeiter", `<p>Der Auftraggeber stimmt diesen Unterauftragsverarbeitern zu:</p><table><thead><tr><th style="white-space:nowrap;width:24%">Dienst</th><th>Wofür</th><th>Sitz</th></tr></thead><tbody>${d.unterauftrag.map((u) => `<tr><td>${esc(u.name)}</td><td>${esc(u.wofuer)}</td><td>${esc(u.sitz)}</td></tr>`).join("")}</tbody></table><p>Einen neuen Unterauftragsverarbeiter kündigt Levarex vorher in Textform an; der Auftraggeber kann binnen ${UNTERAUFTRAG_WIDERSPRUCH_TAGE} Tagen widersprechen.</p>`)}
 ${p(6, "Unterstützung und Meldungen", `<p>Levarex unterstützt den Auftraggeber bei Anfragen von Betroffenen (Auskunft, Berichtigung, Löschung, Datenübertragung) und bei Datenschutz-Folgenabschätzungen. Eine Verletzung des Schutzes personenbezogener Daten meldet Levarex dem Auftraggeber binnen ${DATENPANNE_MELDUNG_STUNDEN} Stunden nach Kenntnis.</p>`)}
 ${p(7, "Ende des Auftrags", `<p>Nach Ende der Verarbeitung gibt Levarex die Daten auf Wunsch in einem gängigen Format heraus und löscht sie danach, soweit keine gesetzliche Pflicht zur Aufbewahrung besteht. Der Auftraggeber kann seine Daten jederzeit im Kundenportal herunterladen.</p>`)}
 ${p(8, "Nachweise und Kontrollen", `<p>Levarex stellt alle nötigen Informationen zum Nachweis bereit und ermöglicht Überprüfungen nach Absprache. Es gilt deutsches Recht.</p>`)}
 ${unterschriftsblock(d.unterschriften)}
 <p class="leise" style="font-size:7.5pt;margin-top:6mm">Fassung: ${esc(d.vertragswerk)}</p>
+${d.massnahmen?.length ? `<h2>Anlage: Technische und organisatorische Maßnahmen (Art. 32 DSGVO)</h2><table><thead><tr><th style="white-space:nowrap;width:24%">Bereich</th><th>Maßnahme</th></tr></thead><tbody>${d.massnahmen.map((m) => `<tr><td>${esc(m.bereich)}</td><td>${esc(m.massnahme)}</td></tr>`).join("")}</tbody></table>` : ""}
 </div>${fuss()}</div>`,
   });
 }

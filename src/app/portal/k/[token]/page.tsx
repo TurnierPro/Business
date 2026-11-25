@@ -582,7 +582,7 @@ export default async function Kundenportal({ params, searchParams }: { params: P
 
       {d.rechnungen.length || d.projekt ? <section id="rechnungen" className="karte">
         <h2>Rechnungen</h2>
-        {d.anzahlungOffen ? <p>Bitte überweisen Sie <b className="mono">{euro(Math.round(d.anzahlungOffen.netto * (1 + UST)))}</b> an {marke.absender.firma}, IBAN <span className="mono">{marke.absender.iban}</span>, Verwendungszweck <span className="mono">{d.anzahlungOffen.nummer}</span>. Danach starten wir Ihr Projekt.</p> : null}
+        {d.anzahlungOffen ? <p>Bitte überweisen Sie <b className="mono">{euro(Math.round(d.anzahlungOffen.netto * (1 + UST)))}</b> an {marke.absender.firma}, IBAN <span className="mono">{marke.absender.iban}</span>, Verwendungszweck <span className="mono">{d.anzahlungOffen.nummer}</span>.</p> : null}
         {d.rechnungen.length ? (
           <div style={{ overflowX: "auto" }}>
           <table className="tabelle">

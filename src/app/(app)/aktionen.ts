@@ -691,12 +691,15 @@ export async function testmailAnMich() {
   const ich = await brauchtBenutzer();
   await ausfuehren("/stammdaten/konnektoren", "Testmail liegt in den Freigaben", async (wer) => {
     const { aktiverMailDienst, MAIL_DIENSTE } = await import("@/lib/adapters/mail");
+    // Kopie in „Gesendet“ gibt es nur über das eigene Postfach (IMAP); der allgemeine Absender legt keine ab
+    const eigenes = !!(await (await import("@/lib/postfach")).absenderFuer({ text: "", freigaben: [{ name: ich.name }] }));
+    const weg = aktiverMailDienst() === "smtp" ? "netcup" : MAIL_DIENSTE[aktiverMailDienst()].name;
     const id = await post.inPostausgang({
       kanal: "mail",
       zweck: "testmail",
       empfaenger: ich.email,
       betreff: "Testmail aus Levarex OS",
-      text: `Hallo ${wer.split(" ")[0]},\n\ndiese Mail prüft den Versand aus Levarex OS. Sie geht von deinem eigenen Postfach raus, wenn es unter Einstellungen → Mein Postfach verbunden ist, sonst vom allgemeinen Absender (${aktiverMailDienst() === "smtp" ? "netcup" : MAIL_DIENSTE[aktiverMailDienst()].name}). Kommt sie im Levarex-Design an und liegt sie in deinem Ordner „Gesendet“, ist alles richtig angeschlossen.\n\nAuch Testmails gehen nur nach Qualitätskontrolle und Freigabe raus.\n\nViele Grüße\nLevarex OS`,
+      text: `Hallo ${wer.split(" ")[0]},\n\ndiese Mail prüft den Versand aus Levarex OS. ${eigenes ? "Sie geht von deinem eigenen Postfach raus und liegt danach in deinem Ordner „Gesendet“." : `Sie geht vom allgemeinen Absender raus (${weg}). Eine Kopie in „Gesendet“ gibt es nur mit eigenem Postfach (Einstellungen → Mein Postfach).`} Kommt sie im Levarex-Design an, ist alles richtig angeschlossen.\n\nAuch Testmails gehen nur nach Qualitätskontrolle und Freigabe raus.\n\nViele Grüße\nLevarex OS`,
     });
     return { ziel: `/freigaben/${id}` };
   });

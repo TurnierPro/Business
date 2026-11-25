@@ -69,7 +69,7 @@ export async function postfachEntfernen(benutzerId: number, wer: string): Promis
 /** SMTP-Anmeldung prüfen (ohne etwas zu senden) und IMAP-Anmeldung prüfen. */
 export async function verbindungTesten(k: SmtpKonto): Promise<void> {
   const nodemailer = await import("nodemailer");
-  const t = nodemailer.createTransport({ host: k.host, port: k.port, secure: k.port === 465, requireTLS: k.port !== 465, auth: { user: k.benutzer, pass: k.passwort }, connectionTimeout: 15_000, greetingTimeout: 15_000 });
+  const t = nodemailer.createTransport({ name: (await import("./adapters/mail")).heloName(), host: k.host, port: k.port, secure: k.port === 465, requireTLS: k.port !== 465, auth: { user: k.benutzer, pass: k.passwort }, connectionTimeout: 15_000, greetingTimeout: 15_000 });
   await t.verify().catch((err: Error) => {
     throw new Error(`SMTP-Anmeldung fehlgeschlagen: ${err.message}`);
   });

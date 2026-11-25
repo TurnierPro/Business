@@ -5,6 +5,7 @@ Die Nummer steht unten rechts in Levarex OS und unter `/api/gesundheit`. Regel: 
 
 | Version | Datum | Was ist neu |
 |---|---|---|
+| 2.14 | 25.11.2026 | Funde aus der Apple-Mail-Prüfung: Mailserver-Anmeldung mit eigenem Namen statt [127.0.0.1], für Levarex unterschreibt nur ein Geschäftsführer, Leistungsschein Erstellung ohne Hosting/Wartung, AV-Vertrag mit Bewerberdaten, netcup und Anlage der Schutzmaßnahmen, Portal ohne Widerspruch zum Projektstart, Testmail verspricht „Gesendet“ nur mit eigenem Postfach |
 | 2.13 | 25.11.2026 | Mails: Datei-Hinweis mit lesbarem Titel statt Dateiname (auch im Betreff), Auftragsbestätigung ohne „Danach geht es los“, Testmail mit Gruß und „netcup“ |
 | 2.12 | 25.11.2026 | Push aufs Handy: ntfy mit Zugangsschlüssel (NTFY_TOKEN), Knopf „Push testen“ unter Konnektoren, Anleitung für eigenen ntfy-Server in Coolify |
 | 2.11 | 25.11.2026 | Funde aus dem kompletten Live-Durchlauf: Portal-Link in Mails als Knopf, persönliche Anrede auch in Zugangs- und Datei-Mails, erfasster Besuch zählt als Gespräch, Upload-Aufgabe sofort fällig, Rechnungs-Mail ohne Widerspruch, Checkliste vor dem ersten Kunden |

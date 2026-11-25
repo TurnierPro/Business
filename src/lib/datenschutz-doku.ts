@@ -46,6 +46,7 @@ export type Dienstleister = { name: string; wofuer: string; av: boolean; sitz: s
 
 export const DIENSTLEISTER: Dienstleister[] = [
   { name: "Hostinger", wofuer: "Server (Levarex OS, Datenbank, n8n)", av: true, sitz: "Vertragspartner, Standort und Unterauftragnehmer prüfen [Annahme, nicht geprüft]", aktivWenn: "immer" },
+  { name: "netcup GmbH", wofuer: "E-Mail-Postfach und Versand von E-Mails", av: true, sitz: "Deutschland (Karlsruhe)", aktivWenn: "SMTP_HOST" },
   { name: "IONOS (Object Storage)", wofuer: "Verschlüsselte Sicherungskopie, 30 Tage", av: true, sitz: "Deutschland", aktivWenn: "S3_BUCKET" },
   { name: "Anthropic", wofuer: "KI für Entwürfe, Protokolle, Qualitätskontrolle", av: true, sitz: "USA (Drittland: Standardvertragsklauseln, Data Privacy Framework prüfen)", aktivWenn: "ANTHROPIC_API_KEY" },
   { name: "Microsoft Ireland (Microsoft 365)", wofuer: "Versand von E-Mails über Outlook", av: true, sitz: "Irland (EU-Datengrenze; Übermittlung in die USA möglich)", aktivWenn: "MS_CLIENT_ID" },

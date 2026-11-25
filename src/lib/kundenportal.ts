@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import { and, desc, eq, inArray, isNull } from "drizzle-orm";
 import { getDb, schema } from "./db";
 import { basisUrl } from "./ablauf/gemeinsam";
+import { ERSTE_RATE_FAELLIG_TAGE } from "./recht";
 
 // Kundenportal: Jeder Kunde sieht über seinen geheimen Link den Stand seines Projekts,
 // seine Unterlagen und Rechnungen. Grundregel: Sichtbar ist nur, was wir freigegeben und verschickt haben.
@@ -138,7 +139,7 @@ export async function schritte(betriebId: number): Promise<Schritt[]> {
     s("Gespräch vor Ort", termine.length > 0 || !!besuch || !!a?.unterschriebenAm || !!angebotVersendet, "Wir haben Ihren Betrieb kennengelernt und Ziele festgehalten.", "Wir lernen Ihren Betrieb kennen und halten fest, was Sie am meisten entlastet.", termine[0]?.datum ?? besuch?.am ?? null),
     s("Angebot erhalten", !!angebotVersendet || !!a?.unterschriebenAm, angebotText, "Sie bekommen unser Angebot per E-Mail und hier im Portal.", angebotVersendet?.versendetAm ?? null),
     s("Angebot angenommen", !!a?.unterschriebenAm, "Danke für Ihr Vertrauen.", "Sie unterschreiben Rahmenvertrag und Leistungsscheine, wenn alles passt.", a?.unterschriebenAm ?? null),
-    s("Anzahlung eingegangen", !!a?.angezahltAm, "Damit starten wir Ihr Projekt.", "Mit der ersten Rate starten wir Ihr Projekt.", a?.angezahltAm ?? null),
+    s("Anzahlung eingegangen", !!a?.angezahltAm, "Danke, die erste Rate ist eingegangen.", `Die erste Rate (50 %) ist ${ERSTE_RATE_FAELLIG_TAGE} Tage nach Vertragsschluss fällig. An Ihrem Projekt arbeiten wir schon.`, a?.angezahltAm ?? null),
     s("Inhalte geliefert", !!p?.inhalteAm, "Texte und Fotos von Ihnen sind da.", "Sie schicken uns Texte und Fotos, am einfachsten hier unter „Dateien“.", p?.inhalteAm ?? null),
     s("Website gebaut und geprüft", !!nachBau, "Ladezeit, Barrierefreiheit, Formulare und Rechtstexte geprüft. Sie sehen die Seite als Vorschau.", "Wir bauen Ihre Website und prüfen Ladezeit, Barrierefreiheit, Formulare und Rechtstexte.", null),
     s("Website abgenommen", ["abgenommen", "vorbehalt", "fiktion"].includes(p?.abnahmeStatus ?? ""), "Sie haben die Vorschau geprüft und abgenommen.", "Sie prüfen die Vorschau und nehmen sie ab.", p?.abnahmeAm ?? null),

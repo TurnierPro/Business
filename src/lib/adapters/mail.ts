@@ -162,6 +162,19 @@ async function sendeUeberResend(m: Mail): Promise<string> {
 // ---------- SMTP ----------
 
 /**
+ * Name, mit dem sich Levarex OS beim Mailserver meldet (HELO/EHLO). Ohne ihn nimmt nodemailer den Rechnernamen,
+ * im Container „[127.0.0.1]“, und Spamfilter werten das ab. Wir nehmen den Hostnamen aus BASE_URL.
+ */
+export function heloName(): string | undefined {
+  try {
+    const host = new URL(process.env.BASE_URL ?? "").hostname;
+    return host && host !== "localhost" && !/^[\d.]+$/.test(host) ? host : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
  * Absender für den allgemeinen SMTP-Zugang. SMTP_FROM gilt nur, wenn seine Adresse zur Domain des Postfachs (SMTP_USER) passt.
  * Sonst (fehlt, alte Domain wie „levax.de“, Tippfehler) schicken wir als „Levarex Consulting <SMTP_USER>“: Der Mailserver
  * würde fremde Absender ohnehin ablehnen, und der Kunde sähe keine falsche Adresse.
@@ -178,7 +191,7 @@ export function smtpAbsender(): string {
 async function sendeUeberSmtp(m: Mail): Promise<string> {
   const nodemailer = await import("nodemailer");
   const port = Number(process.env.SMTP_PORT ?? 587);
-  const transport = nodemailer.createTransport({ host: process.env.SMTP_HOST, port, secure: port === 465, requireTLS: port !== 465, auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS } });
+  const transport = nodemailer.createTransport({ name: heloName(), host: process.env.SMTP_HOST, port, secure: port === 465, requireTLS: port !== 465, auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS } });
   const info = await transport.sendMail({
     from: smtpAbsender(),
     to: m.an,
@@ -221,7 +234,7 @@ async function sendeUeberKonto(m: Mail, k: import("../postfach").SmtpKonto): Pro
   let id: string;
   if (testVersand) id = await testVersand(k, umschlag, mime);
   else {
-    const t = nodemailer.createTransport({ host: k.host, port: k.port, secure: k.port === 465, requireTLS: k.port !== 465, auth: { user: k.benutzer, pass: k.passwort }, connectionTimeout: 20_000 });
+    const t = nodemailer.createTransport({ name: heloName(), host: k.host, port: k.port, secure: k.port === 465, requireTLS: k.port !== 465, auth: { user: k.benutzer, pass: k.passwort }, connectionTimeout: 20_000 });
     id = (await t.sendMail({ envelope: umschlag, raw: mime })).messageId;
   }
   // Ablage in „Gesendet“: Fehler hier stoppen den Versand nicht (die Mail ist schon raus), aber wir melden es
@@ -259,7 +272,7 @@ export async function smtpDiagnose(): Promise<{ host: string; port: number; benu
   let ok = false;
   if (host && benutzer && pass) {
     const nodemailer = await import("nodemailer");
-    const t = nodemailer.createTransport({ host, port, secure: port === 465, requireTLS: port !== 465, auth: { user: benutzer, pass }, connectionTimeout: 15_000, greetingTimeout: 15_000 });
+    const t = nodemailer.createTransport({ name: heloName(), host, port, secure: port === 465, requireTLS: port !== 465, auth: { user: benutzer, pass }, connectionTimeout: 15_000, greetingTimeout: 15_000 });
     try {
       await t.verify();
       ok = true;

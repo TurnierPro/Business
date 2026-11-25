@@ -10,7 +10,7 @@ import { vertragsunterlagen } from "@/lib/ablauf/vertraege";
 import { euro } from "@/lib/pakete";
 import { laufzeitSumme } from "@/lib/katalog";
 import { DOKART } from "@/lib/format";
-import { AGB_URL, AGB_VERSION, ERSTATTUNG_WOCHEN, VORABANKUENDIGUNG_TAGE } from "@/lib/recht";
+import { AGB_URL, AGB_VERSION, ERSTATTUNG_WOCHEN, GESCHAEFTSFUEHRER, VORABANKUENDIGUNG_TAGE } from "@/lib/recht";
 import { aktivesMandat, ibanMaskiert } from "@/lib/ablauf/mandat";
 import { vertragUnterschreiben } from "../../(app)/aktionen";
 
@@ -100,7 +100,7 @@ export default async function Unterschrift({ params, searchParams }: { params: P
 
             <section className="karte">
               <h2>Für Levarex</h2>
-              <label className="feld"><span>Name</span><input name="levarexName" required defaultValue={ich.name} /></label>
+              <label className="feld"><span>Geschäftsführer, der unterschreibt</span><select name="levarexName" required defaultValue={GESCHAEFTSFUEHRER.includes(ich.name) ? ich.name : ""}><option value="" disabled>Bitte wählen</option>{GESCHAEFTSFUEHRER.map((n) => <option key={n} value={n}>{n}</option>)}</select></label>
               <UnterschriftFeld name="levarexBild" beschriftung="Unterschrift Levarex (Geschäftsführer)" />
             </section>
 

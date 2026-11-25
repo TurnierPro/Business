@@ -3,7 +3,7 @@ import { and, eq, inArray } from "drizzle-orm";
 import { getDb, schema } from "../db";
 import { protokolliere } from "../protokoll";
 import { AENDERUNGS_MINUTEN, PAKETE, type PaketKey } from "../pakete";
-import { AENDERUNG_STUNDENSATZ, AGB_VERSION, VERTRAGSWERK_VERSION } from "../recht";
+import { AENDERUNG_STUNDENSATZ, AGB_VERSION, GESCHAEFTSFUEHRER, VERTRAGSWERK_VERSION } from "../recht";
 import { ZIEL_STUNDEN, ZIEL_STUNDEN_MODULE } from "./zeiten";
 import { anschrift, betrieb, neuesDokument } from "./gemeinsam";
 import { datumDe } from "../docs/basis";
@@ -81,10 +81,14 @@ export async function vertragsunterlagen(angebotId: number) {
     const name = pos.text.replace(/ \(Pilotpreis\)$/, "");
     const modulKey = a.module.find((k) => name.toLowerCase().startsWith(k.slice(0, 5)));
     const stunden = istWeb ? (ZIEL_STUNDEN[a.paket] ?? 0) : modulKey ? (ZIEL_STUNDEN_MODULE[modulKey] ?? 0) : 0;
+    // Beim Webauftritt gehören „Hosting, Wartung …“ in den Schein Betrieb, alles andere in den Schein Erstellung
+    const laufend = (x: string) => /^Hosting|Wartung|Änderungen im Monat/.test(x);
+    const punkteErstellung = istWeb ? info.punkte.filter((x) => !laufend(x)) : info.punkte;
+    const punkteBetrieb = istWeb && info.punkte.some(laufend) ? info.punkte.filter(laufend) : info.punkte;
     if (pos.einmalig > 0)
-      scheine.push({ art: "erstellung", baustein: name, problem: info.problem, punkte: info.punkte, preis: pos.einmalig, wochen: istWeb ? (ad.wochen ?? paket?.wochen) : undefined, kalkulation: { stunden, stundensatz: AENDERUNG_STUNDENSATZ } });
+      scheine.push({ art: "erstellung", baustein: name, problem: info.problem, punkte: punkteErstellung, preis: pos.einmalig, wochen: istWeb ? (ad.wochen ?? paket?.wochen) : undefined, kalkulation: { stunden, stundensatz: AENDERUNG_STUNDENSATZ } });
     if (pos.monatlich > 0)
-      scheine.push({ art: "betrieb", baustein: name, problem: info.problem, punkte: info.punkte, preis: pos.monatlich, aenderungsMinuten: istWeb ? AENDERUNGS_MINUTEN[a.paket as PaketKey] : undefined });
+      scheine.push({ art: "betrieb", baustein: name, problem: info.problem, punkte: punkteBetrieb, preis: pos.monatlich, aenderungsMinuten: istWeb ? AENDERUNGS_MINUTEN[a.paket as PaketKey] : undefined });
   });
 
   const scheinNummern = scheine.map((s, i) => ({ nummer: `LS-${nr(jahr, a.id)}-${String(i + 1).padStart(2, "0")}`, titel: `Leistungsschein ${s.art === "erstellung" ? "Erstellung" : "Betrieb"}: ${s.baustein}` }));
@@ -94,10 +98,13 @@ export async function vertragsunterlagen(angebotId: number) {
     await neuesDokument({ betriebId: b.id, art: `leistungsschein_${s.art}`, titel: scheinNummern[i].titel, daten: { ...basis, ...s, nummer: scheinNummern[i].nummer, rahmenNummer } });
   }
   // AV-Vertrag: Über die Website kommen Anfragen mit personenbezogenen Daten ins Portal, also immer (Rahmenvertrag § 7)
-  const { DIENSTLEISTER } = await import("../datenschutz-doku");
+  const { DIENSTLEISTER, TOMS } = await import("../datenschutz-doku");
   const unterauftrag = DIENSTLEISTER.filter((x) => x.av && (x.aktivWenn === "immer" || !!process.env[x.aktivWenn])).map(({ name, wofuer, sitz }) => ({ name, wofuer, sitz }));
   const kundenmanagement = a.module.includes("kundenmanagement");
-  await neuesDokument({ betriebId: b.id, art: "av_vertrag", titel: `AV-Vertrag AV-${nr(jahr, a.id)}`, daten: { ...basis, nummer: `AV-${nr(jahr, a.id)}`, rahmenNummer, bausteine: positionen.map((x) => x.text.replace(/ \(Pilotpreis\)$/, "")), kundenmanagement, unterauftrag } });
+  const bewerbung = a.module.includes("personal");
+  // Anlage zum AV-Vertrag: nur Maßnahmen, die schon umgesetzt sind (Stand bei Vertragsschluss)
+  const massnahmen = TOMS.filter((t) => t.umgesetzt).map(({ bereich, massnahme }) => ({ bereich, massnahme }));
+  await neuesDokument({ betriebId: b.id, art: "av_vertrag", titel: `AV-Vertrag AV-${nr(jahr, a.id)}`, daten: { ...basis, nummer: `AV-${nr(jahr, a.id)}`, rahmenNummer, bausteine: positionen.map((x) => x.text.replace(/ \(Pilotpreis\)$/, "")), kundenmanagement, bewerbung, unterauftrag, massnahmen } });
   // Pilotpreis Kundenmanagement: eigene Vereinbarung (Referenz, Messung, Nachzahlung bei früher Kündigung)
   const pilotPos = a.positionen.find((x) => / \(Pilotpreis\)$/.test(x.text));
   const km = (await (await import("../katalog-db")).katalogLaden()).module.find((m) => m.key === "kundenmanagement");
@@ -135,6 +142,8 @@ export async function vertragUnterschreiben(e: UnterschriftEingabe): Promise<{ d
     ...(name.length < 3 ? ["Bitte den vollständigen Namen der Person eintragen, die unterschreibt."] : []),
     ...(!e.kunde.unternehmer ? ["Bitte bestätigen, dass der Auftrag für den Betrieb erteilt wird (§ 14 BGB)."] : []),
     ...(!e.levarex.name.trim() || !unterschriftsbildOk(e.levarex.bild) ? ["Unterschrift für Levarex fehlt."] : []),
+    // Für Levarex unterschreibt nur ein Geschäftsführer, nicht wer gerade angemeldet ist
+    ...(e.levarex.name.trim() && !GESCHAEFTSFUEHRER.includes(e.levarex.name.trim()) ? [`Für Levarex unterschreibt ein Geschäftsführer (${GESCHAEFTSFUEHRER.join(" oder ")}).`] : []),
   ];
   if (luecken.length) throw new Error(luecken.join(" "));
   // Mandat vorab prüfen, damit nichts halb gespeichert wird
